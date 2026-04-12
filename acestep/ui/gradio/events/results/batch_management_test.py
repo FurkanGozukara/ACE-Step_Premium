@@ -2,7 +2,7 @@
 
 import inspect
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from _batch_management_test_support import build_progress_result
 from _batch_management_test_support import load_batch_management_module
@@ -273,6 +273,54 @@ class BatchManagementWrapperTests(unittest.TestCase):
             0,
             "torch.mps.empty_cache() must not be called when MPS is unavailable",
         )
+
+    def test_foreground_generate_auto_initializes_dit_when_missing(self):
+        """Generate should auto-initialize the foreground DiT service when needed."""
+        module, _state = load_batch_management_module(is_windows=False)
+
+        def _gen(*_args, **_kwargs):
+            """Yield one result after the auto-init step completes."""
+            yield build_progress_result(length=48)
+
+        kwargs = _build_call_kwargs(module)
+        kwargs.update(
+            {
+                "batch_size_input": 1,
+                "config_path": "acestep-v15-xl-sft",
+                "device": "cuda",
+                "use_flash_attention_checkbox": False,
+                "offload_to_cpu_checkbox": False,
+                "offload_dit_to_cpu_checkbox": False,
+                "compile_model_checkbox": False,
+                "quantization_checkbox": False,
+                "mlx_dit_checkbox": True,
+                "init_llm_checkbox": False,
+                "think_checkbox": False,
+                "auto_score": False,
+            }
+        )
+
+        dit_handler = MagicMock()
+        dit_handler.model = None
+        dit_handler.initialize_service.return_value = ("Initialized foreground DiT", True)
+        llm_handler = MagicMock()
+        llm_handler.llm_initialized = False
+
+        with patch.dict(
+            module.generate_with_batch_management.__globals__,
+            {"generate_with_progress": _gen},
+        ):
+            outputs = list(
+                module.generate_with_batch_management(
+                    dit_handler,
+                    llm_handler,
+                    **kwargs,
+                )
+            )
+
+        dit_handler.initialize_service.assert_called_once()
+        self.assertGreaterEqual(len(outputs), 2)
+        self.assertIn("Initializing DiT service", outputs[0][10])
 
 
 if __name__ == "__main__":

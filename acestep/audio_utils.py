@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Union, Optional, List, Tuple
 import torch
 import numpy as np
+import soundfile as sf
 import torchaudio
 from loguru import logger
 
@@ -118,6 +119,101 @@ class AudioSaver:
     MP3_ALLOWED_BITRATES = {"128k", "192k", "256k", "320k"}
     MP3_DEFAULT_SAMPLE_RATE = 48000
     MP3_ALLOWED_SAMPLE_RATES = {44100, 48000}
+
+    @staticmethod
+    def _tensor_to_soundfile_array(audio_tensor: torch.Tensor) -> np.ndarray:
+        """Convert ``[channels, samples]`` tensors to soundfile-compatible arrays."""
+
+        audio_cpu = audio_tensor.detach().cpu().float().contiguous()
+        if audio_cpu.dim() == 1:
+            return audio_cpu.numpy()
+        return audio_cpu.transpose(0, 1).numpy()
+
+    def _write_soundfile_audio(
+        self,
+        audio_tensor: torch.Tensor,
+        output_path: Path,
+        sample_rate: int,
+        *,
+        format_name: str,
+        subtype: Optional[str] = None,
+    ) -> None:
+        """Write audio with ``soundfile`` to avoid TorchCodec-backed save paths."""
+
+        sf.write(
+            str(output_path),
+            self._tensor_to_soundfile_array(audio_tensor),
+            sample_rate,
+            format=format_name,
+            subtype=subtype,
+        )
+
+    def _export_with_ffmpeg(
+        self,
+        audio_tensor: torch.Tensor,
+        output_path: Path,
+        input_sample_rate: int,
+        *,
+        codec: str,
+        target_sample_rate: Optional[int] = None,
+        bitrate: Optional[str] = None,
+        extra_args: Optional[List[str]] = None,
+    ) -> None:
+        """Export lossy formats through the system ``ffmpeg`` executable."""
+
+        target_sr = int(target_sample_rate or input_sample_rate)
+        tensor_to_save = audio_tensor
+        if int(input_sample_rate) != target_sr:
+            tensor_to_save = torchaudio.functional.resample(
+                audio_tensor,
+                int(input_sample_rate),
+                target_sr,
+            )
+
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
+            temp_wav_path = Path(temp_wav.name)
+
+        try:
+            self._write_soundfile_audio(
+                tensor_to_save,
+                temp_wav_path,
+                target_sr,
+                format_name="WAV",
+                subtype="FLOAT",
+            )
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-i",
+                str(temp_wav_path),
+                "-codec:a",
+                codec,
+                "-ar",
+                str(target_sr),
+            ]
+            if bitrate:
+                cmd.extend(["-b:a", str(bitrate)])
+            if extra_args:
+                cmd.extend(extra_args)
+            cmd.append(str(output_path))
+            subprocess.run(cmd, check=True, capture_output=True, timeout=120)
+        except FileNotFoundError as e:
+            raise RuntimeError(
+                "ffmpeg executable not found. Install ffmpeg or add it to PATH to export audio files."
+            ) from e
+        except subprocess.TimeoutExpired as e:
+            raise RuntimeError("ffmpeg audio export timed out after 120 seconds.") from e
+        except subprocess.CalledProcessError as e:
+            stderr = e.stderr.decode("utf-8", errors="ignore") if e.stderr else str(e)
+            raise RuntimeError(f"ffmpeg audio export failed: {stderr}") from e
+        finally:
+            try:
+                temp_wav_path.unlink(missing_ok=True)
+            except Exception:
+                logger.warning(f"[AudioSaver] Failed to remove temporary WAV file: {temp_wav_path}")
     
     def __init__(self, default_format: str = "flac"):
         """
@@ -151,44 +247,16 @@ class AudioSaver:
         if target_sample_rate not in self.MP3_ALLOWED_SAMPLE_RATES:
             target_sample_rate = self.MP3_DEFAULT_SAMPLE_RATE
 
-        tensor_to_save = audio_tensor
-        if int(input_sample_rate) != int(target_sample_rate):
-            tensor_to_save = torchaudio.functional.resample(audio_tensor, int(input_sample_rate), int(target_sample_rate))
-
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
-            temp_wav_path = Path(temp_wav.name)
-
-        try:
-            torchaudio.save(
-                str(temp_wav_path),
-                tensor_to_save,
-                int(target_sample_rate),
-                channels_first=True,
-                backend='soundfile',
-            )
-            cmd = [
-                'ffmpeg', '-y', '-hide_banner', '-loglevel', 'error',
-                '-i', str(temp_wav_path),
-                '-codec:a', 'libmp3lame',
-                '-ar', str(int(target_sample_rate)),
-                '-b:a', bitrate,
-                '-abr', '0',
-                str(output_path),
-            ]
-            subprocess.run(cmd, check=True, capture_output=True, timeout=120)
-            logger.debug(f"[AudioSaver] Saved audio to {output_path} (mp3, {target_sample_rate}Hz, {bitrate})")
-        except FileNotFoundError as e:
-            raise RuntimeError("ffmpeg executable not found. Install ffmpeg or add it to PATH to export MP3 files.") from e
-        except subprocess.TimeoutExpired as e:
-            raise RuntimeError("ffmpeg MP3 export timed out after 120 seconds.") from e
-        except subprocess.CalledProcessError as e:
-            stderr = e.stderr.decode('utf-8', errors='ignore') if e.stderr else str(e)
-            raise RuntimeError(f"ffmpeg MP3 export failed: {stderr}") from e
-        finally:
-            try:
-                temp_wav_path.unlink(missing_ok=True)
-            except Exception:
-                logger.warning(f"[AudioSaver] Failed to remove temporary WAV file: {temp_wav_path}")
+        self._export_with_ffmpeg(
+            audio_tensor,
+            output_path,
+            input_sample_rate,
+            codec="libmp3lame",
+            target_sample_rate=target_sample_rate,
+            bitrate=bitrate,
+            extra_args=["-abr", "0"],
+        )
+        logger.debug(f"[AudioSaver] Saved audio to {output_path} (mp3, {target_sample_rate}Hz, {bitrate})")
 
     def save_audio(
         self,
@@ -269,39 +337,32 @@ class AudioSaver:
                 )
                 return str(output_path)
             elif format in ["opus", "aac"]:
-                # Opus and AAC use ffmpeg backend
-                torchaudio.save(
-                    str(output_path),
+                self._export_with_ffmpeg(
                     audio_tensor,
+                    output_path,
                     sample_rate,
-                    channels_first=True,
-                    backend='ffmpeg',
+                    codec="libopus" if format == "opus" else "aac",
+                    target_sample_rate=sample_rate,
+                    bitrate="192k" if format == "opus" else "256k",
                 )
             elif format in ["flac", "wav", "wav32"]:
-                # FLAC and WAV use soundfile backend (fastest)
-                # handle 32-bit float wav
+                # Use soundfile directly to avoid TorchCodec-backed save paths.
                 if format == "wav32":
-                    try:
-                        import soundfile as sf
-                        
-                        # Use soundfile directly for 32-bit float
-                        audio_np = audio_tensor.transpose(0, 1).numpy() # [channels, samples] -> [samples, channels]
-                        
-                        # Explicitly specify format as WAV to avoid issues with extension detection or custom extensions
-                        sf.write(str(output_path), audio_np, sample_rate, subtype='FLOAT', format='WAV')
-                        logger.debug(f"[AudioSaver] Saved audio to {output_path} (wav32, {sample_rate}Hz)")
-                        return str(output_path)
-                    except Exception as e:
-                        logger.error(f"Failed to save wav32: {e}, falling back to standard wav")
-                        format = "wav"
-                        # Fallthrough to standard wav saving
+                    self._write_soundfile_audio(
+                        audio_tensor,
+                        output_path,
+                        sample_rate,
+                        format_name="WAV",
+                        subtype="FLOAT",
+                    )
+                    logger.debug(f"[AudioSaver] Saved audio to {output_path} (wav32, {sample_rate}Hz)")
+                    return str(output_path)
 
-                torchaudio.save(
-                    str(output_path),
+                self._write_soundfile_audio(
                     audio_tensor,
+                    output_path,
                     sample_rate,
-                    channels_first=True,
-                    backend='soundfile',
+                    format_name="FLAC" if format == "flac" else "WAV",
                 )
             else:
                 # Other formats use default backend
@@ -320,8 +381,7 @@ class AudioSaver:
                 logger.error(f"[AudioSaver] MP3 export failed without fallback: {e}")
                 raise
             try:
-                import soundfile as sf
-                audio_np = audio_tensor.transpose(0, 1).numpy()  # -> [samples, channels]
+                audio_np = self._tensor_to_soundfile_array(audio_tensor)
                 
                 # Handle wav32 fallback formatting
                 if format == "wav32":

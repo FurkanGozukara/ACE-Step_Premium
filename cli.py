@@ -690,7 +690,7 @@ def run_wizard(args, configure_only: bool = False, default_config_path: Optional
             task_choice = task_default
         args.task_type = task_map.get(task_choice, "text2music")
         if args.task_type in {"lego", "extract", "complete"}:
-            print("Note: This task requires a base DiT model (acestep-v15-base). It will be auto-downloaded if missing.")
+            print("Note: This task requires a base DiT model (acestep-v15-xl-base). It will be auto-downloaded if missing.")
 
         # Model selection (DiT)
         dit_handler = AceStepHandler()
@@ -711,7 +711,7 @@ def run_wizard(args, configure_only: bool = False, default_config_path: Optional
                 args.config_path = selected
                 print(f"\nNote: This task requires a base model. Using: {selected}")
             else:
-                print("\nNote: This task requires a base model (e.g., 'acestep-v15-base'). It will be auto-downloaded if missing.")
+                print("\nNote: This task requires a base model (e.g., 'acestep-v15-xl-base'). It will be auto-downloaded if missing.")
         elif available_dit_models:
             selected = _prompt_choice_from_list(
                 "--- Available DiT Models ---",
@@ -1249,7 +1249,7 @@ def main():
     base_only_tasks = {"lego", "extract", "complete"}
     if args.task_type in base_only_tasks and args.config_path:
         if "base" not in str(args.config_path).lower():
-            parser.error(f"task_type '{args.task_type}' requires a base model config (e.g., 'acestep-v15-base').")
+            parser.error(f"task_type '{args.task_type}' requires a base model config (e.g., 'acestep-v15-xl-base').")
 
     if args.task_type == "repaint":
         if args.repainting_end != -1 and args.repainting_end <= args.repainting_start:
@@ -1338,8 +1338,12 @@ def main():
         if args.task_type in base_only_tasks and available_models:
             available_models = [m for m in available_models if "base" in m.lower()]
         if not available_models:
-            print("No DiT models found. Downloading main model (acestep-v15-turbo + core components)...")
-            from acestep.model_downloader import ensure_main_model, get_checkpoints_dir
+            from acestep.model_downloader import (
+                DEFAULT_PREMIUM_DIT_MODEL,
+                ensure_main_model,
+                get_checkpoints_dir,
+            )
+            print(f"No DiT models found. Downloading main model ({DEFAULT_PREMIUM_DIT_MODEL} + core components)...")
             checkpoints_dir = get_checkpoints_dir()
             success, msg = ensure_main_model(checkpoints_dir)
             print(msg)
@@ -1349,10 +1353,10 @@ def main():
             if args.task_type in base_only_tasks and available_models:
                 available_models = [m for m in available_models if "base" in m.lower()]
         if args.task_type in base_only_tasks and not available_models:
-            print("Base-only task selected. Downloading base DiT model (acestep-v15-base)...")
+            print("Base-only task selected. Downloading base DiT model (acestep-v15-xl-base)...")
             from acestep.model_downloader import ensure_dit_model, get_checkpoints_dir
             checkpoints_dir = get_checkpoints_dir()
-            success, msg = ensure_dit_model("acestep-v15-base", checkpoints_dir)
+            success, msg = ensure_dit_model("acestep-v15-xl-base", checkpoints_dir)
             print(msg)
             if not success:
                 parser.error(f"Failed to download base DiT model: {msg}")
@@ -1360,19 +1364,22 @@ def main():
             if available_models:
                 available_models = [m for m in available_models if "base" in m.lower()]
         if available_models:
+            from acestep.model_downloader import DEFAULT_PREMIUM_DIT_MODEL
             if args.task_type in {"lego", "extract", "complete"}:
-                preferred = "acestep-v15-base"
+                preferred = "acestep-v15-xl-base"
             else:
-                preferred = "acestep-v15-turbo"
+                preferred = DEFAULT_PREMIUM_DIT_MODEL
             args.config_path = preferred if preferred in available_models else available_models[0]
             print(f"Auto-selected config_path: {args.config_path}")
         else:
             parser.error("No available DiT models found. Please specify --config_path.")
     if args.task_type in {"lego", "extract", "complete"} and "base" not in str(args.config_path).lower():
-        parser.error(f"task_type '{args.task_type}' requires a base model config (e.g., 'acestep-v15-base').")
+        parser.error(f"task_type '{args.task_type}' requires a base model config (e.g., 'acestep-v15-xl-base').")
 
     # Ensure required DiT/main models are present for the selected task/model.
     from acestep.model_downloader import (
+        DEFAULT_LM_MODEL,
+        DEFAULT_PREMIUM_DIT_MODEL,
         ensure_main_model,
         ensure_dit_model,
         get_checkpoints_dir,
@@ -1389,7 +1396,7 @@ def main():
             parser.error(f"Failed to download main model: {msg}")
     if args.config_path:
         config_name = str(args.config_path)
-        known_models = {"acestep-v15-turbo"} | set(SUBMODEL_REGISTRY.keys())
+        known_models = {DEFAULT_PREMIUM_DIT_MODEL} | set(SUBMODEL_REGISTRY.keys())
         if check_model_exists(config_name, checkpoints_dir):
             pass
         elif config_name in known_models:
@@ -1423,7 +1430,9 @@ def main():
         if args.lm_model_path is None:
             available_lm_models = llm_handler.get_available_5hz_lm_models()
             if available_lm_models:
-                args.lm_model_path = available_lm_models[0]
+                args.lm_model_path = (
+                    DEFAULT_LM_MODEL if DEFAULT_LM_MODEL in available_lm_models else available_lm_models[0]
+                )
                 print(f"Using default LM model: {args.lm_model_path}")
             else:
                 success, msg = ensure_lm_model(checkpoints_dir=checkpoints_dir)
@@ -1433,7 +1442,9 @@ def main():
                 available_lm_models = llm_handler.get_available_5hz_lm_models()
                 if not available_lm_models:
                     parser.error("No LM models available after download. Please specify --lm_model_path or disable --thinking.")
-                args.lm_model_path = available_lm_models[0]
+                args.lm_model_path = (
+                    DEFAULT_LM_MODEL if DEFAULT_LM_MODEL in available_lm_models else available_lm_models[0]
+                )
                 print(f"Using default LM model: {args.lm_model_path}")
         else:
             lm_model_path = str(args.lm_model_path)

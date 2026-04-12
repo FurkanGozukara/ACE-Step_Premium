@@ -1,5 +1,7 @@
 """Row builders for generation service configuration section."""
 
+import os
+from pathlib import Path
 from typing import Any
 
 import gradio as gr
@@ -7,9 +9,42 @@ import gradio as gr
 from acestep.gpu_config import (
     GPU_TIER_LABELS,
     find_best_lm_model_on_disk,
-    get_gpu_device_name,
 )
+from acestep.model_downloader import get_models_dir
 from acestep.ui.gradio.i18n import t, available_languages_info
+
+
+def _get_install_project_root() -> Path:
+    """Resolve the ACE-Step project root for install-local model paths."""
+
+    raw = os.environ.get("ACESTEP_PROJECT_ROOT", "").strip()
+    if raw:
+        return Path(raw).expanduser().resolve()
+    return Path(__file__).resolve().parents[4]
+
+
+def _resolve_default_checkpoint_value(
+    checkpoint_choices: list[str],
+    service_pre_initialized: bool,
+    params: dict[str, Any],
+) -> str | None:
+    """Pick the startup checkpoint directory shown in the dropdown.
+
+    Prefers an existing initialized value, otherwise falls back to the local
+    installation's ``models`` directory so the UI always points at the bundled
+    workspace path by default.
+    """
+
+    existing_value = str(params.get("checkpoint") or "").strip()
+    if service_pre_initialized and existing_value:
+        return existing_value
+
+    install_models_dir = str(get_models_dir(project_root=_get_install_project_root()))
+    if install_models_dir in checkpoint_choices:
+        return install_models_dir
+    if checkpoint_choices:
+        return checkpoint_choices[0]
+    return install_models_dir
 
 
 def build_language_selector(current_language: str) -> dict[str, Any]:
@@ -35,7 +70,7 @@ def build_language_selector(current_language: str) -> dict[str, Any]:
     return {"language_dropdown": language_dropdown}
 
 
-def build_gpu_info_and_tier(gpu_config: Any) -> dict[str, Any]:
+def build_gpu_info_and_tier(gpu_config: Any, gpu_device_name: str) -> dict[str, Any]:
     """Create GPU info display and manual tier override controls.
 
     Args:
@@ -45,8 +80,9 @@ def build_gpu_info_and_tier(gpu_config: Any) -> dict[str, Any]:
         A component map containing ``gpu_info_display`` and ``tier_dropdown``.
     """
 
+    display_name = gpu_device_name or "Auto-detected accelerator"
     gpu_text = (
-        f"\U0001f5a5\ufe0f **{get_gpu_device_name()}** \u2014 {gpu_config.gpu_memory_gb:.1f} GB VRAM "
+        f"\U0001f5a5\ufe0f **{display_name}** \u2014 {gpu_config.gpu_memory_gb:.1f} GB VRAM "
         f"\u2014 {t('service.gpu_auto_tier')}: **{GPU_TIER_LABELS.get(gpu_config.tier, gpu_config.tier)}**"
     )
     with gr.Row():
@@ -75,17 +111,28 @@ def build_checkpoint_controls(dit_handler: Any, service_pre_initialized: bool, p
         A component map containing ``checkpoint_dropdown`` and ``refresh_btn``.
     """
 
+    checkpoint_choices = list(dit_handler.get_available_checkpoints())
+    default_checkpoint = _resolve_default_checkpoint_value(
+        checkpoint_choices=checkpoint_choices,
+        service_pre_initialized=service_pre_initialized,
+        params=params,
+    )
+
     with gr.Row(equal_height=True):
         with gr.Column(scale=4):
             checkpoint_dropdown = gr.Dropdown(
                 label=t("service.checkpoint_label"),
-                choices=dit_handler.get_available_checkpoints(),
-                value=params.get("checkpoint") if service_pre_initialized else None,
+                choices=checkpoint_choices,
+                value=default_checkpoint,
                 info=t("service.checkpoint_info"),
                 elem_classes=["has-info-container"],
             )
         with gr.Column(scale=1, min_width=90):
-            refresh_btn = gr.Button(t("service.refresh_btn"), size="sm")
+            refresh_btn = gr.Button(
+                t("service.refresh_btn"),
+                size="lg",
+                elem_classes=["action-btn", "action-btn-clear"],
+            )
     return {"checkpoint_dropdown": checkpoint_dropdown, "refresh_btn": refresh_btn}
 
 
@@ -108,12 +155,24 @@ def build_model_device_controls(
     with gr.Row():
         available_models = dit_handler.get_available_acestep_v15_models()
         default_model = (
-            "acestep-v15-xl-turbo"
-            if "acestep-v15-xl-turbo" in available_models
+            "acestep-v15-xl-sft"
+            if "acestep-v15-xl-sft" in available_models
             else (
-                "acestep-v15-turbo"
-                if "acestep-v15-turbo" in available_models
-                else (available_models[0] if available_models else None)
+                "acestep-v15-xl-base"
+                if "acestep-v15-xl-base" in available_models
+                else (
+                    "acestep-v15-xl-turbo"
+                    if "acestep-v15-xl-turbo" in available_models
+                    else (
+                        "acestep-v15-sft"
+                        if "acestep-v15-sft" in available_models
+                        else (
+                            "acestep-v15-turbo"
+                            if "acestep-v15-turbo" in available_models
+                            else (available_models[0] if available_models else "acestep-v15-xl-sft")
+                        )
+                    )
+                )
             )
         )
         config_path = gr.Dropdown(

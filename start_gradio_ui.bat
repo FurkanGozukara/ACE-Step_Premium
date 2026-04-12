@@ -13,8 +13,8 @@ REM You can override these by uncommenting and modifying the lines below
 REM or by creating a .env file (recommended to survive updates)
 
 REM Server settings
-if not defined PORT set PORT=7860
-if not defined SERVER_NAME set SERVER_NAME=127.0.0.1
+if not defined PORT set "PORT="
+if not defined SERVER_NAME set "SERVER_NAME="
 REM set SERVER_NAME=0.0.0.0
 REM set SHARE=--share
 
@@ -26,8 +26,8 @@ REM When not specified, defaults to min(2, GPU_max)
 REM set BATCH_SIZE=--batch_size 4
 
 REM Model settings
-if not defined CONFIG_PATH set CONFIG_PATH=--config_path acestep-v15-turbo
-if not defined LM_MODEL_PATH set LM_MODEL_PATH=--lm_model_path acestep-5Hz-lm-0.6B
+if not defined CONFIG_PATH set CONFIG_PATH=--config_path acestep-v15-xl-sft
+if not defined LM_MODEL_PATH set LM_MODEL_PATH=--lm_model_path acestep-5Hz-lm-1.7B
 REM set OFFLOAD_TO_CPU=--offload_to_cpu true
 
 REM LLM (Language Model) initialization settings
@@ -134,7 +134,15 @@ echo.
 :SkipUpdateCheck
 
 echo Starting ACE-Step Gradio Web UI...
-echo Server will be available at: http://%SERVER_NAME%:%PORT%
+if not "%SERVER_NAME%"=="" (
+    if not "%PORT%"=="" (
+        echo Server will be available at: http://%SERVER_NAME%:%PORT%
+    ) else (
+        echo Port/server not pinned. Gradio will print the final launch URL.
+    )
+) else (
+    echo Port/server not pinned. Gradio will print the final launch URL.
+)
 echo.
 
 REM Auto-detect Python environment
@@ -144,7 +152,9 @@ if exist "%~dp0python_embedded\python.exe" (
     REM Build command with optional parameters
     set "PYTHON_EXE=%~dp0python_embedded\python.exe"
     set "SCRIPT_PATH=%~dp0acestep\acestep_v15_pipeline.py"
-    set "CMD=--port %PORT% --server-name %SERVER_NAME% --language %LANGUAGE%"
+    set "CMD=--language %LANGUAGE%"
+    if not "%PORT%"=="" set "CMD=!CMD! --port %PORT%"
+    if not "%SERVER_NAME%"=="" set "CMD=!CMD! --server %SERVER_NAME%"
     if not "%SHARE%"=="" set "CMD=!CMD! %SHARE%"
     if not "%CONFIG_PATH%"=="" set "CMD=!CMD! %CONFIG_PATH%"
     if not "%LM_MODEL_PATH%"=="" set "CMD=!CMD! %LM_MODEL_PATH%"
@@ -303,7 +313,9 @@ if exist "%~dp0python_embedded\python.exe" (
     echo.
 
     REM Build command with optional parameters
-    set "ACESTEP_ARGS=acestep --port %PORT% --server-name %SERVER_NAME% --language %LANGUAGE%"
+    set "ACESTEP_ARGS=acestep --language %LANGUAGE%"
+    if not "%PORT%"=="" set "ACESTEP_ARGS=!ACESTEP_ARGS! --port %PORT%"
+    if not "%SERVER_NAME%"=="" set "ACESTEP_ARGS=!ACESTEP_ARGS! --server %SERVER_NAME%"
     if not "%SHARE%"=="" set "ACESTEP_ARGS=!ACESTEP_ARGS! %SHARE%"
     if not "%CONFIG_PATH%"=="" set "ACESTEP_ARGS=!ACESTEP_ARGS! %CONFIG_PATH%"
     if not "%LM_MODEL_PATH%"=="" set "ACESTEP_ARGS=!ACESTEP_ARGS! %LM_MODEL_PATH%"

@@ -15,7 +15,7 @@ def _build_left_generate_toggles(
     """Create the left-side runtime toggles shown next to the generate button.
 
     Args:
-        lm_initialized: Whether LM is initialized, used to gate Think interactivity.
+        lm_initialized: Whether LM is initialized.
         service_mode: Whether UI is in service mode, used to gate toggle interactivity.
 
     Returns:
@@ -26,10 +26,10 @@ def _build_left_generate_toggles(
     with gr.Column(scale=1, variant="compact"):
         think_checkbox = gr.Checkbox(
             label=t("generation.think_label"),
-            value=lm_initialized,
+            value=True,
             visible=True,
             scale=1,
-            interactive=lm_initialized,
+            interactive=not service_mode,
         )
         auto_score = gr.Checkbox(
             label=t("generation.auto_score_label"),
@@ -86,7 +86,7 @@ def build_generate_row_controls(
     """
 
     params = init_params or {}
-    generate_btn_interactive = params.get("enable_generate", False) if service_pre_initialized else False
+    generate_btn_interactive = params.get("enable_generate", True) if service_pre_initialized else True
     with gr.Row(equal_height=True, visible=True) as generate_btn_row:
         think_checkbox, auto_score = _build_left_generate_toggles(
             lm_initialized=lm_initialized,
@@ -99,6 +99,7 @@ def build_generate_row_controls(
                 size="lg",
                 interactive=generate_btn_interactive,
                 elem_id="acestep-generate-btn",
+                elem_classes=["action-btn", "action-btn-generate"],
             )
         autogen_checkbox, auto_lrc = _build_right_generate_toggles(service_mode=service_mode)
     return {

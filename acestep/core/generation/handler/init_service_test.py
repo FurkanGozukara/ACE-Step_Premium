@@ -90,6 +90,10 @@ class _Host(InitServiceMixin):
         """Stub MLX VAE init hook and always report unavailable in tests."""
         return False
 
+    def _sync_alignment_config(self) -> None:
+        """Stub alignment sync hook used by loader tests."""
+        return None
+
 
 class InitServiceMixinTests(unittest.TestCase):
     """Behavioral tests for InitServiceMixin helpers and initialization flow."""
@@ -182,13 +186,12 @@ class InitServiceMixinTests(unittest.TestCase):
         self.assertTrue(moved.requires_grad)
 
     def test_get_available_checkpoints_returns_expected_list(self):
-        """It returns checkpoint paths only when the checkpoints directory exists."""
+        """It returns the install-local models path used by the Gradio checkpoint dropdown."""
         host = _Host(project_root="K:/fake_root")
-        with patch("os.path.exists", return_value=False):
-            self.assertEqual(host.get_available_checkpoints(), [])
-
-        with patch("os.path.exists", return_value=True):
-            self.assertEqual(host.get_available_checkpoints(), [os.path.join("K:/fake_root", "checkpoints")])
+        self.assertEqual(
+            [os.path.normpath(path) for path in host.get_available_checkpoints()],
+            [os.path.normpath(os.path.join("K:/fake_root", "models"))],
+        )
 
     def test_get_available_acestep_v15_models_filters_and_sorts(self):
         """It filters to acestep-v15 directories and returns sorted model names."""
@@ -401,7 +404,7 @@ class InitServiceMixinTests(unittest.TestCase):
         self.assertIsNone(host.silence_latent)
 
     def test_initialize_service_uses_provided_project_root_for_checkpoints(self):
-        """It builds checkpoint paths from the provided project_root when truthy."""
+        """It builds model paths from the provided project_root when truthy."""
         host = _Host(project_root="K:/fallback_root", device="cpu")
 
         def _fake_load_main_model(**kwargs):
@@ -413,11 +416,11 @@ class InitServiceMixinTests(unittest.TestCase):
         with patch.object(host, "_ensure_models_present", return_value=None):
             with patch.object(host, "_sync_model_code_if_needed"):
                 with patch.object(host, "_load_main_model_from_checkpoint", side_effect=_fake_load_main_model):
-                    with patch.object(host, "_load_vae_model", return_value="K:/custom_root/checkpoints/vae"):
+                    with patch.object(host, "_load_vae_model", return_value="K:/custom_root/models/vae"):
                         with patch.object(
                             host,
                             "_load_text_encoder_and_tokenizer",
-                            return_value="K:/custom_root/checkpoints/Qwen3-Embedding-0.6B",
+                            return_value="K:/custom_root/models/Qwen3-Embedding-0.6B",
                         ):
                             with patch.object(host, "_initialize_mlx_backends", return_value=("Disabled", "Disabled")):
                                 status, ok = host.initialize_service(
@@ -426,7 +429,7 @@ class InitServiceMixinTests(unittest.TestCase):
                                     device="cpu",
                                 )
         self.assertTrue(ok)
-        expected_model_path = os.path.normpath("K:/custom_root/checkpoints/acestep-v15-turbo")
+        expected_model_path = os.path.normpath("K:/custom_root/models/acestep-v15-turbo")
         self.assertEqual(os.path.normpath(host._captured_model_path), expected_model_path)
         self.assertIn(expected_model_path, os.path.normpath(status))
 

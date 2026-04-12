@@ -11,10 +11,25 @@ import sys
 import hashlib
 import shutil
 import argparse
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple, Sequence
 from pathlib import Path
 
 from loguru import logger
+
+
+DEFAULT_MODEL_DIRNAME = "models"
+DEFAULT_PREMIUM_DIT_MODEL = "acestep-v15-xl-sft"
+MAIN_MODEL_REPO = "ACE-Step/Ace-Step1.5"
+DEFAULT_LM_MODEL = "acestep-5Hz-lm-1.7B"
+SHARED_MAIN_MODEL_COMPONENTS = [
+    "vae",
+    "Qwen3-Embedding-0.6B",
+    DEFAULT_LM_MODEL,
+]
+MAIN_MODEL_COMPONENTS = [
+    *SHARED_MAIN_MODEL_COMPONENTS,
+    DEFAULT_PREMIUM_DIT_MODEL,
+]
 
 
 # =============================================================================
@@ -137,6 +152,15 @@ def _sync_model_code_files(model_name: str, checkpoints_dir) -> List[str]:
 # Network Detection & Smart Download
 # =============================================================================
 
+
+def _build_component_allow_patterns(components: Sequence[str]) -> List[str]:
+    """Build recursive snapshot patterns for component subdirectories."""
+    patterns: List[str] = []
+    for component in components:
+        patterns.append(f"{component}/*")
+        patterns.append(f"{component}/**")
+    return patterns
+
 def _can_access_google(timeout: float = 3.0) -> bool:
     """
     Check if Google is accessible (to determine HuggingFace vs ModelScope).
@@ -163,6 +187,7 @@ def _download_from_huggingface_internal(
     repo_id: str,
     local_dir: Path,
     token: Optional[str] = None,
+    allow_patterns: Optional[Sequence[str]] = None,
 ) -> None:
     """
     Internal function to download from HuggingFace Hub.
@@ -182,14 +207,15 @@ def _download_from_huggingface_internal(
     snapshot_download(
         repo_id=repo_id,
         local_dir=str(local_dir),
-        local_dir_use_symlinks="auto",
         token=token,
+        allow_patterns=list(allow_patterns) if allow_patterns else None,
     )
 
 
 def _download_from_modelscope_internal(
     repo_id: str,
     local_dir: Path,
+    allow_patterns: Optional[Sequence[str]] = None,
 ) -> None:
     """
     Internal function to download from ModelScope.
@@ -208,6 +234,7 @@ def _download_from_modelscope_internal(
     snapshot_download(
         model_id=repo_id,
         local_dir=str(local_dir),
+        allow_patterns=list(allow_patterns) if allow_patterns else None,
     )
 
 
@@ -216,6 +243,7 @@ def _smart_download(
     local_dir: Path,
     token: Optional[str] = None,
     prefer_source: Optional[str] = None,
+    allow_patterns: Optional[Sequence[str]] = None,
 ) -> Tuple[bool, str]:
     """
     Smart download with automatic fallback between HuggingFace and ModelScope.
@@ -251,13 +279,22 @@ def _smart_download(
     if use_huggingface_first:
         logger.info("[Model Download] Using HuggingFace Hub...")
         try:
-            _download_from_huggingface_internal(repo_id, local_dir, token)
+            _download_from_huggingface_internal(
+                repo_id,
+                local_dir,
+                token,
+                allow_patterns=allow_patterns,
+            )
             return True, f"Successfully downloaded from HuggingFace: {repo_id}"
         except Exception as e:
             logger.warning(f"[Model Download] HuggingFace download failed: {e}")
             logger.info("[Model Download] Falling back to ModelScope...")
             try:
-                _download_from_modelscope_internal(repo_id, local_dir)
+                _download_from_modelscope_internal(
+                    repo_id,
+                    local_dir,
+                    allow_patterns=allow_patterns,
+                )
                 return True, f"Successfully downloaded from ModelScope: {repo_id}"
             except Exception as e2:
                 error_msg = f"Both HuggingFace and ModelScope downloads failed. HF: {e}, MS: {e2}"
@@ -266,13 +303,22 @@ def _smart_download(
     else:
         logger.info("[Model Download] Using ModelScope...")
         try:
-            _download_from_modelscope_internal(repo_id, local_dir)
+            _download_from_modelscope_internal(
+                repo_id,
+                local_dir,
+                allow_patterns=allow_patterns,
+            )
             return True, f"Successfully downloaded from ModelScope: {repo_id}"
         except Exception as e:
             logger.warning(f"[Model Download] ModelScope download failed: {e}")
             logger.info("[Model Download] Falling back to HuggingFace Hub...")
             try:
-                _download_from_huggingface_internal(repo_id, local_dir, token)
+                _download_from_huggingface_internal(
+                    repo_id,
+                    local_dir,
+                    token,
+                    allow_patterns=allow_patterns,
+                )
                 return True, f"Successfully downloaded from HuggingFace: {repo_id}"
             except Exception as e2:
                 error_msg = f"Both ModelScope and HuggingFace downloads failed. MS: {e}, HF: {e2}"
@@ -283,9 +329,6 @@ def _smart_download(
 # =============================================================================
 # Model Registry
 # =============================================================================
-# Main model contains core components (vae, text_encoder, default DiT)
-MAIN_MODEL_REPO = "ACE-Step/Ace-Step1.5"
-
 # Sub-models that can be downloaded separately into the checkpoints directory
 SUBMODEL_REGISTRY: Dict[str, str] = {
     # LM models
@@ -303,24 +346,12 @@ SUBMODEL_REGISTRY: Dict[str, str] = {
     "acestep-v15-xl-turbo": "ACE-Step/acestep-v15-xl-turbo",
 }
 
-# Components that come from the main model repo (ACE-Step/Ace-Step1.5)
-MAIN_MODEL_COMPONENTS = [
-    "acestep-v15-turbo",      # Default DiT model
-    "vae",                     # VAE for audio encoding/decoding
-    "Qwen3-Embedding-0.6B",    # Text encoder
-    "acestep-5Hz-lm-1.7B",     # Default LM model (1.7B)
-]
-
-# Default LM model (included in main model)
-DEFAULT_LM_MODEL = "acestep-5Hz-lm-1.7B"
-
-
 def get_project_root() -> Path:
     """Get the project root directory.
 
     Returns the directory set by the ``ACESTEP_PROJECT_ROOT`` environment
     variable when present, otherwise the current working directory.  Using
-    the working directory (rather than ``__file__``) keeps the checkpoints
+    the working directory (rather than ``__file__``) keeps the models
     folder next to where the user launched the process, regardless of whether
     the package was installed via ``pip install .`` or run from source.
     """
@@ -330,7 +361,24 @@ def get_project_root() -> Path:
     return Path(os.getcwd())
 
 
-def get_checkpoints_dir(custom_dir: Optional[str] = None) -> Path:
+def get_models_dir(
+    custom_dir: Optional[str] = None,
+    project_root: Optional[str | Path] = None,
+) -> Path:
+    """Get the canonical ACE-Step local model directory path."""
+    if custom_dir:
+        return Path(custom_dir).expanduser().resolve()
+    env_dir = os.environ.get("ACESTEP_CHECKPOINTS_DIR")
+    if env_dir:
+        return Path(env_dir).expanduser().resolve()
+    root = Path(project_root).expanduser().resolve() if project_root else get_project_root()
+    return root / DEFAULT_MODEL_DIRNAME
+
+
+def get_checkpoints_dir(
+    custom_dir: Optional[str] = None,
+    project_root: Optional[str | Path] = None,
+) -> Path:
     """Get the checkpoints directory path.
 
     Resolution order:
@@ -338,14 +386,9 @@ def get_checkpoints_dir(custom_dir: Optional[str] = None) -> Path:
     2. ``ACESTEP_CHECKPOINTS_DIR`` environment variable – allows users to
        share a single model directory across multiple ACE-Step installations,
        avoiding duplicate downloads that waste disk space.
-    3. ``<project_root>/checkpoints`` (original default)
+    3. ``<project_root>/models`` (premium default)
     """
-    if custom_dir:
-        return Path(custom_dir)
-    env_dir = os.environ.get("ACESTEP_CHECKPOINTS_DIR")
-    if env_dir:
-        return Path(env_dir).expanduser().resolve()
-    return get_project_root() / "checkpoints"
+    return get_models_dir(custom_dir=custom_dir, project_root=project_root)
 
 
 def _contains_model_weights(model_path: Path) -> bool:
@@ -422,7 +465,7 @@ def list_available_models() -> Dict[str, str]:
         Dictionary mapping local names to HuggingFace repo IDs.
     """
     models = {
-        "main": MAIN_MODEL_REPO,
+        "main": f"{MAIN_MODEL_REPO} + {DEFAULT_PREMIUM_DIT_MODEL}",
         **SUBMODEL_REGISTRY
     }
     return models
@@ -435,13 +478,14 @@ def download_main_model(
     prefer_source: Optional[str] = None,
 ) -> Tuple[bool, str]:
     """
-    Download the main ACE-Step model from HuggingFace or ModelScope.
+    Download the premium default ACE-Step bundle from HuggingFace or ModelScope.
 
-    The main model includes:
-    - acestep-v15-turbo (default DiT model)
+    The bundle includes:
+    - shared runtime components from ``ACE-Step/Ace-Step1.5``
     - vae (audio encoder/decoder)
     - Qwen3-Embedding-0.6B (text encoder)
     - acestep-5Hz-lm-1.7B (default LM model)
+    - acestep-v15-xl-sft (default premium DiT model)
 
     Args:
         checkpoints_dir: Custom checkpoints directory (optional)
@@ -463,20 +507,37 @@ def download_main_model(
     if not force and check_main_model_exists(checkpoints_dir):
         return True, f"Main model already exists at {checkpoints_dir}"
 
-    print(f"Downloading main model from {MAIN_MODEL_REPO}...")
-    print(f"Destination: {checkpoints_dir}")
+    print(f"Downloading premium default bundle into {checkpoints_dir}...")
+    print(f"Shared components source: {MAIN_MODEL_REPO}")
+    print(f"Default DiT model: {DEFAULT_PREMIUM_DIT_MODEL}")
     print("This may take a while depending on your internet connection...")
 
-    # Use smart download with automatic fallback
-    success, msg = _smart_download(MAIN_MODEL_REPO, checkpoints_dir, token, prefer_source)
-    if success:
-        # Sync model code files for all DiT components in the main model
-        for component in MAIN_MODEL_COMPONENTS:
-            if component in _CHECKPOINT_TO_VARIANT:
-                synced = _sync_model_code_files(component, checkpoints_dir)
-                if synced:
-                    logger.info(f"[Model Download] Synced code files for {component}: {synced}")
-    return success, msg
+    shared_patterns = _build_component_allow_patterns(SHARED_MAIN_MODEL_COMPONENTS)
+    shared_success, shared_msg = _smart_download(
+        MAIN_MODEL_REPO,
+        checkpoints_dir,
+        token,
+        prefer_source,
+        allow_patterns=shared_patterns,
+    )
+    if not shared_success:
+        return False, shared_msg
+
+    dit_success, dit_msg = download_submodel(
+        DEFAULT_PREMIUM_DIT_MODEL,
+        checkpoints_dir=checkpoints_dir,
+        force=force,
+        token=token,
+        prefer_source=prefer_source,
+    )
+    if not dit_success:
+        return False, dit_msg
+
+    return (
+        True,
+        f"Premium main bundle is available at {checkpoints_dir} "
+        f"(shared components + {DEFAULT_PREMIUM_DIT_MODEL})",
+    )
 
 
 def download_submodel(
@@ -513,7 +574,7 @@ def download_submodel(
 
     model_path = checkpoints_dir / model_name
 
-    if not force and model_path.exists():
+    if not force and check_model_exists(model_name, checkpoints_dir):
         return True, f"Model '{model_name}' already exists at {model_path}"
 
     repo_id = SUBMODEL_REGISTRY[model_name]
@@ -675,8 +736,8 @@ def ensure_dit_model(
     if check_model_exists(model_name, checkpoints_dir):
         return True, f"DiT model '{model_name}' is available"
 
-    # Check if this is the default turbo model (part of main)
-    if model_name == "acestep-v15-turbo":
+    # Check if this is the premium default DiT model (part of main)
+    if model_name == DEFAULT_PREMIUM_DIT_MODEL:
         return ensure_main_model(checkpoints_dir, token, prefer_source)
 
     # Check if it's a known sub-model
@@ -699,7 +760,10 @@ def print_model_list():
 
     print("\n[Main Model]")
     print(f"  main -> {MAIN_MODEL_REPO}")
-    print("  Contains: vae, Qwen3-Embedding-0.6B, acestep-v15-turbo, acestep-5Hz-lm-1.7B")
+    print(
+        "  Contains: "
+        f"vae, Qwen3-Embedding-0.6B, {DEFAULT_PREMIUM_DIT_MODEL}, {DEFAULT_LM_MODEL}"
+    )
 
     print("\n[Optional LM Models]")
     for name, repo in SUBMODEL_REGISTRY.items():
@@ -721,9 +785,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  acestep-download                          # Download main model (includes LM 1.7B)
+  acestep-download                          # Download premium default bundle
   acestep-download --all                    # Download all available models
-  acestep-download --model acestep-v15-sft  # Download a specific model
+  acestep-download --model acestep-v15-xl-base  # Download a specific model
   acestep-download --list                   # List all available models
 
 Network Detection:
@@ -731,13 +795,13 @@ Network Detection:
   - Google accessible -> HuggingFace (fallback to ModelScope)
   - Google blocked -> ModelScope (fallback to HuggingFace)
 
-Shared checkpoints directory:
+Shared models directory:
   Set ACESTEP_CHECKPOINTS_DIR to share models across multiple installations:
   export ACESTEP_CHECKPOINTS_DIR=~/ace-step-models
 
 Alternative using huggingface-cli:
-  huggingface-cli download ACE-Step/Ace-Step1.5 --local-dir ./checkpoints
-  huggingface-cli download ACE-Step/acestep-5Hz-lm-0.6B --local-dir ./checkpoints/acestep-5Hz-lm-0.6B
+  huggingface-cli download ACE-Step/Ace-Step1.5 --local-dir ./models
+  huggingface-cli download ACE-Step/acestep-v15-xl-sft --local-dir ./models/acestep-v15-xl-sft
         """
     )
     
@@ -760,7 +824,7 @@ Alternative using huggingface-cli:
         "--dir", "-d",
         type=str,
         default=None,
-        help="Custom checkpoints directory (default: ./checkpoints)"
+        help="Custom model directory (default: ./models)"
     )
     parser.add_argument(
         "--force", "-f",
@@ -786,9 +850,9 @@ Alternative using huggingface-cli:
         print_model_list()
         return 0
     
-    # Get checkpoints directory
+    # Get model directory
     checkpoints_dir = get_checkpoints_dir(args.dir) if args.dir else get_checkpoints_dir()
-    print(f"Checkpoints directory: {checkpoints_dir}")
+    print(f"Model directory: {checkpoints_dir}")
     
     # Handle --all
     if args.all:
@@ -819,8 +883,11 @@ Alternative using huggingface-cli:
         print(msg)
         return 0 if success else 1
     
-    # Default: download main model (includes default LM 1.7B)
-    print("Downloading main model (includes vae, text encoder, DiT, and LM 1.7B)...")
+    # Default: download premium bundle
+    print(
+        "Downloading premium default bundle "
+        f"(shared runtime + {DEFAULT_PREMIUM_DIT_MODEL} + {DEFAULT_LM_MODEL})..."
+    )
     
     # Download main model
     success, msg = download_main_model(checkpoints_dir, args.force, args.token)

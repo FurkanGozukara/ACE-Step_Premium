@@ -73,8 +73,9 @@ _load_env_file
 # or by creating a .env file (recommended to survive updates)
 
 # Server settings
-: "${PORT:=7860}"
-: "${SERVER_NAME:=127.0.0.1}"
+# Leave PORT/SERVER_NAME unset by default so Gradio uses its own bind/port logic
+: "${PORT:=}"
+: "${SERVER_NAME:=}"
 # SERVER_NAME="0.0.0.0"
 SHARE="${SHARE:-}"
 # SHARE="--share"
@@ -93,8 +94,8 @@ BATCH_SIZE="${BATCH_SIZE:-}"
 # BATCH_SIZE="--batch_size 4"
 
 # Model settings
-: "${CONFIG_PATH:=--config_path acestep-v15-turbo}"
-: "${LM_MODEL_PATH:=--lm_model_path acestep-5Hz-lm-0.6B}"
+: "${CONFIG_PATH:=--config_path acestep-v15-xl-sft}"
+: "${LM_MODEL_PATH:=--lm_model_path acestep-5Hz-lm-1.7B}"
 # OFFLOAD_TO_CPU="--offload_to_cpu true"
 OFFLOAD_TO_CPU="${OFFLOAD_TO_CPU:-}"
 
@@ -201,7 +202,11 @@ _startup_update_check() {
 _startup_update_check
 
 echo "Starting ACE-Step Gradio Web UI..."
-echo "Server will be available at: http://${SERVER_NAME}:${PORT}"
+if [[ -n "$SERVER_NAME" && -n "$PORT" ]]; then
+    echo "Server will be available at: http://${SERVER_NAME}:${PORT}"
+else
+    echo "Port/server not pinned. Gradio will print the final launch URL."
+fi
 echo
 
 # ==================== Standard uv Workflow ====================
@@ -365,7 +370,9 @@ echo "Starting ACE-Step Gradio UI..."
 echo
 
 # Build command with optional parameters
-ACESTEP_ARGS="acestep --port $PORT --server-name $SERVER_NAME --language $LANGUAGE"
+ACESTEP_ARGS="acestep --language $LANGUAGE"
+[[ -n "$PORT" ]] && ACESTEP_ARGS="$ACESTEP_ARGS --port $PORT"
+[[ -n "$SERVER_NAME" ]] && ACESTEP_ARGS="$ACESTEP_ARGS --server $SERVER_NAME"
 [[ -n "$SHARE" ]] && ACESTEP_ARGS="$ACESTEP_ARGS $SHARE"
 [[ -n "$CONFIG_PATH" ]] && ACESTEP_ARGS="$ACESTEP_ARGS $CONFIG_PATH"
 [[ -n "$LM_MODEL_PATH" ]] && ACESTEP_ARGS="$ACESTEP_ARGS $LM_MODEL_PATH"

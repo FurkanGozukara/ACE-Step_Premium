@@ -1,10 +1,10 @@
 """Background AutoGen batch generation orchestration."""
 
 import gc
+import sys
 import traceback
 
 import gradio as gr
-import torch
 from loguru import logger
 
 from acestep.ui.gradio.events.results.batch_management_helpers import (
@@ -15,6 +15,31 @@ from acestep.ui.gradio.events.results.batch_management_helpers import (
 from acestep.ui.gradio.events.results.batch_queue import store_batch_in_queue
 from acestep.ui.gradio.events.results.generation_progress import generate_with_progress
 from acestep.ui.gradio.i18n import t
+
+torch = sys.modules.get("torch")
+
+
+def _get_torch():
+    """Return the already-imported torch module without importing it."""
+
+    global torch
+    if torch is not None:
+        return torch
+    torch = sys.modules.get("torch")
+    return torch
+
+
+def _get_torch_for_in_process():
+    """Import torch only for the in-process background generation path."""
+
+    global torch
+    torch = _get_torch()
+    if torch is not None:
+        return torch
+    import torch as imported_torch
+
+    torch = imported_torch
+    return imported_torch
 
 
 def generate_next_batch_background(
@@ -31,6 +56,14 @@ def generate_next_batch_background(
     """
     if not autogen_enabled:
         return batch_queue, total_batches, "", gr.update(interactive=False)
+
+    if isinstance(generation_params, dict) and generation_params.get("_subprocess_mode"):
+        return (
+            batch_queue,
+            total_batches,
+            "AutoGen background batches stay disabled in subprocess mode.",
+            gr.update(interactive=False),
+        )
 
     next_batch_idx = current_batch_index + 1
 
@@ -52,11 +85,15 @@ def generate_next_batch_background(
         _apply_param_defaults(params)
 
         gc.collect()
+        torch = _get_torch_for_in_process()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        if (hasattr(torch, "mps") and hasattr(torch.mps, "empty_cache")
-                and hasattr(torch.backends, "mps")
-                and torch.backends.mps.is_available()):
+        if (
+            hasattr(torch, "mps")
+            and hasattr(torch.mps, "empty_cache")
+            and hasattr(torch.backends, "mps")
+            and torch.backends.mps.is_available()
+        ):
             torch.mps.empty_cache()
 
         generator = generate_with_progress(

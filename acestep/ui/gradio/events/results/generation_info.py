@@ -3,23 +3,20 @@
 Provides timing summary construction and module-level constants shared
 across the results sub-package.
 """
-import os
 import sys
 from typing import Dict, Any, Optional
 
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.events.results.output_manager import (
+    PROJECT_ROOT,
+    get_results_dir,
+)
 
 # Platform detection for Windows-specific fixes
 IS_WINDOWS = sys.platform == "win32"
 
 # Global results directory inside project root
-# This file is in acestep/ui/gradio/events/results/, need 6 levels up to project root
-PROJECT_ROOT = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
-        os.path.dirname(os.path.abspath(__file__))))))
-)
-DEFAULT_RESULTS_DIR = os.path.join(PROJECT_ROOT, "gradio_outputs").replace("\\", "/")
-os.makedirs(DEFAULT_RESULTS_DIR, exist_ok=True)
+DEFAULT_RESULTS_DIR = str(get_results_dir()).replace("\\", "/")
 
 
 def clear_audio_outputs_for_new_generation():

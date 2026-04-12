@@ -114,14 +114,9 @@ class InitServiceOrchestratorMixin:
                 else:
                     raise
 
-            from acestep.model_downloader import get_checkpoints_dir
-            env_ckpt = os.environ.get("ACESTEP_CHECKPOINTS_DIR")
-            if env_ckpt:
-                checkpoint_dir = str(get_checkpoints_dir())
-            elif project_root:
-                checkpoint_dir = os.path.join(project_root, "checkpoints")
-            else:
-                checkpoint_dir = str(get_checkpoints_dir())
+            from acestep.model_downloader import get_models_dir
+
+            checkpoint_dir = str(get_models_dir(project_root=project_root or None))
             checkpoint_path = Path(checkpoint_dir)
 
             precheck_failure = self._ensure_models_present(

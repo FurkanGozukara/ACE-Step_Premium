@@ -4,7 +4,7 @@ import sys
 from typing import Any
 
 from acestep.gpu_config import GPUConfig, get_global_gpu_config
-from acestep.ui.gradio.events.generation_handlers import is_pure_base_model
+from acestep.ui.gradio.events.generation.model_config import is_pure_base_model
 
 
 def compute_init_defaults(
@@ -51,15 +51,6 @@ def compute_init_defaults(
     default_offload = gpu_config.offload_to_cpu_default
     default_offload_dit = gpu_config.offload_dit_to_cpu_default
 
-    try:
-        import torch
-
-        if hasattr(torch, "xpu") and torch.xpu.is_available():
-            default_offload = False
-            default_offload_dit = False
-    except ImportError:
-        pass
-
     default_quantization = gpu_config.quantization_default
     default_compile = gpu_config.compile_model_default
     if sys.platform == "darwin":
@@ -93,6 +84,7 @@ def compute_init_defaults(
         "available_backends": available_backends,
         "recommended_backend": recommended_backend,
         "recommended_lm": gpu_config.recommended_lm_model,
+        "gpu_device_name": (init_params or {}).get("gpu_device_name", "CPU only"),
     }
 
 
@@ -118,12 +110,24 @@ def resolve_is_pure_base_model(
 
     available_models = dit_handler.get_available_acestep_v15_models()
     default_model = (
-        "acestep-v15-xl-turbo"
-        if "acestep-v15-xl-turbo" in available_models
+        "acestep-v15-xl-sft"
+        if "acestep-v15-xl-sft" in available_models
         else (
-            "acestep-v15-turbo"
-            if "acestep-v15-turbo" in available_models
-            else (available_models[0] if available_models else None)
+            "acestep-v15-xl-base"
+            if "acestep-v15-xl-base" in available_models
+            else (
+                "acestep-v15-xl-turbo"
+                if "acestep-v15-xl-turbo" in available_models
+                else (
+                    "acestep-v15-sft"
+                    if "acestep-v15-sft" in available_models
+                    else (
+                        "acestep-v15-turbo"
+                        if "acestep-v15-turbo" in available_models
+                        else (available_models[0] if available_models else "acestep-v15-xl-sft")
+                    )
+                )
+            )
         )
     )
     actual_model = init_params.get("config_path", default_model) if init_params else default_model

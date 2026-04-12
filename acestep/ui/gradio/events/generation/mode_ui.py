@@ -54,14 +54,12 @@ def compute_mode_ui_updates(mode: str, llm_handler=None, previous_mode: str = "C
     cover_noise_update = gr.update(visible=is_cover)
 
     # Think checkbox
-    lm_initialized = llm_handler.llm_initialized if llm_handler else False
     if is_extract or is_lego or is_cover or is_repaint:
         think_update = gr.update(interactive=False, value=False, visible=not (is_extract or is_lego))
-    elif not lm_initialized:
-        think_update = gr.update(interactive=False, value=False, visible=True)
     else:
-        # Restore thinking to True when entering a mode where it is supported
-        # (e.g. Custom after returning from Remix/Repaint where it was forced off).
+        # Thinking is a delayed-init feature now: keep it available in supported
+        # modes even when the LM is not yet loaded so first-use generation can
+        # auto-initialize the LM.
         think_update = gr.update(interactive=True, visible=True, value=True)
 
     mode_descriptions = {
@@ -136,7 +134,7 @@ def compute_mode_ui_updates(mode: str, llm_handler=None, previous_mode: str = "C
         gr.update(visible=show_custom_group),              # 1: custom_mode_group
         generate_btn_update,                               # 2: generate_btn
         False,                                             # 3: simple_sample_created
-        gr.update(visible=show_optional, open=False),       # 4: optional_params_accordion
+        gr.update(visible=show_optional, open=True),        # 4: optional_params_accordion
         gr.update(value=task_type, elem_classes=["has-info-container"]),  # 5: task_type
         gr.update(visible=show_src_audio),                 # 6: src_audio_row
         gr.update(visible=show_repainting),                # 7: repainting_group

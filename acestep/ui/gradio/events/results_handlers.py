@@ -12,8 +12,10 @@ available here so that existing callers (e.g. ``events/__init__.py``,
 # --- constants ----------------------------------------------------------
 from acestep.ui.gradio.events.results.generation_info import (
     DEFAULT_RESULTS_DIR,
-    PROJECT_ROOT,
+    PROJECT_ROOT as _PROJECT_ROOT,
 )
+
+PROJECT_ROOT = str(_PROJECT_ROOT)
 
 # --- generation info & audio clearing -----------------------------------
 from acestep.ui.gradio.events.results.generation_info import (

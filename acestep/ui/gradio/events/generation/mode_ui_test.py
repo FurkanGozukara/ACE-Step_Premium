@@ -172,13 +172,13 @@ class ModeUiStateClearingTests(unittest.TestCase):
         think_update = result[_IDX_THINK_CHECKBOX]
         self.assertTrue(think_update.get("value"))
 
-    def test_no_lm_keeps_think_checkbox_off(self):
-        """Without LM initialized, think_checkbox should remain False even in Custom mode."""
+    def test_no_lm_still_allows_think_checkbox(self):
+        """Without LM initialized, Think should stay available for delayed auto-init."""
         llm_handler = SimpleNamespace(llm_initialized=False)
         result = compute_mode_ui_updates("Custom", llm_handler=llm_handler, previous_mode="Remix")
         think_update = result[_IDX_THINK_CHECKBOX]
-        self.assertFalse(think_update.get("value"))
-        self.assertFalse(think_update.get("interactive"))
+        self.assertTrue(think_update.get("value"))
+        self.assertTrue(think_update.get("interactive"))
 
     def test_non_extract_modes_do_not_force_auto_fields_interactive(self):
         """Mode switches should not re-enable auto-managed metadata fields."""

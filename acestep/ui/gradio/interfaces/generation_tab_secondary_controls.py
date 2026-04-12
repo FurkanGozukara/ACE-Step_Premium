@@ -6,6 +6,10 @@ import gradio as gr
 
 from acestep.ui.gradio.help_content import create_help_button
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.premium_features import (
+    DEFAULT_PRESET_CAPTION,
+    DEFAULT_PRESET_LYRICS,
+)
 
 
 def build_cover_strength_controls() -> dict[str, Any]:
@@ -72,6 +76,7 @@ def build_custom_mode_controls() -> dict[str, Any]:
                         captions = gr.Textbox(
                             label=t("generation.caption_label"),
                             placeholder=t("generation.caption_placeholder"),
+                            value=DEFAULT_PRESET_CAPTION,
                             lines=12,
                             max_lines=12,
                         )
@@ -79,14 +84,16 @@ def build_custom_mode_controls() -> dict[str, Any]:
                             format_caption_btn = gr.Button(
                                 t("generation.format_caption_btn"),
                                 variant="secondary",
-                                size="sm",
+                                size="lg",
+                                elem_classes=["action-btn", "action-btn-preview"],
                             )
                     with gr.Column(scale=1):
                         lyrics = gr.Textbox(
                             label=t("generation.lyrics_label"),
                             placeholder=t("generation.lyrics_placeholder"),
-                            lines=12,
-                            max_lines=12,
+                            value=DEFAULT_PRESET_LYRICS,
+                            lines=18,
+                            max_lines=18,
                         )
                         with gr.Row(elem_classes="instrumental-row"):
                             instrumental_checkbox = gr.Checkbox(
@@ -97,11 +104,17 @@ def build_custom_mode_controls() -> dict[str, Any]:
                             format_lyrics_btn = gr.Button(
                                 t("generation.format_lyrics_btn"),
                                 variant="secondary",
-                                size="sm",
+                                size="lg",
                                 scale=2,
+                                elem_classes=["action-btn", "action-btn-clear"],
                             )
             with gr.Column(scale=1, min_width=80, elem_classes="icon-btn-wrap"):
-                sample_btn = gr.Button(t("generation.sample_btn"), variant="primary", size="lg")
+                sample_btn = gr.Button(
+                    t("generation.sample_btn"),
+                    variant="primary",
+                    size="lg",
+                    elem_classes=["action-btn", "action-btn-open"],
+                )
     return {
         "custom_mode_group": custom_mode_group,
         "reference_audio": reference_audio,

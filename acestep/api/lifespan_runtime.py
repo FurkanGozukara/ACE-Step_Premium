@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from threading import Lock
 from typing import Any, Callable
 
+from acestep.model_downloader import DEFAULT_PREMIUM_DIT_MODEL
 
 @dataclass
 class LifespanRuntime:
@@ -110,7 +111,7 @@ def initialize_lifespan_runtime(
     app.state._initialized3 = False
     app.state._init_error2 = None
     app.state._init_error3 = None
-    app.state._config_path = os.getenv("ACESTEP_CONFIG_PATH", "acestep-v15-turbo")
+    app.state._config_path = os.getenv("ACESTEP_CONFIG_PATH", DEFAULT_PREMIUM_DIT_MODEL)
     app.state._config_path2 = config_path2
     app.state._config_path3 = config_path3
 

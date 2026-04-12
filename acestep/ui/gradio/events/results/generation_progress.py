@@ -7,14 +7,12 @@ auto-LRC in a single streaming pass.
 """
 import os
 import json
+import sys
 import time as time_module
 
 import gradio as gr
-import torch
 from loguru import logger
 
-from acestep.inference import generate_music, GenerationParams, GenerationConfig
-from acestep.audio_utils import save_audio
 from acestep.gpu_config import (
     get_global_gpu_config,
     check_duration_limit,
@@ -26,11 +24,23 @@ from acestep.ui.gradio.events.results.generation_info import (
     DEFAULT_RESULTS_DIR,
     _build_generation_info,
 )
+from acestep.ui.gradio.events.results.output_manager import (
+    build_generation_manifest,
+    create_generation_run_dir,
+    persist_generation_inputs,
+    write_json,
+)
 from acestep.ui.gradio.events.results.audio_playback_updates import (
     build_audio_slot_update,
 )
 from acestep.ui.gradio.events.results.scoring import calculate_score_handler
 from acestep.ui.gradio.events.results.lrc_utils import lrc_to_vtt_file
+
+
+def _get_torch():
+    """Return the already-imported torch module without importing it."""
+
+    return sys.modules.get("torch")
 
 
 def generate_with_progress(
@@ -69,6 +79,13 @@ def generate_with_progress(
     Yields:
         Tuple of Gradio component updates for the 52-output generate event.
     """
+    from acestep.audio_utils import save_audio
+    from acestep.inference import GenerationConfig, GenerationParams, generate_music
+
+    request_started_at = time_module.time()
+    run_dir = create_generation_run_dir()
+    logger.info(f"[generate_with_progress] Saving run outputs to {run_dir}")
+
     # GPU memory validation
     gpu_config = get_global_gpu_config()
     lm_initialized = llm_handler.llm_initialized if llm_handler else False
@@ -197,6 +214,7 @@ def generate_with_progress(
     total_auto_lrc_time = 0.0
 
     updated_audio_codes = text2music_audio_code_string if not think_checkbox else ""  # noqa: F841
+    sample_manifest_rows: list[dict[str, object]] = []
 
     generation_info = _build_generation_info(
         lm_metadata=lm_generated_metadata,
@@ -206,8 +224,102 @@ def generate_with_progress(
         num_audios=len(result.audios) if result.success else 0,
         audio_format=audio_format,
     )
+    request_payload = _build_request_payload(
+        captions=captions,
+        lyrics=lyrics,
+        bpm=bpm,
+        key_scale=key_scale,
+        time_signature=time_signature,
+        vocal_language=vocal_language,
+        inference_steps=inference_steps,
+        actual_inference_steps=actual_inference_steps,
+        guidance_scale=guidance_scale,
+        random_seed_checkbox=random_seed_checkbox,
+        seed=seed,
+        seed_value_for_ui=seed_value_for_ui,
+        reference_audio=reference_audio,
+        audio_duration=audio_duration,
+        batch_size_input=batch_size_input,
+        src_audio=src_audio,
+        text2music_audio_code_string=text2music_audio_code_string,
+        repainting_start=repainting_start,
+        repainting_end=repainting_end,
+        instruction_display_gen=instruction_display_gen,
+        audio_cover_strength=audio_cover_strength,
+        cover_noise_strength=cover_noise_strength,
+        task_type=task_type,
+        use_adg=use_adg,
+        cfg_interval_start=cfg_interval_start,
+        cfg_interval_end=cfg_interval_end,
+        shift=shift,
+        infer_method=infer_method,
+        sampler_mode=sampler_mode,
+        velocity_norm_threshold=velocity_norm_threshold,
+        velocity_ema_factor=velocity_ema_factor,
+        custom_timesteps=custom_timesteps,
+        parsed_timesteps=parsed_timesteps,
+        audio_format=audio_format,
+        mp3_bitrate=mp3_bitrate,
+        mp3_sample_rate=mp3_sample_rate,
+        lm_temperature=lm_temperature,
+        think_checkbox=think_checkbox,
+        lm_cfg_scale=lm_cfg_scale,
+        lm_top_k=lm_top_k,
+        lm_top_p=lm_top_p,
+        lm_negative_prompt=lm_negative_prompt,
+        use_cot_metas=use_cot_metas,
+        use_cot_caption=use_cot_caption,
+        use_cot_language=use_cot_language,
+        is_format_caption=is_format_caption,
+        constrained_decoding_debug=constrained_decoding_debug,
+        allow_lm_batch=allow_lm_batch,
+        auto_score=auto_score,
+        auto_lrc=auto_lrc,
+        score_scale=score_scale,
+        lm_batch_chunk_size=lm_batch_chunk_size,
+        enable_normalization=enable_normalization,
+        normalization_db=normalization_db,
+        fade_in_duration=fade_in_duration,
+        fade_out_duration=fade_out_duration,
+        latent_shift=latent_shift,
+        latent_rescale=latent_rescale,
+        repaint_mode=repaint_mode,
+        repaint_strength=repaint_strength,
+        gen_params=gen_params,
+        gen_config=gen_config,
+        gpu_config=gpu_config,
+        lm_initialized=lm_initialized,
+        lm_generated_metadata=lm_generated_metadata,
+    )
+    run_assets = persist_generation_inputs(
+        run_dir=run_dir,
+        caption=captions,
+        lyrics=lyrics,
+        reference_audio=reference_audio,
+        src_audio=src_audio,
+        request_payload=request_payload,
+    )
+    request_payload["saved_run_assets"] = run_assets
+    run_asset_paths = [
+        path
+        for key, path in run_assets.items()
+        if key.endswith("_path") and path
+    ]
 
     if not result.success:
+        build_generation_manifest(
+            run_dir=run_dir,
+            request_started_at=request_started_at,
+            request_finished_at=time_module.time(),
+            generation_info=generation_info,
+            seed_value=seed_value_for_ui,
+            audio_format=audio_format,
+            sample_files=[],
+            time_costs=time_costs,
+            request_payload=request_payload,
+            lm_metadata=lm_generated_metadata,
+            status="failed",
+        )
         yield (
             (None,) * 8
             + (None, generation_info, result.status_message, gr.skip())
@@ -247,10 +359,7 @@ def generate_with_progress(
         sample_rate = audios[i]["sample_rate"]
         audio_params = audios[i]["params"]
 
-        timestamp = int(time_module.time())
-        temp_dir = os.path.join(DEFAULT_RESULTS_DIR, f"batch_{timestamp}")
-        temp_dir = os.path.abspath(temp_dir).replace("\\", "/")
-        os.makedirs(temp_dir, exist_ok=True)
+        temp_dir = str(run_dir.resolve()).replace("\\", "/")
         json_path = os.path.join(temp_dir, f"{key}.json").replace("\\", "/")
 
         ext = "wav" if audio_format == "wav32" else audio_format
@@ -263,9 +372,6 @@ def generate_with_progress(
         )
         if saved_path:
             audio_path = saved_path.replace("\\", "/")
-
-        with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(audio_params, f, indent=2, ensure_ascii=False)
 
         audio_outputs[i] = audio_path
         all_audio_paths.append(audio_path)
@@ -298,6 +404,37 @@ def generate_with_progress(
                 final_lrcs_list, final_subtitles_list,
             )
             total_auto_lrc_time += time_module.time() - auto_lrc_start
+
+        sample_row = {
+            "sample_index": i + 1,
+            "key": key,
+            "audio_path": audio_path,
+            "metadata_path": json_path,
+            "audio_format": audio_format,
+            "sample_rate": sample_rate,
+            "score": score_str,
+            "audio_codes": code_str,
+            "lrc": final_lrcs_list[i],
+            "subtitle_path": final_subtitles_list[i],
+            "params": audio_params,
+        }
+        sample_manifest_rows.append(sample_row)
+        write_json(
+            json_path,
+            {
+                **audio_params,
+                "_meta": {
+                    "sample_index": i + 1,
+                    "run_dir": temp_dir,
+                    "audio_path": audio_path,
+                    "audio_format": audio_format,
+                    "sample_rate": sample_rate,
+                    "score": score_str,
+                    "subtitle_path": final_subtitles_list[i],
+                },
+                "lrc": final_lrcs_list[i],
+            },
+        )
 
         # STEP 1: yield audio + clear LRC
         cur_audio = [gr.skip()] * 8
@@ -349,6 +486,23 @@ def generate_with_progress(
         num_audios=len(result.audios),
         audio_format=audio_format,
     )
+    manifest_path = build_generation_manifest(
+        run_dir=run_dir,
+        request_started_at=request_started_at,
+        request_finished_at=time_module.time(),
+        generation_info=generation_info,
+        seed_value=seed_value_for_ui,
+        audio_format=audio_format,
+        sample_files=sample_manifest_rows,
+        time_costs=time_costs,
+        request_payload={
+            **request_payload,
+        },
+        lm_metadata=lm_generated_metadata,
+        status="completed",
+    )
+    all_audio_paths.append(manifest_path)
+    all_audio_paths.extend(run_asset_paths)
 
     audio_playback_updates = []
     for idx in range(8):
@@ -363,8 +517,9 @@ def generate_with_progress(
     final_accordions = [gr.skip()] * 8
 
     extra_to_store = {**result.extra_outputs, "lrcs": final_lrcs_list, "subtitles": final_subtitles_list}
+    torch = _get_torch()
     for k, v in extra_to_store.items():
-        if isinstance(v, torch.Tensor) and v.is_cuda:
+        if torch is not None and isinstance(v, torch.Tensor) and v.is_cuda:
             extra_to_store[k] = v.cpu()
 
     yield (
@@ -407,6 +562,146 @@ def _extract_sample_tensor(extra_outputs, sample_idx):
     except Exception as e:
         print(f"[Auto Score] Failed to prepare tensor data for sample {sample_idx}: {e}")
         return None
+
+
+def _build_request_payload(
+    *,
+    captions,
+    lyrics,
+    bpm,
+    key_scale,
+    time_signature,
+    vocal_language,
+    inference_steps,
+    actual_inference_steps,
+    guidance_scale,
+    random_seed_checkbox,
+    seed,
+    seed_value_for_ui,
+    reference_audio,
+    audio_duration,
+    batch_size_input,
+    src_audio,
+    text2music_audio_code_string,
+    repainting_start,
+    repainting_end,
+    instruction_display_gen,
+    audio_cover_strength,
+    cover_noise_strength,
+    task_type,
+    use_adg,
+    cfg_interval_start,
+    cfg_interval_end,
+    shift,
+    infer_method,
+    sampler_mode,
+    velocity_norm_threshold,
+    velocity_ema_factor,
+    custom_timesteps,
+    parsed_timesteps,
+    audio_format,
+    mp3_bitrate,
+    mp3_sample_rate,
+    lm_temperature,
+    think_checkbox,
+    lm_cfg_scale,
+    lm_top_k,
+    lm_top_p,
+    lm_negative_prompt,
+    use_cot_metas,
+    use_cot_caption,
+    use_cot_language,
+    is_format_caption,
+    constrained_decoding_debug,
+    allow_lm_batch,
+    auto_score,
+    auto_lrc,
+    score_scale,
+    lm_batch_chunk_size,
+    enable_normalization,
+    normalization_db,
+    fade_in_duration,
+    fade_out_duration,
+    latent_shift,
+    latent_rescale,
+    repaint_mode,
+    repaint_strength,
+    gen_params,
+    gen_config,
+    gpu_config,
+    lm_initialized,
+    lm_generated_metadata,
+):
+    """Build the full persisted request payload for a generation run."""
+    return {
+        "caption": captions or "",
+        "lyrics": lyrics or "",
+        "bpm": bpm,
+        "key_scale": key_scale,
+        "time_signature": time_signature,
+        "vocal_language": vocal_language,
+        "audio_duration": audio_duration,
+        "batch_size": batch_size_input,
+        "task_type": task_type,
+        "instruction": instruction_display_gen,
+        "guidance_scale": guidance_scale,
+        "inference_steps_requested": inference_steps,
+        "inference_steps_used": actual_inference_steps,
+        "parsed_timesteps": parsed_timesteps,
+        "custom_timesteps": custom_timesteps,
+        "thinking": think_checkbox,
+        "audio_format": audio_format,
+        "mp3_bitrate": mp3_bitrate,
+        "mp3_sample_rate": mp3_sample_rate,
+        "reference_audio": reference_audio,
+        "src_audio": src_audio,
+        "text2music_audio_code_string": text2music_audio_code_string,
+        "repainting_start": repainting_start,
+        "repainting_end": repainting_end,
+        "audio_cover_strength": audio_cover_strength,
+        "cover_noise_strength": cover_noise_strength,
+        "use_adg": use_adg,
+        "cfg_interval_start": cfg_interval_start,
+        "cfg_interval_end": cfg_interval_end,
+        "shift": shift,
+        "infer_method": infer_method,
+        "sampler_mode": sampler_mode,
+        "velocity_norm_threshold": velocity_norm_threshold,
+        "velocity_ema_factor": velocity_ema_factor,
+        "random_seed_checkbox": random_seed_checkbox,
+        "seed_input": seed,
+        "resolved_seed_value": seed_value_for_ui,
+        "lm_temperature": lm_temperature,
+        "lm_cfg_scale": lm_cfg_scale,
+        "lm_top_k": lm_top_k,
+        "lm_top_p": lm_top_p,
+        "lm_negative_prompt": lm_negative_prompt,
+        "use_cot_metas": use_cot_metas,
+        "use_cot_caption": use_cot_caption,
+        "use_cot_language": use_cot_language,
+        "is_format_caption": is_format_caption,
+        "constrained_decoding_debug": constrained_decoding_debug,
+        "allow_lm_batch": allow_lm_batch,
+        "auto_score": auto_score,
+        "auto_lrc": auto_lrc,
+        "score_scale": score_scale,
+        "lm_batch_chunk_size": lm_batch_chunk_size,
+        "enable_normalization": enable_normalization,
+        "normalization_db": normalization_db,
+        "fade_in_duration": fade_in_duration,
+        "fade_out_duration": fade_out_duration,
+        "latent_shift": latent_shift,
+        "latent_rescale": latent_rescale,
+        "repaint_mode": repaint_mode,
+        "repaint_strength": repaint_strength,
+        "generation_params": vars(gen_params),
+        "generation_config": vars(gen_config),
+        "runtime": {
+            "lm_initialized_at_start": lm_initialized,
+            "save_memory_mode": gpu_config.save_memory_mode,
+            "lm_generated_metadata": lm_generated_metadata,
+        },
+    }
 
 
 def _run_auto_lrc(dit_handler, extra_outputs, sample_idx,

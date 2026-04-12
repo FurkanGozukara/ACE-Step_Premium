@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any, Callable, Optional
 
+from acestep.model_downloader import DEFAULT_PREMIUM_DIT_MODEL, get_models_dir
 from acestep.gpu_config import (
     VRAM_AUTO_OFFLOAD_THRESHOLD_GB,
     get_gpu_config,
@@ -46,7 +47,7 @@ def do_model_initialization(
         print("[API Server] No GPU detected, running on CPU")
 
     project_root = get_project_root()
-    config_path = os.getenv("ACESTEP_CONFIG_PATH", "acestep-v15-turbo")
+    config_path = os.getenv("ACESTEP_CONFIG_PATH", DEFAULT_PREMIUM_DIT_MODEL)
     device = os.getenv("ACESTEP_DEVICE", "auto")
     use_flash_attention = env_bool("ACESTEP_USE_FLASH_ATTENTION", True)
 
@@ -61,7 +62,7 @@ def do_model_initialization(
     offload_dit_to_cpu = env_bool("ACESTEP_OFFLOAD_DIT_TO_CPU", False)
     compile_model = env_bool("ACESTEP_COMPILE_MODEL", False)
 
-    checkpoint_dir = os.path.join(project_root, "checkpoints")
+    checkpoint_dir = str(get_models_dir(project_root=project_root))
     os.makedirs(checkpoint_dir, exist_ok=True)
 
     dit_model_name = get_model_name(config_path)

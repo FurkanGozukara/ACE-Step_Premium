@@ -9,6 +9,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import FastAPI, Header, HTTPException, Request
 
+from acestep.model_downloader import DEFAULT_LM_MODEL, get_models_dir
+
 
 def register_sample_format_routes(
     app: FastAPI,
@@ -74,8 +76,8 @@ def register_sample_format_routes(
                     )
 
                 project_root = get_project_root()
-                checkpoint_dir = os.path.join(project_root, "checkpoints")
-                lm_model_path = os.getenv("ACESTEP_LM_MODEL_PATH", "acestep-5Hz-lm-0.6B").strip()
+                checkpoint_dir = str(get_models_dir(project_root=project_root))
+                lm_model_path = os.getenv("ACESTEP_LM_MODEL_PATH", DEFAULT_LM_MODEL).strip()
                 backend = os.getenv("ACESTEP_LM_BACKEND", "vllm").strip().lower()
                 if backend not in {"vllm", "pt", "mlx"}:
                     backend = "vllm"
@@ -196,8 +198,8 @@ def register_sample_format_routes(
                     )
                 # Lazy-init LLM
                 project_root = get_project_root()
-                checkpoint_dir = os.path.join(project_root, "checkpoints")
-                lm_model_path = os.getenv("ACESTEP_LM_MODEL_PATH", "acestep-5Hz-lm-0.6B").strip()
+                checkpoint_dir = str(get_models_dir(project_root=project_root))
+                lm_model_path = os.getenv("ACESTEP_LM_MODEL_PATH", DEFAULT_LM_MODEL).strip()
                 backend = os.getenv("ACESTEP_LM_BACKEND", "vllm").strip().lower()
                 if backend not in {"vllm", "pt", "mlx"}:
                     backend = "vllm"

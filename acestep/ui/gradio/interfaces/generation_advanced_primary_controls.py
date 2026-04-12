@@ -17,7 +17,7 @@ def build_lora_controls() -> dict[str, Any]:
         A component map containing LoRA path, action buttons, toggles, and status controls.
     """
 
-    with gr.Accordion(t("generation.lora_accordion_title"), open=False, elem_classes=["has-info-container"]):
+    with gr.Accordion(t("generation.lora_accordion_title"), open=True, elem_classes=["has-info-container"]):
         with gr.Row():
             lora_path = gr.Textbox(
                 label=t("generation.lora_path_label"),
@@ -25,8 +25,18 @@ def build_lora_controls() -> dict[str, Any]:
                 info=t("generation.lora_path_info"),
                 scale=3,
             )
-            load_lora_btn = gr.Button(t("generation.load_lora_btn"), variant="secondary", scale=1)
-            unload_lora_btn = gr.Button(t("generation.unload_lora_btn"), variant="secondary", scale=1)
+            load_lora_btn = gr.Button(
+                t("generation.load_lora_btn"),
+                variant="secondary",
+                scale=1,
+                elem_classes=["action-btn", "action-btn-preview"],
+            )
+            unload_lora_btn = gr.Button(
+                t("generation.unload_lora_btn"),
+                variant="secondary",
+                scale=1,
+                elem_classes=["action-btn", "action-btn-cancel"],
+            )
         with gr.Row():
             use_lora_checkbox = gr.Checkbox(
                 label=t("generation.use_lora_label"),
@@ -70,7 +80,7 @@ def build_lm_controls(service_mode: bool) -> dict[str, Any]:
         A component map containing LM sampling, CoT, negative prompt, and batch controls.
     """
 
-    with gr.Accordion(t("generation.advanced_lm_section"), open=False, elem_classes=["has-info-container"]):
+    with gr.Accordion(t("generation.advanced_lm_section"), open=True, elem_classes=["has-info-container"]):
         with gr.Row():
             lm_temperature = gr.Slider(
                 label=t("generation.lm_temperature_label"),

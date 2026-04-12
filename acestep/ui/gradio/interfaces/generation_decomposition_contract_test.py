@@ -161,6 +161,9 @@ class GenerationDecompositionContractTests(unittest.TestCase):
         for module_name, function_name in key_sources:
             produced_keys |= collect_return_dict_keys(module_name, function_name)
         produced_keys.discard("device_value")
+        # Added at interface-assembly time in interfaces.__init__ so it is not
+        # produced by a focused builder helper.
+        produced_keys.add("subprocess_mode_checkbox")
 
         required_keys = collect_generation_section_keys_used_by_wiring()
         self.assertTrue(

@@ -28,6 +28,8 @@ eggs/
 lib/
 lib64/
 parts/
+gradio/
+models/
 sdist/
 var/
 wheels/
@@ -46,7 +48,10 @@ MANIFEST
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
-
+SECourses_Premium_Upscaler_Pro/
+horrible.png
+screencapture-127-0-0-1-7860-2026-04-07-18_47_28.png
+screencapture-127-0-0-1-7861-2026-04-07-18_37_57.png
 # Unit test / coverage reports
 htmlcov/
 .tox/

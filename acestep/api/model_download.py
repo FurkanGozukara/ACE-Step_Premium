@@ -3,21 +3,42 @@
 from __future__ import annotations
 
 import os
+from typing import Optional, Sequence
+
+from acestep.model_downloader import (
+    DEFAULT_LM_MODEL,
+    DEFAULT_PREMIUM_DIT_MODEL,
+    MAIN_MODEL_REPO,
+    SUBMODEL_REGISTRY,
+)
 
 
-MODEL_REPO_MAPPING = {
-    "acestep-v15-turbo": "ACE-Step/Ace-Step1.5",
-    "acestep-5Hz-lm-1.7B": "ACE-Step/Ace-Step1.5",
-    "vae": "ACE-Step/Ace-Step1.5",
-    "Qwen3-Embedding-0.6B": "ACE-Step/Ace-Step1.5",
-    "acestep-5Hz-lm-0.6B": "ACE-Step/acestep-5Hz-lm-0.6B",
-    "acestep-5Hz-lm-4B": "ACE-Step/acestep-5Hz-lm-4B",
-    "acestep-v15-base": "ACE-Step/acestep-v15-base",
-    "acestep-v15-sft": "ACE-Step/acestep-v15-sft",
-    "acestep-v15-turbo-shift3": "ACE-Step/acestep-v15-turbo-shift3",
+DEFAULT_REPO_ID = MAIN_MODEL_REPO
+UNIFIED_REPO_MODELS = {
+    "vae",
+    "Qwen3-Embedding-0.6B",
+    DEFAULT_LM_MODEL,
+    "acestep-v15-turbo",
 }
 
-DEFAULT_REPO_ID = "ACE-Step/Ace-Step1.5"
+MODEL_REPO_MAPPING = {
+    "acestep-v15-turbo": DEFAULT_REPO_ID,
+    DEFAULT_LM_MODEL: DEFAULT_REPO_ID,
+    "vae": DEFAULT_REPO_ID,
+    "Qwen3-Embedding-0.6B": DEFAULT_REPO_ID,
+    **SUBMODEL_REGISTRY,
+}
+
+
+def _build_allow_patterns(model_name: str) -> Optional[Sequence[str]]:
+    """Return selective snapshot patterns for unified-repo components."""
+
+    if model_name not in UNIFIED_REPO_MODELS:
+        return None
+    return (
+        f"{model_name}/*",
+        f"{model_name}/**",
+    )
 
 
 def can_access_google(timeout: float = 3.0) -> bool:
@@ -41,7 +62,8 @@ def download_from_huggingface(repo_id: str, local_dir: str, model_name: str) -> 
 
     from huggingface_hub import snapshot_download
 
-    is_unified_repo = repo_id == DEFAULT_REPO_ID or repo_id == "ACE-Step/Ace-Step1.5"
+    is_unified_repo = repo_id == DEFAULT_REPO_ID
+    allow_patterns = _build_allow_patterns(model_name) if is_unified_repo else None
 
     if is_unified_repo:
         download_dir = local_dir
@@ -51,11 +73,14 @@ def download_from_huggingface(repo_id: str, local_dir: str, model_name: str) -> 
         os.makedirs(download_dir, exist_ok=True)
         print(f"[Model Download] Downloading {model_name} from {repo_id} to {download_dir}...")
 
-    snapshot_download(
-        repo_id=repo_id,
-        local_dir=download_dir,
-        local_dir_use_symlinks=False,
-    )
+    snapshot_kwargs = {
+        "repo_id": repo_id,
+        "local_dir": download_dir,
+    }
+    if allow_patterns:
+        snapshot_kwargs["allow_patterns"] = list(allow_patterns)
+
+    snapshot_download(**snapshot_kwargs)
 
     return os.path.join(local_dir, model_name)
 
@@ -65,7 +90,8 @@ def download_from_modelscope(repo_id: str, local_dir: str, model_name: str) -> s
 
     from modelscope import snapshot_download
 
-    is_unified_repo = repo_id == DEFAULT_REPO_ID or repo_id == "ACE-Step/Ace-Step1.5"
+    is_unified_repo = repo_id == DEFAULT_REPO_ID
+    allow_patterns = _build_allow_patterns(model_name) if is_unified_repo else None
 
     if is_unified_repo:
         download_dir = local_dir
@@ -76,17 +102,23 @@ def download_from_modelscope(repo_id: str, local_dir: str, model_name: str) -> s
         print(f"[Model Download] Downloading {model_name} from ModelScope {repo_id} to {download_dir}...")
 
     try:
-        result_path = snapshot_download(
-            model_id=repo_id,
-            local_dir=download_dir,
-        )
+        snapshot_kwargs = {
+            "model_id": repo_id,
+            "local_dir": download_dir,
+        }
+        if allow_patterns:
+            snapshot_kwargs["allow_patterns"] = list(allow_patterns)
+        result_path = snapshot_download(**snapshot_kwargs)
         print(f"[Model Download] ModelScope download completed: {result_path}")
     except TypeError:
         print("[Model Download] Retrying with cache_dir parameter...")
-        result_path = snapshot_download(
-            model_id=repo_id,
-            cache_dir=download_dir,
-        )
+        snapshot_kwargs = {
+            "model_id": repo_id,
+            "cache_dir": download_dir,
+        }
+        if allow_patterns:
+            snapshot_kwargs["allow_patterns"] = list(allow_patterns)
+        result_path = snapshot_download(**snapshot_kwargs)
         print(f"[Model Download] ModelScope download completed: {result_path}")
 
     return os.path.join(local_dir, model_name)

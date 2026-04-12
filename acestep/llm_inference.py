@@ -59,6 +59,7 @@ class LLMHandler:
         self.llm_tokenizer = None
         self.llm_initialized = False
         self.llm_backend = None
+        self.last_init_params = None
         self.max_model_len = 4096
         self.device = "cpu"
         self.dtype = torch.float32
@@ -159,9 +160,9 @@ class LLMHandler:
     def _get_checkpoint_dir(self) -> str:
         """Get checkpoint directory via the shared resolver."""
         if self.persistent_storage_path:
-            return os.path.join(self.persistent_storage_path, "checkpoints")
-        from acestep.model_downloader import get_checkpoints_dir
-        return str(get_checkpoints_dir())
+            return os.path.join(self.persistent_storage_path, "models")
+        from acestep.model_downloader import get_models_dir
+        return str(get_models_dir())
 
     def get_available_5hz_lm_models(self) -> List[str]:
         """Scan and return all model directory names starting with 'acestep-5Hz-lm-'"""

@@ -4,11 +4,17 @@ Manages the in-memory batch queue that stores generation results and
 parameters for navigation, replay, and AutoGen workflows.
 """
 import datetime
+import sys
 
 import gradio as gr
-import torch
 
 from acestep.ui.gradio.i18n import t
+
+
+def _get_torch():
+    """Return the already-imported torch module without importing it."""
+
+    return sys.modules.get("torch")
 
 
 def store_batch_in_queue(
@@ -46,11 +52,12 @@ def store_batch_in_queue(
     Returns:
         The updated *batch_queue*.
     """
+    torch = _get_torch()
     prev_index = batch_index - 1
     if prev_index in batch_queue:
         old_extra = batch_queue[prev_index].get("extra_outputs", {})
         for k, v in old_extra.items():
-            if isinstance(v, torch.Tensor) and v.is_cuda:
+            if torch is not None and isinstance(v, torch.Tensor) and v.is_cuda:
                 # Offload to CPU to free VRAM; data is preserved for potential re-scoring.
                 old_extra[k] = v.cpu()
 
@@ -62,7 +69,7 @@ def store_batch_in_queue(
         if old_idx < batch_index - 1:
             old_extra = batch_queue[old_idx].get("extra_outputs", {})
             for k in list(old_extra.keys()):
-                if isinstance(old_extra[k], torch.Tensor):
+                if torch is not None and isinstance(old_extra[k], torch.Tensor):
                     del old_extra[k]
 
     batch_queue[batch_index] = {

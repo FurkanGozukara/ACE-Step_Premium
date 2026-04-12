@@ -6,6 +6,22 @@ Handler wrapper connecting model and UI
 import os
 import sys
 
+
+def _configure_stdio_for_windows() -> None:
+    """Prefer UTF-8 console streams when the runtime allows reconfiguration."""
+
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        if stream is None or not hasattr(stream, "reconfigure"):
+            continue
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+
+
+_configure_stdio_for_windows()
+
 # Load environment variables from .env file at most once per process to avoid
 # epoch-boundary stalls (e.g. on Windows when Gradio yields during training)
 _env_loaded = False  # module-level so we never reload .env in the same process
@@ -44,44 +60,70 @@ os.environ["TORCHAUDIO_USE_BACKEND"] = "ffmpeg"
 try:
     # When executed as a module: `python -m acestep.acestep_v15_pipeline`
     from .cli_args import parse_quantization_arg
-    from .handler import AceStepHandler
-    from .llm_inference import LLMHandler
     from .dataset_handler import DatasetHandler
-    from .ui.gradio import create_gradio_interface
     from acestep.ui.gradio.i18n import get_i18n, available_languages_info
-    from .gpu_config import (
-        get_gpu_config,
-        get_gpu_memory_gb,
-        resolve_lm_backend,
-        print_gpu_config_info,
-        set_global_gpu_config,
-        VRAM_16GB_MIN_GB,
-        VRAM_AUTO_OFFLOAD_THRESHOLD_GB,
-        is_mps_platform,
+    from .lazy_runtime import (
+        LazyAceStepHandler,
+        LazyLLMHandler,
+        build_startup_gpu_state,
     )
-    from .model_downloader import ensure_lm_model
+    from .gpu_config import (
+        resolve_lm_backend,
+        set_global_gpu_config,
+        VRAM_AUTO_OFFLOAD_THRESHOLD_GB,
+    )
+    from .model_downloader import (
+        DEFAULT_LM_MODEL,
+        DEFAULT_PREMIUM_DIT_MODEL,
+        ensure_lm_model,
+        get_models_dir,
+    )
 except ImportError:
     # When executed as a script: `python acestep/acestep_v15_pipeline.py`
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
     from acestep.cli_args import parse_quantization_arg
-    from acestep.handler import AceStepHandler
-    from acestep.llm_inference import LLMHandler
     from acestep.dataset_handler import DatasetHandler
-    from acestep.ui.gradio import create_gradio_interface
     from acestep.ui.gradio.i18n import get_i18n, available_languages_info
-    from acestep.gpu_config import (
-        get_gpu_config,
-        get_gpu_memory_gb,
-        resolve_lm_backend,
-        print_gpu_config_info,
-        set_global_gpu_config,
-        VRAM_16GB_MIN_GB,
-        VRAM_AUTO_OFFLOAD_THRESHOLD_GB,
-        is_mps_platform,
+    from acestep.lazy_runtime import (
+        LazyAceStepHandler,
+        LazyLLMHandler,
+        build_startup_gpu_state,
     )
-    from acestep.model_downloader import ensure_lm_model
+    from acestep.gpu_config import (
+        resolve_lm_backend,
+        set_global_gpu_config,
+        VRAM_AUTO_OFFLOAD_THRESHOLD_GB,
+    )
+    from acestep.model_downloader import (
+        DEFAULT_LM_MODEL,
+        DEFAULT_PREMIUM_DIT_MODEL,
+        ensure_lm_model,
+        get_models_dir,
+    )
+
+
+def _import_real_handlers():
+    """Import the heavyweight runtime handler classes only when needed."""
+
+    try:
+        from .handler import AceStepHandler
+        from .llm_inference import LLMHandler
+    except ImportError:
+        from acestep.handler import AceStepHandler
+        from acestep.llm_inference import LLMHandler
+    return AceStepHandler, LLMHandler
+
+
+def _import_gradio_factory():
+    """Import the Gradio interface factory lazily."""
+
+    try:
+        from .ui.gradio import create_gradio_interface
+    except ImportError:
+        from acestep.ui.gradio import create_gradio_interface
+    return create_gradio_interface
 
 
 def create_demo(init_params=None, language="en"):
@@ -101,6 +143,10 @@ def create_demo(init_params=None, language="en"):
     Returns:
         Gradio Blocks instance
     """
+    startup_gpu_config = (init_params or {}).get("gpu_config")
+    if startup_gpu_config is not None:
+        set_global_gpu_config(startup_gpu_config)
+
     # Use pre-initialized handlers if available, otherwise create new ones
     if (
         init_params
@@ -110,12 +156,14 @@ def create_demo(init_params=None, language="en"):
         dit_handler = init_params["dit_handler"]
         llm_handler = init_params["llm_handler"]
     else:
-        dit_handler = AceStepHandler()  # DiT handler
-        llm_handler = LLMHandler()  # LM handler
+        startup_gpu_state = (init_params or {}).get("startup_gpu_state")
+        dit_handler = LazyAceStepHandler(startup_gpu_state=startup_gpu_state)
+        llm_handler = LazyLLMHandler()
 
     dataset_handler = DatasetHandler()  # Dataset handler
 
     # Create Gradio interface with all handlers and initialization parameters
+    create_gradio_interface = _import_gradio_factory()
     demo = create_gradio_interface(
         dit_handler,
         llm_handler,
@@ -145,12 +193,13 @@ def main():
     """Main entry function"""
     import argparse
 
-    # Detect GPU memory and get configuration
-    gpu_config = get_gpu_config()
+    # Detect GPU info without importing torch into the parent Gradio process.
+    startup_gpu_state = build_startup_gpu_state()
+    gpu_config = startup_gpu_state.gpu_config
     set_global_gpu_config(gpu_config)  # Set global config for use across modules
 
     gpu_memory_gb = gpu_config.gpu_memory_gb
-    _is_mac = is_mps_platform()
+    _is_mac = startup_gpu_state.device_kind == "mps"
     # Enable auto-offload for GPUs below 20 GB.  16 GB GPUs cannot hold all
     # models simultaneously (DiT ~4.7 + VAE ~0.3 + text_enc ~1.2 + LM â‰¥1.2 +
     # activations) so they *must* offload.  The old threshold of 16 GB caused
@@ -167,6 +216,7 @@ def main():
     print(f"\n{'=' * 60}")
     print("GPU Configuration Detected:")
     print(f"{'=' * 60}")
+    print(f"  Device: {startup_gpu_state.device_name}")
     print(f"  GPU Memory: {gpu_memory_gb:.2f} GB")
     print(f"  Configuration Tier: {gpu_config.tier}")
     print(
@@ -196,8 +246,14 @@ def main():
     else:
         print("No GPU detected, running on CPU")
 
-    # Define local outputs directory
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    os.environ.setdefault("ACESTEP_PROJECT_ROOT", project_root)
+    os.environ.setdefault(
+        "ACESTEP_CHECKPOINTS_DIR",
+        str(get_models_dir(project_root=project_root)),
+    )
+
+    # Define local outputs directory
     output_dir = os.path.join(project_root, "gradio_outputs")
     # Normalize path to use forward slashes for Gradio 6 compatibility on Windows
     output_dir = output_dir.replace("\\", "/")
@@ -212,15 +268,17 @@ def main():
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
-        "--port", type=int, default=7860, help="Port to run the gradio server on"
+        "--port", type=int, default=None, help="Port to run the gradio server on"
     )
     parser.add_argument("--share", action="store_true", help="Create a public link")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode")
     parser.add_argument(
+        "--server",
         "--server-name",
+        dest="server_name",
         type=str,
-        default="127.0.0.1",
-        help="Server name (default: 127.0.0.1, use 0.0.0.0 for all interfaces)",
+        default=None,
+        help="Server name / host IP (optional, use 0.0.0.0 for all interfaces)",
     )
 
     # language argument
@@ -274,7 +332,7 @@ def main():
         "--config_path",
         type=str,
         default=None,
-        help="Main model path (e.g., 'acestep-v15-turbo')",
+        help=f"Main model path (e.g., '{DEFAULT_PREMIUM_DIT_MODEL}')",
     )
     parser.add_argument(
         "--device",
@@ -326,17 +384,8 @@ def main():
     _default_quantization = None
     if gpu_config.quantization_default and not _is_mac:
         _default_quantization = "int8_weight_only"
-        try:
-            import torch
-            if torch.cuda.is_available():
-                major, _ = torch.cuda.get_device_capability(0)
-                if major < 7:
-                    _default_quantization = "w8a8_dynamic"
-        except Exception as exc:
-            logger.warning(
-                "[parse_args] CUDA capability probe failed while resolving quantization default: {}",
-                exc,
-            )
+        if startup_gpu_state.cuda_compute_major is not None and startup_gpu_state.cuda_compute_major < 7:
+            _default_quantization = "w8a8_dynamic"
     parser.add_argument(
         "--quantization",
         type=parse_quantization_arg,
@@ -404,17 +453,15 @@ def main():
     # Service mode defaults (can be configured via .env file)
     if args.service_mode:
         print("Service mode enabled - applying preset configurations...")
-        # Force init_service in service mode
-        args.init_service = True
         # Default DiT model for service mode (from env or fallback)
         if args.config_path is None:
             args.config_path = os.environ.get(
-                "SERVICE_MODE_DIT_MODEL", "acestep-v15-turbo-fix-inst-shift-dynamic"
+                "SERVICE_MODE_DIT_MODEL", DEFAULT_PREMIUM_DIT_MODEL
             )
         # Default LM model for service mode (from env or fallback)
         if args.lm_model_path is None:
             args.lm_model_path = os.environ.get(
-                "SERVICE_MODE_LM_MODEL", "acestep-5Hz-lm-1.7B-v4-fix"
+                "SERVICE_MODE_LM_MODEL", DEFAULT_LM_MODEL
             )
         # Backend for service mode (from env or fallback to vllm)
         args.backend = os.environ.get("SERVICE_MODE_BACKEND", "vllm")
@@ -458,6 +505,7 @@ def main():
             print("Initializing service from command line...")
 
             # Create handler instances for initialization
+            AceStepHandler, LLMHandler = _import_real_handlers()
             dit_handler = AceStepHandler()
             llm_handler = LLMHandler()
 
@@ -466,9 +514,13 @@ def main():
                 available_models = dit_handler.get_available_acestep_v15_models()
                 if available_models:
                     args.config_path = (
-                        "acestep-v15-turbo"
-                        if "acestep-v15-turbo" in available_models
-                        else available_models[0]
+                        DEFAULT_PREMIUM_DIT_MODEL
+                        if DEFAULT_PREMIUM_DIT_MODEL in available_models
+                        else (
+                            "acestep-v15-xl-base"
+                            if "acestep-v15-xl-base" in available_models
+                            else available_models[0]
+                        )
                     )
                     print(f"Auto-selected config_path: {args.config_path}")
                 else:
@@ -543,7 +595,7 @@ def main():
                         args.init_llm = False
 
                 if args.init_llm and args.lm_model_path:
-                    checkpoint_dir = os.path.join(project_root, "checkpoints")
+                    checkpoint_dir = str(get_models_dir(project_root=project_root))
 
                     # Ensure LM model is downloaded before initialization
                     prefer_source = None
@@ -580,6 +632,12 @@ def main():
 
                     if lm_success:
                         print(f"5Hz LM initialized successfully")
+                        llm_handler.last_init_params = {
+                            "lm_model_path": args.lm_model_path,
+                            "backend": args.backend,
+                            "device": args.device,
+                            "offload_to_cpu": args.offload_to_cpu,
+                        }
                         init_status += f"\n{lm_status}"
                     else:
                         print(
@@ -608,6 +666,8 @@ def main():
                 "llm_handler": llm_handler,
                 "language": args.language,
                 "gpu_config": gpu_config,  # Pass GPU config to UI
+                "gpu_device_name": startup_gpu_state.device_name,
+                "startup_gpu_state": startup_gpu_state,
                 "output_dir": output_dir,  # Pass output dir to UI
                 "default_batch_size": args.batch_size,  # Pass user-specified default batch size
             }
@@ -621,6 +681,8 @@ def main():
         if init_params is None:
             init_params = {
                 "gpu_config": gpu_config,
+                "gpu_device_name": startup_gpu_state.device_name,
+                "startup_gpu_state": startup_gpu_state,
                 "language": args.language,
                 "output_dir": output_dir,  # Pass output dir to UI
                 "default_batch_size": args.batch_size,  # Pass user-specified default batch size
@@ -637,7 +699,9 @@ def main():
             default_concurrency_limit=1,  # Prevents VRAM saturation
         )
 
-        print(f"Launching server on {args.server_name}:{args.port}...")
+        launch_host = args.server_name or "127.0.0.1"
+        launch_port = args.port if args.port is not None else 7860
+        print(f"Launching server on {launch_host}:{launch_port}...")
 
         # Setup authentication if provided
         auth = None
@@ -651,21 +715,30 @@ def main():
                 allowed_paths.append(p)
 
         # Enable API endpoints if requested
+        launch_kwargs = {
+            "share": args.share,
+            "debug": args.debug,
+            "show_error": True,
+            "inbrowser": True,
+            "auth": auth,
+            "allowed_paths": allowed_paths,
+            "theme": getattr(demo, "_ace_launch_theme", None),
+            "css": getattr(demo, "_ace_launch_css", None),
+            "head": getattr(demo, "_ace_launch_head", None),
+        }
+        if args.server_name:
+            launch_kwargs["server_name"] = args.server_name
+        if args.port is not None:
+            launch_kwargs["server_port"] = args.port
+
         if args.enable_api:
             print("Enabling API endpoints...")
             from acestep.ui.gradio.api.api_routes import setup_api_routes
 
             # Launch Gradio first with prevent_thread_lock=True
             demo.launch(
-                server_name=args.server_name,
-                server_port=args.port,
-                share=args.share,
-                debug=args.debug,
-                show_error=True,
                 prevent_thread_lock=True,  # Don't block, so we can add routes
-                inbrowser=False,
-                auth=auth,
-                allowed_paths=allowed_paths,  # include output_dir + user-provided
+                **launch_kwargs,
             )
 
             # Now add API routes to Gradio's FastAPI app (app is available after launch)
@@ -687,15 +760,8 @@ def main():
                 print("\nShutting down...")
         else:
             demo.launch(
-                server_name=args.server_name,
-                server_port=args.port,
-                share=args.share,
-                debug=args.debug,
-                show_error=True,
                 prevent_thread_lock=False,
-                inbrowser=False,
-                auth=auth,
-                allowed_paths=allowed_paths,  # include output_dir + user-provided
+                **launch_kwargs,
             )
     except Exception as e:
         print(f"Error launching Gradio: {e}", file=sys.stderr)

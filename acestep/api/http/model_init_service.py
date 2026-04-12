@@ -10,6 +10,7 @@ from acestep.gpu_config import (
     get_gpu_config,
     resolve_lm_backend,
 )
+from acestep.model_downloader import DEFAULT_LM_MODEL, get_models_dir
 
 
 def _resolve_slot(
@@ -90,7 +91,7 @@ def initialize_models_for_request(
 
     llm = app_state.llm_handler
     project_root = get_project_root()
-    checkpoint_dir = os.path.join(project_root, "checkpoints")
+    checkpoint_dir = str(get_models_dir(project_root=project_root))
     os.makedirs(checkpoint_dir, exist_ok=True)
 
     target_model = (model_name or get_model_name(current_config)).strip()
@@ -128,9 +129,12 @@ def initialize_models_for_request(
 
     loaded_lm_model: Optional[str] = None
     if init_llm:
-        lm_model_path = (requested_lm_model_path or os.getenv("ACESTEP_LM_MODEL_PATH", "acestep-5Hz-lm-0.6B")).strip()
+        lm_model_path = (
+            requested_lm_model_path
+            or os.getenv("ACESTEP_LM_MODEL_PATH", DEFAULT_LM_MODEL)
+        ).strip()
         if not lm_model_path:
-            lm_model_path = "acestep-5Hz-lm-0.6B"
+            lm_model_path = DEFAULT_LM_MODEL
 
         os.environ["ACESTEP_INIT_LLM"] = "true"
         os.environ["ACESTEP_LM_MODEL_PATH"] = lm_model_path

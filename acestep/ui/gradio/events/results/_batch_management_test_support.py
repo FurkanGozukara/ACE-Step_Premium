@@ -69,13 +69,15 @@ def load_batch_management_module(
         """Capture ``gr.Warning`` messages for assertions."""
         state["warning_messages"].append(message)
 
-    def _logger_info(message):
+    def _logger_info(*message):
         """Capture logger info messages for assertions."""
-        state["log_info"].append(str(message))
+        if message:
+            state["log_info"].append(" ".join(str(part) for part in message))
 
-    def _logger_warning(message):
+    def _logger_warning(*message):
         """Capture logger warning messages for assertions."""
-        state["log_warning"].append(str(message))
+        if message:
+            state["log_warning"].append(" ".join(str(part) for part in message))
 
     def _default_generate_with_progress(*_args, **_kwargs):
         """Default empty generator placeholder patched per test."""
@@ -157,6 +159,7 @@ def load_batch_management_module(
         info=_logger_info,
         warning=_logger_warning,
         error=lambda _msg: None,
+        exception=_logger_warning,
     )
 
     modules = {

@@ -45,13 +45,16 @@ def create_service_config_content(
 
     with gr.Accordion(
         t("service.title"),
-        open=not service_pre_initialized,
+        open=True,
         visible=not service_mode,
         elem_classes=["has-info-container"],
     ) as service_config_accordion:
         create_help_button("service_config")
         language_controls = build_language_selector(defaults["current_language"])
-        gpu_controls = build_gpu_info_and_tier(defaults["gpu_config"])
+        gpu_controls = build_gpu_info_and_tier(
+            defaults["gpu_config"],
+            defaults.get("gpu_device_name", "CPU only"),
+        )
         checkpoint_controls = build_checkpoint_controls(
             dit_handler=dit_handler,
             service_pre_initialized=service_pre_initialized,

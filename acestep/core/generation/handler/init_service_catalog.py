@@ -18,18 +18,14 @@ class InitServiceCatalogMixin:
 
     def _resolve_checkpoint_dir(self) -> str:
         """Return the checkpoints directory, respecting ACESTEP_CHECKPOINTS_DIR."""
-        env_dir = os.environ.get("ACESTEP_CHECKPOINTS_DIR")
-        if env_dir:
-            from acestep.model_downloader import get_checkpoints_dir
-            return str(get_checkpoints_dir())
-        return os.path.join(self._get_project_root(), "checkpoints")
+        from acestep.model_downloader import get_models_dir
+
+        return str(get_models_dir(project_root=self._get_project_root()))
 
     def get_available_checkpoints(self) -> List[str]:
-        """Return available checkpoint directory paths under the project root."""
+        """Return the install-local checkpoint root path used by the UI."""
         checkpoint_dir = self._resolve_checkpoint_dir()
-        if os.path.exists(checkpoint_dir):
-            return [checkpoint_dir]
-        return []
+        return [checkpoint_dir]
 
     def get_available_acestep_v15_models(self) -> List[str]:
         """Scan and return all model directory names starting with ``acestep-v15-``."""

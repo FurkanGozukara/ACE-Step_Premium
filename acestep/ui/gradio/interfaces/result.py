@@ -28,17 +28,20 @@ def _create_audio_column(n, visible=True):
         with gr.Row(equal_height=True):
             send_to_remix_btn = gr.Button(
                 t("results.send_to_remix_btn"),
-                variant="secondary", size="sm", scale=1
+                variant="secondary", size="sm", scale=1,
+                elem_classes=["action-btn", "action-btn-open"],
             )
             send_to_repaint_btn = gr.Button(
                 t("results.send_to_repaint_btn"),
-                variant="secondary", size="sm", scale=1
+                variant="secondary", size="sm", scale=1,
+                elem_classes=["action-btn", "action-btn-clear"],
             )
             save_btn = gr.Button(
                 t("results.save_btn"),
-                variant="primary", size="sm", scale=1
+                variant="primary", size="sm", scale=1,
+                elem_classes=["action-btn", "action-btn-upscale"],
             )
-        with gr.Accordion(t("results.details_accordion"), open=False, visible=True) as details_accordion:
+        with gr.Accordion(t("results.details_accordion"), open=True, visible=True) as details_accordion:
             codes_display = gr.Textbox(
                 label=t("results.codes_label", n=n),
                 interactive=False, buttons=["copy"],
@@ -46,7 +49,8 @@ def _create_audio_column(n, visible=True):
             )
             convert_to_codes_btn = gr.Button(
                 t("results.convert_to_codes_btn"),
-                variant="secondary", size="sm"
+                variant="secondary", size="sm",
+                elem_classes=["action-btn", "action-btn-preview"],
             )
             score_display = gr.Textbox(
                 label=t("results.quality_score_label", n=n),
@@ -55,7 +59,8 @@ def _create_audio_column(n, visible=True):
             )
             score_btn = gr.Button(
                 t("results.score_btn"),
-                variant="secondary", size="sm"
+                variant="secondary", size="sm",
+                elem_classes=["action-btn", "action-btn-preview"],
             )
             lrc_display = gr.Textbox(
                 label=t("results.lrc_label", n=n),
@@ -65,11 +70,13 @@ def _create_audio_column(n, visible=True):
             with gr.Row(equal_height=True):
                 lrc_btn = gr.Button(
                     t("results.lrc_btn"),
-                    variant="secondary", size="sm"
+                    variant="secondary", size="sm",
+                    elem_classes=["action-btn", "action-btn-preview"],
                 )
                 save_lrc_btn = gr.Button(
                     t("results.save_lrc_btn"),
-                    variant="secondary", size="sm"
+                    variant="secondary", size="sm",
+                    elem_classes=["action-btn", "action-btn-open"],
                 )
             lrc_download_file = gr.File(
                 label="LRC Download",
@@ -131,7 +138,8 @@ def create_results_section(dit_handler) -> dict:
         with gr.Row(equal_height=True):
             prev_batch_btn = gr.Button(
                 t("results.prev_btn"),
-                variant="secondary", interactive=False, scale=1, size="sm"
+                variant="secondary", interactive=False, scale=1, size="sm",
+                elem_classes=["action-btn", "action-btn-preview"],
             )
             batch_indicator = gr.Textbox(
                 label=t("results.current_batch"),
@@ -144,13 +152,15 @@ def create_results_section(dit_handler) -> dict:
             )
             next_batch_btn = gr.Button(
                 t("results.next_btn"),
-                variant="primary", interactive=False, scale=1, size="sm"
+                variant="primary", interactive=False, scale=1, size="sm",
+                elem_classes=["action-btn", "action-btn-open"],
             )
         
         # One-click restore parameters button
         restore_params_btn = gr.Button(
             t("results.restore_params_btn"),
-            variant="secondary", interactive=False, size="sm"
+            variant="secondary", interactive=False, size="sm",
+            elem_classes=["action-btn", "action-btn-clear"],
         )
         
         with gr.Accordion(t("results.batch_results_title"), open=True):

@@ -9,6 +9,7 @@ import gradio as gr
 from acestep.inference import understand_music
 from acestep.ui.gradio.i18n import t
 
+from .llm_auto_init import ensure_llm_ready
 from .validation import _contains_audio_code_tokens, clamp_duration_to_gpu_limit
 
 
@@ -17,6 +18,10 @@ def analyze_src_audio(
     llm_handler,
     src_audio,
     constrained_decoding_debug: bool = False,
+    lm_model_path: str | None = None,
+    backend: str | None = None,
+    device: str | None = None,
+    offload_to_cpu: bool = False,
 ):
     """Analyze source audio and optionally transcribe generated audio codes.
 
@@ -61,10 +66,17 @@ def analyze_src_audio(
             False,
         )
 
-    if not llm_handler.llm_initialized:
+    auto_init_ok, auto_init_status = ensure_llm_ready(
+        llm_handler,
+        lm_model_path=lm_model_path,
+        backend=backend,
+        device=device,
+        offload_to_cpu=offload_to_cpu,
+    )
+    if not auto_init_ok:
         return (
             codes_string,
-            t("messages.codes_ready_no_lm"),
+            auto_init_status or t("messages.codes_ready_no_lm"),
             "",
             "",
             None,
@@ -97,9 +109,13 @@ def analyze_src_audio(
         )
 
     clamped_duration = clamp_duration_to_gpu_limit(result.duration, llm_handler)
+    status_message = str(result.status_message or "").strip()
+    if auto_init_status:
+        status_message = f"{auto_init_status}\n{status_message}" if status_message else auto_init_status
+
     return (
         codes_string,
-        result.status_message,
+        status_message,
         result.caption,
         result.lyrics,
         result.bpm,
@@ -111,7 +127,15 @@ def analyze_src_audio(
     )
 
 
-def transcribe_audio_codes(llm_handler, audio_code_string, constrained_decoding_debug: bool):
+def transcribe_audio_codes(
+    llm_handler,
+    audio_code_string,
+    constrained_decoding_debug: bool,
+    lm_model_path: str | None = None,
+    backend: str | None = None,
+    device: str | None = None,
+    offload_to_cpu: bool = False,
+):
     """Transcribe serialized audio codes into metadata fields via the LLM.
 
     Args:
@@ -123,6 +147,16 @@ def transcribe_audio_codes(llm_handler, audio_code_string, constrained_decoding_
         Tuple of ``(status, caption, lyrics, bpm, duration, keyscale,
         language, timesignature, is_format_caption)``.
     """
+    auto_init_ok, auto_init_status = ensure_llm_ready(
+        llm_handler,
+        lm_model_path=lm_model_path,
+        backend=backend,
+        device=device,
+        offload_to_cpu=offload_to_cpu,
+    )
+    if not auto_init_ok:
+        return auto_init_status or t("messages.lm_not_initialized"), "", "", None, None, "", "", "", False
+
     result = understand_music(
         llm_handler=llm_handler,
         audio_codes=audio_code_string,
@@ -132,12 +166,15 @@ def transcribe_audio_codes(llm_handler, audio_code_string, constrained_decoding_
 
     if not result.success:
         if result.error == "LLM not initialized":
-            return t("messages.lm_not_initialized"), "", "", None, None, "", "", "", False
+            return auto_init_status or t("messages.lm_not_initialized"), "", "", None, None, "", "", "", False
         return result.status_message, "", "", None, None, "", "", "", False
 
     clamped_duration = clamp_duration_to_gpu_limit(result.duration, llm_handler)
+    status_message = str(result.status_message or "").strip()
+    if auto_init_status:
+        status_message = f"{auto_init_status}\n{status_message}" if status_message else auto_init_status
     return (
-        result.status_message,
+        status_message,
         result.caption,
         result.lyrics,
         result.bpm,

@@ -128,7 +128,12 @@ def build_service_init_controls(service_pre_initialized: bool, params: dict[str,
         A component map containing ``init_btn`` and ``init_status``.
     """
 
-    init_btn = gr.Button(t("service.init_btn"), variant="primary", size="lg")
+    init_btn = gr.Button(
+        t("service.init_btn"),
+        variant="primary",
+        size="lg",
+        elem_classes=["action-btn", "action-btn-open"],
+    )
     init_status = gr.Textbox(
         label=t("service.status_label"),
         interactive=False,

@@ -99,10 +99,6 @@ def load_metadata(file_obj, llm_handler=None):
         audio_cover_strength = metadata.get('audio_cover_strength', 1.0)
         cover_noise_strength = metadata.get('cover_noise_strength', 0.0)
         think = metadata.get('thinking', True)
-        lm_ok = llm_handler.llm_initialized if llm_handler else False
-        if think and not lm_ok:
-            think = False
-            gr.Warning(t("messages.think_requires_lm"))
         audio_codes = metadata.get('audio_codes', '')
         if think and audio_codes and audio_codes.strip():
             think = False
@@ -195,11 +191,6 @@ def load_random_example(task_type: str, llm_handler=None):
             think_value = data.get('think', True)
             if not isinstance(think_value, bool):
                 think_value = True
-            lm_ok = llm_handler.llm_initialized if llm_handler else False
-            if think_value and not lm_ok:
-                think_value = False
-                gr.Warning(t("messages.think_requires_lm"))
-
             bpm_value: Optional[int] = None
             if 'bpm' in data and data['bpm'] not in [None, "N/A", ""]:
                 try:

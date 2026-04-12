@@ -28,6 +28,9 @@ class VllmBackendCompatTests(unittest.TestCase):
     def test_get_vllm_preflight_warning_returns_message_on_windows_without_triton(self) -> None:
         """Windows CUDA should skip vLLM when Triton imports are unavailable."""
         with patch(
+            "acestep.llm_backend_compat._has_torch_nccl_support",
+            return_value=True,
+        ), patch(
             "acestep.llm_backend_compat._has_working_triton_installation",
             return_value=False,
         ):
@@ -38,11 +41,27 @@ class VllmBackendCompatTests(unittest.TestCase):
         self.assertIn("Triton", warning)
         self.assertIn("Falling back to the PyTorch backend", warning)
 
-    def test_get_vllm_preflight_warning_returns_none_outside_windows_cuda(self) -> None:
-        """Non-Windows or non-CUDA setups should not be blocked by the Triton preflight."""
+    def test_get_vllm_preflight_warning_returns_message_when_nccl_is_missing(self) -> None:
+        """CUDA setups without NCCL should skip vLLM before nano-vllm initialization."""
         with patch(
-            "acestep.llm_backend_compat._has_working_triton_installation",
+            "acestep.llm_backend_compat._has_torch_nccl_support",
             return_value=False,
+        ):
+            warning = get_vllm_preflight_warning(device="cuda", platform="win32")
+
+        self.assertIsNotNone(warning)
+        self.assertIn("Windows", warning)
+        self.assertIn("NCCL", warning)
+        self.assertIn("Falling back to the PyTorch backend", warning)
+
+    def test_get_vllm_preflight_warning_returns_none_outside_blocked_setups(self) -> None:
+        """Supported or irrelevant setups should not be blocked by the vLLM preflight."""
+        with patch(
+            "acestep.llm_backend_compat._has_torch_nccl_support",
+            return_value=True,
+        ), patch(
+            "acestep.llm_backend_compat._has_working_triton_installation",
+            return_value=True,
         ):
             warning = get_vllm_preflight_warning(device="cpu", platform="win32")
             linux_warning = get_vllm_preflight_warning(device="cuda", platform="linux")

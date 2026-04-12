@@ -9,6 +9,7 @@ from typing import Any
 import gradio as gr
 
 from .. import generation_handlers as gen_h
+from ...premium_features import open_outputs_folder
 from ...i18n import get_i18n, reset_language_context, set_language_context
 from .context import (
     GenerationWiringContext,
@@ -99,6 +100,7 @@ def register_generation_service_handlers(
             generation_section["mlx_dit_checkbox"],
             generation_section["generation_mode"],
             generation_section["batch_size_input"],
+            generation_section["think_checkbox"],
         ],
         outputs=[
             generation_section["init_status"],
@@ -176,6 +178,10 @@ def register_generation_service_handlers(
     generation_section["reset_all_auto_btn"].click(
         fn=gen_h.reset_all_auto,
         outputs=auto_checkbox_outputs,
+    )
+    generation_section["open_outputs_folder_btn"].click(
+        fn=open_outputs_folder,
+        outputs=[results_section["status_output"]],
     )
 
     # ========== UI Visibility Updates ==========

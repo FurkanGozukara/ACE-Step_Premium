@@ -126,8 +126,19 @@ def register_generation_mode_handlers(
 
     # ========== Create Sample Button (Simple Mode) ==========
     generation_section["create_sample_btn"].click(
-        fn=lambda query, instrumental, vocal_lang, temp, top_k, top_p, debug: gen_h.handle_create_sample(
-            llm_handler, query, instrumental, vocal_lang, temp, top_k, top_p, debug
+        fn=lambda query, instrumental, vocal_lang, temp, top_k, top_p, debug, lm_model_path, backend, device, offload_to_cpu: gen_h.handle_create_sample(
+            llm_handler,
+            query,
+            instrumental,
+            vocal_lang,
+            temp,
+            top_k,
+            top_p,
+            debug,
+            lm_model_path,
+            backend,
+            device,
+            offload_to_cpu,
         ),
         inputs=[
             generation_section["simple_query_input"],
@@ -137,6 +148,10 @@ def register_generation_mode_handlers(
             generation_section["lm_top_k"],
             generation_section["lm_top_p"],
             generation_section["constrained_decoding_debug"],
+            generation_section["lm_model_path"],
+            generation_section["backend_dropdown"],
+            generation_section["device"],
+            generation_section["offload_to_cpu_checkbox"],
         ],
         outputs=[
             generation_section["captions"],

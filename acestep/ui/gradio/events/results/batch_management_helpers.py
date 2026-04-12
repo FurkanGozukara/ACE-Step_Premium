@@ -134,7 +134,8 @@ def _apply_param_defaults(params):
         "repaint_mode": "balanced", "repaint_strength": 0.5,
     }
     for key, value in defaults.items():
-        params.setdefault(key, value)
+        if key not in params or params.get(key) is None:
+            params[key] = value
 
 
 def _extract_scores(final_result):

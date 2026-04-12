@@ -68,12 +68,14 @@ def build_simple_action_controls(
             t("generation.sample_btn"),
             variant="secondary",
             size="lg",
+            elem_classes=["action-btn", "action-btn-preview"],
         )
     if create_sample:
         create_sample_btn = gr.Button(
             t("generation.create_sample_btn"),
             variant="primary",
             size="lg",
+            elem_classes=["action-btn", "action-btn-upscale"],
         )
     return random_desc_btn, create_sample_btn
 

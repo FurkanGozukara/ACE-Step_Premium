@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any, Callable
 
+from acestep.model_downloader import DEFAULT_LM_MODEL, get_models_dir
 
 def ensure_llm_ready_for_request(
     *,
@@ -57,9 +58,9 @@ def ensure_llm_ready_for_request(
             return
 
         project_root = get_project_root()
-        checkpoint_dir = os.path.join(project_root, "checkpoints")
+        checkpoint_dir = str(get_models_dir(project_root=project_root))
         lm_model_path = (
-            req.lm_model_path or os.getenv("ACESTEP_LM_MODEL_PATH") or "acestep-5Hz-lm-0.6B"
+            req.lm_model_path or os.getenv("ACESTEP_LM_MODEL_PATH") or DEFAULT_LM_MODEL
         ).strip()
         backend = (req.lm_backend or os.getenv("ACESTEP_LM_BACKEND") or "vllm").strip().lower()
         if backend not in {"vllm", "pt", "mlx"}:

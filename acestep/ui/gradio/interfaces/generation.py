@@ -8,7 +8,11 @@ from .generation_service_config import (
     create_service_config_content as _create_service_config_content,
     create_service_config_section,
 )
-from .generation_tab_section import create_generation_tab_section
+from .generation_tab_section import (
+    create_generation_body_section,
+    create_generation_mode_section,
+    create_generation_tab_section,
+)
 
 
 def _compute_init_defaults(

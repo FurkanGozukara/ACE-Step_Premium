@@ -32,10 +32,23 @@ def register_generation_metadata_handlers(
 
     # ========== Analyze Source Audio (Remix/Repaint: convert to codes + transcribe) ==========
     generation_section["analyze_btn"].click(
-        fn=lambda src, debug: gen_h.analyze_src_audio(dit_handler, llm_handler, src, debug),
+        fn=lambda src, debug, lm_model_path, backend, device, offload_to_cpu: gen_h.analyze_src_audio(
+            dit_handler,
+            llm_handler,
+            src,
+            debug,
+            lm_model_path,
+            backend,
+            device,
+            offload_to_cpu,
+        ),
         inputs=[
             generation_section["src_audio"],
             generation_section["constrained_decoding_debug"],
+            generation_section["lm_model_path"],
+            generation_section["backend_dropdown"],
+            generation_section["device"],
+            generation_section["offload_to_cpu_checkbox"],
         ],
         outputs=[
             generation_section["text2music_audio_code_string"],
@@ -109,10 +122,22 @@ def register_generation_metadata_handlers(
     )
 
     generation_section["transcribe_btn"].click(
-        fn=lambda codes, debug: gen_h.transcribe_audio_codes(llm_handler, codes, debug),
+        fn=lambda codes, debug, lm_model_path, backend, device, offload_to_cpu: gen_h.transcribe_audio_codes(
+            llm_handler,
+            codes,
+            debug,
+            lm_model_path,
+            backend,
+            device,
+            offload_to_cpu,
+        ),
         inputs=[
             generation_section["text2music_audio_code_string"],
             generation_section["constrained_decoding_debug"],
+            generation_section["lm_model_path"],
+            generation_section["backend_dropdown"],
+            generation_section["device"],
+            generation_section["offload_to_cpu_checkbox"],
         ],
         outputs=[
             results_section["status_output"],

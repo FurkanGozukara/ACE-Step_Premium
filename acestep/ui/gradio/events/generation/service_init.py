@@ -10,9 +10,13 @@ import gradio as gr
 from loguru import logger
 
 from acestep.ui.gradio.i18n import t
+from acestep.lazy_runtime import (
+    build_startup_gpu_config_for_tier,
+    build_startup_gpu_state,
+)
 from acestep.gpu_config import (
     get_global_gpu_config, is_lm_model_size_allowed, find_best_lm_model_on_disk,
-    get_gpu_config_for_tier, set_global_gpu_config, GPU_TIER_LABELS, GPU_TIER_CONFIGS,
+    set_global_gpu_config, GPU_TIER_LABELS, GPU_TIER_CONFIGS,
     resolve_lm_backend,
 )
 from .model_config import is_pure_base_model, is_sft_model, is_xl_model, get_model_type_ui_settings
@@ -49,7 +53,8 @@ def _select_quantization_value(
 def refresh_checkpoints(dit_handler):
     """Refresh available checkpoints."""
     choices = dit_handler.get_available_checkpoints()
-    return gr.update(choices=choices)
+    value = choices[0] if choices else None
+    return gr.update(choices=choices, value=value)
 
 
 def init_service_wrapper(
@@ -57,6 +62,7 @@ def init_service_wrapper(
     init_llm, lm_model_path, backend, use_flash_attention,
     offload_to_cpu, offload_dit_to_cpu, compile_model, quantization,
     mlx_dit=True, current_mode=None, current_batch_size=None,
+    current_think_checkbox=None,
 ):
     """Wrapper for service initialization.
 
@@ -114,10 +120,8 @@ def init_service_wrapper(
             f"on this hardware, falling back to {backend}"
         )
 
-    # Derive project_root from the checkpoint path (which is the checkpoints
-    # directory itself, e.g. "<project>/checkpoints").  Passing it directly as
-    # project_root would cause initialize_service to append "checkpoints" again,
-    # resulting in "<project>/checkpoints/checkpoints".
+    # Derive project_root from this module location and let the shared model
+    # resolver expand it to "<project>/models".
     current_file = os.path.abspath(__file__)
     # This file is in acestep/ui/gradio/events/generation/
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(
@@ -131,7 +135,9 @@ def init_service_wrapper(
     )
 
     if init_llm:
-        checkpoint_dir = os.path.join(project_root, "checkpoints")
+        from acestep.model_downloader import get_models_dir
+
+        checkpoint_dir = str(get_models_dir(project_root=project_root))
 
         lm_status, lm_success = llm_handler.initialize(
             checkpoint_dir=checkpoint_dir,
@@ -146,9 +152,15 @@ def init_service_wrapper(
             status += f"\n{lm_status}"
         else:
             status += f"\n{lm_status}"
+        llm_handler.last_init_params = {
+            "lm_model_path": lm_model_path,
+            "backend": backend,
+            "device": device,
+            "offload_to_cpu": offload_to_cpu,
+        }
 
     is_model_initialized = dit_handler.model is not None
-    accordion_state = gr.Accordion(open=not is_model_initialized)
+    accordion_state = gr.Accordion(open=True)
 
     is_turbo = dit_handler.is_turbo_model()
     config_path_lower = (config_path or "").lower()
@@ -211,7 +223,14 @@ def init_service_wrapper(
     else:
         status += ", LM not available for this GPU tier"
 
-    think_interactive = lm_actually_initialized
+    think_supported_for_mode = current_mode not in {"Remix", "Repaint", "Extract", "Lego"}
+    if think_supported_for_mode:
+        think_update = gr.update(
+            interactive=True,
+            value=bool(current_think_checkbox) if current_think_checkbox is not None else True,
+        )
+    else:
+        think_update = gr.update(interactive=False, value=False)
 
     return (
         status,
@@ -220,7 +239,7 @@ def init_service_wrapper(
         *model_type_settings,
         duration_update,
         batch_update,
-        gr.update(interactive=think_interactive, value=think_interactive),
+        think_update,
     )
 
 
@@ -239,7 +258,7 @@ def on_tier_change(selected_tier, llm_handler=None):
         logger.warning(f"Invalid tier selection: {selected_tier}")
         return (gr.update(),) * 10
 
-    new_config = get_gpu_config_for_tier(selected_tier)
+    new_config = build_startup_gpu_config_for_tier(selected_tier)
     set_global_gpu_config(new_config)
     logger.info(f"🔄 Tier manually changed to {selected_tier} — updating UI defaults")
 
@@ -261,8 +280,7 @@ def on_tier_change(selected_tier, llm_handler=None):
     max_batch = new_config.max_batch_size_without_lm
 
     tier_label = GPU_TIER_LABELS.get(selected_tier, selected_tier)
-    from acestep.gpu_config import get_gpu_device_name
-    _gpu_device_name = get_gpu_device_name()
+    _gpu_device_name = build_startup_gpu_state().device_name
     gpu_info_text = (
         f"🖥️ **{_gpu_device_name}** — {new_config.gpu_memory_gb:.1f} GB VRAM "
         f"— {t('service.gpu_auto_tier')}: **{tier_label}**"

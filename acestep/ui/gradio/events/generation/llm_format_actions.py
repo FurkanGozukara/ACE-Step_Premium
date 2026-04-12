@@ -6,6 +6,7 @@ import gradio as gr
 from acestep.inference import format_sample
 from acestep.ui.gradio.i18n import t
 
+from .llm_auto_init import ensure_llm_ready
 from .llm_action_params import build_user_metadata, convert_lm_params
 from .validation import clamp_duration_to_gpu_limit
 
@@ -13,6 +14,16 @@ from .validation import clamp_duration_to_gpu_limit
 def _format_failure_response(update_count: int, status_message: str):
     """Build a standardized failure response with update placeholders."""
     return (*([gr.update()] * update_count), status_message)
+
+
+def _merge_status_messages(prefix: str, status_message: str) -> str:
+    """Combine auto-init status with the action result status."""
+
+    prefix_text = str(prefix or "").strip()
+    status_text = str(status_message or "").strip()
+    if prefix_text and status_text:
+        return f"{prefix_text}\n{status_text}"
+    return prefix_text or status_text
 
 
 def _clean_optional_wrapped_quotes(text: Optional[str]) -> Optional[str]:
@@ -39,14 +50,25 @@ def _execute_format_sample(
     lm_top_k: int,
     lm_top_p: float,
     constrained_decoding_debug: bool,
+    lm_model_path: str | None,
+    backend: str | None,
+    device: str | None,
+    offload_to_cpu: bool,
 ):
     """Run shared format-sample workflow.
 
     Returns:
         Tuple of ``(result_or_none, audio_duration_value_or_none, status_message)``.
     """
-    if not llm_handler.llm_initialized:
-        status_message = t("messages.lm_not_initialized")
+    auto_init_ok, auto_init_status = ensure_llm_ready(
+        llm_handler,
+        lm_model_path=lm_model_path,
+        backend=backend,
+        device=device,
+        offload_to_cpu=offload_to_cpu,
+    )
+    if not auto_init_ok:
+        status_message = auto_init_status or t("messages.lm_not_initialized")
         gr.Warning(status_message)
         return None, None, status_message
 
@@ -73,7 +95,10 @@ def _execute_format_sample(
     gr.Info(t("messages.format_success"))
     clamped_duration = clamp_duration_to_gpu_limit(result.duration, llm_handler)
     duration_value = clamped_duration if clamped_duration and clamped_duration > 0 else -1
-    return result, duration_value, result.status_message
+    return result, duration_value, _merge_status_messages(
+        auto_init_status,
+        result.status_message,
+    )
 
 
 def handle_format_sample(
@@ -88,6 +113,10 @@ def handle_format_sample(
     lm_top_k: int,
     lm_top_p: float,
     constrained_decoding_debug: bool = False,
+    lm_model_path: str | None = None,
+    backend: str | None = None,
+    device: str | None = None,
+    offload_to_cpu: bool = False,
 ):
     """Format caption and lyrics together via LLM."""
     result, duration_value, status_message = _execute_format_sample(
@@ -102,6 +131,10 @@ def handle_format_sample(
         lm_top_k=lm_top_k,
         lm_top_p=lm_top_p,
         constrained_decoding_debug=constrained_decoding_debug,
+        lm_model_path=lm_model_path,
+        backend=backend,
+        device=device,
+        offload_to_cpu=offload_to_cpu,
     )
 
     if result is None:
@@ -132,6 +165,10 @@ def handle_format_caption(
     lm_top_k: int,
     lm_top_p: float,
     constrained_decoding_debug: bool = False,
+    lm_model_path: str | None = None,
+    backend: str | None = None,
+    device: str | None = None,
+    offload_to_cpu: bool = False,
 ):
     """Format only caption via LLM while leaving lyrics unchanged in UI wiring.
 
@@ -150,6 +187,10 @@ def handle_format_caption(
         lm_top_k=lm_top_k,
         lm_top_p=lm_top_p,
         constrained_decoding_debug=constrained_decoding_debug,
+        lm_model_path=lm_model_path,
+        backend=backend,
+        device=device,
+        offload_to_cpu=offload_to_cpu,
     )
 
     if result is None:
@@ -179,6 +220,10 @@ def handle_format_lyrics(
     lm_top_k: int,
     lm_top_p: float,
     constrained_decoding_debug: bool = False,
+    lm_model_path: str | None = None,
+    backend: str | None = None,
+    device: str | None = None,
+    offload_to_cpu: bool = False,
 ):
     """Format only lyrics via LLM while leaving caption unchanged in UI wiring.
 
@@ -197,6 +242,10 @@ def handle_format_lyrics(
         lm_top_k=lm_top_k,
         lm_top_p=lm_top_p,
         constrained_decoding_debug=constrained_decoding_debug,
+        lm_model_path=lm_model_path,
+        backend=backend,
+        device=device,
+        offload_to_cpu=offload_to_cpu,
     )
 
     if result is None:

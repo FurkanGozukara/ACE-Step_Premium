@@ -26,6 +26,7 @@ def build_source_audio_controls() -> dict[str, Any]:
                 t("generation.analyze_btn"),
                 variant="secondary",
                 size="lg",
+                elem_classes=["action-btn", "action-btn-preview"],
             )
 
     with gr.Group(visible=False) as extract_help_group:
@@ -84,7 +85,7 @@ def build_lm_code_hint_controls() -> dict[str, Any]:
 
     with gr.Accordion(
         t("generation.lm_codes_hints"),
-        open=False,
+        open=True,
         visible=True,
         elem_classes=["has-info-container"],
     ) as text2music_audio_codes_group:
@@ -102,14 +103,16 @@ def build_lm_code_hint_controls() -> dict[str, Any]:
             convert_src_to_codes_btn = gr.Button(
                 t("generation.convert_codes_btn"),
                 variant="secondary",
-                size="sm",
+                size="lg",
                 scale=1,
+                elem_classes=["action-btn", "action-btn-clear"],
             )
             transcribe_btn = gr.Button(
                 t("generation.transcribe_btn"),
                 variant="secondary",
-                size="sm",
+                size="lg",
                 scale=1,
+                elem_classes=["action-btn", "action-btn-open"],
             )
     return {
         "text2music_audio_codes_group": text2music_audio_codes_group,

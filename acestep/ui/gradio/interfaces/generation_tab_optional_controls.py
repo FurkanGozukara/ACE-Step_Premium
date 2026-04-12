@@ -122,7 +122,19 @@ def build_optional_parameter_controls(
                 elem_classes=["auto-toggle"],
             )
             gr.HTML("<span></span>")
-        reset_all_auto_btn = gr.Button(t("generation.reset_all_auto"), variant="secondary", size="sm")
+        with gr.Row(equal_height=True):
+            reset_all_auto_btn = gr.Button(
+                t("generation.reset_all_auto"),
+                variant="secondary",
+                size="lg",
+                elem_classes=["action-btn", "action-btn-clear"],
+            )
+            open_outputs_folder_btn = gr.Button(
+                "Open Outputs Folder",
+                variant="secondary",
+                size="lg",
+                elem_classes=["action-btn", "action-btn-open"],
+            )
 
     return {
         "optional_params_accordion": optional_params_accordion,
@@ -138,4 +150,5 @@ def build_optional_parameter_controls(
         "batch_size_input": batch_size_input,
         "duration_auto": duration_auto,
         "reset_all_auto_btn": reset_all_auto_btn,
+        "open_outputs_folder_btn": open_outputs_folder_btn,
     }

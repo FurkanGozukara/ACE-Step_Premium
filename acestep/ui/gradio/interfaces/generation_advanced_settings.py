@@ -4,7 +4,7 @@ from typing import Any
 
 import gradio as gr
 
-from acestep.ui.gradio.events.generation_handlers import (
+from acestep.ui.gradio.events.generation.model_config import (
     is_pure_base_model,
     is_sft_model,
     get_ui_control_config,
@@ -60,7 +60,7 @@ def create_advanced_settings_section(
 
     with gr.Accordion(
         t("generation.advanced_settings"),
-        open=not service_pre_initialized,
+        open=True,
     ) as advanced_settings_accordion:
         service_components = create_service_config_content(
             dit_handler=dit_handler,

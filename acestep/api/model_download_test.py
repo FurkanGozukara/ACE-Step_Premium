@@ -28,7 +28,7 @@ class ModelDownloadTests(unittest.TestCase):
         snapshot_download.assert_called_once_with(
             repo_id=model_download.DEFAULT_REPO_ID,
             local_dir="checkpoints",
-            local_dir_use_symlinks=False,
+            allow_patterns=["acestep-v15-turbo/*", "acestep-v15-turbo/**"],
         )
         self.assertEqual(os.path.join("checkpoints", "acestep-v15-turbo"), out)
 
@@ -48,11 +48,19 @@ class ModelDownloadTests(unittest.TestCase):
         first_call = snapshot_download.call_args_list[0].kwargs
         second_call = snapshot_download.call_args_list[1].kwargs
         self.assertEqual(
-            {"model_id": model_download.DEFAULT_REPO_ID, "local_dir": "checkpoints"},
+            {
+                "model_id": model_download.DEFAULT_REPO_ID,
+                "local_dir": "checkpoints",
+                "allow_patterns": ["acestep-v15-turbo/*", "acestep-v15-turbo/**"],
+            },
             first_call,
         )
         self.assertEqual(
-            {"model_id": model_download.DEFAULT_REPO_ID, "cache_dir": "checkpoints"},
+            {
+                "model_id": model_download.DEFAULT_REPO_ID,
+                "cache_dir": "checkpoints",
+                "allow_patterns": ["acestep-v15-turbo/*", "acestep-v15-turbo/**"],
+            },
             second_call,
         )
         self.assertEqual(os.path.join("checkpoints", "acestep-v15-turbo"), out)
