@@ -10,13 +10,9 @@ from acestep.ui.gradio.i18n import t
 def build_dataset_scan_and_settings_controls() -> dict[str, object]:
     """Render scan/load controls and dataset settings for the dataset-builder tab."""
 
-    gr.HTML(
-        f"""
-            <div style="padding: 10px; margin-bottom: 10px; border: 1px solid #4a4a6a; border-radius: 8px; background: linear-gradient(135deg, #2a2a4a 0%, #1a1a3a 100%);">
-                <h3 style="margin: 0 0 5px 0;">{t("training.quick_start_title")}</h3>
-                <p style="margin: 0; color: #aaa;">Choose one: <b>Load existing dataset</b> OR <b>Scan new directory</b></p>
-            </div>
-            """
+    gr.Markdown(
+        f"### {t('training.quick_start_title')}\n"
+        "Choose one: **Load existing dataset** OR **Scan new directory**"
     )
 
     with gr.Row():
