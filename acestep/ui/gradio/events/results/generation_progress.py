@@ -6,7 +6,6 @@ pipeline, saves audio files, and optionally runs auto-scoring and
 auto-LRC in a single streaming pass.
 """
 import os
-import json
 import sys
 import time as time_module
 
@@ -21,7 +20,6 @@ from acestep.gpu_config import (
 from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.events.generation_handlers import parse_and_validate_timesteps
 from acestep.ui.gradio.events.results.generation_info import (
-    DEFAULT_RESULTS_DIR,
     _build_generation_info,
 )
 from acestep.ui.gradio.events.results.output_manager import (
@@ -30,11 +28,13 @@ from acestep.ui.gradio.events.results.output_manager import (
     persist_generation_inputs,
     write_json,
 )
+from acestep.ui.gradio.events.results.generation_task_type import resolve_no_fsq_task_type
 from acestep.ui.gradio.events.results.audio_playback_updates import (
     build_audio_slot_update,
 )
 from acestep.ui.gradio.events.results.scoring import calculate_score_handler
 from acestep.ui.gradio.events.results.lrc_utils import lrc_to_vtt_file
+from acestep.ui.gradio.events.results.session_artifacts import persist_sample_session_artifacts
 
 
 def _get_torch():
@@ -50,8 +50,9 @@ def generate_with_progress(
     reference_audio, audio_duration, batch_size_input, src_audio,
     text2music_audio_code_string, repainting_start, repainting_end,
     instruction_display_gen, audio_cover_strength, cover_noise_strength, task_type,
-    use_adg, cfg_interval_start, cfg_interval_end, shift, infer_method,
+    no_fsq, use_adg, cfg_interval_start, cfg_interval_end, shift, infer_method,
     sampler_mode, velocity_norm_threshold, velocity_ema_factor,
+    dcw_enabled, dcw_mode, dcw_scaler, dcw_high_scaler, dcw_wavelet,
     custom_timesteps, audio_format, mp3_bitrate, mp3_sample_rate, lm_temperature,
     think_checkbox, lm_cfg_scale, lm_top_k, lm_top_p, lm_negative_prompt,
     use_cot_metas, use_cot_caption, use_cot_language, is_format_caption,
@@ -69,6 +70,14 @@ def generate_with_progress(
     latent_rescale,
     repaint_mode,
     repaint_strength,
+    retake_variance=0.0,
+    retake_seed="",
+    flow_edit_morph=False,
+    flow_edit_source_caption="",
+    flow_edit_source_lyrics="",
+    flow_edit_n_min=0.0,
+    flow_edit_n_max=1.0,
+    flow_edit_n_avg=1,
     progress=gr.Progress(track_tqdm=True),
 ):
     """Generate audio with progress tracking.
@@ -121,7 +130,14 @@ def generate_with_progress(
     parsed_timesteps, _has_ts_warn, _ = parse_and_validate_timesteps(custom_timesteps, inference_steps)
     actual_inference_steps = len(parsed_timesteps) - 1 if parsed_timesteps is not None else inference_steps
 
-    if task_type == "text2music":
+    task_type = resolve_no_fsq_task_type(task_type, bool(no_fsq))
+
+    # text2music never uses src_audio EXCEPT when flow_edit_morph is on:
+    # the morph overlay needs the source audio for ``zt_src``/``zt_tar``
+    # formation in the V_delta integration.  Without this guard the UI
+    # silently zeroed src_audio for Custom mode and the backend's morph
+    # check then errored with "Flow-edit morph requires a source audio".
+    if task_type == "text2music" and not flow_edit_morph:
         src_audio = None
 
     # Defensive guard: cover/repaint/extract/lego tasks should never use
@@ -154,6 +170,11 @@ def generate_with_progress(
         sampler_mode=sampler_mode,
         velocity_norm_threshold=velocity_norm_threshold,
         velocity_ema_factor=velocity_ema_factor,
+        dcw_enabled=dcw_enabled,
+        dcw_mode=dcw_mode,
+        dcw_scaler=dcw_scaler,
+        dcw_high_scaler=dcw_high_scaler,
+        dcw_wavelet=dcw_wavelet,
         timesteps=parsed_timesteps,
         repainting_start=repainting_start,
         repainting_end=repainting_end,
@@ -177,6 +198,15 @@ def generate_with_progress(
         latent_rescale=latent_rescale,
         repaint_mode=repaint_mode if repaint_mode else "balanced",
         repaint_strength=float(repaint_strength) if repaint_strength is not None else 0.5,
+        retake_variance=float(retake_variance) if retake_variance is not None else 0.0,
+        # Empty textbox -> None; otherwise a string is fine (handler.prepare_seeds parses it).
+        retake_seed=(retake_seed.strip() or None) if isinstance(retake_seed, str) else retake_seed,
+        flow_edit_morph=bool(flow_edit_morph),
+        flow_edit_source_caption=flow_edit_source_caption or "",
+        flow_edit_source_lyrics=flow_edit_source_lyrics or "",
+        flow_edit_n_min=float(flow_edit_n_min) if flow_edit_n_min is not None else 0.0,
+        flow_edit_n_max=float(flow_edit_n_max) if flow_edit_n_max is not None else 1.0,
+        flow_edit_n_avg=int(flow_edit_n_avg) if flow_edit_n_avg is not None else 1,
     )
 
     if isinstance(seed, str) and seed.strip():
@@ -213,9 +243,7 @@ def generate_with_progress(
     total_auto_score_time = 0.0
     total_auto_lrc_time = 0.0
 
-    updated_audio_codes = text2music_audio_code_string if not think_checkbox else ""  # noqa: F841
     sample_manifest_rows: list[dict[str, object]] = []
-
     generation_info = _build_generation_info(
         lm_metadata=lm_generated_metadata,
         time_costs=time_costs,
@@ -248,6 +276,7 @@ def generate_with_progress(
         audio_cover_strength=audio_cover_strength,
         cover_noise_strength=cover_noise_strength,
         task_type=task_type,
+        no_fsq=no_fsq,
         use_adg=use_adg,
         cfg_interval_start=cfg_interval_start,
         cfg_interval_end=cfg_interval_end,
@@ -256,6 +285,11 @@ def generate_with_progress(
         sampler_mode=sampler_mode,
         velocity_norm_threshold=velocity_norm_threshold,
         velocity_ema_factor=velocity_ema_factor,
+        dcw_enabled=dcw_enabled,
+        dcw_mode=dcw_mode,
+        dcw_scaler=dcw_scaler,
+        dcw_high_scaler=dcw_high_scaler,
+        dcw_wavelet=dcw_wavelet,
         custom_timesteps=custom_timesteps,
         parsed_timesteps=parsed_timesteps,
         audio_format=audio_format,
@@ -285,6 +319,14 @@ def generate_with_progress(
         latent_rescale=latent_rescale,
         repaint_mode=repaint_mode,
         repaint_strength=repaint_strength,
+        retake_variance=retake_variance,
+        retake_seed=retake_seed,
+        flow_edit_morph=flow_edit_morph,
+        flow_edit_source_caption=flow_edit_source_caption,
+        flow_edit_source_lyrics=flow_edit_source_lyrics,
+        flow_edit_n_min=flow_edit_n_min,
+        flow_edit_n_max=flow_edit_n_max,
+        flow_edit_n_avg=flow_edit_n_avg,
         gen_params=gen_params,
         gen_config=gen_config,
         gpu_config=gpu_config,
@@ -372,6 +414,18 @@ def generate_with_progress(
         )
         if saved_path:
             audio_path = saved_path.replace("\\", "/")
+
+        _persist_repaint_source_latents(
+            source_latents=_extract_repaint_source_latents(result.extra_outputs, i),
+            json_path=json_path,
+            audio_params=audio_params,
+        )
+        persist_sample_session_artifacts(
+            extra_outputs=result.extra_outputs,
+            sample_idx=i,
+            json_path=json_path,
+            audio_params=audio_params,
+        )
 
         audio_outputs[i] = audio_path
         all_audio_paths.append(audio_path)
@@ -516,11 +570,9 @@ def generate_with_progress(
     final_codes_display = [gr.skip()] * 8
     final_accordions = [gr.skip()] * 8
 
-    extra_to_store = {**result.extra_outputs, "lrcs": final_lrcs_list, "subtitles": final_subtitles_list}
-    torch = _get_torch()
-    for k, v in extra_to_store.items():
-        if torch is not None and isinstance(v, torch.Tensor) and v.is_cuda:
-            extra_to_store[k] = v.cpu()
+    extra_to_store = _strip_extra_output_tensors(
+        {**result.extra_outputs, "lrcs": final_lrcs_list, "subtitles": final_subtitles_list}
+    )
 
     yield (
         *audio_playback_updates,
@@ -560,7 +612,9 @@ def _extract_sample_tensor(extra_outputs, sample_idx):
             return None
         return data
     except Exception as e:
-        print(f"[Auto Score] Failed to prepare tensor data for sample {sample_idx}: {e}")
+        logger.warning(
+            "[Auto Score] Failed to prepare tensor data for sample {}: {}", sample_idx, e
+        )
         return None
 
 
@@ -589,6 +643,7 @@ def _build_request_payload(
     audio_cover_strength,
     cover_noise_strength,
     task_type,
+    no_fsq,
     use_adg,
     cfg_interval_start,
     cfg_interval_end,
@@ -597,6 +652,11 @@ def _build_request_payload(
     sampler_mode,
     velocity_norm_threshold,
     velocity_ema_factor,
+    dcw_enabled,
+    dcw_mode,
+    dcw_scaler,
+    dcw_high_scaler,
+    dcw_wavelet,
     custom_timesteps,
     parsed_timesteps,
     audio_format,
@@ -626,6 +686,14 @@ def _build_request_payload(
     latent_rescale,
     repaint_mode,
     repaint_strength,
+    retake_variance,
+    retake_seed,
+    flow_edit_morph,
+    flow_edit_source_caption,
+    flow_edit_source_lyrics,
+    flow_edit_n_min,
+    flow_edit_n_max,
+    flow_edit_n_avg,
     gen_params,
     gen_config,
     gpu_config,
@@ -643,6 +711,7 @@ def _build_request_payload(
         "audio_duration": audio_duration,
         "batch_size": batch_size_input,
         "task_type": task_type,
+        "no_fsq": no_fsq,
         "instruction": instruction_display_gen,
         "guidance_scale": guidance_scale,
         "inference_steps_requested": inference_steps,
@@ -668,6 +737,11 @@ def _build_request_payload(
         "sampler_mode": sampler_mode,
         "velocity_norm_threshold": velocity_norm_threshold,
         "velocity_ema_factor": velocity_ema_factor,
+        "dcw_enabled": dcw_enabled,
+        "dcw_mode": dcw_mode,
+        "dcw_scaler": dcw_scaler,
+        "dcw_high_scaler": dcw_high_scaler,
+        "dcw_wavelet": dcw_wavelet,
         "random_seed_checkbox": random_seed_checkbox,
         "seed_input": seed,
         "resolved_seed_value": seed_value_for_ui,
@@ -694,6 +768,14 @@ def _build_request_payload(
         "latent_rescale": latent_rescale,
         "repaint_mode": repaint_mode,
         "repaint_strength": repaint_strength,
+        "retake_variance": retake_variance,
+        "retake_seed": retake_seed,
+        "flow_edit_morph": flow_edit_morph,
+        "flow_edit_source_caption": flow_edit_source_caption,
+        "flow_edit_source_lyrics": flow_edit_source_lyrics,
+        "flow_edit_n_min": flow_edit_n_min,
+        "flow_edit_n_max": flow_edit_n_max,
+        "flow_edit_n_avg": flow_edit_n_avg,
         "generation_params": vars(gen_params),
         "generation_config": vars(gen_config),
         "runtime": {
@@ -702,6 +784,49 @@ def _build_request_payload(
             "lm_generated_metadata": lm_generated_metadata,
         },
     }
+
+
+def _extract_repaint_source_latents(extra_outputs, sample_idx):
+    """Return final generated latents for repaint-source reuse."""
+    try:
+        pred_latents = extra_outputs.get("pred_latents")
+        if pred_latents is None or sample_idx >= pred_latents.shape[0]:
+            return None
+        return pred_latents[sample_idx]
+    except (AttributeError, IndexError, TypeError):
+        return None
+
+
+def _strip_extra_output_tensors(extra_outputs):
+    """Return extra outputs without tensor values for batch-queue storage."""
+    torch = _get_torch()
+    if torch is None:
+        return extra_outputs
+    return {
+        key: value
+        for key, value in extra_outputs.items()
+        if not isinstance(value, torch.Tensor)
+    }
+
+
+def _persist_repaint_source_latents(source_latents, json_path: str, audio_params: dict) -> None:
+    """Persist repaint-ready source latents beside a generated audio sidecar.
+
+    The cached tensor is the final generated latent returned by the DiT path.
+    This avoids a lossy decode-to-audio then VAE-reencode cycle for generated
+    sources while uploaded audio keeps the normal repaint path.
+    """
+    if source_latents is None:
+        return
+    latent_path = os.path.splitext(json_path)[0] + ".repaint_latents.npy"
+    try:
+        import numpy as np
+
+        np.save(latent_path, source_latents.detach().cpu().float().numpy())
+    except (AttributeError, OSError, RuntimeError, ValueError) as exc:
+        logger.warning("[repaint_cache] Could not persist repaint source latents: {}", exc)
+        return
+    audio_params["repaint_source_latents_file"] = os.path.basename(latent_path)
 
 
 def _run_auto_lrc(dit_handler, extra_outputs, sample_idx,

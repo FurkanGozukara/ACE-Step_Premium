@@ -7,6 +7,7 @@ import json
 import os
 import random
 import time
+from pathlib import Path
 from threading import Lock
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -15,10 +16,29 @@ from fastapi import APIRouter, HTTPException, Request, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+
+def _resolve_project_root() -> str:
+    """Resolve the ACE-Step project root used by Gradio API helpers."""
+
+    configured = os.environ.get("ACESTEP_PROJECT_ROOT", "").strip()
+    if configured:
+        return str(Path(configured).expanduser().resolve())
+    return str(Path(__file__).resolve().parents[4])
+
+
+def _resolve_results_dir(project_root: str) -> str:
+    """Resolve the API output directory, honoring the shared output override."""
+
+    configured = os.environ.get("ACESTEP_OUTPUT_DIR", "").strip()
+    target = Path(configured).expanduser() if configured else Path(project_root) / "gradio_outputs"
+    target = target.resolve()
+    target.mkdir(parents=True, exist_ok=True)
+    return str(target).replace("\\", "/")
+
+
 # Global results directory inside project root
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DEFAULT_RESULTS_DIR = os.path.join(PROJECT_ROOT, "gradio_outputs").replace("\\", "/")
-os.makedirs(DEFAULT_RESULTS_DIR, exist_ok=True)
+PROJECT_ROOT = _resolve_project_root()
+DEFAULT_RESULTS_DIR = _resolve_results_dir(PROJECT_ROOT)
 
 # API Key storage (set via setup_api_routes)
 _api_key: Optional[str] = None
@@ -128,7 +148,7 @@ atexit.register(_close_result_cache)
 
 def _get_project_root() -> str:
     """Get project root directory"""
-    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return _resolve_project_root()
 
 
 def _load_all_examples(sample_mode: str = "simple_mode") -> List[Dict[str, Any]]:
@@ -263,6 +283,9 @@ async def create_random_sample(request: Request, authorization: Optional[str] = 
         example_data = SIMPLE_EXAMPLE_DATA
     else:
         example_data = CUSTOM_EXAMPLE_DATA
+
+    if not example_data:
+        example_data = _load_all_examples(sample_type)
 
     if not example_data:
         return _wrap_response(None, code=500, error="No example data available")
@@ -587,8 +610,8 @@ async def release_task(request: Request, authorization: Optional[str] = Header(N
 
 
 # Origins that are expected to call the API:
-#  - "null"                     → studio.html opened via file:// protocol
-#  - http://localhost:*         → local dev servers / Gradio UI
+#  - "null"                    → local files opened via file:// protocol
+#  - http://localhost:*        → local dev servers / Gradio UI
 #  - http://127.0.0.1:*        → same, numeric form
 _CORS_KWARGS = dict(
     allow_origins=["null", "http://localhost", "http://127.0.0.1"],
@@ -599,7 +622,7 @@ _CORS_KWARGS = dict(
 
 
 def _add_cors_middleware(app):
-    """Add CORS middleware so browser-based frontends (e.g. studio.html via file://) can call the API."""
+    """Add CORS middleware so browser-based local frontends can call the API."""
     app.add_middleware(CORSMiddleware, **_CORS_KWARGS)
 
 
@@ -651,4 +674,3 @@ def setup_api_routes(demo, dit_handler, llm_handler, api_key: Optional[str] = No
     app.state.dit_handler = dit_handler
     app.state.llm_handler = llm_handler
     app.include_router(router)
-

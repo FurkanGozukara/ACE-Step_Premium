@@ -254,7 +254,6 @@ class AudioSaver:
             codec="libmp3lame",
             target_sample_rate=target_sample_rate,
             bitrate=bitrate,
-            extra_args=["-abr", "0"],
         )
         logger.debug(f"[AudioSaver] Saved audio to {output_path} (mp3, {target_sample_rate}Hz, {bitrate})")
 

@@ -10,7 +10,11 @@ from acestep.gpu_config import (
     GPU_TIER_LABELS,
     find_best_lm_model_on_disk,
 )
-from acestep.model_downloader import get_models_dir
+from acestep.model_downloader import (
+    DEFAULT_VAE_VARIANT,
+    get_models_dir,
+    list_available_vae_variants,
+)
 from acestep.ui.gradio.i18n import t, available_languages_info
 
 
@@ -149,7 +153,8 @@ def build_model_device_controls(
         params: Startup state dictionary containing optional model/device values.
 
     Returns:
-        A component map containing ``config_path``, ``device``, and ``device_value``.
+        A component map containing ``config_path``, ``device``, ``vae_checkpoint``,
+        and ``device_value``.
     """
 
     with gr.Row():
@@ -178,7 +183,11 @@ def build_model_device_controls(
         config_path = gr.Dropdown(
             label=t("service.model_path_label"),
             choices=available_models,
-            value=params.get("config_path", default_model) if service_pre_initialized else default_model,
+            value=(
+                params.get("config_path", default_model)
+                if service_pre_initialized and params.get("config_path", default_model) in available_models
+                else default_model
+            ),
             info=t("service.model_path_info"),
             elem_classes=["has-info-container"],
         )
@@ -190,9 +199,30 @@ def build_model_device_controls(
             info=t("service.device_info"),
             elem_classes=["has-info-container"],
         )
+    with gr.Row():
+        vae_choices = list_available_vae_variants()
+        # When ACESTEP_VAE_CHECKPOINT names a known variant, seed the UI with
+        # it on first launch so the env var actually takes effect from
+        # Gradio. Once initialized, prefer the previously chosen value.
+        env_vae = os.environ.get("ACESTEP_VAE_CHECKPOINT") or ""
+        env_seed = env_vae if env_vae in vae_choices else DEFAULT_VAE_VARIANT
+        vae_default = (
+            params.get("vae_checkpoint", env_seed)
+            if service_pre_initialized
+            and params.get("vae_checkpoint", env_seed) in vae_choices
+            else env_seed
+        )
+        vae_checkpoint = gr.Dropdown(
+            label=t("service.vae_label"),
+            choices=vae_choices,
+            value=vae_default,
+            info=t("service.vae_info"),
+            elem_classes=["has-info-container"],
+        )
     return {
         "config_path": config_path,
         "device": device,
+        "vae_checkpoint": vae_checkpoint,
         "device_value": device_value,
     }
 
@@ -227,7 +257,11 @@ def build_lm_backend_controls(
         lm_model_path = gr.Dropdown(
             label=t("service.lm_model_path_label"),
             choices=all_lm_models,
-            value=params.get("lm_model_path", default_lm_model) if service_pre_initialized else default_lm_model,
+            value=(
+                params.get("lm_model_path", default_lm_model)
+                if service_pre_initialized and params.get("lm_model_path", default_lm_model) in all_lm_models
+                else default_lm_model
+            ),
             info=t("service.lm_model_path_info")
             + (
                 f" (Recommended: {recommended_lm})"
@@ -238,7 +272,11 @@ def build_lm_backend_controls(
         )
         backend_dropdown = gr.Dropdown(
             choices=available_backends,
-            value=params.get("backend", recommended_backend) if service_pre_initialized else recommended_backend,
+            value=(
+                params.get("backend", recommended_backend)
+                if service_pre_initialized and params.get("backend", recommended_backend) in available_backends
+                else recommended_backend
+            ),
             label=t("service.backend_label"),
             info=t("service.backend_info")
             + (

@@ -5,6 +5,7 @@ used across dataset, preprocessing, and training sub-modules.
 """
 
 import os
+import posixpath
 import re
 import time
 from typing import Any, Dict, List, Optional
@@ -54,6 +55,14 @@ def _safe_join(base_root: str, user_path: str) -> Optional[str]:
     if not user_path or not user_path.strip():
         return None
     candidate = user_path.strip()
+    if base_root.startswith("/") and not re.match(r"^/[A-Za-z]:", base_root):
+        if posixpath.isabs(candidate):
+            return None
+        abs_root = posixpath.normpath(base_root)
+        joined = posixpath.normpath(posixpath.join(abs_root, candidate))
+        if not joined.startswith(abs_root.rstrip("/") + "/") and joined != abs_root:
+            return None
+        return joined
     if os.path.isabs(candidate):
         return None
     abs_root = os.path.normpath(os.path.abspath(base_root))

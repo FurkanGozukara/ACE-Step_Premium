@@ -8,12 +8,15 @@ from typing import Dict, Any, Optional
 
 from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.events.results.output_manager import (
-    PROJECT_ROOT,
+    PROJECT_ROOT as OUTPUT_PROJECT_ROOT,
     get_results_dir,
 )
 
 # Platform detection for Windows-specific fixes
 IS_WINDOWS = sys.platform == "win32"
+
+# Project root is exported as a string for legacy tests/callers.
+PROJECT_ROOT = str(OUTPUT_PROJECT_ROOT)
 
 # Global results directory inside project root
 DEFAULT_RESULTS_DIR = str(get_results_dir()).replace("\\", "/")

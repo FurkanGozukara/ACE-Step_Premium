@@ -62,7 +62,7 @@ def init_service_wrapper(
     init_llm, lm_model_path, backend, use_flash_attention,
     offload_to_cpu, offload_dit_to_cpu, compile_model, quantization,
     mlx_dit=True, current_mode=None, current_batch_size=None,
-    current_think_checkbox=None,
+    current_think_checkbox=None, vae_checkpoint=None,
 ):
     """Wrapper for service initialization.
 
@@ -132,6 +132,7 @@ def init_service_wrapper(
         use_flash_attention=use_flash_attention, compile_model=compile_model,
         offload_to_cpu=offload_to_cpu, offload_dit_to_cpu=offload_dit_to_cpu,
         quantization=quant_value, use_mlx_dit=mlx_dit,
+        vae_checkpoint=vae_checkpoint,
     )
 
     if init_llm:

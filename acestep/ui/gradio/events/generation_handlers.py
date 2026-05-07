@@ -9,6 +9,12 @@ from __future__ import annotations
 from importlib import import_module
 from typing import Any
 
+from acestep.ui.gradio.events.dcw_defaults import (
+    NON_THINK_DCW_DEFAULTS,
+    THINK_DCW_DEFAULTS,
+    get_dcw_defaults_for_think,
+)
+
 
 def _load_attr(module_name: str, attr_name: str) -> Any:
     """Import and return the requested handler attribute."""
@@ -154,6 +160,10 @@ def analyze_src_audio(*args: Any, **kwargs: Any) -> Any:
     return _forward("llm_actions", "analyze_src_audio", *args, **kwargs)
 
 
+def update_dcw_defaults_for_think(*args: Any, **kwargs: Any) -> Any:
+    return _forward("ui_helpers", "update_dcw_defaults_for_think", *args, **kwargs)
+
+
 def update_negative_prompt_visibility(*args: Any, **kwargs: Any) -> Any:
     return _forward(
         "ui_helpers",
@@ -271,6 +281,10 @@ __all__ = [
     "handle_format_lyrics",
     "transcribe_audio_codes",
     "analyze_src_audio",
+    "NON_THINK_DCW_DEFAULTS",
+    "THINK_DCW_DEFAULTS",
+    "get_dcw_defaults_for_think",
+    "update_dcw_defaults_for_think",
     "update_negative_prompt_visibility",
     "on_auto_checkbox_change",
     "reset_all_auto",

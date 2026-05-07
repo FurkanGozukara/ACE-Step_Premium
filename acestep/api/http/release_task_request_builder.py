@@ -29,10 +29,21 @@ def build_generate_music_request(
         Instantiated request model object.
     """
 
+    def parser_get(key: str, default: Any = None) -> Any:
+        """Call parser.get while tolerating legacy one-argument fakes."""
+
+        try:
+            value = parser.get(key, default)
+        except TypeError:
+            value = parser.get(key)
+            if value is None:
+                value = default
+        return value
+
     reference_audio = overrides.pop("reference_audio_path", None) or parser.str("reference_audio_path") or None
     src_audio = overrides.pop("src_audio_path", None) or parser.str("src_audio_path") or None
 
-    track_classes = parser.get("track_classes")
+    track_classes = parser_get("track_classes")
     if track_classes is not None and isinstance(track_classes, str):
         track_classes = [track_classes]
 
@@ -56,7 +67,7 @@ def build_generate_music_request(
         inference_steps=parser.int("inference_steps", 8),
         guidance_scale=parser.float("guidance_scale", 7.0),
         use_random_seed=parser.bool("use_random_seed", True),
-        seed=parser.get("seed", -1),
+        seed=parser_get("seed", -1),
         batch_size=parser.int("batch_size"),
         repainting_start=parser.float("repainting_start", 0.0),
         repainting_end=parser.float("repainting_end"),
