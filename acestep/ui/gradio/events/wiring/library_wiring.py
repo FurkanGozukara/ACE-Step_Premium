@@ -4,7 +4,20 @@ from __future__ import annotations
 
 from typing import Any
 
-from acestep.ui.gradio.generated_library import refresh_library, select_library_item
+from acestep.ui.gradio.generated_library import (
+    filter_library_by_date,
+    refresh_library,
+    select_library_table_item,
+)
+
+
+_BROWSER_TIMEZONE_JS = """() => {
+    try {
+        return [Intl.DateTimeFormat().resolvedOptions().timeZone || null];
+    } catch (_e) {
+        return [null];
+    }
+}"""
 
 
 def register_library_handlers(library_page: dict[str, Any], demo: Any | None = None) -> None:
@@ -12,6 +25,7 @@ def register_library_handlers(library_page: dict[str, Any], demo: Any | None = N
 
     outputs = [
         library_page["library_state"],
+        library_page["library_filtered_state"],
         library_page["library_selector"],
         library_page["library_table"],
         library_page["library_audio"],
@@ -20,11 +34,28 @@ def register_library_handlers(library_page: dict[str, Any], demo: Any | None = N
         library_page["library_metadata"],
     ]
     if demo is not None:
-        demo.load(fn=refresh_library, outputs=outputs)
-    library_page["refresh_library_btn"].click(fn=refresh_library, outputs=outputs)
+        demo.load(fn=refresh_library, inputs=None, outputs=outputs, js=_BROWSER_TIMEZONE_JS)
+    library_page["refresh_library_btn"].click(
+        fn=refresh_library,
+        inputs=None,
+        outputs=outputs,
+        js=_BROWSER_TIMEZONE_JS,
+    )
     library_page["library_selector"].change(
-        fn=select_library_item,
+        fn=filter_library_by_date,
         inputs=[library_page["library_selector"], library_page["library_state"]],
+        outputs=[
+            library_page["library_filtered_state"],
+            library_page["library_table"],
+            library_page["library_audio"],
+            library_page["library_details"],
+            library_page["library_lyrics"],
+            library_page["library_metadata"],
+        ],
+    )
+    library_page["library_table"].select(
+        fn=select_library_table_item,
+        inputs=[library_page["library_filtered_state"]],
         outputs=[
             library_page["library_audio"],
             library_page["library_details"],

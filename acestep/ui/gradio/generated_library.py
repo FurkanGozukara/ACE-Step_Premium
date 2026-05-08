@@ -3,28 +3,46 @@
 from __future__ import annotations
 
 import json
+from datetime import tzinfo
 from pathlib import Path
 from typing import Any
 
 import gradio as gr
 
 from acestep.ui.gradio.events.results.output_manager import get_results_dir
+from acestep.ui.gradio.generated_library_records import (
+    date_choices_for_records,
+    details_markdown as _details_markdown,
+    filter_records_by_day,
+    find_record as _find_record,
+    record_from_table_event,
+    records_to_table as _records_to_table,
+)
+from acestep.ui.gradio.generated_library_time import (
+    format_library_created_date,
+    format_library_created_time,
+    resolve_library_timezone,
+)
 
 
 TABLE_HEADERS = ["Created", "Title", "Duration", "Model", "Format", "Score"]
 
 
-def refresh_library() -> tuple[Any, ...]:
+def refresh_library(browser_timezone: str | None = None) -> tuple[Any, ...]:
     """Return UI updates for the generated-song library tab."""
 
-    records = scan_generated_songs()
-    choices = [(record["label"], record["id"]) for record in records]
-    selected = records[0]["id"] if records else None
-    table = _records_to_table(records)
-    audio, details, lyrics, metadata = select_library_item(selected, records)
+    local_timezone = resolve_library_timezone(browser_timezone)
+    records = scan_generated_songs(local_timezone=local_timezone)
+    choices = date_choices_for_records(records)
+    selected_day = choices[0] if choices else None
+    filtered_records = filter_records_by_day(records, selected_day)
+    table = _records_to_table(filtered_records)
+    selected = filtered_records[0]["id"] if filtered_records else None
+    audio, details, lyrics, metadata = select_library_item(selected, filtered_records)
     return (
         records,
-        gr.update(choices=choices, value=selected),
+        filtered_records,
+        gr.update(choices=choices, value=selected_day),
         table,
         audio,
         details,
@@ -33,7 +51,27 @@ def refresh_library() -> tuple[Any, ...]:
     )
 
 
-def select_library_item(item_id: str | None, records: list[dict[str, Any]] | None) -> tuple[Any, ...]:
+def filter_library_by_date(
+    selected_day: str | None, records: list[dict[str, Any]] | None
+) -> tuple[Any, ...]:
+    """Return table and detail updates for the selected generated-song date."""
+
+    filtered_records = filter_records_by_day(records or [], selected_day)
+    selected = filtered_records[0]["id"] if filtered_records else None
+    audio, details, lyrics, metadata = select_library_item(selected, filtered_records)
+    return (
+        filtered_records,
+        _records_to_table(filtered_records),
+        audio,
+        details,
+        lyrics,
+        metadata,
+    )
+
+
+def select_library_item(
+    item_id: str | None, records: list[dict[str, Any]] | None
+) -> tuple[Any, ...]:
     """Return detail-panel updates for one generated library item."""
 
     record = _find_record(item_id, records or [])
@@ -47,7 +85,26 @@ def select_library_item(item_id: str | None, records: list[dict[str, Any]] | Non
     )
 
 
-def scan_generated_songs(results_dir: str | Path | None = None) -> list[dict[str, Any]]:
+def select_library_table_item(
+    records: list[dict[str, Any]] | None,
+    evt: gr.SelectData,
+) -> tuple[Any, ...]:
+    """Return detail-panel updates for the clicked generated-song table row."""
+
+    record = record_from_table_event(records or [], evt)
+    if record is None:
+        return None, "No generated song selected.", "", {}
+    return (
+        record.get("audio_path"),
+        _details_markdown(record),
+        record.get("lyrics", ""),
+        record.get("metadata", {}),
+    )
+
+
+def scan_generated_songs(
+    results_dir: str | Path | None = None, local_timezone: tzinfo | None = None
+) -> list[dict[str, Any]]:
     """Scan generation manifests and sidecars into newest-first records."""
 
     root = Path(results_dir) if results_dir is not None else get_results_dir()
@@ -60,7 +117,7 @@ def scan_generated_songs(results_dir: str | Path | None = None) -> list[dict[str
             continue
         for sample in samples:
             if isinstance(sample, dict):
-                records.append(_record_from_sample(manifest_path, manifest, sample))
+                records.append(_record_from_sample(manifest_path, manifest, sample, local_timezone))
     return records
 
 
@@ -68,6 +125,7 @@ def _record_from_sample(
     manifest_path: Path,
     manifest: dict[str, Any],
     sample: dict[str, Any],
+    local_timezone: tzinfo | None = None,
 ) -> dict[str, Any]:
     """Build a display record from a manifest sample entry."""
 
@@ -79,11 +137,14 @@ def _record_from_sample(
     metadata = {**sidecar, "manifest": manifest, "sample": sample}
     title = _title_from_values(request.get("caption"), params.get("lyrics"), sample.get("key"))
     created = manifest.get("_meta", {}).get("finished_at_utc", "")
+    created_display = format_library_created_time(created, local_timezone=local_timezone)
+    created_day = format_library_created_date(created, local_timezone=local_timezone)
     audio_path = str(sample.get("audio_path") or "")
     return {
         "id": f"{manifest_path}:{sample.get('sample_index', 0)}",
-        "label": f"{created[:19]} | {title}",
         "created": created,
+        "created_display": created_display,
+        "created_day": created_day,
         "title": title,
         "duration": request.get("audio_duration") or params.get("duration") or "",
         "model": _model_label(request),
@@ -96,42 +157,6 @@ def _record_from_sample(
         "caption": request.get("caption") or params.get("prompt") or "",
         "metadata": metadata,
     }
-
-
-def _records_to_table(records: list[dict[str, Any]]) -> list[list[Any]]:
-    """Convert records to a Dataframe-compatible table."""
-
-    return [
-        [
-            record.get("created", "")[:19],
-            record.get("title", ""),
-            record.get("duration", ""),
-            record.get("model", ""),
-            record.get("format", ""),
-            record.get("score", ""),
-        ]
-        for record in records
-    ]
-
-
-def _details_markdown(record: dict[str, Any]) -> str:
-    """Format one generated-song detail card as Markdown."""
-
-    return "\n".join(
-        [
-            f"### {record.get('title', 'Generated song')}",
-            f"- Created: `{record.get('created', '')}`",
-            f"- Model: `{record.get('model', '')}`",
-            f"- Duration: `{record.get('duration', '')}`",
-            f"- Format: `{record.get('format', '')}`",
-            f"- Score: `{record.get('score', '')}`",
-            f"- Audio: `{record.get('audio_path') or 'missing'}`",
-            f"- Metadata: `{record.get('metadata_path', '')}`",
-            f"- Manifest: `{record.get('manifest_path', '')}`",
-            "",
-            record.get("caption", ""),
-        ]
-    )
 
 
 def _title_from_values(caption: Any, lyrics: Any, fallback: Any) -> str:
@@ -153,17 +178,6 @@ def _model_label(request: dict[str, Any]) -> str:
     model = request.get("config_path") or dit_init.get("config_path") or request.get("model") or ""
     quant = runtime.get("dit_quantization") or request.get("quantization") or ""
     return " / ".join(str(part) for part in (model, quant) if part) or "ACE-Step"
-
-
-def _find_record(item_id: str | None, records: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """Return the selected record or the first record."""
-
-    if not records:
-        return None
-    for record in records:
-        if record.get("id") == item_id:
-            return record
-    return records[0]
 
 
 def _read_json(path: Path) -> dict[str, Any]:

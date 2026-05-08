@@ -13,6 +13,7 @@ def create_library_page() -> dict[str, Any]:
     """Build the generated-song library tab."""
 
     library_state = gr.State(value=[])
+    library_filtered_state = gr.State(value=[])
     with gr.Row(equal_height=True):
         refresh_library_btn = gr.Button(
             "Refresh Library",
@@ -56,6 +57,7 @@ def create_library_page() -> dict[str, Any]:
 
     return {
         "library_state": library_state,
+        "library_filtered_state": library_filtered_state,
         "refresh_library_btn": refresh_library_btn,
         "library_selector": library_selector,
         "library_table": library_table,
