@@ -71,7 +71,7 @@ class BatchManagementHelperTests(unittest.TestCase):
             0.02,            # dcw_high_scaler
             "haar",          # dcw_wavelet
             "flac",          # audio_format
-            "128k",          # mp3_bitrate
+            "320k",          # mp3_bitrate
             48000,           # mp3_sample_rate
             0.85,            # lm_temperature
             True,            # think_checkbox
@@ -100,7 +100,7 @@ class BatchManagementHelperTests(unittest.TestCase):
         self.assertEqual(params["captions"], "cap")
         self.assertEqual(params["lyrics"], "lyr")
         self.assertEqual(params["track_name"], "track")
-        self.assertEqual(params["mp3_bitrate"], "128k")
+        self.assertEqual(params["mp3_bitrate"], "320k")
         self.assertEqual(params["mp3_sample_rate"], 48000)
         self.assertEqual(params["sampler_mode"], "euler")
         self.assertFalse(params["no_fsq"])
@@ -118,8 +118,8 @@ class BatchManagementHelperTests(unittest.TestCase):
         module._apply_param_defaults(params)
         self.assertEqual(params["captions"], "keep")
         self.assertEqual(params["lm_top_k"], 7)
-        self.assertEqual(params["audio_format"], "flac")
-        self.assertEqual(params["mp3_bitrate"], "128k")
+        self.assertEqual(params["audio_format"], "flac_mp3")
+        self.assertEqual(params["mp3_bitrate"], "320k")
         self.assertEqual(params["mp3_sample_rate"], 48000)
         self.assertIn("latent_shift", params)
         self.assertIn("fade_in_duration", params)

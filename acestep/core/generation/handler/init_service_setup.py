@@ -79,6 +79,10 @@ class InitServiceSetupMixin:
                 logger.warning("[initialize_service] Quantization (torchao) is not supported on MPS; disabling.")
                 normalized_quantization = None
 
+        if normalized_quantization == "fp8_scaled" and normalized_compile:
+            logger.info("[initialize_service] Disabling torch.compile for fp8_scaled quantization.")
+            normalized_compile = False
+
         return normalized_compile, normalized_quantization, mlx_compile_requested
 
     @staticmethod
@@ -102,6 +106,12 @@ class InitServiceSetupMixin:
     def _validate_quantization_setup(self, *, quantization: Optional[str], compile_model: bool) -> None:
         """Validate quantization prerequisites before model loading."""
         if quantization is None:
+            return
+        if quantization == "fp8_scaled":
+            if not hasattr(torch, "float8_e4m3fn"):
+                raise RuntimeError(
+                    "Scaled FP8 requires a PyTorch build with float8_e4m3fn support."
+                )
             return
         try:
             import torchao  # noqa: F401

@@ -16,7 +16,7 @@ retake_test_outputs/
 __pycache__/
 *.py[codz]
 *$py.class
-
+ui_verification
 # C extensions
 *.so
 *.png
@@ -32,6 +32,10 @@ lib/
 lib64/
 parts/
 gradio/
+!acestep/ui/gradio/
+!acestep/ui/gradio/**
+acestep/ui/gradio/**/__pycache__/
+acestep/ui/gradio/**/*.py[codz]
 models/
 sdist/
 var/

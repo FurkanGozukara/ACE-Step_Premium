@@ -4,9 +4,9 @@ from typing import Any
 
 import gradio as gr
 
-from acestep.constants import VALID_LANGUAGES
 from acestep.ui.gradio.help_content import create_help_button
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.language_choices import language_dropdown_choices
 
 
 def build_simple_input_controls() -> tuple[gr.Textbox, gr.Dropdown, gr.Checkbox]:
@@ -29,10 +29,7 @@ def build_simple_input_controls() -> tuple[gr.Textbox, gr.Dropdown, gr.Checkbox]
     )
     with gr.Column(scale=1):
         simple_vocal_language = gr.Dropdown(
-            choices=[
-                (lang if lang != "unknown" else "Instrumental / auto", lang)
-                for lang in VALID_LANGUAGES
-            ],
+            choices=language_dropdown_choices(),
             value="unknown",
             allow_custom_value=True,
             label=t("generation.simple_vocal_language_label"),

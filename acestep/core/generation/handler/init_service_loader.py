@@ -8,6 +8,7 @@ import torch
 from loguru import logger
 
 from acestep import gpu_config
+from .fp8_scaled_quantization import apply_fp8_scaled_quantization
 from .init_service_loader_components import InitServiceLoaderComponentsMixin
 
 
@@ -89,9 +90,23 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
             return Int8DynamicActivationInt8WeightConfig(act_mapping_type=MappingType.ASYMMETRIC)
         raise ValueError(f"Unsupported quantization type: {quantization}")
 
-    def _apply_dit_quantization(self, quantization: Optional[str]) -> None:
+    def _apply_dit_quantization(
+        self,
+        quantization: Optional[str],
+        *,
+        model_checkpoint_path: str | None = None,
+        device: str = "auto",
+    ) -> None:
         """Apply torchao quantization to DiT linear layers when requested."""
         if quantization is None:
+            return
+        if quantization == "fp8_scaled":
+            apply_fp8_scaled_quantization(
+                self.model,
+                checkpoint_path=model_checkpoint_path,
+                device=device,
+            )
+            logger.info("[initialize_service] DiT quantized with: fp8_scaled")
             return
         from torchao.quantization import quantize_
         from torchao.quantization.quant_api import _is_linear
@@ -206,7 +221,11 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
         if compile_model:
             self._ensure_len_for_compile(self.model, "model")
             self.model = torch.compile(self.model)
-        self._apply_dit_quantization(quantization)
+        self._apply_dit_quantization(
+            quantization,
+            model_checkpoint_path=model_checkpoint_path,
+            device=device,
+        )
 
         silence_latent_path = os.path.join(model_checkpoint_path, "silence_latent.pt")
         if not os.path.exists(silence_latent_path):

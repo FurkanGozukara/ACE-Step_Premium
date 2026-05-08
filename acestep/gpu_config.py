@@ -279,6 +279,21 @@ def _apply_lm_backend_compatibility_overrides(config: GPUConfig) -> GPUConfig:
         )
         config.lm_backend_restriction = "pt_only"
         config.recommended_backend = "pt"
+        return config
+
+    if is_cuda_available():
+        try:
+            from acestep.llm_backend_compat import get_vllm_preflight_warning
+
+            warning = get_vllm_preflight_warning(device="cuda")
+        except Exception:
+            warning = None
+        if warning is not None:
+            logger.info(
+                "CUDA LM backend preflight prefers PyTorch: {}",
+                warning,
+            )
+            config.recommended_backend = "pt"
     return config
 
 
@@ -309,14 +324,23 @@ def resolve_lm_backend(
     return backend
 
 
-# GPU tier configurations
-# tier6 has been split into tier6a (16-20GB) and tier6b (20-24GB) to fix the
-# 16GB regression. 16GB GPUs cannot hold all models simultaneously with the
-# same batch sizes as 24GB GPUs.
+# GPU tier configurations.
+#
+# Calibrated on 2026-05-08 with the local XL SFT checkpoint on RTX 5090 using
+# real 60s / 8-step generations and nvidia-smi peak sampling:
+# - bf16, no offload, batch 8: 14.3 GiB peak without LM.
+# - bf16, no offload, local 1.7B LM loaded: 18.2 GiB init peak.
+# - int8, CPU offload, batch 8: 10.3 GiB peak.
+# - int8, full offload, batch 8: 8.7 GiB peak.
+# - int8, full offload, local 1.7B LM prompt: 4.1 GiB peak.
+#
+# tier6 is split into tier6a (16-20GB) and tier6b (20-24GB). 16GB-class GPUs
+# need quantization/offload with the XL model, while 20GB+ can use bf16 with
+# the local 1.7B LM.
 GPU_TIER_CONFIGS = {
     "tier1": {  # <= 4GB
-        # Offload mode required.  DiT(4.46) barely fits with CUDA context(0.5).
-        # VAE decode falls back to CPU.  Keep durations moderate.
+        # XL does not fit this tier even with full offload. Keep the safest
+        # settings for smaller checkpoints and warn when users select XL.
         "max_duration_with_lm": 240,  # 4 minutes
         "max_duration_without_lm": 360,  # 6 minutes
         "max_batch_size_with_lm": 1,
@@ -329,13 +353,12 @@ GPU_TIER_CONFIGS = {
         "offload_to_cpu_default": True,
         "offload_dit_to_cpu_default": True,
         "quantization_default": True,  # INT8 essential to fit DiT in ~4GB
-        "compile_model_default": True,
+        "compile_model_default": False,
         "lm_memory_gb": {},
     },
     "tier2": {  # 4-6GB
-        # Offload mode.  DiT(4.46) + context(0.5) + activations ≈ 5.0GB.
-        # ~1GB headroom.  Tiled VAE decode fits with chunk=256 (~0.8GB peak).
-        # Duration barely affects peak VRAM (latent tensor is <2MB even at 10min).
+        # XL batch 1 measured about 6.5 GiB with full offload, so this tier is
+        # only safe for smaller checkpoints. Keep LM disabled by default.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
         "max_batch_size_with_lm": 1,
@@ -348,18 +371,17 @@ GPU_TIER_CONFIGS = {
         "offload_to_cpu_default": True,
         "offload_dit_to_cpu_default": True,
         "quantization_default": True,
-        "compile_model_default": True,
+        "compile_model_default": False,
         "lm_memory_gb": {},
     },
     "tier3": {  # 6-8GB
-        # Offload mode.  DiT(4.46) + context(0.5) ≈ 5.0GB.
-        # ~1.5-3GB headroom allows LM 0.6B (1.2+0.6=1.8GB) and batch=2.
-        # With CPU offload, DiT is offloaded before LM runs → vllm can use freed VRAM.
+        # XL full-offload batch 1 measured about 6.5 GiB and batch 2 about
+        # 6.9 GiB, which is too close for the low end of this tier.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
-        "max_batch_size_with_lm": 2,
-        "max_batch_size_without_lm": 2,
-        "init_lm_default": True,
+        "max_batch_size_with_lm": 1,
+        "max_batch_size_without_lm": 1,
+        "init_lm_default": False,
         "available_lm_models": ["acestep-5Hz-lm-0.6B"],
         "recommended_lm_model": "acestep-5Hz-lm-0.6B",
         "lm_backend_restriction": "all",
@@ -367,12 +389,12 @@ GPU_TIER_CONFIGS = {
         "offload_to_cpu_default": True,
         "offload_dit_to_cpu_default": True,
         "quantization_default": True,
-        "compile_model_default": True,
+        "compile_model_default": False,
         "lm_memory_gb": {"0.6B": 3},
     },
     "tier4": {  # 8-12GB
-        # Can keep DiT + 0.6B LM simultaneously on GPU (4.46+1.2+0.6=6.26GB).
-        # Offload VAE/TextEnc.  Plenty of room for inference activations.
+        # XL full-offload batch 4 measured about 7.5 GiB. LM prompt with the
+        # local 1.7B fallback measured about 4.1 GiB because LM is offloaded.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
         "max_batch_size_with_lm": 2,
@@ -385,16 +407,16 @@ GPU_TIER_CONFIGS = {
         "offload_to_cpu_default": True,
         "offload_dit_to_cpu_default": True,
         "quantization_default": True,
-        "compile_model_default": True,
+        "compile_model_default": False,
         "lm_memory_gb": {"0.6B": 3},
     },
     "tier5": {  # 12-16GB
-        # DiT + 1.7B LM (4.46+3.45+0.44=8.35GB) fits comfortably.
-        # VAE decode is batch-sequential so batch size doesn't affect VAE VRAM.
+        # INT8 + CPU offload measured 10.3 GiB at batch 8 without LM and
+        # 10.2 GiB for a local 1.7B LM prompt. Keep LM batch lower for margin.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
         "max_batch_size_with_lm": 4,
-        "max_batch_size_without_lm": 4,
+        "max_batch_size_without_lm": 8,
         "init_lm_default": True,
         "available_lm_models": ["acestep-5Hz-lm-0.6B", "acestep-5Hz-lm-1.7B"],
         "recommended_lm_model": "acestep-5Hz-lm-1.7B",
@@ -403,13 +425,12 @@ GPU_TIER_CONFIGS = {
         "offload_to_cpu_default": True,
         "offload_dit_to_cpu_default": False,  # 12-16GB can keep DiT on GPU
         "quantization_default": True,
-        "compile_model_default": True,
+        "compile_model_default": False,
         "lm_memory_gb": {"0.6B": 3, "1.7B": 8},
     },
     "tier6a": {  # 16-20GB (e.g., RTX 4060 Ti 16GB, RTX 3080 16GB)
-        # On 16GB GPUs: DiT(INT8, ~2.4GB) + LM 1.7B(~7.6GB peak with offload) = ~10GB peak
-        # Empirical batch tests (60s, turbo): noLM-4→13.3GB, LM-2→11.9GB, LM-4→~13.5GB
-        # With CPU offload, LM is offloaded after inference → DiT batch has full 16GB budget.
+        # INT8 + CPU offload keeps the XL model under 10.3 GiB at batch 8.
+        # This avoids the 18.2 GiB bf16+LM peak measured with no offload.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
         "max_batch_size_with_lm": 4,
@@ -422,12 +443,12 @@ GPU_TIER_CONFIGS = {
         "offload_to_cpu_default": True,  # Still offload VAE/TextEnc to save VRAM for LM
         "offload_dit_to_cpu_default": False,
         "quantization_default": True,
-        "compile_model_default": True,
+        "compile_model_default": False,
         "lm_memory_gb": {"0.6B": 3, "1.7B": 8},
     },
     "tier6b": {  # 20-24GB (e.g., RTX 3090, RTX 4090)
-        # 20-24GB: no offload, no quantization. DiT(bf16, ~4.7GB) + LM 1.7B(~3.4GB) = ~8.1GB
-        # Remaining ~12-16GB easily fits batch=8. VAE decode is batch-sequential.
+        # bf16 XL + local 1.7B LM measured 18.2 GiB peak at init and 17.1 GiB
+        # with a batch-8 DiT generation after LM load.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 480,  # 8 minutes
         "max_batch_size_with_lm": 8,
@@ -444,7 +465,7 @@ GPU_TIER_CONFIGS = {
         "offload_to_cpu_default": False,  # 20-24GB can hold all models
         "offload_dit_to_cpu_default": False,
         "quantization_default": False,  # Enough VRAM, quantization optional
-        "compile_model_default": True,
+        "compile_model_default": False,
         "lm_memory_gb": {"0.6B": 3, "1.7B": 8, "4B": 12},
     },
     "unlimited": {  # >= 24GB
@@ -458,13 +479,13 @@ GPU_TIER_CONFIGS = {
             "acestep-5Hz-lm-1.7B",
             "acestep-5Hz-lm-4B",
         ],
-        "recommended_lm_model": "acestep-5Hz-lm-4B",
+        "recommended_lm_model": "acestep-5Hz-lm-1.7B",
         "lm_backend_restriction": "all",
         "recommended_backend": "vllm",
         "offload_to_cpu_default": False,
         "offload_dit_to_cpu_default": False,
         "quantization_default": False,  # Plenty of VRAM
-        "compile_model_default": True,
+        "compile_model_default": False,
         "lm_memory_gb": {"0.6B": 3, "1.7B": 8, "4B": 12},
     },
 }

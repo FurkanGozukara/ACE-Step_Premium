@@ -4,21 +4,25 @@ from typing import Any
 
 import gradio as gr
 
+from acestep.ui.gradio.events.generation.audio_format_options import (
+    AUDIO_FORMAT_CHOICES,
+    DEFAULT_AUDIO_FORMAT,
+    DEFAULT_MP3_BITRATE,
+    MP3_BITRATE_CHOICES,
+    MP3_SAMPLE_RATE_CHOICES,
+    mp3_controls_visible,
+)
 from acestep.ui.gradio.i18n import t
-
-
-_MP3_BITRATE_CHOICES = [("128 kbps", "128k"), ("192 kbps", "192k"), ("256 kbps", "256k"), ("320 kbps", "320k")]
-_MP3_SAMPLE_RATE_CHOICES = [("48 kHz", 48000), ("44.1 kHz", 44100)]
 
 
 def _update_mp3_control_visibility(audio_format: str, service_mode: bool = False):
     """Return visibility and interactivity updates for MP3-only controls."""
-    visible = audio_format == "mp3"
+    visible = mp3_controls_visible(audio_format)
     interactive = visible and not service_mode
     return (
         gr.update(visible=visible),
-        gr.update(choices=_MP3_BITRATE_CHOICES, visible=visible, interactive=interactive),
-        gr.update(choices=_MP3_SAMPLE_RATE_CHOICES, visible=visible, interactive=interactive),
+        gr.update(choices=MP3_BITRATE_CHOICES, visible=visible, interactive=interactive),
+        gr.update(choices=MP3_SAMPLE_RATE_CHOICES, visible=visible, interactive=interactive),
     )
 
 
@@ -39,20 +43,13 @@ def build_output_controls(
     """
 
     params = init_params or {}
-    initial_audio_format = params.get("audio_format", "mp3")
-    initial_mp3_visible = initial_audio_format == "mp3"
+    initial_audio_format = params.get("audio_format", DEFAULT_AUDIO_FORMAT)
+    initial_mp3_visible = mp3_controls_visible(initial_audio_format)
     with gr.Accordion(t("generation.advanced_output_section"), open=True, elem_classes=["has-info-container"]):
         with gr.Row():
             with gr.Column(scale=1):
                 audio_format = gr.Dropdown(
-                    choices=[
-                        ("FLAC", "flac"),
-                        ("MP3", "mp3"),
-                        ("Opus", "opus"),
-                        ("AAC", "aac"),
-                        ("WAV (16-bit)", "wav"),
-                        ("WAV (32-bit Float)", "wav32"),
-                    ],
+                    choices=AUDIO_FORMAT_CHOICES,
                     value=initial_audio_format,
                     label=t("generation.audio_format_label"),
                     info=t("generation.audio_format_info"),
@@ -62,13 +59,8 @@ def build_output_controls(
                 )
                 with gr.Row(visible=initial_mp3_visible) as mp3_controls_row:
                     mp3_bitrate = gr.Dropdown(
-                        choices=[
-                            ("128 kbps", "128k"),
-                            ("192 kbps", "192k"),
-                            ("256 kbps", "256k"),
-                            ("320 kbps", "320k"),
-                        ],
-                        value=params.get("mp3_bitrate", "128k"),
+                        choices=MP3_BITRATE_CHOICES,
+                        value=params.get("mp3_bitrate", DEFAULT_MP3_BITRATE),
                         label=t("generation.mp3_bitrate_label"),
                         info=t("generation.mp3_bitrate_info"),
                         elem_id="acestep-mp3-bitrate",
@@ -78,10 +70,7 @@ def build_output_controls(
                         scale=1,
                     )
                     mp3_sample_rate = gr.Dropdown(
-                        choices=[
-                            ("48 kHz", 48000),
-                            ("44.1 kHz", 44100),
-                        ],
+                        choices=MP3_SAMPLE_RATE_CHOICES,
                         value=params.get("mp3_sample_rate", 48000),
                         label=t("generation.mp3_sample_rate_label"),
                         info=t("generation.mp3_sample_rate_info"),

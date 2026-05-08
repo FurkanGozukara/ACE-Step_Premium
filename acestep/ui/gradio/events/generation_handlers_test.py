@@ -509,7 +509,7 @@ class LoadMetadataMp3SanitizationTests(unittest.TestCase):
 
         self.assertEqual(result[19], "mp3")
         self.assertTrue(result[20]["visible"])
-        self.assertEqual(result[21]["value"], "128k")
+        self.assertEqual(result[21]["value"], "320k")
         self.assertEqual(result[22]["value"], 48000)
 
 @unittest.skipIf(generation_handlers is None, f"generation_handlers import unavailable: {_IMPORT_ERROR}")

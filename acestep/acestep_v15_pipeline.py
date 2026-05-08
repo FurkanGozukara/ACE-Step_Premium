@@ -392,7 +392,7 @@ def main():
         default=_default_quantization,
         help=(
             "DiT quantization method: int8_weight_only, fp8_weight_only, "
-            "w8a8_dynamic, or none "
+            "fp8_scaled, w8a8_dynamic, or none "
             f"(default: {_default_quantization}, auto-detected based on GPU tier)"
         ),
     )

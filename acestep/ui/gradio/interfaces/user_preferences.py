@@ -18,10 +18,11 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-
 _ASSET_FILENAME = "user_preferences.js"
 _STORAGE_KEY = "acestep.ui.user_preferences"
 _SCHEMA_VERSION = 1
+_DEFAULT_AUDIO_FORMAT = "flac_mp3"
+_DEFAULT_MP3_BITRATE = "320k"
 
 # Ordered list of preference keys.  The order here MUST match the order of
 # *outputs* passed to ``demo.load()`` in ``wire_preference_restore``.
@@ -42,8 +43,8 @@ PREF_KEYS: list[str] = [
 # Default values used when localStorage is empty or the schema version has
 # changed.  Keys must match ``PREF_KEYS``.
 _DEFAULTS: dict[str, Any] = {
-    "audio_format": "mp3",
-    "mp3_bitrate": "128k",
+    "audio_format": _DEFAULT_AUDIO_FORMAT,
+    "mp3_bitrate": _DEFAULT_MP3_BITRATE,
     "mp3_sample_rate": 48000,
     "score_scale": 0.5,
     "enable_normalization": True,
@@ -155,7 +156,9 @@ def _build_restore_js(num_outputs: int) -> str:
             // When audioFormat is null (no stored value), push nulls so Python
             // emits gr.update() and preserves whatever init_params set.
             const audioFormat = result[0];
-            const mp3 = audioFormat === null ? null : audioFormat === "mp3";
+            const mp3 = audioFormat === null ? null : (
+                audioFormat === "mp3" || audioFormat === "flac_mp3"
+            );
             result.push(mp3, mp3, mp3);
             return result;
         }} catch (_e) {{

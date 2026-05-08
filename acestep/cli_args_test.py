@@ -24,6 +24,8 @@ class ParseQuantizationArgTests(unittest.TestCase):
         self.assertEqual("int8_weight_only", parse_quantization_arg("INT8_WEIGHT_ONLY"))
         self.assertEqual("fp8_weight_only", parse_quantization_arg("fp8_weight_only"))
         self.assertEqual("fp8_weight_only", parse_quantization_arg(" FP8_Weight_Only "))
+        self.assertEqual("fp8_scaled", parse_quantization_arg("fp8_scaled"))
+        self.assertEqual("fp8_scaled", parse_quantization_arg(" FP8_Scaled "))
         self.assertEqual("w8a8_dynamic", parse_quantization_arg("w8a8_dynamic"))
         self.assertEqual("w8a8_dynamic", parse_quantization_arg(" W8A8_Dynamic "))
 

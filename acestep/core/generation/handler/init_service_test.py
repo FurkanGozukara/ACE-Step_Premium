@@ -288,6 +288,18 @@ class InitServiceMixinTests(unittest.TestCase):
         self.assertEqual(quantization, "int8_weight_only")
         self.assertFalse(mlx_compile_requested)
 
+    def test_configure_initialize_runtime_disables_compile_for_fp8_scaled(self):
+        """It disables torch.compile before applying patched FP8 scaled linears."""
+        host = _Host(project_root="K:/fake_root", device="cuda")
+        compile_model, quantization, mlx_compile_requested = host._configure_initialize_runtime(
+            device="cuda",
+            compile_model=True,
+            quantization="fp8_scaled",
+        )
+        self.assertFalse(compile_model)
+        self.assertEqual(quantization, "fp8_scaled")
+        self.assertFalse(mlx_compile_requested)
+
     def test_resolve_initialize_device_requested_cuda_falls_back_to_cpu(self):
         """It falls back from CUDA to CPU when no accelerator backends are available."""
         host = _Host(project_root="K:/fake_root", device="cuda")

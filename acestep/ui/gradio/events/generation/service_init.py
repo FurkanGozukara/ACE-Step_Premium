@@ -20,34 +20,16 @@ from acestep.gpu_config import (
     resolve_lm_backend,
 )
 from .model_config import is_pure_base_model, is_sft_model, is_xl_model, get_model_type_ui_settings
+from .quantization import default_quantization_value, select_quantization_value
 
 
 def _select_quantization_value(
     *,
-    quantization_enabled: bool,
+    quantization_enabled,
     device: str,
 ) -> str | None:
     """Return the DiT quantization mode selected for the current UI state."""
-    quant_value = "int8_weight_only" if quantization_enabled else None
-    if not quantization_enabled or device not in {"auto", "cuda"}:
-        return quant_value
-
-    try:
-        import torch
-    except ImportError:
-        return quant_value
-
-    try:
-        if torch.cuda.is_available():
-            major, _ = torch.cuda.get_device_capability(0)
-            if major < 7:
-                logger.info(
-                    "Pre-Ampere CUDA detected: using w8a8_dynamic quantization for stability"
-                )
-                return "w8a8_dynamic"
-    except Exception:
-        return quant_value
-    return quant_value
+    return select_quantization_value(quantization_enabled, device=device)
 
 
 def refresh_checkpoints(dit_handler):
@@ -86,9 +68,9 @@ def init_service_wrapper(
                 "macOS detected: torch.compile not supported; compilation "
                 "will use mx.compile via MLX."
             )
-        if quantization:
-            logger.info("macOS detected: disabling INT8 quantization (torchao incompatible with MPS)")
-            quantization = False
+        if quant_value is not None:
+            logger.info("macOS detected: disabling quantization (incompatible with MPS)")
+            quantization = "none"
             quant_value = None
 
     # Compute lm_device only when initializing the LLM to avoid overwriting a
@@ -300,7 +282,7 @@ def on_tier_change(selected_tier, llm_handler=None):
         ),
         gr.update(value=new_config.compile_model_default),
         gr.update(
-            value=new_config.quantization_default,
+            value=default_quantization_value(new_config.quantization_default),
             info=t("service.quantization_info") + (" (recommended for this tier)" if new_config.quantization_default else ""),
             elem_classes=["has-info-container"],
         ),

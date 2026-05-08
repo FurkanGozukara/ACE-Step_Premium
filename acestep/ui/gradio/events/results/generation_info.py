@@ -7,6 +7,7 @@ import sys
 from typing import Dict, Any, Optional
 
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.events.generation.audio_format_options import audio_format_label
 from acestep.ui.gradio.events.results.output_manager import (
     PROJECT_ROOT as OUTPUT_PROJECT_ROOT,
     get_results_dir,
@@ -89,7 +90,7 @@ def _build_generation_info(
     proc_total = audio_conversion_time + auto_score_time + auto_lrc_time
 
     if proc_total > 0:
-        fmt_label = audio_format.upper() if audio_format != "wav32" else "WAV 32-bit"
+        fmt_label = audio_format_label(audio_format)
         lines = [f"**🔧 Total processing time {songs_label}: {proc_total:.2f}s**"]
         if audio_conversion_time > 0:
             lines.append(f"- to {fmt_label} {songs_label}: {audio_conversion_time:.2f}s")

@@ -235,6 +235,14 @@ def _build_gpu_config_for_tier(
     elif device_kind in {"cpu", "xpu"}:
         lm_backend_restriction = "pt_only"
         recommended_backend = "pt"
+    elif device_kind == "cuda":
+        try:
+            from acestep.llm_backend_compat import get_vllm_preflight_warning
+
+            if get_vllm_preflight_warning(device="cuda") is not None:
+                recommended_backend = "pt"
+        except Exception:
+            pass
 
     gpu_config = GPUConfig(
         tier=tier,

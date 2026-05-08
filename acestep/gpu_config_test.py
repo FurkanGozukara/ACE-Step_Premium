@@ -31,6 +31,67 @@ class GpuConfigLegacyCudaTests(unittest.TestCase):
         config = SimpleNamespace(recommended_backend="vllm", lm_backend_restriction="all")
         self.assertEqual("vllm", resolve_lm_backend("vllm", config))
 
+    def test_get_gpu_config_prefers_pt_when_vllm_preflight_warns(self) -> None:
+        """CUDA setups without vLLM prerequisites should default to PyTorch LM."""
+        with patch("acestep.gpu_config.is_legacy_cuda_gpu", return_value=False), patch(
+            "acestep.gpu_config.is_cuda_available",
+            return_value=True,
+        ), patch(
+            "acestep.llm_backend_compat.get_vllm_preflight_warning",
+            return_value="vLLM unavailable",
+        ):
+            config = get_gpu_config(gpu_memory_gb=32.0)
+
+        self.assertEqual("pt", config.recommended_backend)
+
+
+class GpuConfigMeasuredPresetTests(unittest.TestCase):
+    """Verify measured XL preset defaults stay conservative by VRAM tier."""
+
+    def test_tier3_defaults_to_full_offload_without_lm(self) -> None:
+        """6-8GB GPUs should not default to LM or batch sizes above measured headroom."""
+        config = get_gpu_config(gpu_memory_gb=7.5)
+
+        self.assertEqual("tier3", config.tier)
+        self.assertFalse(config.init_lm_default)
+        self.assertEqual(1, config.max_batch_size_with_lm)
+        self.assertEqual(1, config.max_batch_size_without_lm)
+        self.assertTrue(config.offload_to_cpu_default)
+        self.assertTrue(config.offload_dit_to_cpu_default)
+        self.assertTrue(config.quantization_default)
+        self.assertFalse(config.compile_model_default)
+
+    def test_tier5_allows_batch_eight_without_lm_under_int8_offload(self) -> None:
+        """12-16GB GPUs use the measured INT8 CPU-offload path."""
+        config = get_gpu_config(gpu_memory_gb=13.0)
+
+        self.assertEqual("tier5", config.tier)
+        self.assertEqual(4, config.max_batch_size_with_lm)
+        self.assertEqual(8, config.max_batch_size_without_lm)
+        self.assertTrue(config.offload_to_cpu_default)
+        self.assertFalse(config.offload_dit_to_cpu_default)
+        self.assertTrue(config.quantization_default)
+        self.assertFalse(config.compile_model_default)
+
+    def test_tier6b_defaults_to_bf16_without_offload(self) -> None:
+        """20-24GB GPUs can use the measured bf16 local-1.7B path."""
+        config = get_gpu_config(gpu_memory_gb=20.0)
+
+        self.assertEqual("tier6b", config.tier)
+        self.assertFalse(config.offload_to_cpu_default)
+        self.assertFalse(config.offload_dit_to_cpu_default)
+        self.assertFalse(config.quantization_default)
+        self.assertFalse(config.compile_model_default)
+        self.assertEqual("acestep-5Hz-lm-1.7B", config.recommended_lm_model)
+
+    def test_unlimited_recommends_measured_local_lm_size(self) -> None:
+        """Unlimited tier should not default to an unmeasured 4B LM."""
+        config = get_gpu_config(gpu_memory_gb=32.0)
+
+        self.assertEqual("unlimited", config.tier)
+        self.assertEqual("acestep-5Hz-lm-1.7B", config.recommended_lm_model)
+        self.assertFalse(config.compile_model_default)
+
 
 class AutoMlxVaeChunkSizeTests(unittest.TestCase):
     """Tests for memory-based MLX VAE chunk size selection."""

@@ -27,6 +27,7 @@ from acestep.ui.gradio.events.results.subprocess_generation import (
     build_pending_core_outputs,
     stream_subprocess_generation,
 )
+from acestep.ui.gradio.events.generation.quantization import select_quantization_value
 from acestep.ui.gradio.i18n import t
 
 torch = sys.modules.get("torch")
@@ -57,25 +58,11 @@ def _get_torch_for_in_process():
 
 def _select_quantization_value(
     *,
-    quantization_enabled: bool,
+    quantization_enabled,
     device: str,
 ) -> str | None:
     """Return the in-process DiT quantization mode for the selected UI state."""
-
-    quant_value = "int8_weight_only" if quantization_enabled else None
-    if not quantization_enabled or device not in {"auto", "cuda"}:
-        return quant_value
-
-    try:
-        import torch
-
-        if torch.cuda.is_available():
-            major, _ = torch.cuda.get_device_capability(0)
-            if major < 7:
-                return "w8a8_dynamic"
-    except Exception:
-        return quant_value
-    return quant_value
+    return select_quantization_value(quantization_enabled, device=device)
 
 
 def _resolve_project_root_for_generation() -> str:
@@ -96,7 +83,7 @@ def _dit_service_needs_reinit(
     offload_to_cpu: bool,
     offload_dit_to_cpu: bool,
     compile_model: bool,
-    quantization_enabled: bool,
+    quantization_enabled,
     mlx_dit: bool,
 ) -> tuple[bool, str | None]:
     """Return whether the foreground DiT handler must be reinitialized."""
@@ -188,7 +175,7 @@ def _ensure_in_process_service_ready(
     offload_to_cpu_checkbox: bool,
     offload_dit_to_cpu_checkbox: bool,
     compile_model_checkbox: bool,
-    quantization_checkbox: bool,
+    quantization_checkbox,
     mlx_dit_checkbox: bool,
     think_checkbox: bool,
     auto_score: bool,
@@ -210,7 +197,7 @@ def _ensure_in_process_service_ready(
         offload_to_cpu=bool(offload_to_cpu_checkbox),
         offload_dit_to_cpu=bool(offload_dit_to_cpu_checkbox),
         compile_model=bool(compile_model_checkbox),
-        quantization_enabled=bool(quantization_checkbox),
+        quantization_enabled=quantization_checkbox,
         mlx_dit=bool(mlx_dit_checkbox),
     )
     if dit_requires_init:

@@ -8,6 +8,13 @@ import sys
 
 import gradio as gr
 
+from acestep.ui.gradio.events.generation.audio_format_options import (
+    DEFAULT_AUDIO_FORMAT,
+    DEFAULT_MP3_BITRATE,
+    MP3_BITRATE_CHOICES,
+    MP3_SAMPLE_RATE_CHOICES,
+    mp3_controls_visible,
+)
 from acestep.ui.gradio.i18n import t
 
 
@@ -214,8 +221,8 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     audio_duration = params.get("audio_duration", -1)
     batch_size_input = params.get("batch_size_input", 2)
     inference_steps = params.get("inference_steps", 8)
-    audio_format = params.get("audio_format", "flac")
-    mp3_bitrate = params.get("mp3_bitrate", "128k")
+    audio_format = params.get("audio_format", DEFAULT_AUDIO_FORMAT)
+    mp3_bitrate = params.get("mp3_bitrate", DEFAULT_MP3_BITRATE)
     mp3_sample_rate = params.get("mp3_sample_rate", 48000)
     lm_temperature = params.get("lm_temperature", 0.85)
     lm_cfg_scale = params.get("lm_cfg_scale", 2.0)
@@ -238,7 +245,7 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     retake_seed = params.get("retake_seed", "")
 
     stored_codes = batch_data.get("codes", "")
-    is_mp3 = audio_format == "mp3"
+    is_mp3 = mp3_controls_visible(audio_format)
     if stored_codes:
         codes_main = stored_codes[0] if isinstance(stored_codes, list) and stored_codes else stored_codes
     else:
@@ -250,8 +257,8 @@ def restore_batch_parameters(current_batch_index, batch_queue):
         codes_main, captions, lyrics, bpm, key_scale, time_signature,
         vocal_language, audio_duration, batch_size_input, inference_steps,
         audio_format, gr.update(visible=is_mp3),
-        gr.update(choices=[("128 kbps", "128k"), ("192 kbps", "192k"), ("256 kbps", "256k"), ("320 kbps", "320k")], value=mp3_bitrate, visible=is_mp3),
-        gr.update(choices=[("48 kHz", 48000), ("44.1 kHz", 44100)], value=mp3_sample_rate, visible=is_mp3),
+        gr.update(choices=MP3_BITRATE_CHOICES, value=mp3_bitrate, visible=is_mp3),
+        gr.update(choices=MP3_SAMPLE_RATE_CHOICES, value=mp3_sample_rate, visible=is_mp3),
         lm_temperature, lm_cfg_scale, lm_top_k, lm_top_p, think_checkbox,
         use_cot_caption, use_cot_language, allow_lm_batch,
         track_name, complete_track_classes,

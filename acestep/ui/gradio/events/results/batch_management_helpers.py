@@ -6,6 +6,10 @@ background generation paths.
 
 from loguru import logger
 
+from acestep.ui.gradio.events.generation.audio_format_options import (
+    DEFAULT_AUDIO_FORMAT,
+    DEFAULT_MP3_BITRATE,
+)
 from acestep.ui.gradio.events.dcw_defaults import get_dcw_defaults_for_think
 
 
@@ -144,8 +148,8 @@ def _apply_param_defaults(params):
         "dcw_high_scaler": dcw_defaults["high_scaler"],
         "dcw_wavelet": "haar",
         "custom_timesteps": "",
-        "audio_format": "flac",
-        "mp3_bitrate": "128k",
+        "audio_format": DEFAULT_AUDIO_FORMAT,
+        "mp3_bitrate": DEFAULT_MP3_BITRATE,
         "mp3_sample_rate": 48000,
         "lm_temperature": 0.85,
         "think_checkbox": True, "lm_cfg_scale": 2.0,

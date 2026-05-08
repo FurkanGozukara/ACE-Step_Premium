@@ -19,6 +19,12 @@ from acestep.gpu_config import (
 )
 from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.events.generation_handlers import parse_and_validate_timesteps
+from acestep.ui.gradio.events.generation.audio_format_options import (
+    audio_file_extension,
+    normalize_audio_format,
+    output_audio_formats,
+    primary_audio_format,
+)
 from acestep.ui.gradio.events.results.generation_info import (
     _build_generation_info,
 )
@@ -129,6 +135,8 @@ def generate_with_progress(
 
     parsed_timesteps, _has_ts_warn, _ = parse_and_validate_timesteps(custom_timesteps, inference_steps)
     actual_inference_steps = len(parsed_timesteps) - 1 if parsed_timesteps is not None else inference_steps
+    audio_format = normalize_audio_format(audio_format)
+    backend_audio_format = primary_audio_format(audio_format)
 
     task_type = resolve_no_fsq_task_type(task_type, bool(no_fsq))
 
@@ -221,7 +229,7 @@ def generate_with_progress(
         seeds=seed_list,
         lm_batch_chunk_size=lm_batch_chunk_size,
         constrained_decoding_debug=constrained_decoding_debug,
-        audio_format=audio_format,
+        audio_format=backend_audio_format,
         mp3_bitrate=mp3_bitrate,
         mp3_sample_rate=mp3_sample_rate,
     )
@@ -332,6 +340,7 @@ def generate_with_progress(
         gpu_config=gpu_config,
         lm_initialized=lm_initialized,
         lm_generated_metadata=lm_generated_metadata,
+        service_metadata=_build_service_metadata(dit_handler, llm_handler),
     )
     run_assets = persist_generation_inputs(
         run_dir=run_dir,
@@ -404,16 +413,32 @@ def generate_with_progress(
         temp_dir = str(run_dir.resolve()).replace("\\", "/")
         json_path = os.path.join(temp_dir, f"{key}.json").replace("\\", "/")
 
-        ext = "wav" if audio_format == "wav32" else audio_format
-        audio_path = os.path.join(temp_dir, f"{key}.{ext}").replace("\\", "/")
+        saved_audio_paths: dict[str, str] = {}
+        for concrete_format in output_audio_formats(audio_format):
+            ext = audio_file_extension(concrete_format)
+            target_path = os.path.join(temp_dir, f"{key}.{ext}").replace("\\", "/")
+            saved_path = save_audio(
+                audio_data=audio_tensor,
+                output_path=target_path,
+                sample_rate=sample_rate,
+                format=concrete_format,
+                channels_first=True,
+                mp3_bitrate=mp3_bitrate,
+                mp3_sample_rate=mp3_sample_rate,
+            )
+            if saved_path:
+                saved_audio_paths[concrete_format] = saved_path.replace("\\", "/")
 
-        saved_path = save_audio(
-            audio_data=audio_tensor, output_path=audio_path,
-            sample_rate=sample_rate, format=audio_format, channels_first=True,
-            mp3_bitrate=mp3_bitrate, mp3_sample_rate=mp3_sample_rate,
-        )
-        if saved_path:
-            audio_path = saved_path.replace("\\", "/")
+        audio_path = saved_audio_paths.get(backend_audio_format)
+        if not audio_path and saved_audio_paths:
+            audio_path = next(iter(saved_audio_paths.values()))
+        audio_path = audio_path or ""
+        audio_params["audio_format"] = audio_format
+        audio_params["primary_audio_format"] = backend_audio_format
+        audio_params["saved_audio_formats"] = list(saved_audio_paths.keys())
+        audio_params["audio_paths"] = saved_audio_paths
+        if "mp3" in saved_audio_paths:
+            audio_params["mp3_path"] = saved_audio_paths["mp3"]
 
         _persist_repaint_source_latents(
             source_latents=_extract_repaint_source_latents(result.extra_outputs, i),
@@ -428,7 +453,7 @@ def generate_with_progress(
         )
 
         audio_outputs[i] = audio_path
-        all_audio_paths.append(audio_path)
+        all_audio_paths.extend(saved_audio_paths.values())
         all_audio_paths.append(json_path)
 
         code_str = audio_params.get("audio_codes", "")
@@ -463,8 +488,12 @@ def generate_with_progress(
             "sample_index": i + 1,
             "key": key,
             "audio_path": audio_path,
+            "audio_paths": saved_audio_paths,
+            "mp3_path": saved_audio_paths.get("mp3"),
             "metadata_path": json_path,
             "audio_format": audio_format,
+            "primary_audio_format": backend_audio_format,
+            "saved_audio_formats": list(saved_audio_paths.keys()),
             "sample_rate": sample_rate,
             "score": score_str,
             "audio_codes": code_str,
@@ -481,10 +510,16 @@ def generate_with_progress(
                     "sample_index": i + 1,
                     "run_dir": temp_dir,
                     "audio_path": audio_path,
+                    "audio_paths": saved_audio_paths,
                     "audio_format": audio_format,
+                    "primary_audio_format": backend_audio_format,
+                    "saved_audio_formats": list(saved_audio_paths.keys()),
                     "sample_rate": sample_rate,
                     "score": score_str,
                     "subtitle_path": final_subtitles_list[i],
+                    "generation_info": generation_info,
+                    "lm_metadata": lm_generated_metadata,
+                    "request": request_payload,
                 },
                 "lrc": final_lrcs_list[i],
             },
@@ -699,6 +734,7 @@ def _build_request_payload(
     gpu_config,
     lm_initialized,
     lm_generated_metadata,
+    service_metadata,
 ):
     """Build the full persisted request payload for a generation run."""
     return {
@@ -720,6 +756,8 @@ def _build_request_payload(
         "custom_timesteps": custom_timesteps,
         "thinking": think_checkbox,
         "audio_format": audio_format,
+        "saved_audio_formats": output_audio_formats(audio_format),
+        "primary_audio_format": primary_audio_format(audio_format),
         "mp3_bitrate": mp3_bitrate,
         "mp3_sample_rate": mp3_sample_rate,
         "reference_audio": reference_audio,
@@ -782,7 +820,20 @@ def _build_request_payload(
             "lm_initialized_at_start": lm_initialized,
             "save_memory_mode": gpu_config.save_memory_mode,
             "lm_generated_metadata": lm_generated_metadata,
+            **service_metadata,
         },
+    }
+
+
+def _build_service_metadata(dit_handler, llm_handler):
+    """Return serializable service/runtime metadata for generated songs."""
+
+    return {
+        "dit_quantization": getattr(dit_handler, "quantization", None),
+        "dit_device": str(getattr(dit_handler, "device", "")),
+        "dit_dtype": str(getattr(dit_handler, "dtype", "")),
+        "dit_last_init_params": getattr(dit_handler, "last_init_params", {}) or {},
+        "llm_last_init_params": getattr(llm_handler, "last_init_params", {}) or {},
     }
 
 

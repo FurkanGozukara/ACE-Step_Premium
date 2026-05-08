@@ -4,6 +4,10 @@ from typing import Any
 
 import gradio as gr
 
+from acestep.ui.gradio.events.generation.quantization import (
+    QUANTIZATION_CHOICES,
+    default_quantization_value,
+)
 from acestep.ui.gradio.i18n import t
 
 try:
@@ -90,9 +94,15 @@ def build_service_toggles(
             info=t("service.compile_model_info"),
             elem_classes=["has-info-container"],
         )
-        quantization_checkbox = gr.Checkbox(
+        default_quantization_value_for_ui = default_quantization_value(
+            params.get("quantization", default_quantization)
+            if service_pre_initialized
+            else default_quantization
+        )
+        quantization_checkbox = gr.Dropdown(
             label=t("service.quantization_label"),
-            value=params.get("quantization", default_quantization) if service_pre_initialized else default_quantization,
+            choices=QUANTIZATION_CHOICES,
+            value=default_quantization_value_for_ui,
             info=t("service.quantization_info")
             + (" (recommended for this tier)" if default_quantization else " (optional for this tier)"),
             elem_classes=["has-info-container"],

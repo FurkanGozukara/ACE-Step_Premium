@@ -160,6 +160,7 @@ class RestoreTests(unittest.TestCase):
         self.assertIn("audioFormat", js)
         self.assertIn('result.push(', js)
         self.assertIn('"mp3"', js)
+        self.assertIn('"flac_mp3"', js)
 
     def test_restore_preferences_passes_through_values(self):
         """Non-None values are passed through unchanged."""
@@ -217,6 +218,12 @@ class RestoreTests(unittest.TestCase):
         """Every PREF_KEY must have a corresponding default."""
         for key in PREF_KEYS:
             self.assertIn(key, _DEFAULTS, f"Key {key!r} missing from _DEFAULTS")
+
+    def test_quality_output_defaults_save_lossless_and_mp3(self):
+        """Fresh installs should default to FLAC+MP3 and max MP3 bitrate."""
+
+        self.assertEqual(_DEFAULTS["audio_format"], "flac_mp3")
+        self.assertEqual(_DEFAULTS["mp3_bitrate"], "320k")
 
     def test_restore_js_generation_is_stable(self):
         js_1 = _build_restore_js(_NUM_OUTPUTS)

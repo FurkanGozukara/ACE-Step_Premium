@@ -4,7 +4,7 @@ from typing import Any
 
 import gradio as gr
 
-from acestep.constants import VALID_LANGUAGES
+from acestep.ui.gradio.language_choices import language_dropdown_choices
 from acestep.ui.gradio.i18n import t
 
 
@@ -59,7 +59,7 @@ def build_optional_parameter_controls(
                 interactive=False,
             )
             vocal_language = gr.Dropdown(
-                choices=[(lang if lang != "unknown" else "Instrumental / auto", lang) for lang in VALID_LANGUAGES],
+                choices=language_dropdown_choices(),
                 value="unknown",
                 label=t("generation.vocal_language_label"),
                 info=t("generation.vocal_language_info"),

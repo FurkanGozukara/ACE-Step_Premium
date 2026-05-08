@@ -11,9 +11,17 @@ import glob
 import gradio as gr
 from typing import Optional
 
-from acestep.ui.gradio.i18n import t
 from acestep.gpu_config import get_global_gpu_config
 from acestep.inference import understand_music
+from acestep.ui.gradio.events.generation.audio_format_options import (
+    DEFAULT_AUDIO_FORMAT,
+    DEFAULT_MP3_BITRATE,
+    MP3_BITRATE_CHOICES,
+    MP3_SAMPLE_RATE_CHOICES,
+    mp3_controls_visible,
+    normalize_audio_format,
+)
+from acestep.ui.gradio.i18n import t
 from .validation import clamp_duration_to_gpu_limit
 
 
@@ -76,12 +84,10 @@ def load_metadata(file_obj, llm_handler=None):
         use_adg = metadata.get('use_adg', False)
         cfg_interval_start = metadata.get('cfg_interval_start', 0.0)
         cfg_interval_end = metadata.get('cfg_interval_end', 1.0)
-        audio_format = str(metadata.get('audio_format', 'flac')).strip().lower()
-        if audio_format not in {'flac', 'mp3', 'opus', 'aac', 'wav', 'wav32'}:
-            audio_format = 'flac'
-        mp3_bitrate = str(metadata.get('mp3_bitrate', '128k')).strip().lower()
+        audio_format = normalize_audio_format(metadata.get('audio_format', DEFAULT_AUDIO_FORMAT))
+        mp3_bitrate = str(metadata.get('mp3_bitrate', DEFAULT_MP3_BITRATE)).strip().lower()
         if mp3_bitrate not in {'128k', '192k', '256k', '320k'}:
-            mp3_bitrate = '128k'
+            mp3_bitrate = DEFAULT_MP3_BITRATE
         try:
             mp3_sample_rate = int(metadata.get('mp3_sample_rate', 48000))
         except (TypeError, ValueError):
@@ -119,12 +125,9 @@ def load_metadata(file_obj, llm_handler=None):
         retake_seed_value = metadata.get('retake_seed_value', metadata.get('retake_seed', ''))
         retake_seed = "" if retake_seed_value is None else str(retake_seed_value)
 
-        is_mp3 = audio_format == "mp3"
+        is_mp3 = mp3_controls_visible(audio_format)
 
         gr.Info(t("messages.params_loaded", filename=os.path.basename(filepath)))
-
-        _MP3_BITRATE_CHOICES = [("128 kbps", "128k"), ("192 kbps", "192k"), ("256 kbps", "256k"), ("320 kbps", "320k")]
-        _MP3_SAMPLE_RATE_CHOICES = [("48 kHz", 48000), ("44.1 kHz", 44100)]
 
         return (
             task_type, captions, lyrics, vocal_language, bpm, key_scale, time_signature,
@@ -132,8 +135,8 @@ def load_metadata(file_obj, llm_handler=None):
             use_adg, cfg_interval_start, cfg_interval_end, shift, infer_method,
             custom_timesteps,
             audio_format, gr.update(visible=is_mp3),
-            gr.update(choices=_MP3_BITRATE_CHOICES, value=mp3_bitrate, visible=is_mp3),
-            gr.update(choices=_MP3_SAMPLE_RATE_CHOICES, value=mp3_sample_rate, visible=is_mp3),
+            gr.update(choices=MP3_BITRATE_CHOICES, value=mp3_bitrate, visible=is_mp3),
+            gr.update(choices=MP3_SAMPLE_RATE_CHOICES, value=mp3_sample_rate, visible=is_mp3),
             lm_temperature, lm_cfg_scale, lm_top_k, lm_top_p, lm_negative_prompt,
             use_cot_metas, use_cot_caption, use_cot_language, audio_cover_strength,
             cover_noise_strength, think, audio_codes, repainting_start, repainting_end,
