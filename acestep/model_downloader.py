@@ -23,6 +23,7 @@ DEFAULT_TURBO_DIT_MODEL = "acestep-v15-xl-turbo"
 DEFAULT_BASE_DIT_MODEL = "acestep-v15-xl-base"
 MAIN_MODEL_REPO = "ACE-Step/Ace-Step1.5"
 DEFAULT_LM_MODEL = "acestep-5Hz-lm-1.7B"
+DEFAULT_LARGE_LM_MODEL = "acestep-5Hz-lm-4B"
 SHARED_MAIN_MODEL_COMPONENTS = [
     "vae",
     "Qwen3-Embedding-0.6B",
@@ -35,6 +36,7 @@ MAIN_DIT_MODEL_COMPONENTS = [
 ]
 MAIN_MODEL_COMPONENTS = [
     *SHARED_MAIN_MODEL_COMPONENTS,
+    DEFAULT_LARGE_LM_MODEL,
     *MAIN_DIT_MODEL_COMPONENTS,
 ]
 
@@ -340,7 +342,7 @@ def _smart_download(
 SUBMODEL_REGISTRY: Dict[str, str] = {
     # LM models
     "acestep-5Hz-lm-0.6B": "ACE-Step/acestep-5Hz-lm-0.6B",
-    "acestep-5Hz-lm-4B": "ACE-Step/acestep-5Hz-lm-4B",
+    DEFAULT_LARGE_LM_MODEL: f"ACE-Step/{DEFAULT_LARGE_LM_MODEL}",
     # DiT models
     "acestep-v15-turbo-shift3": "ACE-Step/acestep-v15-turbo-shift3",
     "acestep-v15-sft": "ACE-Step/acestep-v15-sft",
@@ -501,16 +503,17 @@ def check_dit_bundle_exists(
     model_name: str,
     checkpoints_dir: Optional[Path] = None,
 ) -> bool:
-    """Return whether a DiT model and its required shared components exist."""
+    """Return whether a DiT model and its preset-bundled components exist."""
     if not _is_dit_model_name(model_name):
         return False
     if checkpoints_dir is None:
         checkpoints_dir = get_checkpoints_dir()
     elif isinstance(checkpoints_dir, str):
         checkpoints_dir = Path(checkpoints_dir)
-    return check_shared_main_components_exist(checkpoints_dir) and check_model_exists(
-        model_name,
-        checkpoints_dir,
+    return (
+        check_shared_main_components_exist(checkpoints_dir)
+        and check_model_exists(DEFAULT_LARGE_LM_MODEL, checkpoints_dir)
+        and check_model_exists(model_name, checkpoints_dir)
     )
 
 
@@ -522,7 +525,10 @@ def list_available_models() -> Dict[str, str]:
         Dictionary mapping local names to HuggingFace repo IDs.
     """
     models = {
-        "main": f"{MAIN_MODEL_REPO} + {', '.join(MAIN_DIT_MODEL_COMPONENTS)}",
+        "main": (
+            f"{MAIN_MODEL_REPO} + ACE-Step/{DEFAULT_LARGE_LM_MODEL} + "
+            f"{', '.join(MAIN_DIT_MODEL_COMPONENTS)}"
+        ),
         **SUBMODEL_REGISTRY
     }
     return models
@@ -565,6 +571,22 @@ def download_shared_main_components(
     )
 
 
+def download_preset_lm_components(
+    checkpoints_dir: Optional[Path] = None,
+    force: bool = False,
+    token: Optional[str] = None,
+    prefer_source: Optional[str] = None,
+) -> Tuple[bool, str]:
+    """Download LM components bundled with main and DiT preset downloads."""
+    return download_submodel(
+        DEFAULT_LARGE_LM_MODEL,
+        checkpoints_dir=checkpoints_dir,
+        force=force,
+        token=token,
+        prefer_source=prefer_source,
+    )
+
+
 def download_main_model(
     checkpoints_dir: Optional[Path] = None,
     force: bool = False,
@@ -579,6 +601,7 @@ def download_main_model(
     - vae (audio encoder/decoder)
     - Qwen3-Embedding-0.6B (text encoder)
     - acestep-5Hz-lm-1.7B (default LM model)
+    - acestep-5Hz-lm-4B (large LM model included with premium presets)
     - acestep-v15-xl-sft (default premium DiT model)
     - acestep-v15-xl-turbo (default turbo DiT preset model)
     - acestep-v15-xl-base (default base DiT preset model)
@@ -605,6 +628,7 @@ def download_main_model(
 
     print(f"Downloading premium default bundle into {checkpoints_dir}...")
     print(f"Shared components source: {MAIN_MODEL_REPO}")
+    print(f"Bundled LM models: {DEFAULT_LM_MODEL}, {DEFAULT_LARGE_LM_MODEL}")
     print(f"Bundled DiT models: {', '.join(MAIN_DIT_MODEL_COMPONENTS)}")
     print("This may take a while depending on your internet connection...")
 
@@ -616,6 +640,15 @@ def download_main_model(
     )
     if not shared_success:
         return False, shared_msg
+
+    large_lm_success, large_lm_msg = download_preset_lm_components(
+        checkpoints_dir=checkpoints_dir,
+        force=force,
+        token=token,
+        prefer_source=prefer_source,
+    )
+    if not large_lm_success:
+        return False, large_lm_msg
 
     downloaded_dit_models = []
     for dit_model in MAIN_DIT_MODEL_COMPONENTS:
@@ -633,7 +666,7 @@ def download_main_model(
     return (
         True,
         f"Premium main bundle is available at {checkpoints_dir} "
-        f"(shared components + {', '.join(downloaded_dit_models)})",
+        f"(shared components + {DEFAULT_LARGE_LM_MODEL} + {', '.join(downloaded_dit_models)})",
     )
 
 
@@ -696,7 +729,7 @@ def download_dit_bundle(
     token: Optional[str] = None,
     prefer_source: Optional[str] = None,
 ) -> Tuple[bool, str]:
-    """Download a DiT model plus the minimum shared runtime required to run it."""
+    """Download a DiT model plus preset-bundled runtime and LM components."""
     if not _is_dit_model_name(model_name):
         available = ", ".join(
             name for name in SUBMODEL_REGISTRY if not _is_lm_model_name(name)
@@ -714,7 +747,7 @@ def download_dit_bundle(
         return (
             True,
             f"DiT bundle '{model_name}' already exists at {checkpoints_dir} "
-            f"(shared components + {model_name})",
+            f"(shared components + {DEFAULT_LARGE_LM_MODEL} + {model_name})",
         )
 
     print("\n" + "=" * 60)
@@ -730,6 +763,15 @@ def download_dit_bundle(
     if not shared_success:
         return False, shared_msg
 
+    large_lm_success, large_lm_msg = download_preset_lm_components(
+        checkpoints_dir=checkpoints_dir,
+        force=force,
+        token=token,
+        prefer_source=prefer_source,
+    )
+    if not large_lm_success:
+        return False, large_lm_msg
+
     model_success, model_msg = download_submodel(
         model_name,
         checkpoints_dir=checkpoints_dir,
@@ -743,7 +785,7 @@ def download_dit_bundle(
     return (
         True,
         f"DiT bundle '{model_name}' is available at {checkpoints_dir} "
-        f"(shared components + {model_name})",
+        f"(shared components + {DEFAULT_LARGE_LM_MODEL} + {model_name})",
     )
 
 
@@ -1055,7 +1097,7 @@ def print_model_list():
     print(f"  main -> {MAIN_MODEL_REPO}")
     print(
         "  Contains: "
-        f"vae, Qwen3-Embedding-0.6B, {DEFAULT_LM_MODEL}, "
+        f"vae, Qwen3-Embedding-0.6B, {DEFAULT_LM_MODEL}, {DEFAULT_LARGE_LM_MODEL}, "
         f"{', '.join(MAIN_DIT_MODEL_COMPONENTS)}"
     )
 
@@ -1068,7 +1110,10 @@ def print_model_list():
     for name, repo in SUBMODEL_REGISTRY.items():
         if "lm" not in name.lower():
             print(f"  {name} -> {repo}")
-    print("  Note: --model for a DiT downloads the shared runtime plus that DiT model.")
+    print(
+        "  Note: --model for a DiT downloads the shared runtime, "
+        f"{DEFAULT_LARGE_LM_MODEL}, and that DiT model."
+    )
 
     if VAE_REGISTRY:
         print("\n[Optional VAEs]")
@@ -1088,7 +1133,7 @@ def main():
 Examples:
   acestep-download                          # Download premium default bundle
   acestep-download --all                    # Download all available models
-  acestep-download --model acestep-v15-xl-base  # Download XL-Base + required shared runtime
+  acestep-download --model acestep-v15-xl-base  # Download XL-Base + shared runtime + 4B LM
   acestep-download --list                   # List all available models
 
 Network Detection:
@@ -1187,7 +1232,8 @@ Alternative using huggingface-cli:
     # Default: download premium bundle
     print(
         "Downloading premium default bundle "
-        f"(shared runtime + {DEFAULT_LM_MODEL} + {', '.join(MAIN_DIT_MODEL_COMPONENTS)})..."
+        f"(shared runtime + {DEFAULT_LM_MODEL} + {DEFAULT_LARGE_LM_MODEL} + "
+        f"{', '.join(MAIN_DIT_MODEL_COMPONENTS)})..."
     )
     
     # Download main model
