@@ -14,6 +14,7 @@ from typing import Any
 import gradio as gr
 
 from acestep.model_downloader import (
+    DEFAULT_BASE_DIT_MODEL,
     DEFAULT_LM_MODEL,
     DEFAULT_PREMIUM_DIT_MODEL,
     DEFAULT_TURBO_DIT_MODEL,
@@ -29,12 +30,14 @@ from acestep.ui.gradio.events.results.output_manager import get_results_dir
 
 DEFAULT_PRESET_NAME = "Premium Default"
 DEFAULT_TURBO_PRESET_NAME = "Default_Turbo"
+DEFAULT_BASE_PRESET_NAME = "Default_Base"
 DEFAULT_PRESET_FOLDER = "premium_system_presets"
 USER_PRESET_FOLDER = "premium_user_presets"
 LAST_USED_PRESET_FILE = ".last_used_preset.txt"
 SYSTEM_PRESET_FILES = {
     DEFAULT_PRESET_NAME: "default.json",
     DEFAULT_TURBO_PRESET_NAME: "default_turbo.json",
+    DEFAULT_BASE_PRESET_NAME: "default_base.json",
 }
 DEFAULT_PRESET_CAPTION = (
     "Conscious melodic rap and modern cinematic pop-rap anthem, uplifting and humble, "
@@ -127,6 +130,7 @@ Quiet on top, let the truth get loud
 SIMPLE_MODEL_CHOICES: tuple[tuple[str, str], ...] = (
     ("ACEStep XL 1.5 SFT", DEFAULT_PREMIUM_DIT_MODEL),
     ("ACEStep XL 1.5 Turbo", DEFAULT_TURBO_DIT_MODEL),
+    ("ACEStep XL 1.5 Base", DEFAULT_BASE_DIT_MODEL),
 )
 SIMPLE_MODEL_VALUES = frozenset(value for _label, value in SIMPLE_MODEL_CHOICES)
 
@@ -271,6 +275,19 @@ DEFAULT_TURBO_PRESET_VALUES: dict[str, Any] = {
     "cfg_interval_end": 1.0,
 }
 
+DEFAULT_BASE_PRESET_VALUES: dict[str, Any] = {
+    **DEFAULT_PRESET_VALUES,
+    "config_path": DEFAULT_BASE_DIT_MODEL,
+    "simple_model_dropdown": DEFAULT_BASE_DIT_MODEL,
+    "inference_steps": 50,
+    "guidance_scale": 7.0,
+    "use_adg": False,
+    "shift": 3.0,
+    "custom_timesteps": "",
+    "cfg_interval_start": 0.0,
+    "cfg_interval_end": 1.0,
+}
+
 
 def normalize_simple_model_dropdown_value(value: Any) -> str:
     """Return a supported Create-tab model selector value."""
@@ -281,6 +298,7 @@ def normalize_simple_model_dropdown_value(value: Any) -> str:
 SYSTEM_PRESET_VALUES = {
     DEFAULT_PRESET_NAME: DEFAULT_PRESET_VALUES,
     DEFAULT_TURBO_PRESET_NAME: DEFAULT_TURBO_PRESET_VALUES,
+    DEFAULT_BASE_PRESET_NAME: DEFAULT_BASE_PRESET_VALUES,
 }
 
 
@@ -594,7 +612,7 @@ def _lora_status_from_payload(payload: dict[str, Any]) -> tuple[str, Any]:
 
 def _write_user_preset(name: str, payload: dict[str, Any]) -> str:
     if _is_default_preset_name(name):
-        raise ValueError(f"`{DEFAULT_PRESET_NAME}` is immutable.")
+        raise ValueError(f"`{_system_preset_name_for(name) or name}` is immutable.")
     sanitized = _sanitize_name(name)
     target = _user_preset_path(sanitized)
     with target.open("w", encoding="utf-8") as handle:
@@ -719,9 +737,10 @@ def save_preset_action(
             _build_dashboard_markdown(current_selection, None),
         )
     if _is_default_preset_name(requested_name):
+        protected_name = _system_preset_name_for(requested_name) or requested_name
         return (
             gr.update(choices=list_preset_names(), value=current_selection),
-            f"`{DEFAULT_PRESET_NAME}` is immutable. Save under a different name.",
+            f"`{protected_name}` is immutable. Save under a different name.",
             _build_dashboard_markdown(current_selection, None),
         )
 

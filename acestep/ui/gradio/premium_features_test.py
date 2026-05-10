@@ -6,7 +6,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL, get_models_dir
+from acestep.model_downloader import (
+    DEFAULT_BASE_DIT_MODEL,
+    DEFAULT_TURBO_DIT_MODEL,
+    get_models_dir,
+)
 from acestep.ui.gradio import premium_features
 
 
@@ -119,6 +123,48 @@ class PremiumFeaturesTests(unittest.TestCase):
         self.assertEqual(
             raw_payload["_meta"]["name"],
             premium_features.DEFAULT_TURBO_PRESET_NAME,
+        )
+
+    def test_system_presets_include_default_base(self):
+        """The protected preset list should expose the XL-Base preset."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            original = os.environ.get("ACESTEP_PROJECT_ROOT")
+            os.environ["ACESTEP_PROJECT_ROOT"] = tmp_dir
+            expected = str(get_models_dir(project_root=tmp_dir))
+            try:
+                names = premium_features.list_preset_names()
+                base_payload = premium_features.load_named_preset(
+                    premium_features.DEFAULT_BASE_PRESET_NAME
+                )
+                base_path = (
+                    Path(tmp_dir)
+                    / premium_features.DEFAULT_PRESET_FOLDER
+                    / "default_base.json"
+                )
+                raw_payload = json.loads(base_path.read_text(encoding="utf-8"))
+            finally:
+                if original is None:
+                    os.environ.pop("ACESTEP_PROJECT_ROOT", None)
+                else:
+                    os.environ["ACESTEP_PROJECT_ROOT"] = original
+
+        self.assertIn(premium_features.DEFAULT_BASE_PRESET_NAME, names)
+        self.assertEqual(base_payload["checkpoint_dropdown"], expected)
+        self.assertEqual(base_payload["config_path"], DEFAULT_BASE_DIT_MODEL)
+        self.assertEqual(
+            base_payload["simple_model_dropdown"],
+            DEFAULT_BASE_DIT_MODEL,
+        )
+        self.assertEqual(base_payload["simple_quantization"], "none")
+        self.assertEqual(base_payload["inference_steps"], 50)
+        self.assertEqual(base_payload["guidance_scale"], 7.0)
+        self.assertEqual(base_payload["shift"], 3.0)
+        self.assertFalse(base_payload["use_adg"])
+        self.assertTrue(raw_payload["_meta"]["immutable"])
+        self.assertEqual(
+            raw_payload["_meta"]["name"],
+            premium_features.DEFAULT_BASE_PRESET_NAME,
         )
 
     def test_ensure_default_preset_refreshes_stale_immutable_payload(self):
@@ -332,6 +378,11 @@ class PremiumFeaturesTests(unittest.TestCase):
                     None,
                     *values,
                 )
+                base_updates = premium_features.save_preset_action(
+                    "default base",
+                    None,
+                    *values,
+                )
                 user_default_path = (
                     Path(tmp_dir)
                     / premium_features.USER_PRESET_FOLDER
@@ -342,6 +393,11 @@ class PremiumFeaturesTests(unittest.TestCase):
                     / premium_features.USER_PRESET_FOLDER
                     / "default turbo.json"
                 )
+                user_base_path = (
+                    Path(tmp_dir)
+                    / premium_features.USER_PRESET_FOLDER
+                    / "default base.json"
+                )
             finally:
                 if original is None:
                     os.environ.pop("ACESTEP_PROJECT_ROOT", None)
@@ -350,8 +406,10 @@ class PremiumFeaturesTests(unittest.TestCase):
 
         self.assertIn("immutable", default_updates[1])
         self.assertIn("immutable", turbo_updates[1])
+        self.assertIn("immutable", base_updates[1])
         self.assertFalse(user_default_path.exists())
         self.assertFalse(user_turbo_path.exists())
+        self.assertFalse(user_base_path.exists())
 
     def test_startup_uses_remembered_existing_user_preset(self):
         """Startup should auto-load the last successfully saved/loaded user preset."""
@@ -410,6 +468,38 @@ class PremiumFeaturesTests(unittest.TestCase):
         self.assertEqual(
             updates[len(keys) + 2].get("value"),
             premium_features.DEFAULT_TURBO_PRESET_NAME,
+        )
+
+    def test_startup_uses_remembered_default_base_preset(self):
+        """Startup should remember the protected XL-Base preset too."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            original = os.environ.get("ACESTEP_PROJECT_ROOT")
+            os.environ["ACESTEP_PROJECT_ROOT"] = tmp_dir
+            try:
+                premium_features.set_last_used_preset_name(
+                    premium_features.DEFAULT_BASE_PRESET_NAME
+                )
+                updates = premium_features.startup_preset_updates()
+            finally:
+                if original is None:
+                    os.environ.pop("ACESTEP_PROJECT_ROOT", None)
+                else:
+                    os.environ["ACESTEP_PROJECT_ROOT"] = original
+
+        keys = premium_features.get_preset_component_keys()
+        self.assertEqual(
+            updates[keys.index("config_path")].get("value"),
+            DEFAULT_BASE_DIT_MODEL,
+        )
+        self.assertEqual(
+            updates[keys.index("simple_model_dropdown")].get("value"),
+            DEFAULT_BASE_DIT_MODEL,
+        )
+        self.assertEqual(updates[keys.index("inference_steps")].get("value"), 50)
+        self.assertEqual(
+            updates[len(keys) + 2].get("value"),
+            premium_features.DEFAULT_BASE_PRESET_NAME,
         )
 
     def test_startup_falls_back_when_remembered_preset_is_missing(self):
@@ -493,6 +583,10 @@ class PremiumFeaturesTests(unittest.TestCase):
                 json.dumps({"values": {"config_path": "shadow"}}),
                 encoding="utf-8",
             )
+            (preset_dir / f"{premium_features.DEFAULT_BASE_PRESET_NAME}.json").write_text(
+                json.dumps({"values": {"config_path": "shadow"}}),
+                encoding="utf-8",
+            )
             try:
                 names = premium_features.list_preset_names()
                 payload = premium_features.load_named_preset(
@@ -500,6 +594,9 @@ class PremiumFeaturesTests(unittest.TestCase):
                 )
                 turbo_payload = premium_features.load_named_preset(
                     premium_features.DEFAULT_TURBO_PRESET_NAME
+                )
+                base_payload = premium_features.load_named_preset(
+                    premium_features.DEFAULT_BASE_PRESET_NAME
                 )
             finally:
                 if original is None:
@@ -509,8 +606,10 @@ class PremiumFeaturesTests(unittest.TestCase):
 
         self.assertEqual(names.count(premium_features.DEFAULT_PRESET_NAME), 1)
         self.assertEqual(names.count(premium_features.DEFAULT_TURBO_PRESET_NAME), 1)
+        self.assertEqual(names.count(premium_features.DEFAULT_BASE_PRESET_NAME), 1)
         self.assertEqual(payload["captions"], premium_features.DEFAULT_PRESET_CAPTION)
         self.assertEqual(turbo_payload["config_path"], DEFAULT_TURBO_DIT_MODEL)
+        self.assertEqual(base_payload["config_path"], DEFAULT_BASE_DIT_MODEL)
 
 
 if __name__ == "__main__":

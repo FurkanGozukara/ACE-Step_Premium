@@ -344,7 +344,7 @@ def _apply_simple_model_change(
     model_path: str | None,
     current_mode: str | None = None,
 ) -> tuple[Any, ...]:
-    """Apply the Create-tab SFT/Turbo selector to the advanced model controls."""
+    """Apply the Create-tab XL model selector to the advanced model controls."""
 
     selected_model = normalize_simple_model_dropdown_value(model_path)
     model_updates = gen_h.update_model_type_settings(selected_model, current_mode)
@@ -353,6 +353,12 @@ def _apply_simple_model_change(
         status = (
             f"Selected model: {label}. Next generation uses XL Turbo "
             "8-step fast defaults. GPU presets remain the XL 4B profile."
+        )
+    elif "base" in selected_model:
+        status = (
+            f"Selected model: {label}. Next generation uses XL Base "
+            "50-step CFG defaults with all task modes available. "
+            "GPU presets remain the XL 4B profile."
         )
     else:
         status = (

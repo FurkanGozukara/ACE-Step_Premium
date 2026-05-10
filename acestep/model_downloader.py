@@ -20,6 +20,7 @@ from loguru import logger
 DEFAULT_MODEL_DIRNAME = "models"
 DEFAULT_PREMIUM_DIT_MODEL = "acestep-v15-xl-sft"
 DEFAULT_TURBO_DIT_MODEL = "acestep-v15-xl-turbo"
+DEFAULT_BASE_DIT_MODEL = "acestep-v15-xl-base"
 MAIN_MODEL_REPO = "ACE-Step/Ace-Step1.5"
 DEFAULT_LM_MODEL = "acestep-5Hz-lm-1.7B"
 SHARED_MAIN_MODEL_COMPONENTS = [
@@ -30,6 +31,7 @@ SHARED_MAIN_MODEL_COMPONENTS = [
 MAIN_DIT_MODEL_COMPONENTS = [
     DEFAULT_PREMIUM_DIT_MODEL,
     DEFAULT_TURBO_DIT_MODEL,
+    DEFAULT_BASE_DIT_MODEL,
 ]
 MAIN_MODEL_COMPONENTS = [
     *SHARED_MAIN_MODEL_COMPONENTS,
@@ -504,6 +506,7 @@ def download_main_model(
     - acestep-5Hz-lm-1.7B (default LM model)
     - acestep-v15-xl-sft (default premium DiT model)
     - acestep-v15-xl-turbo (default turbo DiT preset model)
+    - acestep-v15-xl-base (default base DiT preset model)
 
     Args:
         checkpoints_dir: Custom checkpoints directory (optional)

@@ -112,11 +112,15 @@ class GetUiControlConfigTests(unittest.TestCase):
         """Non-turbo models should default to 50 inference steps."""
         cfg = get_ui_control_config(is_turbo=False, is_sft=False)
         self.assertEqual(cfg["inference_steps_value"], 50)
+        self.assertEqual(cfg["guidance_scale_value"], 7.0)
+        self.assertFalse(cfg["use_adg_value"])
 
     def test_turbo_model_returns_8_steps(self):
         """Turbo models should default to 8 inference steps."""
         cfg = get_ui_control_config(is_turbo=True)
         self.assertEqual(cfg["inference_steps_value"], 8)
+        self.assertEqual(cfg["guidance_scale_value"], 1.0)
+        self.assertFalse(cfg["use_adg_value"])
 
     def test_turbo_takes_precedence_over_sft(self):
         """When both turbo and SFT flags are set, turbo should win."""
@@ -127,6 +131,12 @@ class GetUiControlConfigTests(unittest.TestCase):
         """The premium default XL-SFT model should use non-turbo defaults."""
         cfg = get_ui_control_config_for_path("acestep-v15-xl-sft")
         self.assertEqual(cfg["inference_steps_value"], 50)
+
+    def test_xl_base_path_returns_50_steps_and_base_modes(self):
+        """XL-Base should use non-turbo defaults and expose base-only modes."""
+        cfg = get_ui_control_config_for_path("acestep-v15-xl-base")
+        self.assertEqual(cfg["inference_steps_value"], 50)
+        self.assertIn("Extract", cfg["generation_mode_choices"])
 
     def test_xl_turbo_path_returns_8_steps(self):
         """XL-Turbo should keep the 8-step turbo default."""
@@ -147,11 +157,15 @@ class UpdateModelTypeSettingsIntegrationTests(unittest.TestCase):
         """Passing a turbo model path should yield 8 inference steps."""
         result = update_model_type_settings("acestep-v15-turbo")
         self.assertEqual(result[0]["value"], 8)
+        self.assertEqual(result[1]["value"], 1.0)
+        self.assertFalse(result[1]["visible"])
 
     def test_base_path_produces_50_steps(self):
         """Passing a base model path should yield 50 inference steps."""
         result = update_model_type_settings("acestep-v15-base")
         self.assertEqual(result[0]["value"], 50)
+        self.assertEqual(result[1]["value"], 7.0)
+        self.assertTrue(result[1]["visible"])
 
     def test_none_path_does_not_crash(self):
         """Passing None as config_path should not raise."""

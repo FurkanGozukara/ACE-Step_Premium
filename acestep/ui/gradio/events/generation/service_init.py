@@ -158,7 +158,7 @@ def init_service_wrapper(
     gpu_config = get_global_gpu_config()
 
     # Warn if XL (4B) model selected on a GPU with limited VRAM.
-    # 60s batch-1 XL SFT/Turbo profiling peaks around 9.5 GiB allocated and
+    # 60s batch-1 XL Base/SFT/Turbo profiling peaks around 9.5 GiB allocated and
     # 9.7 GiB reserved with full offload, so 12GB is the practical floor.
     if is_xl_model(config_path_lower) and gpu_config is not None:
         gpu_mem = getattr(gpu_config, "gpu_memory_gb", 0)

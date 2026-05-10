@@ -152,13 +152,15 @@ class TestCheckMainModelExists(unittest.TestCase):
 
         self.assertTrue(result)
 
-    def test_main_components_include_default_and_turbo_xl_models(self):
-        """The premium bundle requires both XL-SFT and XL-Turbo checkpoints."""
+    def test_main_components_include_default_turbo_and_base_xl_models(self):
+        """The premium bundle requires XL-SFT, XL-Turbo, and XL-Base checkpoints."""
 
         self.assertIn(self.mod.DEFAULT_PREMIUM_DIT_MODEL, self.mod.MAIN_MODEL_COMPONENTS)
         self.assertIn(self.mod.DEFAULT_TURBO_DIT_MODEL, self.mod.MAIN_MODEL_COMPONENTS)
+        self.assertIn(self.mod.DEFAULT_BASE_DIT_MODEL, self.mod.MAIN_MODEL_COMPONENTS)
         self.assertIn(self.mod.DEFAULT_PREMIUM_DIT_MODEL, self.mod.MAIN_DIT_MODEL_COMPONENTS)
         self.assertIn(self.mod.DEFAULT_TURBO_DIT_MODEL, self.mod.MAIN_DIT_MODEL_COMPONENTS)
+        self.assertIn(self.mod.DEFAULT_BASE_DIT_MODEL, self.mod.MAIN_DIT_MODEL_COMPONENTS)
 
     def test_returns_false_when_turbo_bundle_model_is_missing(self):
         """A main bundle without XL-Turbo is incomplete."""
@@ -167,6 +169,25 @@ class TestCheckMainModelExists(unittest.TestCase):
             checkpoints_dir = Path(tmp_dir)
             for component in self.mod.MAIN_MODEL_COMPONENTS:
                 if component == self.mod.DEFAULT_TURBO_DIT_MODEL:
+                    continue
+                component_dir = checkpoints_dir / component
+                component_dir.mkdir()
+                (component_dir / "model.safetensors").write_text(
+                    "weights",
+                    encoding="utf-8",
+                )
+
+            result = self.mod.check_main_model_exists(checkpoints_dir)
+
+        self.assertFalse(result)
+
+    def test_returns_false_when_base_bundle_model_is_missing(self):
+        """A main bundle without XL-Base is incomplete."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            checkpoints_dir = Path(tmp_dir)
+            for component in self.mod.MAIN_MODEL_COMPONENTS:
+                if component == self.mod.DEFAULT_BASE_DIT_MODEL:
                     continue
                 component_dir = checkpoints_dir / component
                 component_dir.mkdir()
@@ -237,13 +258,13 @@ class TestDownloadMainModel(unittest.TestCase):
         cls.mod = _load_module()
 
     def test_downloads_shared_components_and_bundled_dit_models(self):
-        """The main bundle should fetch XL-SFT and XL-Turbo after shared files."""
+        """The main bundle should fetch XL-SFT, XL-Turbo, and XL-Base after shared files."""
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             with patch.object(self.mod, "_smart_download", return_value=(True, "shared")) as smart_download, patch.object(
                 self.mod,
                 "download_submodel",
-                side_effect=[(True, "sft"), (True, "turbo")],
+                side_effect=[(True, "sft"), (True, "turbo"), (True, "base")],
             ) as download_submodel:
                 success, msg = self.mod.download_main_model(Path(tmp_dir))
 
@@ -253,6 +274,7 @@ class TestDownloadMainModel(unittest.TestCase):
         self.assertEqual(downloaded, list(self.mod.MAIN_DIT_MODEL_COMPONENTS))
         self.assertIn(self.mod.DEFAULT_PREMIUM_DIT_MODEL, msg)
         self.assertIn(self.mod.DEFAULT_TURBO_DIT_MODEL, msg)
+        self.assertIn(self.mod.DEFAULT_BASE_DIT_MODEL, msg)
 
     def test_ensure_dit_model_routes_bundled_turbo_to_main_bundle(self):
         """Requesting XL-Turbo should ensure the full premium bundle."""
@@ -261,6 +283,22 @@ class TestDownloadMainModel(unittest.TestCase):
             with patch.object(self.mod, "ensure_main_model", return_value=(True, "main")) as ensure_main:
                 success, msg = self.mod.ensure_dit_model(
                     self.mod.DEFAULT_TURBO_DIT_MODEL,
+                    Path(tmp_dir),
+                    token="token",
+                    prefer_source="huggingface",
+                )
+
+        self.assertTrue(success)
+        self.assertEqual(msg, "main")
+        ensure_main.assert_called_once_with(Path(tmp_dir), "token", "huggingface")
+
+    def test_ensure_dit_model_routes_bundled_base_to_main_bundle(self):
+        """Requesting XL-Base should ensure the full premium bundle."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.object(self.mod, "ensure_main_model", return_value=(True, "main")) as ensure_main:
+                success, msg = self.mod.ensure_dit_model(
+                    self.mod.DEFAULT_BASE_DIT_MODEL,
                     Path(tmp_dir),
                     token="token",
                     prefer_source="huggingface",

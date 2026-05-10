@@ -65,6 +65,8 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
 
         self.assertEqual(result[0].get("value"), "acestep-v15-xl-turbo")
         self.assertEqual(result[1].get("value"), 8)
+        self.assertEqual(result[2].get("value"), 1.0)
+        self.assertFalse(result[2].get("visible"))
         self.assertIn("XL Turbo", result[-1])
 
     def test_simple_model_selector_applies_sft_defaults(self):
@@ -74,7 +76,21 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
 
         self.assertEqual(result[0].get("value"), "acestep-v15-xl-sft")
         self.assertEqual(result[1].get("value"), 50)
+        self.assertEqual(result[2].get("value"), 7.0)
+        self.assertTrue(result[2].get("visible"))
         self.assertIn("XL SFT", result[-1])
+
+    def test_simple_model_selector_applies_base_defaults(self):
+        """Selecting XL Base should update config_path, base modes, and 50-step controls."""
+
+        result = _apply_simple_model_change("acestep-v15-xl-base", "Custom")
+
+        self.assertEqual(result[0].get("value"), "acestep-v15-xl-base")
+        self.assertEqual(result[1].get("value"), 50)
+        self.assertEqual(result[2].get("value"), 7.0)
+        self.assertTrue(result[2].get("visible"))
+        self.assertIn("Extract", result[8].get("choices"))
+        self.assertIn("XL Base", result[-1])
 
 
 if __name__ == "__main__":

@@ -23,6 +23,11 @@ PYTHON = Path(sys.executable)
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 MODEL_DEFAULTS = {
+    "acestep-v15-xl-base": {
+        "inference_steps": 50,
+        "guidance_scale": 7.0,
+        "use_adg": False,
+    },
     "acestep-v15-xl-sft": {
         "inference_steps": 50,
         "guidance_scale": 7.0,

@@ -327,7 +327,7 @@ def _apply_config_path_change_with_simple_sync(
     config_path: str | None,
     current_mode: str | None = None,
 ) -> tuple[Any, ...]:
-    """Update model-type controls and mirror XL SFT/Turbo into the simple selector."""
+    """Update model-type controls and mirror XL selections into the simple selector."""
 
     model_updates = gen_h.update_model_type_settings(config_path, current_mode)
     selected = str(config_path or "").strip()

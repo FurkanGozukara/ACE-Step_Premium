@@ -326,12 +326,12 @@ def resolve_lm_backend(
 
 # GPU tier configurations.
 #
-# Calibrated on 2026-05-10 with local XL SFT and XL Turbo checkpoints on
+# Calibrated on 2026-05-10 with local XL Base, XL SFT, and XL Turbo checkpoints on
 # RTX 5090 using real 60s generations and torch CUDA peak-memory stats:
-# - XL Turbo/SFT, int8 + full offload, batch 1: 9.5-9.7 GiB reserved.
-# - XL Turbo/SFT, int8 + CPU offload, batch 8: 12.4-12.5 GiB reserved.
-# - XL Turbo/SFT, bf16 no offload, batch 8: 13.3-13.5 GiB reserved.
-# - XL Turbo/SFT, bf16 no offload + local 1.7B LM, batch 8: 18.6 GiB reserved.
+# - XL Base/Turbo/SFT, int8 + full offload, batch 1: 9.5-9.7 GiB reserved.
+# - XL Base/Turbo/SFT, int8 + CPU offload, batch 8: 12.4-12.5 GiB reserved.
+# - XL Base/Turbo/SFT, bf16 no offload, batch 8: 13.3-13.5 GiB reserved.
+# - XL Base/Turbo/SFT, bf16 no offload + local 1.7B LM, batch 8: 18.6 GiB reserved.
 # These peaks make XL unsafe below 12GB even though smaller 2B checkpoints can
 # still use the low-VRAM tiers.
 #

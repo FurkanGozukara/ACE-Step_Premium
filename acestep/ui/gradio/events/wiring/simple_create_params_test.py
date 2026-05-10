@@ -42,6 +42,25 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertIn("Auto duration", result[25])
         self.assertEqual(result[26], "acestep-v15-xl-turbo")
 
+    def test_base_model_selector_is_forwarded_to_advanced_generation(self):
+        """The simple Base selection should reach the advanced config path output."""
+
+        result = prepare_simple_generation(
+            caption="emotional pop",
+            lyrics="verse",
+            vocal_language="en",
+            instrumental=False,
+            vocal_gender="male",
+            duration=60,
+            batch_size=1,
+            random_seed=True,
+            seed="-1",
+            quantization="none",
+            model_path="acestep-v15-xl-base",
+        )
+
+        self.assertEqual(result[26], "acestep-v15-xl-base")
+
     def test_fixed_duration_uses_direct_generation_path(self):
         """A positive duration should be treated as explicit fixed seconds."""
 
