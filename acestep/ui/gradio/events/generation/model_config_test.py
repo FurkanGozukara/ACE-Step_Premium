@@ -7,6 +7,8 @@ from acestep.ui.gradio.events.generation.model_config import (
     is_sft_model,
     is_pure_base_model,
     get_ui_control_config,
+    get_ui_control_config_for_path,
+    select_preferred_model_path,
     update_model_type_settings,
 )
 
@@ -106,10 +108,10 @@ class GetUiControlConfigTests(unittest.TestCase):
         cfg = get_ui_control_config(is_turbo=False, is_sft=True)
         self.assertEqual(cfg["inference_steps_value"], 50)
 
-    def test_base_model_returns_32_steps(self):
-        """Non-SFT, non-turbo models should default to 32 inference steps."""
+    def test_base_model_returns_50_steps(self):
+        """Non-turbo models should default to 50 inference steps."""
         cfg = get_ui_control_config(is_turbo=False, is_sft=False)
-        self.assertEqual(cfg["inference_steps_value"], 32)
+        self.assertEqual(cfg["inference_steps_value"], 50)
 
     def test_turbo_model_returns_8_steps(self):
         """Turbo models should default to 8 inference steps."""
@@ -119,6 +121,16 @@ class GetUiControlConfigTests(unittest.TestCase):
     def test_turbo_takes_precedence_over_sft(self):
         """When both turbo and SFT flags are set, turbo should win."""
         cfg = get_ui_control_config(is_turbo=True, is_sft=True)
+        self.assertEqual(cfg["inference_steps_value"], 8)
+
+    def test_xl_sft_path_returns_50_steps(self):
+        """The premium default XL-SFT model should use non-turbo defaults."""
+        cfg = get_ui_control_config_for_path("acestep-v15-xl-sft")
+        self.assertEqual(cfg["inference_steps_value"], 50)
+
+    def test_xl_turbo_path_returns_8_steps(self):
+        """XL-Turbo should keep the 8-step turbo default."""
+        cfg = get_ui_control_config_for_path("acestep-v15-xl-turbo")
         self.assertEqual(cfg["inference_steps_value"], 8)
 
 
@@ -136,24 +148,39 @@ class UpdateModelTypeSettingsIntegrationTests(unittest.TestCase):
         result = update_model_type_settings("acestep-v15-turbo")
         self.assertEqual(result[0]["value"], 8)
 
-    def test_base_path_produces_32_steps(self):
-        """Passing a base model path should yield 32 inference steps."""
+    def test_base_path_produces_50_steps(self):
+        """Passing a base model path should yield 50 inference steps."""
         result = update_model_type_settings("acestep-v15-base")
-        self.assertEqual(result[0]["value"], 32)
+        self.assertEqual(result[0]["value"], 50)
 
     def test_none_path_does_not_crash(self):
         """Passing None as config_path should not raise."""
         result = update_model_type_settings(None)
-        self.assertEqual(result[0]["value"], 32)
+        self.assertEqual(result[0]["value"], 50)
 
     def test_substring_no_false_positive_end_to_end(self):
         """Word-boundary matching prevents false positives end-to-end.
 
         "sftp-server" contains "sft" but not as a delimited token,
-        so it correctly falls through to the 32-step default.
+        so it correctly falls through to the non-turbo 50-step default.
         """
         result = update_model_type_settings("sftp-server")
-        self.assertEqual(result[0]["value"], 32)
+        self.assertEqual(result[0]["value"], 50)
+
+
+class PreferredModelPathTests(unittest.TestCase):
+    """Verify app startup selects the same premium default model everywhere."""
+
+    def test_prefers_premium_default_xl_sft(self):
+        models = ["acestep-v15-xl-turbo", "acestep-v15-xl-sft"]
+        self.assertEqual(select_preferred_model_path(models), "acestep-v15-xl-sft")
+
+    def test_falls_back_to_first_available_model(self):
+        models = ["custom-model-a", "custom-model-b"]
+        self.assertEqual(select_preferred_model_path(models), "custom-model-a")
+
+    def test_empty_models_falls_back_to_premium_default(self):
+        self.assertEqual(select_preferred_model_path([]), "acestep-v15-xl-sft")
 
 
 if __name__ == "__main__":

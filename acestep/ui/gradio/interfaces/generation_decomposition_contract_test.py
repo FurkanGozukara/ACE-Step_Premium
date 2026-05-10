@@ -84,6 +84,8 @@ class GenerationDecompositionContractTests(unittest.TestCase):
         self.assertIn("create_service_config_content", call_names)
         self.assertIn("build_lora_controls", call_names)
         self.assertIn("build_dit_controls", call_names)
+        self.assertIn("select_preferred_model_path", call_names)
+        self.assertIn("get_ui_control_config_for_path", call_names)
         self.assertIn("build_lm_controls", call_names)
         self.assertIn("build_output_controls", call_names)
         self.assertIn("build_automation_controls", call_names)
@@ -165,6 +167,10 @@ class GenerationDecompositionContractTests(unittest.TestCase):
         # Added at interface-assembly time in interfaces.__init__ so it is not
         # produced by a focused builder helper.
         produced_keys.add("subprocess_mode_checkbox")
+        # Added by the premium shell from the Generate Song tab so wiring can
+        # keep the simple and advanced controls synchronized.
+        produced_keys.add("simple_model_dropdown")
+        produced_keys.add("simple_quantization")
 
         required_keys = collect_generation_section_keys_used_by_wiring()
         self.assertTrue(

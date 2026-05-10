@@ -78,6 +78,22 @@ def refresh_checkpoints(*args: Any, **kwargs: Any) -> Any:
     return _forward("service_init", "refresh_checkpoints", *args, **kwargs)
 
 
+def initial_lora_dropdown_choices(*args: Any, **kwargs: Any) -> Any:
+    return _forward("lora_browser", "initial_lora_dropdown_choices", *args, **kwargs)
+
+
+def refresh_lora_dropdown(*args: Any, **kwargs: Any) -> Any:
+    return _forward("lora_browser", "refresh_lora_dropdown", *args, **kwargs)
+
+
+def select_lora_dropdown_path(*args: Any, **kwargs: Any) -> Any:
+    return _forward("lora_browser", "select_lora_dropdown_path", *args, **kwargs)
+
+
+def update_lora_next_run_status(*args: Any, **kwargs: Any) -> Any:
+    return _forward("lora_browser", "update_lora_next_run_status", *args, **kwargs)
+
+
 def init_service_wrapper(*args: Any, **kwargs: Any) -> Any:
     return _forward("service_init", "init_service_wrapper", *args, **kwargs)
 
@@ -263,6 +279,10 @@ __all__ = [
     "sample_example_smart",
     "load_random_simple_description",
     "refresh_checkpoints",
+    "initial_lora_dropdown_choices",
+    "refresh_lora_dropdown",
+    "select_lora_dropdown_path",
+    "update_lora_next_run_status",
     "init_service_wrapper",
     "on_tier_change",
     "is_pure_base_model",

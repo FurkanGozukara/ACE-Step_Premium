@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from ...premium_features import normalize_simple_model_dropdown_value
+
 
 def prepare_simple_generation(
     caption: str,
@@ -17,6 +19,7 @@ def prepare_simple_generation(
     random_seed: bool | None,
     seed: Any,
     quantization: str | None,
+    model_path: str | None = None,
     formatted_bpm: Any = None,
     formatted_key_scale: Any = "",
     formatted_time_signature: Any = "",
@@ -64,6 +67,7 @@ def prepare_simple_generation(
         time_signature_value,
         bool(is_format_caption),
         status,
+        normalize_simple_model_dropdown_value(model_path),
     )
 
 

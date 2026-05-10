@@ -20,7 +20,7 @@ class LyricScoreMixin(LyricAlignmentCommonMixin):
         context_latents: torch.Tensor,
         lyric_token_ids: torch.Tensor,
         vocal_language: str = "en",
-        inference_steps: int = 8,
+        inference_steps: int = 50,
         seed: int = 42,
         custom_layers_config: Optional[Dict[int, List[int]]] = None,
     ) -> Dict[str, Any]:

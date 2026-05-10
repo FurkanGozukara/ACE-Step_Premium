@@ -3,39 +3,33 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from acestep.ui.gradio.events.results.output_paths import (
+    DEFAULT_RESULTS_DIR,
+    PROJECT_ROOT,
+    create_generation_run_dir,
+    get_active_results_dir,
+    get_results_dir,
+    use_results_dir,
+)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[5]
-DEFAULT_RESULTS_DIR = PROJECT_ROOT / "gradio_outputs"
-
-
-def get_results_dir() -> Path:
-    """Return the configured Gradio outputs root directory."""
-    configured = os.environ.get("ACESTEP_OUTPUT_DIR", "").strip()
-    target = Path(configured).expanduser().resolve() if configured else DEFAULT_RESULTS_DIR
-    target.mkdir(parents=True, exist_ok=True)
-    return target
-
-
-def create_generation_run_dir() -> Path:
-    """Allocate the next sequential numbered generation folder."""
-    root = get_results_dir()
-    max_index = 0
-    for child in root.iterdir():
-        if child.is_dir() and child.name.isdigit():
-            try:
-                max_index = max(max_index, int(child.name))
-            except ValueError:
-                continue
-
-    run_dir = root / f"{max_index + 1:04d}"
-    run_dir.mkdir(parents=True, exist_ok=False)
-    return run_dir
+__all__ = [
+    "DEFAULT_RESULTS_DIR",
+    "PROJECT_ROOT",
+    "build_generation_manifest",
+    "create_generation_run_dir",
+    "get_active_results_dir",
+    "get_results_dir",
+    "make_json_safe",
+    "persist_generation_inputs",
+    "use_results_dir",
+    "write_json",
+    "write_text",
+]
 
 
 def make_json_safe(value: Any) -> Any:

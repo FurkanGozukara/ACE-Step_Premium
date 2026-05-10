@@ -38,7 +38,11 @@ def build_variation_morph_controls() -> dict[str, Any]:
             with gr.Column(scale=1, min_width=200) as flow_edit_column:
                 with gr.Row():
                     retake_enabled = gr.Checkbox(
-                        label="Retake", value=False, scale=8,
+                        label="Retake",
+                        value=False,
+                        scale=8,
+                        info="Create a controlled variation from the same seed and settings.",
+                        elem_classes=["has-info-container"],
                     )
                     create_help_button("generation_retake")
                 with gr.Group(visible=False) as retake_panel:
@@ -46,19 +50,20 @@ def build_variation_morph_controls() -> dict[str, Any]:
                         retake_variance = gr.Slider(
                             minimum=0.0, maximum=1.0, step=0.01, value=0.0,
                             label="variance", scale=2,
-                            info="0=baseline; 0.05–0.15 subtle; 0.5+ strong.",
+                            info="0=baseline; 0.05-0.15 subtle; 0.5+ strong.",
                         )
                         retake_seed = gr.Textbox(
                             label="seed", value="", scale=1,
                             placeholder="empty=random",
+                            info="Optional independent seed for Retake noise.",
                         )
                     retake_think_warning = gr.Markdown(
-                        "⚠️ **Think is on — Retake will mix LM drift with "
-                        "noise drift.**  To retake a Think-mode result "
-                        "cleanly: open the result's 📊 Score & LRC & LM "
+                        "**Think is on: Retake will mix LM drift with "
+                        "noise drift.** To retake a Think-mode result "
+                        "cleanly: open the result's Score & LRC & LM "
                         "Codes panel, copy its **LM Codes** into the "
                         "**LM Codes Hints** field above, then uncheck Think "
-                        "before adjusting variance.  See the (?) help for "
+                        "before adjusting variance. See the (?) help for "
                         "the full workflow.",
                         visible=False,
                     )
@@ -66,14 +71,22 @@ def build_variation_morph_controls() -> dict[str, Any]:
             with gr.Column(scale=1, min_width=200):
                 with gr.Row():
                     flow_edit_morph = gr.Checkbox(
-                        label="Edit", value=False, scale=8,
+                        label="Edit",
+                        value=False,
+                        scale=8,
+                        info=(
+                            "Morph source audio toward new caption/lyrics "
+                            "while keeping structure."
+                        ),
+                        elem_classes=["has-info-container"],
                     )
                     create_help_button("generation_edit")
                 with gr.Group(visible=False) as morph_panel:
                     with gr.Row():
                         flow_edit_copy_from_current_btn = gr.Button(
-                            "Copy current → source",
-                            size="sm", scale=0, min_width=180,
+                            "Copy current -> source",
+                            variant="secondary", size="lg", scale=0, min_width=180,
+                            elem_classes=["action-btn", "action-btn-preview"],
                         )
                     with gr.Row(equal_height=False):
                         flow_edit_source_caption = gr.Textbox(
@@ -90,14 +103,20 @@ def build_variation_morph_controls() -> dict[str, Any]:
                         flow_edit_n_min = gr.Slider(
                             minimum=0.0, maximum=1.0, value=0.0, step=0.05,
                             label="n_min",
+                            info="Start of the diffusion window where edit force is applied.",
                         )
                         flow_edit_n_max = gr.Slider(
                             minimum=0.0, maximum=1.0, value=1.0, step=0.05,
                             label="n_max",
+                            info=(
+                                "End of the diffusion window; 1.0 applies "
+                                "through the full schedule."
+                            ),
                         )
                         flow_edit_n_avg = gr.Slider(
                             minimum=1, maximum=8, value=1, step=1,
                             label="n_avg",
+                            info="Monte Carlo samples per step. Higher is steadier but slower.",
                         )
         # Visibility chains.
         retake_enabled.change(

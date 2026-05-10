@@ -73,6 +73,22 @@ class _DummyHandler:
         return lifecycle.add_lora(self, lora_path, adapter_name=adapter_name)
 
 
+class _FakePeftModel:
+    """Tiny PEFT stand-in that records the path used for loading."""
+
+    loaded_path: str | None = None
+
+    @classmethod
+    def from_pretrained(cls, decoder, path, adapter_name=None, is_trainable=False):
+        """Return the decoder while recording PEFT loader arguments."""
+
+        _ = is_trainable
+        cls.loaded_path = path
+        decoder.peft_config = {adapter_name: object()}
+        decoder.set_adapter = Mock()
+        return decoder
+
+
 class LifecycleTests(unittest.TestCase):
     """Coverage for LoKr path detection and load branching."""
 
@@ -128,6 +144,26 @@ class LifecycleTests(unittest.TestCase):
             message = lifecycle.load_lora(handler, tmp)
         self.assertIn("adapter_config.json", message)
         self.assertIn(lifecycle.LOKR_WEIGHTS_FILENAME, message)
+
+    def test_load_lora_accepts_training_output_parent_directory(self):
+        """Parent directories containing ``adapter`` should load the child adapter path."""
+        handler = _DummyHandler()
+        with tempfile.TemporaryDirectory() as tmp:
+            final_dir = Path(tmp) / "final"
+            adapter_dir = final_dir / "adapter"
+            adapter_dir.mkdir(parents=True, exist_ok=True)
+            (adapter_dir / "adapter_config.json").write_text(
+                '{"peft_type": "LORA"}',
+                encoding="utf-8",
+            )
+
+            fake_peft = SimpleNamespace(PeftModel=_FakePeftModel)
+            _FakePeftModel.loaded_path = None
+            with patch.dict("sys.modules", {"peft": fake_peft}):
+                message = lifecycle.load_lora(handler, str(final_dir))
+
+        self.assertTrue(message.startswith("✅"))
+        self.assertEqual(_FakePeftModel.loaded_path, str(adapter_dir.resolve()))
 
     def test_validate_peft_adapter_config_missing_peft_type(self):
         """adapter_config.json without peft_type should return a clear error message."""

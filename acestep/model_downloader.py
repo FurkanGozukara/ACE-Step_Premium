@@ -19,6 +19,7 @@ from loguru import logger
 
 DEFAULT_MODEL_DIRNAME = "models"
 DEFAULT_PREMIUM_DIT_MODEL = "acestep-v15-xl-sft"
+DEFAULT_TURBO_DIT_MODEL = "acestep-v15-xl-turbo"
 MAIN_MODEL_REPO = "ACE-Step/Ace-Step1.5"
 DEFAULT_LM_MODEL = "acestep-5Hz-lm-1.7B"
 SHARED_MAIN_MODEL_COMPONENTS = [
@@ -26,9 +27,13 @@ SHARED_MAIN_MODEL_COMPONENTS = [
     "Qwen3-Embedding-0.6B",
     DEFAULT_LM_MODEL,
 ]
+MAIN_DIT_MODEL_COMPONENTS = [
+    DEFAULT_PREMIUM_DIT_MODEL,
+    DEFAULT_TURBO_DIT_MODEL,
+]
 MAIN_MODEL_COMPONENTS = [
     *SHARED_MAIN_MODEL_COMPONENTS,
-    DEFAULT_PREMIUM_DIT_MODEL,
+    *MAIN_DIT_MODEL_COMPONENTS,
 ]
 
 
@@ -477,7 +482,7 @@ def list_available_models() -> Dict[str, str]:
         Dictionary mapping local names to HuggingFace repo IDs.
     """
     models = {
-        "main": f"{MAIN_MODEL_REPO} + {DEFAULT_PREMIUM_DIT_MODEL}",
+        "main": f"{MAIN_MODEL_REPO} + {', '.join(MAIN_DIT_MODEL_COMPONENTS)}",
         **SUBMODEL_REGISTRY
     }
     return models
@@ -498,6 +503,7 @@ def download_main_model(
     - Qwen3-Embedding-0.6B (text encoder)
     - acestep-5Hz-lm-1.7B (default LM model)
     - acestep-v15-xl-sft (default premium DiT model)
+    - acestep-v15-xl-turbo (default turbo DiT preset model)
 
     Args:
         checkpoints_dir: Custom checkpoints directory (optional)
@@ -521,7 +527,7 @@ def download_main_model(
 
     print(f"Downloading premium default bundle into {checkpoints_dir}...")
     print(f"Shared components source: {MAIN_MODEL_REPO}")
-    print(f"Default DiT model: {DEFAULT_PREMIUM_DIT_MODEL}")
+    print(f"Bundled DiT models: {', '.join(MAIN_DIT_MODEL_COMPONENTS)}")
     print("This may take a while depending on your internet connection...")
 
     shared_patterns = _build_component_allow_patterns(SHARED_MAIN_MODEL_COMPONENTS)
@@ -535,20 +541,23 @@ def download_main_model(
     if not shared_success:
         return False, shared_msg
 
-    dit_success, dit_msg = download_submodel(
-        DEFAULT_PREMIUM_DIT_MODEL,
-        checkpoints_dir=checkpoints_dir,
-        force=force,
-        token=token,
-        prefer_source=prefer_source,
-    )
-    if not dit_success:
-        return False, dit_msg
+    downloaded_dit_models = []
+    for dit_model in MAIN_DIT_MODEL_COMPONENTS:
+        dit_success, dit_msg = download_submodel(
+            dit_model,
+            checkpoints_dir=checkpoints_dir,
+            force=force,
+            token=token,
+            prefer_source=prefer_source,
+        )
+        if not dit_success:
+            return False, dit_msg
+        downloaded_dit_models.append(dit_model)
 
     return (
         True,
         f"Premium main bundle is available at {checkpoints_dir} "
-        f"(shared components + {DEFAULT_PREMIUM_DIT_MODEL})",
+        f"(shared components + {', '.join(downloaded_dit_models)})",
     )
 
 
@@ -748,8 +757,8 @@ def ensure_dit_model(
     if check_model_exists(model_name, checkpoints_dir):
         return True, f"DiT model '{model_name}' is available"
 
-    # Check if this is the premium default DiT model (part of main)
-    if model_name == DEFAULT_PREMIUM_DIT_MODEL:
+    # Check if this is one of the bundled premium DiT models.
+    if model_name in MAIN_DIT_MODEL_COMPONENTS:
         return ensure_main_model(checkpoints_dir, token, prefer_source)
 
     # Check if it's a known sub-model
@@ -904,7 +913,8 @@ def print_model_list():
     print(f"  main -> {MAIN_MODEL_REPO}")
     print(
         "  Contains: "
-        f"vae, Qwen3-Embedding-0.6B, {DEFAULT_PREMIUM_DIT_MODEL}, {DEFAULT_LM_MODEL}"
+        f"vae, Qwen3-Embedding-0.6B, {DEFAULT_LM_MODEL}, "
+        f"{', '.join(MAIN_DIT_MODEL_COMPONENTS)}"
     )
 
     print("\n[Optional LM Models]")
@@ -950,6 +960,7 @@ Shared models directory:
 Alternative using huggingface-cli:
   huggingface-cli download ACE-Step/Ace-Step1.5 --local-dir ./models
   huggingface-cli download ACE-Step/acestep-v15-xl-sft --local-dir ./models/acestep-v15-xl-sft
+  huggingface-cli download ACE-Step/acestep-v15-xl-turbo --local-dir ./models/acestep-v15-xl-turbo
         """
     )
     
@@ -1034,7 +1045,7 @@ Alternative using huggingface-cli:
     # Default: download premium bundle
     print(
         "Downloading premium default bundle "
-        f"(shared runtime + {DEFAULT_PREMIUM_DIT_MODEL} + {DEFAULT_LM_MODEL})..."
+        f"(shared runtime + {DEFAULT_LM_MODEL} + {', '.join(MAIN_DIT_MODEL_COMPONENTS)})..."
     )
     
     # Download main model

@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple
 import torch
 from loguru import logger
 
-from acestep.constants import TASK_INSTRUCTIONS
+from acestep.core.generation.handler.task_instruction import generate_task_instruction
 
 
 class TaskUtilsMixin:
@@ -69,34 +69,7 @@ class TaskUtilsMixin:
         complete_track_classes: Optional[List[str]] = None,
     ) -> str:
         """Generate task instruction text from task type and track context."""
-        if task_type == "text2music":
-            return TASK_INSTRUCTIONS["text2music"]
-        if task_type == "repaint":
-            return TASK_INSTRUCTIONS["repaint"]
-        if task_type == "cover":
-            return TASK_INSTRUCTIONS["cover"]
-        if task_type == "cover-nofsq":
-            return TASK_INSTRUCTIONS["cover"]
-        if task_type == "extract":
-            return (
-                TASK_INSTRUCTIONS["extract"].format(TRACK_NAME=track_name.upper())
-                if track_name
-                else TASK_INSTRUCTIONS["extract_default"]
-            )
-        if task_type == "lego":
-            return (
-                TASK_INSTRUCTIONS["lego"].format(TRACK_NAME=track_name.upper())
-                if track_name
-                else TASK_INSTRUCTIONS["lego_default"]
-            )
-        if task_type == "complete":
-            if complete_track_classes and len(complete_track_classes) > 0:
-                track_classes_upper = [t.upper() for t in complete_track_classes]
-                return TASK_INSTRUCTIONS["complete"].format(
-                    TRACK_CLASSES=" | ".join(track_classes_upper)
-                )
-            return TASK_INSTRUCTIONS["complete_default"]
-        return TASK_INSTRUCTIONS["text2music"]
+        return generate_task_instruction(task_type, track_name, complete_track_classes)
 
     def determine_task_type(self, task_type, audio_code_string):
         """Compute task-mode booleans for downstream generation logic."""

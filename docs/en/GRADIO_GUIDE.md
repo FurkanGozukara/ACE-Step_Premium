@@ -269,8 +269,8 @@ This is where I belong
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| **Inference Steps** | 8 | Denoising steps. Turbo: 1-20, Base: 1-200 |
-| **Guidance Scale** | 7.0 | CFG strength (base model only). Higher = follows prompt more |
+| **Inference Steps** | 50 | Denoising steps. XL-SFT/default non-turbo: 50; Turbo/XL-Turbo: 8 |
+| **Guidance Scale** | 7.0 | CFG strength for non-turbo models. Higher = follows prompt more |
 | **Seed** | -1 | Random seed. Use comma-separated values for batches |
 | **Random Seed** | ✓ | When checked, generates random seeds |
 | **Audio Format** | mp3 | Output format: flac, mp3, opus, aac, wav, wav32 |
@@ -278,7 +278,7 @@ This is where I belong
 | **Inference Method** | ode | ode (Euler, faster) or sde (stochastic) |
 | **Custom Timesteps** | - | Override timesteps (e.g., "0.97,0.76,0.615,0.5,0.395,0.28,0.18,0.085,0") |
 
-### Base Model Only Parameters
+### Non-Turbo CFG Parameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|

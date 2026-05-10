@@ -9,6 +9,9 @@ from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.interfaces.training_lora_tab_dataset import (
     build_lora_dataset_and_adapter_controls,
 )
+from acestep.ui.gradio.interfaces.training_lora_tab_guide import (
+    build_lora_training_guide,
+)
 from acestep.ui.gradio.interfaces.training_lora_tab_run_export import (
     build_lora_run_and_export_controls,
 )
@@ -24,6 +27,7 @@ def create_training_lora_tab(
 
     with gr.Tab(t("training.tab_train_lora")):
         create_help_button("training_train")
+        build_lora_training_guide()
         tab_controls: dict[str, object] = {}
         tab_controls.update(build_lora_dataset_and_adapter_controls())
         tab_controls.update(

@@ -350,5 +350,47 @@ class QuantizationSelectionTests(unittest.TestCase):
             if removed_torch_nn_module is not None:
                 sys.modules["torch.nn"] = removed_torch_nn_module
 
+    @patch("acestep.ui.gradio.events.generation.service_init.get_global_gpu_config")
+    def test_xl_turbo_init_passes_selected_quantization(self, mock_gpu_config):
+        """XL Turbo should use the same DiT quantization initialization path."""
+
+        module = self._import_module()
+        mock_gpu_config.return_value = MagicMock(
+            available_lm_models=["acestep-5Hz-lm-1.7B"],
+            lm_backend_restriction=None,
+            recommended_backend="pt",
+            tier="tier6b",
+            gpu_memory_gb=24.0,
+            max_duration_with_lm=600,
+            max_duration_without_lm=600,
+            max_batch_size_with_lm=4,
+            max_batch_size_without_lm=8,
+        )
+        dit_handler = MagicMock()
+        dit_handler.initialize_service.return_value = ("ok", True)
+        dit_handler.model = MagicMock()
+        dit_handler.is_turbo_model.return_value = True
+        llm_handler = MagicMock()
+        llm_handler.llm_initialized = False
+
+        module.init_service_wrapper(
+            dit_handler,
+            llm_handler,
+            "/some/project/checkpoints",
+            "acestep-v15-xl-turbo",
+            "cuda",
+            False,
+            "acestep-5Hz-lm-1.7B",
+            "pt",
+            use_flash_attention=False,
+            offload_to_cpu=False,
+            offload_dit_to_cpu=False,
+            compile_model=False,
+            quantization="fp8_scaled",
+        )
+
+        _, call_kwargs = dit_handler.initialize_service.call_args
+        self.assertEqual(call_kwargs.get("quantization"), "fp8_scaled")
+
 if __name__ == "__main__":
     unittest.main()

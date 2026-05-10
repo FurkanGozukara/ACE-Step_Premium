@@ -9,7 +9,8 @@ from typing import Any
 import gradio as gr
 
 from .. import generation_handlers as gen_h
-from ...premium_features import open_outputs_folder
+from ..generation.quantization import default_quantization_value
+from ...premium_features import SIMPLE_MODEL_VALUES, open_outputs_folder
 from ...i18n import get_i18n, reset_language_context, set_language_context
 from .context import (
     GenerationWiringContext,
@@ -58,39 +59,88 @@ def register_generation_service_handlers(
         outputs=[],
     )
 
-    generation_section["config_path"].change(
-        fn=gen_h.update_model_type_settings,
-        inputs=[generation_section["config_path"], generation_section["generation_mode"]],
-        outputs=[
-            generation_section["inference_steps"],
-            generation_section["guidance_scale"],
-            generation_section["use_adg"],
-            generation_section["shift"],
-            generation_section["cfg_interval_start"],
-            generation_section["cfg_interval_end"],
-            generation_section["task_type"],
-            generation_section["generation_mode"],
-            generation_section["init_llm_checkbox"],
-        ],
-    )
+    model_type_outputs = [
+        generation_section["inference_steps"],
+        generation_section["guidance_scale"],
+        generation_section["use_adg"],
+        generation_section["shift"],
+        generation_section["cfg_interval_start"],
+        generation_section["cfg_interval_end"],
+        generation_section["task_type"],
+        generation_section["generation_mode"],
+        generation_section["init_llm_checkbox"],
+    ]
+    if "simple_model_dropdown" in generation_section:
+        generation_section["config_path"].change(
+            fn=_apply_config_path_change_with_simple_sync,
+            inputs=[
+                generation_section["config_path"],
+                generation_section["generation_mode"],
+            ],
+            outputs=[
+                *model_type_outputs,
+                generation_section["simple_model_dropdown"],
+            ],
+        )
+    else:
+        generation_section["config_path"].change(
+            fn=gen_h.update_model_type_settings,
+            inputs=[
+                generation_section["config_path"],
+                generation_section["generation_mode"],
+            ],
+            outputs=model_type_outputs,
+        )
+
+    if "simple_quantization" in generation_section:
+        generation_section["quantization_checkbox"].change(
+            fn=lambda quantization: gr.update(
+                value=default_quantization_value(quantization)
+            ),
+            inputs=[generation_section["quantization_checkbox"]],
+            outputs=[generation_section["simple_quantization"]],
+        )
 
     # ========== Tier Override ==========
-    generation_section["tier_dropdown"].change(
-        fn=lambda tier: gen_h.on_tier_change(tier, llm_handler),
-        inputs=[generation_section["tier_dropdown"]],
-        outputs=[
-            generation_section["offload_to_cpu_checkbox"],
-            generation_section["offload_dit_to_cpu_checkbox"],
-            generation_section["compile_model_checkbox"],
-            generation_section["quantization_checkbox"],
-            generation_section["backend_dropdown"],
-            generation_section["lm_model_path"],
-            generation_section["init_llm_checkbox"],
-            generation_section["batch_size_input"],
-            generation_section["audio_duration"],
-            generation_section["gpu_info_display"],
-        ],
-    )
+    tier_outputs = [
+        generation_section["offload_to_cpu_checkbox"],
+        generation_section["offload_dit_to_cpu_checkbox"],
+        generation_section["compile_model_checkbox"],
+        generation_section["quantization_checkbox"],
+        generation_section["backend_dropdown"],
+        generation_section["lm_model_path"],
+        generation_section["init_llm_checkbox"],
+        generation_section["batch_size_input"],
+        generation_section["audio_duration"],
+        generation_section["gpu_info_display"],
+    ]
+    if "simple_quantization" in generation_section:
+        generation_section["tier_dropdown"].change(
+            fn=lambda tier: _apply_tier_change_with_simple_quantization(
+                tier,
+                llm_handler,
+            ),
+            inputs=[generation_section["tier_dropdown"]],
+            outputs=[
+                tier_outputs[0],
+                tier_outputs[1],
+                tier_outputs[2],
+                tier_outputs[3],
+                generation_section["simple_quantization"],
+                tier_outputs[4],
+                tier_outputs[5],
+                tier_outputs[6],
+                tier_outputs[7],
+                tier_outputs[8],
+                tier_outputs[9],
+            ],
+        )
+    else:
+        generation_section["tier_dropdown"].change(
+            fn=lambda tier: gen_h.on_tier_change(tier, llm_handler),
+            inputs=[generation_section["tier_dropdown"]],
+            outputs=tier_outputs,
+        )
 
     init_event = generation_section["init_btn"].click(
         fn=lambda *args: gen_h.init_service_wrapper(dit_handler, llm_handler, *args),
@@ -141,33 +191,51 @@ def register_generation_service_handlers(
     )
 
     # ========== LoRA Handlers ==========
-    generation_section["load_lora_btn"].click(
-        fn=dit_handler.load_lora,
-        inputs=[generation_section["lora_path"]],
-        outputs=[generation_section["lora_status"]],
-    ).then(
-        fn=lambda: gr.update(value=True),
-        outputs=[generation_section["use_lora_checkbox"]],
+    generation_section["refresh_lora_dropdown_btn"].click(
+        fn=gen_h.refresh_lora_dropdown,
+        inputs=[
+            generation_section["lora_dropdown"],
+            generation_section["lora_path"],
+        ],
+        outputs=[
+            generation_section["lora_dropdown"],
+            generation_section["lora_status"],
+            generation_section["use_lora_checkbox"],
+        ],
     )
 
-    generation_section["unload_lora_btn"].click(
-        fn=dit_handler.unload_lora,
-        outputs=[generation_section["lora_status"]],
-    ).then(
-        fn=lambda: gr.update(value=False),
-        outputs=[generation_section["use_lora_checkbox"]],
+    generation_section["lora_dropdown"].change(
+        fn=gen_h.select_lora_dropdown_path,
+        inputs=[generation_section["lora_dropdown"]],
+        outputs=[
+            generation_section["lora_path"],
+            generation_section["lora_status"],
+            generation_section["use_lora_checkbox"],
+        ],
     )
 
-    generation_section["use_lora_checkbox"].change(
-        fn=dit_handler.set_use_lora,
-        inputs=[generation_section["use_lora_checkbox"]],
-        outputs=[generation_section["lora_status"]],
+    generation_section["lora_path"].change(
+        fn=gen_h.update_lora_next_run_status,
+        inputs=[
+            generation_section["lora_path"],
+            generation_section["lora_dropdown"],
+        ],
+        outputs=[
+            generation_section["lora_status"],
+            generation_section["use_lora_checkbox"],
+        ],
     )
 
     generation_section["lora_scale_slider"].change(
-        fn=dit_handler.set_lora_scale,
-        inputs=[generation_section["lora_scale_slider"]],
-        outputs=[generation_section["lora_status"]],
+        fn=gen_h.update_lora_next_run_status,
+        inputs=[
+            generation_section["lora_path"],
+            generation_section["lora_dropdown"],
+        ],
+        outputs=[
+            generation_section["lora_status"],
+            generation_section["use_lora_checkbox"],
+        ],
     )
 
     # ========== MLX VAE Chunk Size ==========
@@ -253,3 +321,43 @@ def _apply_runtime_language(language: str) -> dict[str, Any]:
         return gr.update(value=language)
     finally:
         reset_language_context(token)
+
+
+def _apply_config_path_change_with_simple_sync(
+    config_path: str | None,
+    current_mode: str | None = None,
+) -> tuple[Any, ...]:
+    """Update model-type controls and mirror XL SFT/Turbo into the simple selector."""
+
+    model_updates = gen_h.update_model_type_settings(config_path, current_mode)
+    selected = str(config_path or "").strip()
+    simple_model_update = (
+        gr.update(value=selected)
+        if selected in SIMPLE_MODEL_VALUES
+        else gr.update()
+    )
+    return (*model_updates, simple_model_update)
+
+
+def _apply_tier_change_with_simple_quantization(
+    tier: str | None,
+    llm_handler: Any,
+) -> tuple[Any, ...]:
+    """Apply a GPU tier and mirror its quantization default into the simple tab."""
+
+    updates = gen_h.on_tier_change(tier, llm_handler)
+    if len(updates) != 10:
+        return tuple(gr.update() for _ in range(11))
+    return (
+        updates[0],
+        updates[1],
+        updates[2],
+        updates[3],
+        updates[3],
+        updates[4],
+        updates[5],
+        updates[6],
+        updates[7],
+        updates[8],
+        updates[9],
+    )

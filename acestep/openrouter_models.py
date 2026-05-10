@@ -104,7 +104,10 @@ class ChatCompletionRequest(BaseModel):
     # Extended fields for ComfyUI node compatibility
     audio_codes: str = Field(default="", description="Pre-computed audio codes (bypass auto-conversion)")
     cover_noise_strength: float = Field(default=0.0, description="Cover noise strength (0=pure noise, 1=closest to src)")
-    inference_steps: int = Field(default=8, description="Number of diffusion inference steps")
+    inference_steps: int = Field(
+        default=50,
+        description="Number of diffusion inference steps. XL-SFT/non-turbo default is 50; turbo clamps to 8.",
+    )
     infer_method: str = Field(default="ode", description="Diffusion inference method: 'ode' or 'sde'")
     lm_cfg_scale: float = Field(default=2.0, description="LM classifier-free guidance scale")
     use_cot_metas: Optional[bool] = Field(default=None, description="Use CoT for metadata generation (auto if None)")

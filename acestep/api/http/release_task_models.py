@@ -38,7 +38,13 @@ class GenerateMusicRequest(BaseModel):
     key_scale: str = ""
     time_signature: str = ""
     vocal_language: str = "en"
-    inference_steps: int = 8
+    inference_steps: int = Field(
+        default=50,
+        description=(
+            "Number of diffusion inference steps. Premium default XL-SFT uses 50; "
+            "turbo models are clamped to 8 by the backend."
+        ),
+    )
     guidance_scale: float = 7.0
     use_random_seed: bool = True
     seed: Union[int, str] = -1
@@ -91,7 +97,11 @@ class GenerateMusicRequest(BaseModel):
     infer_method: str = "ode"  # "ode" or "sde" - diffusion inference method
     shift: float = Field(
         default=3.0,
-        description="Timestep shift factor (range 1.0~5.0, default 3.0). Only effective for base models, not turbo models.",
+        description=(
+            "Timestep shift factor (range 1.0~5.0, default 3.0). "
+            "Base/SFT models use a continuous schedule shift; turbo models "
+            "round to supported distilled shift schedules."
+        ),
     )
     timesteps: Optional[str] = Field(
         default=None,

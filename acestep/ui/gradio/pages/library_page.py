@@ -22,7 +22,7 @@ def create_library_page() -> dict[str, Any]:
             elem_classes=["action-btn", "action-btn-open"],
         )
         library_selector = gr.Dropdown(
-            label="Generated Songs",
+            label="Generated Songs by Day",
             choices=[],
             value=None,
             interactive=True,

@@ -22,7 +22,7 @@
 #   docker run --runtime nvidia -it --rm \
 #     -p 7860:7860 \
 #     -v $(pwd)/checkpoints:/app/checkpoints \
-#     -v $(pwd)/gradio_outputs:/app/gradio_outputs \
+#     -v $(pwd)/outputs:/app/outputs \
 #     acestep-jetson
 #
 # Run (REST API server):
@@ -245,7 +245,7 @@ RUN pip install --no-cache-dir \
     && python -c "import nanovllm; print('nano-vllm OK')"
 
 # ==================== Runtime directories ====================
-RUN mkdir -p /app/checkpoints /app/gradio_outputs
+RUN mkdir -p /app/checkpoints /app/outputs
 
 # ==================== Jetson environment defaults ====================
 

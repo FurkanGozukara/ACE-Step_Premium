@@ -13,7 +13,12 @@ from acestep.ui.gradio.events.generation.quantization import (
     default_quantization_value,
 )
 from acestep.ui.gradio.language_choices import language_dropdown_choices
-from acestep.ui.gradio.premium_features import DEFAULT_PRESET_CAPTION, DEFAULT_PRESET_LYRICS
+from acestep.ui.gradio.premium_features import (
+    DEFAULT_PRESET_CAPTION,
+    DEFAULT_PRESET_LYRICS,
+    SIMPLE_MODEL_CHOICES,
+    normalize_simple_model_dropdown_value,
+)
 
 
 def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -25,7 +30,18 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
     max_duration = getattr(gpu_config, "max_duration_without_lm", 240)
     max_batch = getattr(gpu_config, "max_batch_size_without_lm", 1)
     default_batch = min(int(params.get("default_batch_size") or 1), int(max_batch))
-    default_quant = default_quantization_value(getattr(gpu_config, "quantization_default", False))
+    default_quant = default_quantization_value(
+        params.get(
+            "simple_quantization",
+            params.get(
+                "quantization_checkbox",
+                getattr(gpu_config, "quantization_default", False),
+            ),
+        )
+    )
+    default_model = normalize_simple_model_dropdown_value(
+        params.get("simple_model_dropdown") or params.get("config_path")
+    )
 
     with gr.Row(equal_height=True):
         with gr.Column(scale=5, min_width=430):
@@ -90,6 +106,16 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                 label="Latest Song Video",
                 interactive=False,
                 visible=False,
+            )
+            simple_model_dropdown = gr.Dropdown(
+                choices=SIMPLE_MODEL_CHOICES,
+                value=default_model,
+                label="Model",
+                info=(
+                    "SFT uses 50-step quality defaults. Turbo uses 8-step "
+                    "fast defaults. Both are XL 4B models; >=12GB VRAM is "
+                    "the practical floor."
+                ),
             )
             with gr.Row():
                 simple_tier_dropdown = gr.Dropdown(
@@ -163,7 +189,8 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
             simple_open_outputs_btn = gr.Button(
                 "Open Outputs Folder",
                 variant="secondary",
-                size="sm",
+                size="lg",
+                elem_classes=["action-btn", "action-btn-open"],
             )
             simple_status = gr.Textbox(
                 label="Status",
@@ -184,6 +211,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
         "simple_lyrics": simple_lyrics,
         "simple_generate_btn": simple_generate_btn,
         "simple_random_btn": simple_random_btn,
+        "simple_model_dropdown": simple_model_dropdown,
         "simple_tier_dropdown": simple_tier_dropdown,
         "simple_quantization": simple_quantization,
         "simple_vocal_language": simple_vocal_language,

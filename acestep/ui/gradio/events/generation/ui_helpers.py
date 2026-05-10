@@ -8,12 +8,14 @@ from typing import Optional
 
 import gradio as gr
 
+from acestep.core.generation.handler.task_instruction import generate_task_instruction
 from acestep.ui.gradio.events.dcw_defaults import (
     NON_THINK_DCW_DEFAULTS,
     THINK_DCW_DEFAULTS,
     get_dcw_defaults_for_think,
 )
 from acestep.ui.gradio.i18n import t
+
 from .validation import _has_reference_audio
 
 
@@ -160,12 +162,11 @@ def update_instruction_ui(
     is managed by compute_mode_ui_updates (via generation_mode.change).
     This function only regenerates the instruction string.
     """
-    instruction = dit_handler.generate_instruction(
+    return generate_task_instruction(
         task_type=task_type_value,
         track_name=track_name_value,
         complete_track_classes=complete_track_classes_value,
     )
-    return instruction
 
 
 def update_transcribe_button_text(audio_code_string):

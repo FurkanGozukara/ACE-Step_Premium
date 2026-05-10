@@ -25,6 +25,7 @@ class SimpleCreateParamsTests(unittest.TestCase):
             random_seed=True,
             seed="-1",
             quantization="fp8_scaled",
+            model_path="acestep-v15-xl-turbo",
         )
 
         self.assertEqual(result[5], -1.0)
@@ -39,6 +40,7 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertTrue(result[19])
         self.assertTrue(result[20])
         self.assertIn("Auto duration", result[25])
+        self.assertEqual(result[26], "acestep-v15-xl-turbo")
 
     def test_fixed_duration_uses_direct_generation_path(self):
         """A positive duration should be treated as explicit fixed seconds."""

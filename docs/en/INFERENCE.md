@@ -181,7 +181,7 @@ class GenerationParams:
     duration: float = -1.0
     
     # Advanced Settings
-    inference_steps: int = 8
+    inference_steps: int = 50
     seed: int = -1
     guidance_scale: float = 7.0
     use_adg: bool = False
@@ -352,7 +352,7 @@ class FormatSampleResult:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `inference_steps` | `int` | `8` | Number of denoising steps. Turbo model: 1-20 (recommended 8). Base model: 1-200 (recommended 32-64). Higher = better quality but slower. |
+| `inference_steps` | `int` | `50` | Number of denoising steps. Premium default XL-SFT/non-turbo models use 50. Turbo models use 8 and the backend clamps above 8. Higher = better quality but slower. |
 | `guidance_scale` | `float` | `7.0` | Classifier-free guidance scale (1.0-15.0). Higher values increase adherence to text prompt. Only supported for non-turbo model. Typical range: 5.0-9.0. |
 | `seed` | `int` | `-1` | Random seed for reproducibility. Use `-1` for random seed, or any positive integer for fixed seed. |
 
@@ -360,10 +360,10 @@ class FormatSampleResult:
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `use_adg` | `bool` | `False` | Use Adaptive Dual Guidance (base model only). Improves quality at the cost of speed. |
+| `use_adg` | `bool` | `False` | Use Adaptive Dual Guidance on non-turbo CFG models. Improves quality at the cost of speed. |
 | `cfg_interval_start` | `float` | `0.0` | CFG application start ratio (0.0-1.0). Controls when to start applying classifier-free guidance. |
 | `cfg_interval_end` | `float` | `1.0` | CFG application end ratio (0.0-1.0). Controls when to stop applying classifier-free guidance. |
-| `shift` | `float` | `1.0` | Timestep shift factor (range 1.0-5.0, default 1.0). When != 1.0, applies `t = shift * t / (1 + (shift - 1) * t)` to timesteps. Recommended 3.0 for turbo models. |
+| `shift` | `float` | `3.0` | Timestep shift factor (range 1.0-5.0). Base/SFT models use a continuous schedule shift; turbo models round to supported distilled schedules. |
 | `infer_method` | `str` | `"ode"` | Diffusion inference method. `"ode"` (Euler) is faster and deterministic. `"sde"` (stochastic) may produce different results with variance. |
 | `timesteps` | `Optional[List[float]]` | `None` | Custom timesteps as a list of floats from 1.0 to 0.0 (e.g., `[0.97, 0.76, 0.615, 0.5, 0.395, 0.28, 0.18, 0.085, 0]`). If provided, overrides `inference_steps` and `shift`. |
 

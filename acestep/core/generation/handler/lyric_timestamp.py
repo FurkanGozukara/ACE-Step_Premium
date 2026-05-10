@@ -21,7 +21,7 @@ class LyricTimestampMixin(LyricAlignmentCommonMixin):
         lyric_token_ids: torch.Tensor,
         total_duration_seconds: float,
         vocal_language: str = "en",
-        inference_steps: int = 8,
+        inference_steps: int = 50,
         seed: int = 42,
         custom_layers_config: Optional[Dict[int, List[int]]] = None,
     ) -> Dict[str, Any]:

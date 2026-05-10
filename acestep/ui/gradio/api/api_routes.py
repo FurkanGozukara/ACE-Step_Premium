@@ -30,7 +30,7 @@ def _resolve_results_dir(project_root: str) -> str:
     """Resolve the API output directory, honoring the shared output override."""
 
     configured = os.environ.get("ACESTEP_OUTPUT_DIR", "").strip()
-    target = Path(configured).expanduser() if configured else Path(project_root) / "gradio_outputs"
+    target = Path(configured).expanduser() if configured else Path(project_root) / "outputs"
     target = target.resolve()
     target.mkdir(parents=True, exist_ok=True)
     return str(target).replace("\\", "/")

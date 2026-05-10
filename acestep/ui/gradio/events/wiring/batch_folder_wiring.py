@@ -1,0 +1,44 @@
+"""Event wiring for Batch Folder Processing."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from acestep.ui.gradio.events.batch_folder_runner import run_batch_folder_processing
+from acestep.ui.gradio.events.wiring.generation_run_wiring import build_generation_run_inputs
+
+
+def register_batch_folder_handlers(
+    *,
+    dit_handler: Any,
+    llm_handler: Any,
+    batch_section: dict[str, Any],
+    generation_section: dict[str, Any],
+    results_section: dict[str, Any],
+) -> None:
+    """Register the batch-folder processing button handler."""
+
+    def batch_wrapper(input_folder, output_folder, auto_improve_lyrics, auto_improve_style, *args):
+        """Stream status updates while processing a folder of lyrics files."""
+
+        yield from run_batch_folder_processing(
+            dit_handler,
+            llm_handler,
+            input_folder,
+            output_folder,
+            auto_improve_lyrics,
+            auto_improve_style,
+            args,
+        )
+
+    batch_section["batch_process_btn"].click(
+        fn=batch_wrapper,
+        inputs=[
+            batch_section["batch_input_folder"],
+            batch_section["batch_output_folder"],
+            batch_section["batch_auto_improve_lyrics"],
+            batch_section["batch_auto_improve_style"],
+            *build_generation_run_inputs(generation_section, results_section),
+        ],
+        outputs=[batch_section["batch_status"]],
+    )

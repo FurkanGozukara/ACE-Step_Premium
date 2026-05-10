@@ -37,7 +37,11 @@ def build_cover_strength_controls() -> dict[str, Any]:
         no_fsq = gr.Checkbox(
             label="no_fsq",
             value=False,
-            info="Use source-audio latents directly instead of FSQ-quantized audio codes.",
+            info=(
+                "Use source-audio latents directly instead of FSQ-quantized "
+                "codes. Try this when Remix loses detail; leave off for the "
+                "standard cover path."
+            ),
         )
     cover_noise_strength = gr.Slider(
         minimum=0.0,
@@ -163,7 +167,11 @@ def build_repainting_controls() -> dict[str, Any]:
                 label="Repaint Mode",
                 choices=["conservative", "balanced", "aggressive"],
                 value="balanced",
-                info="conservative=preserve source, aggressive=full regeneration",
+                info=(
+                    "conservative preserves the source most strongly; balanced "
+                    "blends preservation and regeneration; aggressive allows "
+                    "the selected range to change more freely."
+                ),
             )
             repaint_strength = gr.Slider(
                 label="Repaint Strength",
@@ -171,7 +179,10 @@ def build_repainting_controls() -> dict[str, Any]:
                 maximum=1.0,
                 step=0.05,
                 value=0.5,
-                info="0=conservative, 1=aggressive (balanced mode only)",
+                info=(
+                    "In balanced mode, lower values keep more source audio and "
+                    "higher values regenerate more of the selected range."
+                ),
             )
         repaint_strength_memory = gr.State(value=0.5)
     return {

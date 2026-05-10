@@ -4,7 +4,10 @@ import sys
 from typing import Any
 
 from acestep.gpu_config import GPUConfig, get_global_gpu_config
-from acestep.ui.gradio.events.generation.model_config import is_pure_base_model
+from acestep.ui.gradio.events.generation.model_config import (
+    is_pure_base_model,
+    select_preferred_model_path,
+)
 
 
 def compute_init_defaults(
@@ -109,26 +112,6 @@ def resolve_is_pure_base_model(
         return is_pure_base_model((config_path or "").lower())
 
     available_models = dit_handler.get_available_acestep_v15_models()
-    default_model = (
-        "acestep-v15-xl-sft"
-        if "acestep-v15-xl-sft" in available_models
-        else (
-            "acestep-v15-xl-base"
-            if "acestep-v15-xl-base" in available_models
-            else (
-                "acestep-v15-xl-turbo"
-                if "acestep-v15-xl-turbo" in available_models
-                else (
-                    "acestep-v15-sft"
-                    if "acestep-v15-sft" in available_models
-                    else (
-                        "acestep-v15-turbo"
-                        if "acestep-v15-turbo" in available_models
-                        else (available_models[0] if available_models else "acestep-v15-xl-sft")
-                    )
-                )
-            )
-        )
-    )
+    default_model = select_preferred_model_path(available_models)
     actual_model = init_params.get("config_path", default_model) if init_params else default_model
     return is_pure_base_model((actual_model or "").lower())

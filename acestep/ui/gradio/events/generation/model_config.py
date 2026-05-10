@@ -6,6 +6,7 @@ for model-type-dependent controls.
 """
 
 import re
+from collections.abc import Iterable
 
 import gradio as gr
 
@@ -14,6 +15,17 @@ from acestep.constants import (
     TASK_TYPES_BASE,
     GENERATION_MODES_TURBO,
     GENERATION_MODES_BASE,
+)
+from acestep.model_downloader import DEFAULT_PREMIUM_DIT_MODEL
+
+
+PREFERRED_DIT_MODEL_ORDER = (
+    DEFAULT_PREMIUM_DIT_MODEL,
+    "acestep-v15-xl-base",
+    "acestep-v15-xl-turbo",
+    "acestep-v15-sft",
+    "acestep-v15-base",
+    "acestep-v15-turbo",
 )
 
 
@@ -54,17 +66,8 @@ def update_model_type_settings(config_path: str | None, current_mode: str | None
         guidance_scale, use_adg, shift, cfg_interval_start, cfg_interval_end,
         task_type, generation_mode, and init_llm_checkbox.
     """
-    if config_path is None:
-        config_path = ""
-    config_path_lower = config_path.lower()
-
-    # Precedence: turbo > SFT > pure base > fallback.
-    # Detection functions enforce mutual exclusivity.
-    is_turbo = _has_token("turbo", config_path_lower)
-    is_pure_base = is_pure_base_model(config_path_lower)
-    is_sft = is_sft_model(config_path_lower)
-
-    return get_model_type_ui_settings(is_turbo, current_mode=current_mode, is_pure_base=is_pure_base, is_sft=is_sft)
+    cfg = get_ui_control_config_for_path(config_path)
+    return get_model_type_ui_settings_from_config(cfg, current_mode=current_mode)
 
 
 def is_sft_model(config_path_lower: str) -> bool:
@@ -91,6 +94,27 @@ def is_xl_model(config_path_lower: str) -> bool:
     return _has_token("xl", config_path_lower)
 
 
+def select_preferred_model_path(available_models: Iterable[str] | None) -> str:
+    """Return the best default DiT model from the discovered model list."""
+
+    models = [str(model) for model in (available_models or []) if str(model)]
+    for preferred in PREFERRED_DIT_MODEL_ORDER:
+        if preferred in models:
+            return preferred
+    return models[0] if models else DEFAULT_PREMIUM_DIT_MODEL
+
+
+def get_ui_control_config_for_path(config_path: str | None) -> dict:
+    """Return UI control configuration for a model config path string."""
+
+    config_path_lower = (config_path or "").lower()
+    return get_ui_control_config(
+        _has_token("turbo", config_path_lower),
+        is_pure_base=is_pure_base_model(config_path_lower),
+        is_sft=is_sft_model(config_path_lower),
+    )
+
+
 def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bool = False) -> dict:
     """Return UI control configuration (values, limits, visibility) for model type.
 
@@ -98,8 +122,8 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
         is_turbo: Whether the model is a turbo variant.
         is_pure_base: Whether the model is a pure base model.
         is_sft: Whether the model is an SFT (supervised fine-tuned) variant.
-              SFT models are optimized for 50 inference steps, matching the
-              training defaults in model_discovery._BASE_DEFAULTS.
+              SFT and base models are optimized for 50 inference steps,
+              matching the public model-zoo defaults.
 
     Used by both interactive init and service-mode startup so controls stay consistent.
     """
@@ -126,11 +150,9 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
             "generation_mode_choices": mode_choices,
         }
     else:
-        # SFT models are optimized for 50 steps per training defaults;
-        # pure base / unknown models fall back to 32 steps.
-        steps = 50 if is_sft else 32
+        # Non-turbo model-zoo defaults are 50 steps for base, SFT, and XL.
         return {
-            "inference_steps_value": steps,
+            "inference_steps_value": 50,
             "inference_steps_maximum": 200,
             "inference_steps_minimum": 1,
             "guidance_scale_visible": True,
@@ -142,6 +164,32 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
             "task_type_choices": task_choices,
             "generation_mode_choices": mode_choices,
         }
+
+
+def get_model_type_ui_settings_from_config(cfg: dict, current_mode: str | None = None):
+    """Get gr.update() tuple from an already-resolved UI configuration."""
+
+    new_choices = cfg["generation_mode_choices"]
+    if current_mode and current_mode in new_choices:
+        mode_update = gr.update(choices=new_choices, value=current_mode)
+    else:
+        mode_update = gr.update(choices=new_choices)
+    init_llm_update = gr.update(value=False) if new_choices == GENERATION_MODES_BASE else gr.update()
+    return (
+        gr.update(
+            value=cfg["inference_steps_value"],
+            maximum=cfg["inference_steps_maximum"],
+            minimum=cfg["inference_steps_minimum"],
+        ),
+        gr.update(visible=cfg["guidance_scale_visible"]),
+        gr.update(visible=cfg["use_adg_visible"]),
+        gr.update(value=cfg["shift_value"], visible=cfg["shift_visible"]),
+        gr.update(visible=cfg["cfg_interval_start_visible"]),
+        gr.update(visible=cfg["cfg_interval_end_visible"]),
+        gr.update(),  # task_type
+        mode_update,
+        init_llm_update,
+    )
 
 
 def get_model_type_ui_settings(is_turbo: bool, current_mode: str | None = None, is_pure_base: bool = False, is_sft: bool = False):
@@ -159,27 +207,7 @@ def get_model_type_ui_settings(is_turbo: bool, current_mode: str | None = None, 
         generation_mode, init_llm_checkbox.
     """
     cfg = get_ui_control_config(is_turbo, is_pure_base=is_pure_base, is_sft=is_sft)
-    new_choices = cfg["generation_mode_choices"]
-    if current_mode and current_mode in new_choices:
-        mode_update = gr.update(choices=new_choices, value=current_mode)
-    else:
-        mode_update = gr.update(choices=new_choices)
-    init_llm_update = gr.update(value=False) if is_pure_base else gr.update()
-    return (
-        gr.update(
-            value=cfg["inference_steps_value"],
-            maximum=cfg["inference_steps_maximum"],
-            minimum=cfg["inference_steps_minimum"],
-        ),
-        gr.update(visible=cfg["guidance_scale_visible"]),
-        gr.update(visible=cfg["use_adg_visible"]),
-        gr.update(value=cfg["shift_value"], visible=cfg["shift_visible"]),
-        gr.update(visible=cfg["cfg_interval_start_visible"]),
-        gr.update(visible=cfg["cfg_interval_end_visible"]),
-        gr.update(),  # task_type
-        mode_update,
-        init_llm_update,
-    )
+    return get_model_type_ui_settings_from_config(cfg, current_mode=current_mode)
 
 
 def get_generation_mode_choices(is_pure_base: bool = False) -> list:

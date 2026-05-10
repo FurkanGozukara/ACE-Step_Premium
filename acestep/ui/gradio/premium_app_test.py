@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 from acestep.ui.gradio import premium_app
 
@@ -34,6 +35,21 @@ class PremiumAppTests(unittest.TestCase):
             f"[{premium_app.APP_BROWSER_TITLE}]",
             premium_app.APP_HEADER_MARKDOWN,
         )
+
+    def test_batch_folder_tab_is_registered(self):
+        """Premium shell should expose and wire the Batch Folder Processing tab."""
+
+        source = Path(premium_app.__file__).read_text(encoding="utf-8")
+        self.assertIn("Batch Folder Processing", source)
+        self.assertIn("register_batch_folder_handlers", source)
+
+    def test_generate_song_tab_and_preset_dropdown_autoload_are_registered(self):
+        """The simple tab name and preset dropdown auto-load wiring should be present."""
+
+        source = Path(premium_app.__file__).read_text(encoding="utf-8")
+        self.assertIn('gr.Tab("Generate Song"', source)
+        self.assertIn('studio_page["preset_dropdown"].change', source)
+        self.assertIn("preset_load_outputs", source)
 
 
 if __name__ == "__main__":

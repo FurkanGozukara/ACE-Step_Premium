@@ -1,7 +1,9 @@
 """Unit tests for ``generate_with_batch_management`` wrapper behavior."""
 
 import inspect
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from _batch_management_test_support import build_progress_result
@@ -29,6 +31,15 @@ def _build_call_kwargs(module):
         else:
             kwargs[name] = None
     return kwargs
+
+
+def _write_peft_adapter(path: Path) -> Path:
+    """Create a minimal PEFT adapter directory for LoRA tests."""
+
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "adapter_config.json").write_text('{"peft_type": "LORA"}', encoding="utf-8")
+    (path / "adapter_model.safetensors").write_bytes(b"")
+    return path
 
 
 class BatchManagementWrapperTests(unittest.TestCase):
@@ -342,6 +353,91 @@ class BatchManagementWrapperTests(unittest.TestCase):
         dit_handler.initialize_service.assert_called_once()
         self.assertGreaterEqual(len(outputs), 2)
         self.assertIn("Initializing DiT service", outputs[0][10])
+
+    def test_foreground_generation_applies_lora_before_inner_generation(self):
+        """Selected LoRA should be loaded and enabled before generation starts."""
+        module, _state = load_batch_management_module(is_windows=True)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            adapter = _write_peft_adapter(Path(tmp) / "voice")
+            seen = {}
+
+            def _gen(*args, **_kwargs):
+                """Assert LoRA has been synchronized before generation."""
+                seen["handler"] = args[0]
+                seen["load_called_before_generation"] = args[0].load_lora.called
+                yield build_progress_result(length=48)
+
+            kwargs = _build_call_kwargs(module)
+            kwargs.update(
+                {
+                    "lora_dropdown": str(adapter),
+                    "lora_path": "",
+                    "lora_scale_slider": 0.5,
+                    "mlx_dit_checkbox": True,
+                    "think_checkbox": False,
+                    "auto_score": False,
+                }
+            )
+            dit_handler = MagicMock()
+            dit_handler.model = object()
+            dit_handler.last_init_params = {
+                "config_path": "acestep-v15-xl-sft",
+                "use_flash_attention": False,
+                "offload_to_cpu": False,
+                "offload_dit_to_cpu": False,
+                "compile_model": False,
+                "use_mlx_dit": True,
+                "quantization": None,
+            }
+            dit_handler.lora_loaded = False
+            dit_handler.load_lora.return_value = "LoRA loaded"
+
+            with patch.dict(
+                module.generate_with_batch_management.__globals__,
+                {"generate_with_progress": _gen},
+            ):
+                list(module.generate_with_batch_management(dit_handler, None, **kwargs))
+
+        self.assertTrue(seen["load_called_before_generation"])
+        dit_handler.load_lora.assert_called_once()
+        self.assertEqual(Path(dit_handler.load_lora.call_args.args[0]).resolve(), adapter.resolve())
+        dit_handler.set_lora_scale.assert_called_once_with(0.5)
+        dit_handler.set_use_lora.assert_called_once_with(True)
+
+    def test_subprocess_generation_payload_uses_effective_lora_selection(self):
+        """Subprocess generation should receive resolved LoRA path and enabled flag."""
+        module, _state = load_batch_management_module(is_windows=True)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            adapter = _write_peft_adapter(Path(tmp) / "voice")
+            seen = {}
+
+            def _stream(payload):
+                seen["payload"] = payload
+                raise RuntimeError("stop after payload capture")
+
+            kwargs = _build_call_kwargs(module)
+            kwargs.update(
+                {
+                    "subprocess_mode_checkbox": True,
+                    "lora_dropdown": str(adapter),
+                    "lora_path": "",
+                    "use_lora_checkbox": False,
+                    "lora_scale_slider": 0.8,
+                }
+            )
+
+            with patch.dict(
+                module.generate_with_batch_management.__globals__,
+                {"stream_subprocess_generation": _stream},
+            ):
+                list(module.generate_with_batch_management(None, None, **kwargs))
+
+        service_payload = seen["payload"]["service"]
+        self.assertEqual(Path(service_payload["lora_path"]).resolve(), adapter.resolve())
+        self.assertTrue(service_payload["use_lora"])
+        self.assertEqual(service_payload["lora_scale"], 0.8)
 
 
 if __name__ == "__main__":

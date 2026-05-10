@@ -5,12 +5,26 @@ such as duration limits, timesteps, and uploaded audio files.
 """
 
 import re
+from pathlib import Path
+from typing import Any, List, Optional, Tuple
+
 import gradio as gr
 import soundfile
-from typing import Any, Optional, List, Tuple
 
 from acestep.gpu_config import get_global_gpu_config
 from acestep.ui.gradio.i18n import t
+
+
+_SUPPORTED_AUDIO_SUFFIXES = {
+    ".aac",
+    ".aiff",
+    ".flac",
+    ".m4a",
+    ".mp3",
+    ".ogg",
+    ".opus",
+    ".wav",
+}
 
 
 def clamp_duration_to_gpu_limit(duration_value: Optional[float], llm_handler=None) -> Optional[float]:
@@ -105,6 +119,13 @@ def _extract_audio_path(audio_value: Any) -> Optional[str]:
     return None
 
 
+def _has_supported_audio_suffix(audio_path: str) -> bool:
+    """Return whether the uploaded path has a recognized audio suffix."""
+
+    suffix = Path(audio_path).suffix.lower()
+    return not suffix or suffix in _SUPPORTED_AUDIO_SUFFIXES
+
+
 def validate_uploaded_audio_file(audio_value: Any, audio_role: str = "reference") -> Any:
     """Validate uploaded audio and show a toast for invalid/unsupported files.
 
@@ -118,6 +139,11 @@ def validate_uploaded_audio_file(audio_value: Any, audio_role: str = "reference"
     audio_path = _extract_audio_path(audio_value)
     if not audio_path:
         return gr.skip()
+
+    if not _has_supported_audio_suffix(audio_path):
+        role = t(f"generation.{audio_role}_audio")
+        gr.Warning(t("messages.audio_format_invalid", role=role))
+        return gr.update(value=None)
 
     try:
         soundfile.info(audio_path)

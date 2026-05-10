@@ -68,12 +68,12 @@ class SessionArtifactsTests(unittest.TestCase):
 
             self.assertEqual("cached-codes", get_audio_codes_from_sidecar(audio_path))
 
-    def test_gradio_output_code_lookup_uses_literal_latest_match(self):
+    def test_outputs_code_lookup_uses_literal_latest_match(self):
         """Fallback sidecar lookup should escape glob chars and prefer newest JSON."""
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
-            older_dir = root / "gradio_outputs" / "batch_1"
-            newer_dir = root / "gradio_outputs" / "batch_2"
+            older_dir = root / "outputs" / "0001"
+            newer_dir = root / "outputs" / "0002"
             older_dir.mkdir(parents=True)
             newer_dir.mkdir(parents=True)
             (older_dir / "sample[1].json").write_text(

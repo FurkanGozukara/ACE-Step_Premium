@@ -75,7 +75,7 @@ services:
       # directory is empty and the downloader fetches from HF Hub.
       - hf_cache:/root/.cache/huggingface
       # Generated audio output
-      - ./gradio_outputs:/app/gradio_outputs
+      - ./outputs:/app/outputs
       # LoRA training output — persists trained adapters across rebuilds
       - ./lora_output:/app/lora_output
       # ACE-Step generation output

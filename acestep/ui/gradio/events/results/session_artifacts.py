@@ -12,7 +12,6 @@ import numpy as np
 import torch
 from loguru import logger
 
-
 ARTIFACT_KIND = "generation_intermediates_v1"
 ARTIFACT_FIELD_MAP = {
     "pred_latents": "pred_latents",
@@ -164,14 +163,19 @@ def _find_json_sidecar(path: str | os.PathLike[str] | None) -> Path | None:
 
 
 def _gradio_output_json_candidates(base: Path) -> list[Path]:
-    """Return newest matching JSON sidecars under ``gradio_outputs``."""
+    """Return newest matching JSON sidecars under ``outputs``."""
     if base.suffix.lower() == ".json":
         return []
-    results_root = Path.cwd() / "gradio_outputs"
+    configured_root = os.environ.get("ACESTEP_OUTPUT_DIR", "").strip()
+    results_root = (
+        Path(configured_root).expanduser().resolve()
+        if configured_root
+        else Path.cwd() / "outputs"
+    )
     if not results_root.exists():
         return []
     filename = base.with_suffix(".json").name
-    candidates = list(results_root.glob(f"batch_*/{glob.escape(filename)}"))
+    candidates = list(results_root.glob(f"*/{glob.escape(filename)}"))
     return sorted(candidates, key=lambda path: path.stat().st_mtime, reverse=True)
 
 

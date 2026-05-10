@@ -147,9 +147,12 @@ def main() -> int:
         lora_path = str(service.get("lora_path") or "").strip()
         if lora_path:
             print(f"[Worker] Loading LoRA: {lora_path}", flush=True)
-            dit_handler.load_lora(lora_path)
+            load_status = dit_handler.load_lora(lora_path)
+            load_status_l = str(load_status).lower()
+            if any(marker in load_status_l for marker in ("failed", "invalid", "not found", "not initialized", "not supported")):
+                raise RuntimeError(load_status)
             dit_handler.set_lora_scale(float(service.get("lora_scale", 1.0) or 1.0))
-            dit_handler.set_use_lora(bool(service.get("use_lora")))
+            dit_handler.set_use_lora(True)
 
         needs_lm = bool(
             service.get("init_llm")

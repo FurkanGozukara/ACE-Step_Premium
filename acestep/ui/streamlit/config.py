@@ -10,7 +10,7 @@ PROJECT_ROOT = Path(__file__).parent
 ACESTEP_ROOT = PROJECT_ROOT.parent.parent.parent  # ACE-Step-1.5 repo root
 CHECKPOINTS_DIR = ACESTEP_ROOT / "checkpoints"
 PROJECTS_DIR = PROJECT_ROOT / "projects"
-OUTPUT_DIR = ACESTEP_ROOT / "gradio_outputs"
+OUTPUT_DIR = ACESTEP_ROOT / "outputs"
 CACHE_DIR = PROJECT_ROOT / ".cache"
 
 # Ensure ACE-Step repo is on Python path

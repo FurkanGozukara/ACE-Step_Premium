@@ -6,6 +6,9 @@ background generation paths.
 
 from loguru import logger
 
+from acestep.core.generation.handler.lora.folder_scan import (
+    resolve_loadable_lora_adapter_path,
+)
 from acestep.ui.gradio.events.generation.audio_format_options import (
     DEFAULT_AUDIO_FORMAT,
     DEFAULT_MP3_BITRATE,
@@ -21,6 +24,69 @@ def _extract_ui_core_outputs(result_tuple):
     ``generate_with_progress`` are intentionally ignored here.
     """
     return tuple(result_tuple[:46]) if len(result_tuple) >= 46 else tuple(result_tuple)
+
+
+def resolve_effective_lora_path(
+    lora_path: str | None = None,
+    lora_dropdown: str | None = None,
+) -> str:
+    """Return a loadable LoRA path from manual input or dropdown selection."""
+
+    candidate = str(lora_path or "").strip() or str(lora_dropdown or "").strip()
+    if not candidate:
+        return ""
+    return resolve_loadable_lora_adapter_path(candidate)
+
+
+def apply_lora_selection_for_generation(
+    dit_handler,
+    lora_path: str | None = None,
+    lora_dropdown: str | None = None,
+    lora_scale: float | None = 1.0,
+) -> tuple[str, bool, str]:
+    """Synchronize the loaded LoRA state with the current UI selection.
+
+    Returns:
+        ``(resolved_path, use_lora, status_message)``.
+    """
+
+    if dit_handler is None:
+        return "", False, "No LoRA will be used."
+
+    resolved_path = resolve_effective_lora_path(lora_path, lora_dropdown)
+    requested = str(lora_path or "").strip() or str(lora_dropdown or "").strip()
+
+    if not resolved_path:
+        if getattr(dit_handler, "lora_loaded", False):
+            unload_status = dit_handler.unload_lora()
+            if "failed" in str(unload_status).lower() or "cannot" in str(unload_status).lower():
+                raise RuntimeError(f"Failed to remove LoRA before generation: {unload_status}")
+        setattr(dit_handler, "_auto_lora_path", "")
+        suffix = f" Invalid LoRA path: {requested}" if requested else ""
+        return "", False, f"No LoRA will be used.{suffix}"
+
+    current_auto_path = str(getattr(dit_handler, "_auto_lora_path", "") or "")
+    if getattr(dit_handler, "lora_loaded", False) and current_auto_path != resolved_path:
+        unload_status = dit_handler.unload_lora()
+        if "failed" in str(unload_status).lower() or "cannot" in str(unload_status).lower():
+            raise RuntimeError(f"Failed to switch LoRA before generation: {unload_status}")
+
+    if not getattr(dit_handler, "lora_loaded", False):
+        load_status = dit_handler.load_lora(resolved_path)
+        load_status_l = str(load_status).lower()
+        if any(marker in load_status_l for marker in ("failed", "invalid", "not found", "not initialized", "not supported")):
+            raise RuntimeError(f"Failed to load LoRA before generation: {load_status}")
+        setattr(dit_handler, "_auto_lora_path", resolved_path)
+
+    try:
+        scale_value = float(lora_scale if lora_scale is not None else 1.0)
+    except (TypeError, ValueError):
+        scale_value = 1.0
+    if hasattr(dit_handler, "set_lora_scale"):
+        dit_handler.set_lora_scale(scale_value)
+    if hasattr(dit_handler, "set_use_lora"):
+        dit_handler.set_use_lora(True)
+    return resolved_path, True, f"Next run will use LoRA: {resolved_path}"
 
 
 def _build_saved_params(
@@ -48,6 +114,10 @@ def _build_saved_params(
     flow_edit_n_min=0.0,
     flow_edit_n_max=1.0,
     flow_edit_n_avg=1,
+    lora_path="",
+    lora_dropdown="",
+    lora_scale=1.0,
+    use_lora=False,
 ):
     """Build the parameter snapshot dict stored in batch history."""
     return {
@@ -102,6 +172,10 @@ def _build_saved_params(
         "flow_edit_n_min": flow_edit_n_min,
         "flow_edit_n_max": flow_edit_n_max,
         "flow_edit_n_avg": flow_edit_n_avg,
+        "lora_path": lora_path,
+        "lora_dropdown": lora_dropdown,
+        "lora_scale": lora_scale,
+        "use_lora": use_lora,
     }
 
 
@@ -173,6 +247,10 @@ def _apply_param_defaults(params):
         "flow_edit_n_min": 0.0,
         "flow_edit_n_max": 1.0,
         "flow_edit_n_avg": 1,
+        "lora_path": "",
+        "lora_dropdown": "",
+        "lora_scale": 1.0,
+        "use_lora": False,
     }
     for key, value in defaults.items():
         if key not in params or params.get(key) is None:

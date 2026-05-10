@@ -78,6 +78,23 @@ class I18nHelpKeysTests(unittest.TestCase):
         self.assertNotEqual(result, "help.getting_started")
         self.assertIn("##", result)
 
+    def test_advanced_help_explains_core_workflows(self):
+        """Advanced help should cover the high-risk controls users compare."""
+        i18n = I18n(default_language="en")
+        result = i18n.t("help.generation_advanced")
+
+        for expected in (
+            "Composition",
+            "Reference Audio",
+            "LM Codes Hints",
+            "Remix",
+            "Repaint",
+            "Retake",
+            "Edit",
+        ):
+            with self.subTest(expected=expected):
+                self.assertIn(expected, result)
+
 
 if __name__ == "__main__":
     unittest.main()

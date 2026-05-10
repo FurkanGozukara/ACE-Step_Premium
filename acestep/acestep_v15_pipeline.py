@@ -254,9 +254,11 @@ def main():
     )
 
     # Define local outputs directory
-    output_dir = os.path.join(project_root, "gradio_outputs")
+    configured_output_dir = os.environ.get("ACESTEP_OUTPUT_DIR", "").strip()
+    output_dir = configured_output_dir or os.path.join(project_root, "outputs")
     # Normalize path to use forward slashes for Gradio 6 compatibility on Windows
     output_dir = output_dir.replace("\\", "/")
+    os.environ.setdefault("ACESTEP_OUTPUT_DIR", output_dir)
     os.makedirs(output_dir, exist_ok=True)
     print(f"Output directory: {output_dir}")
 

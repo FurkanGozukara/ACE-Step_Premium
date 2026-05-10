@@ -76,6 +76,21 @@ class TrainingDecompositionContractTests(unittest.TestCase):
         self.assertIn("build_dataset_label_and_preview_controls", call_names)
         self.assertIn("build_dataset_save_and_preprocess_controls", call_names)
 
+    def test_lora_tab_delegates_to_guide_and_section_builders(self) -> None:
+        """LoRA tab facade should compose the guide, dataset, and run sections."""
+
+        module = load_module("training_lora_tab.py")
+        call_names: list[str] = []
+        for node in ast.walk(module):
+            if isinstance(node, ast.Call):
+                name = call_name(node.func)
+                if name:
+                    call_names.append(name)
+
+        self.assertIn("build_lora_training_guide", call_names)
+        self.assertIn("build_lora_dataset_and_adapter_controls", call_names)
+        self.assertIn("build_lora_run_and_export_controls", call_names)
+
     def test_training_keys_cover_wiring_requirements(self) -> None:
         """Returned training keys should cover all keys consumed by wiring modules."""
 
@@ -110,6 +125,7 @@ class TrainingDecompositionContractTests(unittest.TestCase):
 
         interfaces_dir = Path(__file__).resolve().parent
         expected_markers = {
+            "training_lora_tab_guide.py": ["LoRA Training Guide", "final/adapter"],
             "training.py": ["🎵 LoRA Training for ACE-Step"],
             "training_dataset_tab_scan_settings.py": ["📂 Load Existing Dataset", "🔍 Scan New Directory"],
             "training_dataset_tab_label_preview.py": ["🤖", "👀"],

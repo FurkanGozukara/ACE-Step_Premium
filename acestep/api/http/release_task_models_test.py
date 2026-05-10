@@ -16,6 +16,7 @@ class ReleaseTaskModelsTests(unittest.TestCase):
         self.assertEqual("", req.prompt)
         self.assertEqual("text2music", req.task_type)
         self.assertEqual("mp3", req.audio_format)
+        self.assertEqual(50, req.inference_steps)
         self.assertEqual(DEFAULT_DIT_INSTRUCTION, req.instruction)
         self.assertTrue(req.use_random_seed)
 

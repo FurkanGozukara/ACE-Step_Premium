@@ -4,17 +4,18 @@ from typing import Any
 
 import gradio as gr
 
+from acestep.core.generation.handler.lora.folder_scan import lora_dropdown_choices
 from acestep.ui.gradio.i18n import t
 
 
 def build_lora_controls() -> dict[str, Any]:
-    """Create LoRA adapter controls for loading and scaling inference adapters.
+    """Create LoRA adapter controls for selecting and scaling inference adapters.
 
     Args:
         None.
 
     Returns:
-        A component map containing LoRA path, action buttons, toggles, and status controls.
+        A component map containing LoRA selection, scale, and status controls.
     """
 
     with gr.Accordion(t("generation.lora_accordion_title"), open=True, elem_classes=["has-info-container"]):
@@ -25,24 +26,25 @@ def build_lora_controls() -> dict[str, Any]:
                 info=t("generation.lora_path_info"),
                 scale=3,
             )
-            load_lora_btn = gr.Button(
-                t("generation.load_lora_btn"),
-                variant="secondary",
-                scale=1,
-                elem_classes=["action-btn", "action-btn-preview"],
+            lora_dropdown = gr.Dropdown(
+                label=t("generation.lora_dropdown_label"),
+                choices=lora_dropdown_choices(),
+                value="",
+                info=t("generation.lora_dropdown_info"),
+                scale=2,
+                interactive=True,
             )
-            unload_lora_btn = gr.Button(
-                t("generation.unload_lora_btn"),
-                variant="secondary",
-                scale=1,
-                elem_classes=["action-btn", "action-btn-cancel"],
+            refresh_lora_dropdown_btn = gr.Button(
+                t("generation.refresh_lora_dropdown_btn"),
+                variant="primary",
+                scale=2,
+                size="lg",
+                elem_classes=["action-btn", "action-btn-preview"],
             )
         with gr.Row():
             use_lora_checkbox = gr.Checkbox(
-                label=t("generation.use_lora_label"),
                 value=False,
-                info=t("generation.use_lora_info"),
-                scale=1,
+                visible=False,
             )
             lora_scale_slider = gr.Slider(
                 minimum=0.0,
@@ -62,8 +64,8 @@ def build_lora_controls() -> dict[str, Any]:
         )
     return {
         "lora_path": lora_path,
-        "load_lora_btn": load_lora_btn,
-        "unload_lora_btn": unload_lora_btn,
+        "lora_dropdown": lora_dropdown,
+        "refresh_lora_dropdown_btn": refresh_lora_dropdown_btn,
         "use_lora_checkbox": use_lora_checkbox,
         "lora_scale_slider": lora_scale_slider,
         "lora_status": lora_status,

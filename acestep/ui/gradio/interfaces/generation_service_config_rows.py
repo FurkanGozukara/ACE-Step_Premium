@@ -15,6 +15,7 @@ from acestep.model_downloader import (
     get_models_dir,
     list_available_vae_variants,
 )
+from acestep.ui.gradio.events.generation.model_config import select_preferred_model_path
 from acestep.ui.gradio.i18n import t, available_languages_info
 
 
@@ -159,27 +160,7 @@ def build_model_device_controls(
 
     with gr.Row():
         available_models = dit_handler.get_available_acestep_v15_models()
-        default_model = (
-            "acestep-v15-xl-sft"
-            if "acestep-v15-xl-sft" in available_models
-            else (
-                "acestep-v15-xl-base"
-                if "acestep-v15-xl-base" in available_models
-                else (
-                    "acestep-v15-xl-turbo"
-                    if "acestep-v15-xl-turbo" in available_models
-                    else (
-                        "acestep-v15-sft"
-                        if "acestep-v15-sft" in available_models
-                        else (
-                            "acestep-v15-turbo"
-                            if "acestep-v15-turbo" in available_models
-                            else (available_models[0] if available_models else "acestep-v15-xl-sft")
-                        )
-                    )
-                )
-            )
-        )
+        default_model = select_preferred_model_path(available_models)
         config_path = gr.Dropdown(
             label=t("service.model_path_label"),
             choices=available_models,

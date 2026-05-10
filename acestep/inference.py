@@ -65,15 +65,15 @@ class GenerationParams:
         latent_rescale: Multiplicative rescale applied to DiT latents before VAE decode (default 1.0, no rescale).
         
         # Generation Parameters
-        inference_steps: Number of diffusion steps (e.g., 8 for turbo, 32–100 for base model).
+        inference_steps: Number of diffusion steps (8 for turbo, 50 for base/SFT/XL non-turbo).
         guidance_scale: CFG (classifier-free guidance) strength. Higher means following the prompt more strictly. Only support for non-turbo model.
         seed: Integer seed for reproducibility. -1 means use random seed each time.
         
         # Advanced DiT Parameters
-        use_adg: Whether to use Adaptive Dual Guidance (only works for base model).
+        use_adg: Whether to use Adaptive Dual Guidance on non-turbo CFG models.
         cfg_interval_start: Start ratio (0.0–1.0) to apply CFG.
         cfg_interval_end: End ratio (0.0–1.0) to apply CFG.
-        shift: Timestep shift factor (default 1.0). When != 1.0, applies t = shift * t / (1 + (shift - 1) * t) to timesteps.
+        shift: Timestep shift factor (default 3.0). Base/SFT models use a continuous schedule shift; turbo models round to supported distilled schedules.
         
         # Task-Specific Parameters
         task_type: Type of generation task. One of: "text2music", "cover", "repaint", "lego", "extract", "complete".
@@ -131,13 +131,13 @@ class GenerationParams:
     latent_rescale: float = 1.0     # Multiplicative rescale on DiT latents. Default 1.0 = no rescale.
 
     # Advanced Settings
-    inference_steps: int = 8
+    inference_steps: int = 50
     seed: int = -1
     guidance_scale: float = 7.0
     use_adg: bool = False
     cfg_interval_start: float = 0.0
     cfg_interval_end: float = 1.0
-    shift: float = 1.0
+    shift: float = 3.0
     infer_method: str = "ode"  # "ode" or "sde" - diffusion inference method
     sampler_mode: str = "euler"  # "euler" (first-order) or "heun" (second-order predictor-corrector)
     velocity_norm_threshold: float = 0.0  # Clamp velocity prediction norms (0 = disabled, try 2.0)
@@ -382,9 +382,12 @@ def _candidate_repaint_sidecars(src_audio: str) -> List[str]:
     candidates = [os.path.splitext(expanded_audio)[0] + ".json"]
     basename = os.path.splitext(os.path.basename(expanded_audio))[0]
     if basename:
-        results_root = os.path.join(os.getcwd(), "gradio_outputs")
+        results_root = os.environ.get("ACESTEP_OUTPUT_DIR") or os.path.join(
+            os.getcwd(),
+            "outputs",
+        )
         sidecars = glob.glob(
-            os.path.join(results_root, "batch_*", f"{glob.escape(basename)}.json")
+            os.path.join(results_root, "*", f"{glob.escape(basename)}.json")
         )
         candidates.extend(sorted(sidecars, key=os.path.getmtime, reverse=True))
     seen = set()

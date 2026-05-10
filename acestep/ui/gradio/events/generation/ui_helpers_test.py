@@ -1,11 +1,22 @@
 """Unit tests for small generation UI helper functions."""
 
 import unittest
+from typing import Any
 
 from acestep.ui.gradio.events.generation.ui_helpers import (
     get_dcw_defaults_for_think,
     update_dcw_defaults_for_think,
+    update_instruction_ui,
 )
+
+
+class _HandlerWithoutInstruction:
+    """Handler stub that mirrors the lazy pre-init crash path."""
+
+    def __getattr__(self, name: str) -> Any:
+        """Raise when code tries to access runtime-only handler methods."""
+
+        raise AttributeError(name)
 
 
 class DcwDefaultTests(unittest.TestCase):
@@ -31,6 +42,34 @@ class DcwDefaultTests(unittest.TestCase):
         self.assertEqual(mode_update.get("value"), "double")
         self.assertEqual(scaler_update.get("value"), 0.02)
         self.assertEqual(high_scaler_update.get("value"), 0.06)
+
+
+class InstructionUiTests(unittest.TestCase):
+    """Validate instruction UI updates stay runtime-light."""
+
+    def test_update_instruction_ui_does_not_require_runtime_handler_method(self):
+        """Instruction text should render before the lazy DiT handler initializes."""
+
+        result = update_instruction_ui(
+            _HandlerWithoutInstruction(),
+            "repaint",
+            None,
+            [],
+        )
+
+        self.assertEqual("Repaint the mask area based on the given conditions:", result)
+
+    def test_update_instruction_ui_formats_complete_track_classes(self):
+        """Complete mode should include selected track classes in the instruction."""
+
+        result = update_instruction_ui(
+            _HandlerWithoutInstruction(),
+            "complete",
+            None,
+            ["drums", "bass"],
+        )
+
+        self.assertEqual("Complete the input track with DRUMS | BASS:", result)
 
 
 if __name__ == "__main__":

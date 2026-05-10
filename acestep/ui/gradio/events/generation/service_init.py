@@ -157,12 +157,15 @@ def init_service_wrapper(
 
     gpu_config = get_global_gpu_config()
 
-    # Warn if XL (4B) model selected on a GPU with limited VRAM
+    # Warn if XL (4B) model selected on a GPU with limited VRAM.
+    # 60s batch-1 XL SFT/Turbo profiling peaks around 9.5 GiB allocated and
+    # 9.7 GiB reserved with full offload, so 12GB is the practical floor.
     if is_xl_model(config_path_lower) and gpu_config is not None:
         gpu_mem = getattr(gpu_config, "gpu_memory_gb", 0)
-        if 0 < gpu_mem < 16:
+        if 0 < gpu_mem < 12:
             gr.Warning(
-                f"XL (4B) model requires ≥16GB VRAM (detected {gpu_mem:.0f}GB). "
+                f"XL (4B) model needs about 10GB peak VRAM and is recommended "
+                f"for >=12GB GPUs (detected {gpu_mem:.0f}GB). "
                 "Consider using a 2B model, or enable CPU offload."
             )
     lm_actually_initialized = llm_handler.llm_initialized if llm_handler else False

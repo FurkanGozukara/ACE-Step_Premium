@@ -517,11 +517,11 @@ How long does generation take? It depends on your hardware and settings:
 ```
 
 **Fast Mode vs. Quality Mode:**
-- **Turbo** (default): 8 steps (max 20), very fast, good quality
-- **SFT**: 50 steps default (max 200), slower, more detail and nuance
-- **Base**: 32 steps default (max 200), slower, more detail and nuance
+- **Turbo / XL-Turbo**: 8 steps, very fast, good quality (backend clamps above 8)
+- **SFT / XL-SFT**: 50 steps default (max 200), slower, more detail and nuance
+- **Base / XL-Base**: 50 steps default (max 200), slower, more detail and nuance
 
-Most people use Turbo for day-to-day work and switch to SFT/Base for final versions.
+The premium default model is XL-SFT, so use 50 steps unless you deliberately switch to Turbo for speed.
 
 ---
 

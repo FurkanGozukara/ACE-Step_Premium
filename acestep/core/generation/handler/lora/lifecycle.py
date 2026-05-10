@@ -7,6 +7,7 @@ from typing import Any
 from loguru import logger
 
 from acestep.constants import DEBUG_MODEL_LOADING
+from acestep.core.generation.handler.lora.path_resolution import resolve_lora_input_path
 from acestep.debug_utils import debug_log
 from acestep.training.configs import LoKRConfig
 
@@ -204,12 +205,15 @@ def add_lora(self, lora_path: str, adapter_name: str | None = None) -> str:
             "Please re-initialize the service with quantization disabled, then try loading the LoRA adapter again."
         )
 
-    if not lora_path or not lora_path.strip():
+    if not lora_path or not str(lora_path).strip():
         return "❌ Please provide a LoRA path."
 
-    lora_path = lora_path.strip()
+    resolution = resolve_lora_input_path(lora_path)
+    lora_path = resolution.resolved_path or ""
     if not os.path.exists(lora_path):
-        return f"❌ LoRA path not found: {lora_path}"
+        searched = ", ".join(resolution.searched_paths[:3])
+        suffix = f" Searched: {searched}" if searched else ""
+        return f"❌ LoRA path not found: {resolution.display_path}.{suffix}"
 
     lokr_weights_path = _resolve_lokr_weights_path(lora_path)
     if lokr_weights_path is None:
@@ -318,7 +322,9 @@ def add_lora(self, lora_path: str, adapter_name: str | None = None) -> str:
 
 def load_lora(self, lora_path: str) -> str:
     """Load a single adapter (backward-compat), including LyCORIS LoKr paths."""
-    lokr_weights_path = _resolve_lokr_weights_path(lora_path.strip()) if isinstance(lora_path, str) else None
+    resolution = resolve_lora_input_path(lora_path) if isinstance(lora_path, str) else None
+    resolved_path = resolution.resolved_path if resolution is not None else None
+    lokr_weights_path = _resolve_lokr_weights_path(resolved_path) if resolved_path else None
     message = self.add_lora(lora_path, adapter_name=None)
     if lokr_weights_path is not None and message.startswith("✅"):
         return f"✅ LoKr loaded from {lokr_weights_path}"

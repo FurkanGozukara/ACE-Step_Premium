@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock
 
+from acestep.training.path_safety import get_safe_root, set_safe_root
 from acestep.ui.gradio.events.training.preprocess import (
     load_training_dataset,
     preprocess_dataset,
@@ -14,6 +15,16 @@ from acestep.ui.gradio.events.training.preprocess import (
 
 class TestLoadTrainingDataset(unittest.TestCase):
     """Tests for load_training_dataset."""
+
+    def setUp(self):
+        """Preserve the process-wide training path-safety root."""
+
+        self.original_safe_root = get_safe_root()
+
+    def tearDown(self):
+        """Restore the process-wide training path-safety root."""
+
+        set_safe_root(self.original_safe_root)
 
     def test_empty_path(self):
         result = load_training_dataset("")
@@ -25,6 +36,7 @@ class TestLoadTrainingDataset(unittest.TestCase):
 
     def test_with_manifest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_root(tmpdir)
             manifest = {
                 "num_samples": 10,
                 "metadata": {"name": "TestDataset", "custom_tag": "test"},
@@ -40,6 +52,7 @@ class TestLoadTrainingDataset(unittest.TestCase):
 
     def test_without_manifest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_root(tmpdir)
             # Create some .pt files
             for i in range(3):
                 open(os.path.join(tmpdir, f"sample_{i}.pt"), "w").close()
@@ -50,6 +63,7 @@ class TestLoadTrainingDataset(unittest.TestCase):
 
     def test_no_pt_files(self):
         with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_root(tmpdir)
             result = load_training_dataset(tmpdir)
             self.assertIn("❌", result)
 

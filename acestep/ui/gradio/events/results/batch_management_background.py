@@ -11,6 +11,7 @@ from acestep.ui.gradio.events.results.batch_management_helpers import (
     _apply_param_defaults,
     _extract_scores,
     _log_background_params,
+    apply_lora_selection_for_generation,
 )
 from acestep.ui.gradio.events.results.batch_queue import store_batch_in_queue
 from acestep.ui.gradio.events.results.generation_progress import generate_with_progress
@@ -83,6 +84,13 @@ def generate_next_batch_background(
 
     try:
         _apply_param_defaults(params)
+        _, _, lora_status = apply_lora_selection_for_generation(
+            dit_handler,
+            params.get("lora_path"),
+            params.get("lora_dropdown"),
+            params.get("lora_scale"),
+        )
+        logger.info(f"Background LoRA state: {lora_status}")
 
         gc.collect()
         torch = _get_torch_for_in_process()

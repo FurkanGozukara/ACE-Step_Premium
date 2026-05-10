@@ -68,11 +68,11 @@ class RepaintCacheLoadTests(unittest.TestCase):
         self.assertEqual(3, seeds[2])
         self.assertNotEqual(2, seeds[1])
 
-    def test_loads_sidecar_from_gradio_outputs_by_audio_basename(self):
+    def test_loads_sidecar_from_outputs_by_audio_basename(self):
         """Gradio temp audio paths should resolve back to generated output sidecars."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            output_dir = root / "gradio_outputs" / "batch_123"
+            output_dir = root / "outputs" / "0001"
             output_dir.mkdir(parents=True)
             np.save(output_dir / "sample.repaint_latents.npy", np.ones((4, 3), dtype=np.float32))
             (output_dir / "sample.json").write_text(
@@ -93,8 +93,8 @@ class RepaintCacheLoadTests(unittest.TestCase):
         """Generated sidecar fallback should escape glob chars and prefer newest output."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            older_dir = root / "gradio_outputs" / "batch_1"
-            newer_dir = root / "gradio_outputs" / "batch_2"
+            older_dir = root / "outputs" / "0001"
+            newer_dir = root / "outputs" / "0002"
             older_dir.mkdir(parents=True)
             newer_dir.mkdir(parents=True)
             for directory, value in [(older_dir, 1.0), (newer_dir, 2.0)]:

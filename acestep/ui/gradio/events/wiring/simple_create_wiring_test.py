@@ -3,6 +3,7 @@
 import unittest
 
 from acestep.ui.gradio.events.wiring.simple_create_wiring import (
+    _apply_simple_model_change,
     _extract_generation_status,
     _format_enhancement_status,
     _format_simple_status,
@@ -56,6 +57,24 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
             _format_enhancement_status("5Hz LM not initialized", "Lyrics"),
             "Lyrics enhancement failed.\n5Hz LM not initialized",
         )
+
+    def test_simple_model_selector_applies_turbo_defaults(self):
+        """Selecting XL Turbo should update config_path and 8-step model controls."""
+
+        result = _apply_simple_model_change("acestep-v15-xl-turbo", "Custom")
+
+        self.assertEqual(result[0].get("value"), "acestep-v15-xl-turbo")
+        self.assertEqual(result[1].get("value"), 8)
+        self.assertIn("XL Turbo", result[-1])
+
+    def test_simple_model_selector_applies_sft_defaults(self):
+        """Selecting XL SFT should update config_path and 50-step model controls."""
+
+        result = _apply_simple_model_change("acestep-v15-xl-sft", "Custom")
+
+        self.assertEqual(result[0].get("value"), "acestep-v15-xl-sft")
+        self.assertEqual(result[1].get("value"), 50)
+        self.assertIn("XL SFT", result[-1])
 
 
 if __name__ == "__main__":

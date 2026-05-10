@@ -198,8 +198,8 @@ User-provided values always win; LM only fills the fields that are empty/missing
 
 | Parameter Name | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `inference_steps` | int | `8` | Number of inference steps. Turbo model: 1-20 (recommended 8). Base model: 1-200 (recommended 32-64). |
-| `guidance_scale` | float | `7.0` | Prompt guidance coefficient. Only effective for base model. |
+| `inference_steps` | int | `50` | Number of inference steps. Premium default XL-SFT/non-turbo models use 50. Turbo models use 8 and the backend clamps above 8. |
+| `guidance_scale` | float | `7.0` | Prompt guidance coefficient for non-turbo CFG models. Turbo models force guidance to 1.0. |
 | `use_random_seed` | bool | `true` | Whether to use random seed |
 | `seed` | int | `-1` | Specify seed (when use_random_seed=false) |
 | `batch_size` | int | `2` | Batch generation count (max 8) |
@@ -208,10 +208,10 @@ User-provided values always win; LM only fills the fields that are empty/missing
 
 | Parameter Name | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `shift` | float | `3.0` | Timestep shift factor (range 1.0-5.0). Only effective for base models, not turbo models. |
+| `shift` | float | `3.0` | Timestep shift factor (range 1.0-5.0). Base/SFT models use a continuous schedule shift; turbo models round to supported distilled schedules. |
 | `infer_method` | string | `"ode"` | Diffusion inference method: `"ode"` (Euler, faster) or `"sde"` (stochastic). |
 | `timesteps` | string | null | Custom timesteps as comma-separated values (e.g., `"0.97,0.76,0.615,0.5,0.395,0.28,0.18,0.085,0"`). Overrides `inference_steps` and `shift`. |
-| `use_adg` | bool | `false` | Use Adaptive Dual Guidance (base model only) |
+| `use_adg` | bool | `false` | Use Adaptive Dual Guidance on non-turbo CFG models |
 | `cfg_interval_start` | float | `0.0` | CFG application start ratio (0.0-1.0) |
 | `cfg_interval_end` | float | `1.0` | CFG application end ratio (0.0-1.0) |
 
@@ -289,7 +289,7 @@ curl -X POST http://localhost:8001/release_task \
   -d '{
     "prompt": "upbeat pop song",
     "lyrics": "Hello world",
-    "inference_steps": 8
+    "inference_steps": 50
   }'
 ```
 

@@ -14,7 +14,7 @@ from config import PROJECTS_DIR, OUTPUT_DIR, AUDIO_FORMATS
 
 
 def pick_audio_source() -> Optional[Path]:
-    """Let the user choose from projects, gradio_outputs, or upload.
+    """Let the user choose from projects, generated outputs, or upload.
 
     Returns:
         Path to the chosen audio file, or ``None`` if nothing selected.
@@ -69,7 +69,7 @@ def _pick_from_projects(fallback: Optional[Path]) -> Optional[Path]:
 
 
 def _pick_from_outputs(fallback: Optional[Path]) -> Optional[Path]:
-    """gradio_outputs browser tab content."""
+    """Generated outputs browser tab content."""
     all_files = _scan_output_files()
     if not all_files:
         st.info("No output files found.")
@@ -103,7 +103,7 @@ def _pick_from_upload(fallback: Optional[Path]) -> Optional[Path]:
 
 
 def _scan_output_files() -> List[Path]:
-    """Return all audio files under gradio_outputs (flat + batch dirs)."""
+    """Return all audio files under outputs (flat + run dirs)."""
     exts = set(AUDIO_FORMATS)
     out: List[Path] = []
     if not OUTPUT_DIR.exists():

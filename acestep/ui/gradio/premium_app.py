@@ -15,6 +15,7 @@ from acestep.ui.gradio.events import (
     setup_training_event_handlers,
 )
 from acestep.ui.gradio.events.wiring import (
+    register_batch_folder_handlers,
     register_library_handlers,
     register_simple_create_handlers,
 )
@@ -29,6 +30,7 @@ from acestep.ui.gradio.interfaces.user_preferences import (
     wire_preference_restore,
 )
 from acestep.ui.gradio.pages import (
+    create_batch_folder_page,
     create_dataset_page,
     create_generation_workspace_page,
     create_library_page,
@@ -289,6 +291,8 @@ _PREMIUM_CSS = """
     font-size: 15px !important;
     font-weight: 800 !important;
     line-height: 1.18 !important;
+    min-height: 42px !important;
+    padding: 0.62rem 0.92rem !important;
     white-space: normal !important;
     overflow-wrap: anywhere;
     text-align: center !important;
@@ -300,9 +304,9 @@ _PREMIUM_CSS = """
     padding: 0.62rem 0.92rem !important;
 }
 .gradio-container button.sm[data-ace-command-button="true"] {
-    font-size: 13px !important;
-    min-height: 30px !important;
-    padding: 0.38rem 0.62rem !important;
+    font-size: 15px !important;
+    min-height: 42px !important;
+    padding: 0.62rem 0.92rem !important;
 }
 .gradio-container button[data-ace-command-button="true"]:hover {
     transform: translateY(-1px);
@@ -322,6 +326,8 @@ button.action-btn {
     text-shadow: 0 1px 1px rgba(15, 23, 42, 0.32);
     font-weight: 800 !important;
     line-height: 1.18 !important;
+    min-height: 42px !important;
+    padding: 0.62rem 0.92rem !important;
     transition: transform 0.12s ease, box-shadow 0.16s ease, filter 0.16s ease;
 }
 .action-btn button *,
@@ -537,7 +543,7 @@ def create_gradio_interface(
         gr.Markdown(APP_HEADER_MARKDOWN)
 
         with gr.Tabs():
-            with gr.Tab("Create", render_children=True):
+            with gr.Tab("Generate Song", render_children=True):
                 simple_page = create_simple_create_page(init_params=init_params)
 
             with gr.Tab("Advanced", render_children=True):
@@ -569,6 +575,9 @@ def create_gradio_interface(
                     init_params=init_params,
                 )
 
+            with gr.Tab("Batch Folder Processing", visible=not service_mode, render_children=True):
+                batch_folder_section = create_batch_folder_page()
+
         generation_section: dict[str, Any] = {}
         generation_section.update(create_page["settings_section"])
         generation_section.update(create_page["generation_section"])
@@ -576,6 +585,10 @@ def create_gradio_interface(
         generation_section["subprocess_mode_checkbox"] = create_page[
             "subprocess_mode_checkbox"
         ]
+        generation_section["simple_model_dropdown"] = simple_page[
+            "simple_model_dropdown"
+        ]
+        generation_section["simple_quantization"] = simple_page["simple_quantization"]
 
         setup_event_handlers(
             demo=demo,
@@ -593,6 +606,13 @@ def create_gradio_interface(
             llm_handler=llm_handler,
             training_section=training_section,
         )
+        register_batch_folder_handlers(
+            dit_handler=dit_handler,
+            llm_handler=llm_handler,
+            batch_section=batch_folder_section,
+            generation_section=generation_section,
+            results_section=results_section,
+        )
 
         register_simple_create_handlers(
             simple_page=simple_page,
@@ -608,20 +628,29 @@ def create_gradio_interface(
             fn=startup_preset_updates,
             outputs=preset_components
             + [
+                generation_section["lora_status"],
+                generation_section["use_lora_checkbox"],
                 studio_page["preset_dropdown"],
                 studio_page["preset_status"],
                 studio_page["studio_overview"],
             ],
         )
+        preset_load_outputs = preset_components + [
+            generation_section["lora_status"],
+            generation_section["use_lora_checkbox"],
+            studio_page["preset_dropdown"],
+            studio_page["preset_status"],
+            studio_page["studio_overview"],
+        ]
+        studio_page["preset_dropdown"].change(
+            fn=load_preset_action,
+            inputs=[studio_page["preset_dropdown"]],
+            outputs=preset_load_outputs,
+        )
         studio_page["load_preset_btn"].click(
             fn=load_preset_action,
             inputs=[studio_page["preset_dropdown"]],
-            outputs=preset_components
-            + [
-                studio_page["preset_dropdown"],
-                studio_page["preset_status"],
-                studio_page["studio_overview"],
-            ],
+            outputs=preset_load_outputs,
         )
         studio_page["save_preset_btn"].click(
             fn=save_preset_action,

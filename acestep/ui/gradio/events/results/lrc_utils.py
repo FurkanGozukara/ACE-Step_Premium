@@ -15,7 +15,7 @@ import gradio as gr
 from loguru import logger
 
 from acestep.ui.gradio.i18n import t
-from acestep.ui.gradio.events.results.generation_info import DEFAULT_RESULTS_DIR
+from acestep.ui.gradio.events.results.output_manager import get_results_dir
 from acestep.ui.gradio.events.results.session_artifacts import load_batch_sample_session_tensors
 
 
@@ -153,7 +153,7 @@ def lrc_to_vtt_file(lrc_text: str, total_duration: float = None) -> Optional[str
         vtt_lines.append("")
 
     try:
-        vtt_output_dir = os.path.join(DEFAULT_RESULTS_DIR, "subtitles")
+        vtt_output_dir = os.path.join(str(get_results_dir()), "subtitles")
         os.makedirs(vtt_output_dir, exist_ok=True)
         ts = int(time_module.time())
         vtt_filename = f"subtitles_{ts}_{datetime.datetime.now().strftime('%H%M%S')}.vtt"

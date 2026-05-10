@@ -326,13 +326,14 @@ def resolve_lm_backend(
 
 # GPU tier configurations.
 #
-# Calibrated on 2026-05-08 with the local XL SFT checkpoint on RTX 5090 using
-# real 60s / 8-step generations and nvidia-smi peak sampling:
-# - bf16, no offload, batch 8: 14.3 GiB peak without LM.
-# - bf16, no offload, local 1.7B LM loaded: 18.2 GiB init peak.
-# - int8, CPU offload, batch 8: 10.3 GiB peak.
-# - int8, full offload, batch 8: 8.7 GiB peak.
-# - int8, full offload, local 1.7B LM prompt: 4.1 GiB peak.
+# Calibrated on 2026-05-10 with local XL SFT and XL Turbo checkpoints on
+# RTX 5090 using real 60s generations and torch CUDA peak-memory stats:
+# - XL Turbo/SFT, int8 + full offload, batch 1: 9.5-9.7 GiB reserved.
+# - XL Turbo/SFT, int8 + CPU offload, batch 8: 12.4-12.5 GiB reserved.
+# - XL Turbo/SFT, bf16 no offload, batch 8: 13.3-13.5 GiB reserved.
+# - XL Turbo/SFT, bf16 no offload + local 1.7B LM, batch 8: 18.6 GiB reserved.
+# These peaks make XL unsafe below 12GB even though smaller 2B checkpoints can
+# still use the low-VRAM tiers.
 #
 # tier6 is split into tier6a (16-20GB) and tier6b (20-24GB). 16GB-class GPUs
 # need quantization/offload with the XL model, while 20GB+ can use bf16 with
@@ -357,8 +358,8 @@ GPU_TIER_CONFIGS = {
         "lm_memory_gb": {},
     },
     "tier2": {  # 4-6GB
-        # XL batch 1 measured about 6.5 GiB with full offload, so this tier is
-        # only safe for smaller checkpoints. Keep LM disabled by default.
+        # XL batch 1 now measures about 9.5 GiB with full offload, so this
+        # tier is only safe for smaller checkpoints. Keep LM disabled by default.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
         "max_batch_size_with_lm": 1,
@@ -375,8 +376,8 @@ GPU_TIER_CONFIGS = {
         "lm_memory_gb": {},
     },
     "tier3": {  # 6-8GB
-        # XL full-offload batch 1 measured about 6.5 GiB and batch 2 about
-        # 6.9 GiB, which is too close for the low end of this tier.
+        # XL full-offload batch 1 measures about 9.5 GiB, which exceeds this
+        # tier. These settings remain for smaller checkpoints.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
         "max_batch_size_with_lm": 1,
@@ -393,8 +394,8 @@ GPU_TIER_CONFIGS = {
         "lm_memory_gb": {"0.6B": 3},
     },
     "tier4": {  # 8-12GB
-        # XL full-offload batch 4 measured about 7.5 GiB. LM prompt with the
-        # local 1.7B fallback measured about 4.1 GiB because LM is offloaded.
+        # XL full-offload batch 4 measured about 10.6 GiB reserved. This fits
+        # 12GB-class cards with headroom, but not the low end of 8-12GB.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
         "max_batch_size_with_lm": 2,
@@ -411,8 +412,9 @@ GPU_TIER_CONFIGS = {
         "lm_memory_gb": {"0.6B": 3},
     },
     "tier5": {  # 12-16GB
-        # INT8 + CPU offload measured 10.3 GiB at batch 8 without LM and
-        # 10.2 GiB for a local 1.7B LM prompt. Keep LM batch lower for margin.
+        # INT8 + CPU offload measured about 12.5 GiB reserved at batch 8
+        # without LM and 13.0 GiB reserved at batch 4 with the local 1.7B LM.
+        # Keep LM batch lower for margin.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
         "max_batch_size_with_lm": 4,
@@ -429,8 +431,9 @@ GPU_TIER_CONFIGS = {
         "lm_memory_gb": {"0.6B": 3, "1.7B": 8},
     },
     "tier6a": {  # 16-20GB (e.g., RTX 4060 Ti 16GB, RTX 3080 16GB)
-        # INT8 + CPU offload keeps the XL model under 10.3 GiB at batch 8.
-        # This avoids the 18.2 GiB bf16+LM peak measured with no offload.
+        # INT8 + CPU offload keeps the XL model around 12.5 GiB reserved at
+        # batch 8 and about 13.0 GiB reserved at batch 4 with the local 1.7B LM.
+        # This avoids the 18.6 GiB bf16+LM peak measured with no offload.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
         "max_batch_size_with_lm": 4,
@@ -447,8 +450,8 @@ GPU_TIER_CONFIGS = {
         "lm_memory_gb": {"0.6B": 3, "1.7B": 8},
     },
     "tier6b": {  # 20-24GB (e.g., RTX 3090, RTX 4090)
-        # bf16 XL + local 1.7B LM measured 18.2 GiB peak at init and 17.1 GiB
-        # with a batch-8 DiT generation after LM load.
+        # bf16 XL + local 1.7B LM measured about 18.6 GiB reserved with a
+        # batch-8 generation after LM load.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 480,  # 8 minutes
         "max_batch_size_with_lm": 8,

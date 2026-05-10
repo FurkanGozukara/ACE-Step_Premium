@@ -8,7 +8,12 @@ import gradio as gr
 
 from .. import generation_handlers as gen_h
 from .. import results_handlers as res_h
-from ...premium_features import open_outputs_folder
+from ..generation.quantization import default_quantization_value
+from ...premium_features import (
+    SIMPLE_MODEL_CHOICES,
+    normalize_simple_model_dropdown_value,
+    open_outputs_folder,
+)
 from .generation_run_wiring import (
     build_clear_audio_outputs,
     build_generation_run_inputs,
@@ -19,6 +24,7 @@ from .simple_create_params import prepare_simple_generation
 
 
 _STATUS_OUTPUT_INDEX = 10
+_SIMPLE_MODEL_LABELS = {value: label for label, value in SIMPLE_MODEL_CHOICES}
 
 
 def register_simple_create_handlers(
@@ -58,6 +64,7 @@ def register_simple_create_handlers(
             generation_section["offload_dit_to_cpu_checkbox"],
             generation_section["compile_model_checkbox"],
             generation_section["quantization_checkbox"],
+            simple_page["simple_quantization"],
             generation_section["backend_dropdown"],
             generation_section["lm_model_path"],
             generation_section["init_llm_checkbox"],
@@ -68,6 +75,35 @@ def register_simple_create_handlers(
             simple_page["simple_duration"],
             simple_page["simple_status"],
         ],
+    )
+
+    simple_page["simple_model_dropdown"].change(
+        fn=_apply_simple_model_change,
+        inputs=[
+            simple_page["simple_model_dropdown"],
+            generation_section["generation_mode"],
+        ],
+        outputs=[
+            generation_section["config_path"],
+            generation_section["inference_steps"],
+            generation_section["guidance_scale"],
+            generation_section["use_adg"],
+            generation_section["shift"],
+            generation_section["cfg_interval_start"],
+            generation_section["cfg_interval_end"],
+            generation_section["task_type"],
+            generation_section["generation_mode"],
+            generation_section["init_llm_checkbox"],
+            simple_page["simple_status"],
+        ],
+    )
+
+    simple_page["simple_quantization"].change(
+        fn=lambda quantization: gr.update(
+            value=default_quantization_value(quantization)
+        ),
+        inputs=[simple_page["simple_quantization"]],
+        outputs=[generation_section["quantization_checkbox"]],
     )
 
     simple_page["simple_random_btn"].click(
@@ -93,6 +129,7 @@ def register_simple_create_handlers(
             simple_page["simple_random_seed"],
             simple_page["simple_seed"],
             simple_page["simple_quantization"],
+            simple_page["simple_model_dropdown"],
             simple_page["simple_bpm_state"],
             simple_page["simple_key_scale_state"],
             simple_page["simple_time_signature_state"],
@@ -165,6 +202,7 @@ def _simple_prepare_outputs(
         generation_section["time_signature"],
         results_section["is_format_caption_state"],
         simple_page["simple_status"],
+        generation_section["config_path"],
     ]
 
 
@@ -279,16 +317,49 @@ def _apply_simple_tier_change(tier: str | None, llm_handler: Any) -> tuple[Any, 
 
     updates = gen_h.on_tier_change(tier, llm_handler)
     if len(updates) != 10:
-        return (gr.update(value=tier),) + tuple(gr.update() for _ in range(13))
+        return (gr.update(value=tier),) + tuple(gr.update() for _ in range(14))
+    quantization_update = updates[3]
     batch_update = updates[7]
     duration_update = updates[8]
     return (
         gr.update(value=tier),
-        *updates,
+        updates[0],
+        updates[1],
+        updates[2],
+        quantization_update,
+        quantization_update,
+        updates[4],
+        updates[5],
+        updates[6],
+        updates[7],
+        updates[8],
+        updates[9],
         batch_update,
         duration_update,
         f"Applied GPU preset: {tier}",
     )
+
+
+def _apply_simple_model_change(
+    model_path: str | None,
+    current_mode: str | None = None,
+) -> tuple[Any, ...]:
+    """Apply the Create-tab SFT/Turbo selector to the advanced model controls."""
+
+    selected_model = normalize_simple_model_dropdown_value(model_path)
+    model_updates = gen_h.update_model_type_settings(selected_model, current_mode)
+    label = _SIMPLE_MODEL_LABELS.get(selected_model, selected_model)
+    if "turbo" in selected_model:
+        status = (
+            f"Selected model: {label}. Next generation uses XL Turbo "
+            "8-step fast defaults. GPU presets remain the XL 4B profile."
+        )
+    else:
+        status = (
+            f"Selected model: {label}. Next generation uses XL SFT "
+            "50-step quality defaults. GPU presets remain the XL 4B profile."
+        )
+    return (gr.update(value=selected_model), *model_updates, status)
 
 
 def _extract_generation_status(outputs: Any) -> str:

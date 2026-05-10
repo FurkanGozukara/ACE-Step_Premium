@@ -14,6 +14,8 @@ from acestep.ui.gradio.events.results.batch_management_helpers import (
     _build_saved_params,
     _extract_scores,
     _extract_ui_core_outputs,
+    apply_lora_selection_for_generation,
+    resolve_effective_lora_path,
 )
 from acestep.ui.gradio.events.results.batch_queue import (
     store_batch_in_queue,
@@ -27,6 +29,7 @@ from acestep.ui.gradio.events.results.subprocess_generation import (
     build_pending_core_outputs,
     stream_subprocess_generation,
 )
+from acestep.ui.gradio.events.results.output_manager import get_active_results_dir
 from acestep.ui.gradio.events.generation.quantization import select_quantization_value
 from acestep.ui.gradio.i18n import t
 
@@ -320,13 +323,14 @@ def generate_with_batch_management(
     compile_model_checkbox,
     quantization_checkbox,
     mlx_dit_checkbox,
+    lora_dropdown,
     lora_path,
     use_lora_checkbox,
     lora_scale_slider,
     progress=gr.Progress(track_tqdm=True),
 ):
     """Wrap ``generate_with_progress`` with batch queue management state."""
-    _ = generation_params_state  # reserved for API compatibility with wiring/state outputs
+    _ = (generation_params_state, use_lora_checkbox)  # reserved for API compatibility
 
     saved_params = _build_saved_params(
         captions, lyrics, bpm, key_scale, time_signature, vocal_language,
@@ -353,10 +357,15 @@ def generate_with_batch_management(
         flow_edit_n_min=flow_edit_n_min,
         flow_edit_n_max=flow_edit_n_max,
         flow_edit_n_avg=flow_edit_n_avg,
+        lora_path=lora_path,
+        lora_dropdown=lora_dropdown,
+        lora_scale=lora_scale_slider,
+        use_lora=bool(resolve_effective_lora_path(lora_path, lora_dropdown)),
     )
     saved_params["_subprocess_mode"] = bool(subprocess_mode_checkbox)
 
     if subprocess_mode_checkbox:
+        effective_lora_path = resolve_effective_lora_path(lora_path, lora_dropdown)
         subprocess_generation_params = dict(saved_params)
         _apply_param_defaults(subprocess_generation_params)
         subprocess_generation_params["custom_timesteps"] = custom_timesteps or ""
@@ -380,14 +389,17 @@ def generate_with_batch_management(
                 "compile_model": compile_model_checkbox,
                 "quantization": quantization_checkbox,
                 "mlx_dit": mlx_dit_checkbox,
-                "lora_path": lora_path,
-                "use_lora": use_lora_checkbox,
+                "lora_path": effective_lora_path,
+                "use_lora": bool(effective_lora_path),
                 "lora_scale": lora_scale_slider,
             },
             "generation": {
                 **subprocess_generation_params,
             },
         }
+        active_output_dir = get_active_results_dir()
+        if active_output_dir is not None:
+            request_payload["output_dir"] = str(active_output_dir)
 
         subprocess_result = None
         try:
@@ -525,6 +537,25 @@ def generate_with_batch_management(
             gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(),
         )
         return
+
+    try:
+        _resolved_lora_path, _use_lora, lora_status = apply_lora_selection_for_generation(
+            dit_handler,
+            lora_path,
+            lora_dropdown,
+            lora_scale_slider,
+        )
+    except Exception as exc:
+        error_msg = t("messages.batch_failed", error=str(exc))
+        logger.warning("[generate_with_batch_management] LoRA synchronization failed")
+        gr.Warning(error_msg)
+        yield build_pending_core_outputs(error_msg, is_format_caption) + (
+            gr.skip(), gr.skip(), gr.skip(), gr.skip(),
+            gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(),
+        )
+        return
+    if lora_status:
+        logger.info("[generate_with_batch_management] {}", lora_status)
 
     generator = generate_with_progress(
         dit_handler, llm_handler,

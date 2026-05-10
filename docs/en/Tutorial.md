@@ -840,9 +840,9 @@ This is the part that affects "generation process behavior"—doesn't change wha
 
 | Parameter | Function | Default | Tuning Advice |
 |-----------|----------|---------|---------------|
-| `inference_steps` | Diffusion steps | 8 (turbo) | More steps = finer but slower. Turbo uses 8, Base uses 32–100 |
-| `guidance_scale` | CFG strength | 7.0 | Higher = more prompt adherence, but may overfit. Only Base model effective |
-| `use_adg` | Adaptive Dual Guidance | False | After enabling, dynamically adjusts CFG, Base model only |
+| `inference_steps` | Diffusion steps | 50 (XL-SFT) | More steps = finer but slower. Turbo uses 8; non-turbo Base/SFT/XL defaults to 50 |
+| `guidance_scale` | CFG strength | 7.0 | Higher = more prompt adherence, but may overfit. Only non-turbo CFG models use it |
+| `use_adg` | Adaptive Dual Guidance | False | After enabling, dynamically adjusts CFG on non-turbo models |
 | `cfg_interval_start/end` | CFG effective interval | 0.0–1.0 | Controls which stage to apply CFG |
 | `shift` | Timestep offset | 1.0 | Adjusts denoising trajectory, affects generation style |
 | `infer_method` | Inference method | "ode" | `ode` deterministic, `sde` introduces randomness |
