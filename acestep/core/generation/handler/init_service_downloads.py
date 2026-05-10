@@ -74,7 +74,7 @@ class InitServiceDownloadsMixin:
 
         mismatched = _check_code_mismatch(config_path, checkpoint_path)
         if mismatched:
-            logger.warning(
+            logger.info(
                 f"[initialize_service] Model code mismatch detected for '{config_path}': "
                 f"{mismatched}. Auto-syncing from acestep/models/..."
             )
