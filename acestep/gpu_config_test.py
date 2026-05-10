@@ -73,23 +73,40 @@ class GpuConfigMeasuredPresetTests(unittest.TestCase):
         self.assertTrue(config.quantization_default)
         self.assertFalse(config.compile_model_default)
 
-    def test_tier6b_defaults_to_bf16_without_offload(self) -> None:
-        """20-24GB GPUs can use the measured bf16 local-1.7B path."""
+    def test_tier6a_recommends_4b_with_int8_offload_at_batch_one(self) -> None:
+        """16-20GB GPUs use the measured batch-1 4B LM path."""
+        config = get_gpu_config(gpu_memory_gb=16.0)
+
+        self.assertEqual("tier6a", config.tier)
+        self.assertEqual(1, config.max_batch_size_with_lm)
+        self.assertIn("acestep-5Hz-lm-4B", config.available_lm_models)
+        self.assertEqual("acestep-5Hz-lm-4B", config.recommended_lm_model)
+        self.assertTrue(config.offload_to_cpu_default)
+        self.assertFalse(config.offload_dit_to_cpu_default)
+        self.assertTrue(config.quantization_default)
+        self.assertFalse(config.compile_model_default)
+
+    def test_tier6b_recommends_4b_with_cpu_offload_at_batch_one(self) -> None:
+        """20-24GB GPUs require CPU offload for the measured batch-1 4B LM path."""
         config = get_gpu_config(gpu_memory_gb=20.0)
 
         self.assertEqual("tier6b", config.tier)
-        self.assertFalse(config.offload_to_cpu_default)
+        self.assertEqual(1, config.max_batch_size_with_lm)
+        self.assertIn("acestep-5Hz-lm-4B", config.available_lm_models)
+        self.assertEqual("acestep-5Hz-lm-4B", config.recommended_lm_model)
+        self.assertTrue(config.offload_to_cpu_default)
         self.assertFalse(config.offload_dit_to_cpu_default)
         self.assertFalse(config.quantization_default)
         self.assertFalse(config.compile_model_default)
-        self.assertEqual("acestep-5Hz-lm-1.7B", config.recommended_lm_model)
 
-    def test_unlimited_recommends_measured_local_lm_size(self) -> None:
-        """Unlimited tier should not default to an unmeasured 4B LM."""
+    def test_unlimited_recommends_measured_4b_at_batch_one(self) -> None:
+        """Unlimited tier can use the measured batch-1 4B LM path."""
         config = get_gpu_config(gpu_memory_gb=32.0)
 
         self.assertEqual("unlimited", config.tier)
-        self.assertEqual("acestep-5Hz-lm-1.7B", config.recommended_lm_model)
+        self.assertEqual(1, config.max_batch_size_with_lm)
+        self.assertEqual("acestep-5Hz-lm-4B", config.recommended_lm_model)
+        self.assertFalse(config.offload_to_cpu_default)
         self.assertFalse(config.compile_model_default)
 
 

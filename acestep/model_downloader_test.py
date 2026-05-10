@@ -164,8 +164,9 @@ class TestCheckMainModelExists(unittest.TestCase):
         self.assertTrue(result)
 
     def test_main_components_include_lm_and_default_xl_models(self):
-        """The premium bundle requires both bundled LMs and the XL DiT checkpoints."""
+        """The premium bundle requires all bundled LMs and the XL DiT checkpoints."""
 
+        self.assertIn(self.mod.DEFAULT_SMALL_LM_MODEL, self.mod.MAIN_MODEL_COMPONENTS)
         self.assertIn(self.mod.DEFAULT_LM_MODEL, self.mod.MAIN_MODEL_COMPONENTS)
         self.assertIn(self.mod.DEFAULT_LARGE_LM_MODEL, self.mod.MAIN_MODEL_COMPONENTS)
         self.assertIn(self.mod.DEFAULT_PREMIUM_DIT_MODEL, self.mod.MAIN_MODEL_COMPONENTS)
@@ -271,13 +272,19 @@ class TestDownloadMainModel(unittest.TestCase):
         cls.mod = _load_module()
 
     def test_downloads_shared_components_bundled_lm_and_dit_models(self):
-        """The main bundle should fetch 4B LM plus XL-SFT, XL-Turbo, and XL-Base."""
+        """The main bundle should fetch preset LMs plus XL-SFT, XL-Turbo, and XL-Base."""
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             with patch.object(self.mod, "_smart_download", return_value=(True, "shared")) as smart_download, patch.object(
                 self.mod,
                 "download_submodel",
-                side_effect=[(True, "4b"), (True, "sft"), (True, "turbo"), (True, "base")],
+                side_effect=[
+                    (True, "small"),
+                    (True, "large"),
+                    (True, "sft"),
+                    (True, "turbo"),
+                    (True, "base"),
+                ],
             ) as download_submodel:
                 success, msg = self.mod.download_main_model(Path(tmp_dir))
 
@@ -286,8 +293,9 @@ class TestDownloadMainModel(unittest.TestCase):
         downloaded = [call.args[0] for call in download_submodel.call_args_list]
         self.assertEqual(
             downloaded,
-            [self.mod.DEFAULT_LARGE_LM_MODEL, *self.mod.MAIN_DIT_MODEL_COMPONENTS],
+            [*self.mod.PRESET_LM_MODEL_COMPONENTS, *self.mod.MAIN_DIT_MODEL_COMPONENTS],
         )
+        self.assertIn(self.mod.DEFAULT_SMALL_LM_MODEL, msg)
         self.assertIn(self.mod.DEFAULT_LARGE_LM_MODEL, msg)
         self.assertIn(self.mod.DEFAULT_PREMIUM_DIT_MODEL, msg)
         self.assertIn(self.mod.DEFAULT_TURBO_DIT_MODEL, msg)
@@ -343,8 +351,8 @@ class TestDownloadMainModel(unittest.TestCase):
             prefer_source="huggingface",
         )
 
-    def test_download_dit_bundle_downloads_shared_components_large_lm_and_selected_dit(self):
-        """A specific DiT request should fetch shared runtime, 4B LM, and that DiT."""
+    def test_download_dit_bundle_downloads_shared_components_lms_and_selected_dit(self):
+        """A specific DiT request should fetch shared runtime, preset LMs, and that DiT."""
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             with patch.object(
@@ -366,6 +374,7 @@ class TestDownloadMainModel(unittest.TestCase):
 
         self.assertTrue(success)
         self.assertIn(self.mod.DEFAULT_TURBO_DIT_MODEL, msg)
+        self.assertIn(self.mod.DEFAULT_SMALL_LM_MODEL, msg)
         self.assertIn(self.mod.DEFAULT_LARGE_LM_MODEL, msg)
         download_shared.assert_called_once_with(
             checkpoints_dir=Path(tmp_dir),
@@ -375,6 +384,13 @@ class TestDownloadMainModel(unittest.TestCase):
         )
         download_submodel.assert_has_calls(
             [
+                call(
+                    self.mod.DEFAULT_SMALL_LM_MODEL,
+                    checkpoints_dir=Path(tmp_dir),
+                    force=True,
+                    token="token",
+                    prefer_source="huggingface",
+                ),
                 call(
                     self.mod.DEFAULT_LARGE_LM_MODEL,
                     checkpoints_dir=Path(tmp_dir),

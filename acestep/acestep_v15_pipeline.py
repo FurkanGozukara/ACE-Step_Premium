@@ -68,6 +68,8 @@ try:
         build_startup_gpu_state,
     )
     from .gpu_config import (
+        find_best_lm_model_on_disk,
+        is_lm_model_size_allowed,
         resolve_lm_backend,
         set_global_gpu_config,
         VRAM_AUTO_OFFLOAD_THRESHOLD_GB,
@@ -92,6 +94,8 @@ except ImportError:
         build_startup_gpu_state,
     )
     from acestep.gpu_config import (
+        find_best_lm_model_on_disk,
+        is_lm_model_size_allowed,
         resolve_lm_backend,
         set_global_gpu_config,
         VRAM_AUTO_OFFLOAD_THRESHOLD_GB,
@@ -187,6 +191,52 @@ def _resolve_startup_lm_backend(requested_backend: str | None, gpu_config) -> st
         )
 
     return resolved_backend
+
+
+def _select_startup_lm_model(args, llm_handler, gpu_config) -> bool:
+    """Select the tier-recommended LM model for startup service initialization."""
+    if args.lm_model_path is not None:
+        return True
+
+    available_lm_models = llm_handler.get_available_5hz_lm_models()
+    if not available_lm_models:
+        print(
+            "Warning: No LM models available, skipping LM initialization",
+            file=sys.stderr,
+        )
+        args.init_llm = False
+        return False
+
+    recommended_lm = getattr(gpu_config, "recommended_lm_model", "")
+    args.lm_model_path = find_best_lm_model_on_disk(
+        recommended_lm,
+        available_lm_models,
+    )
+    print(f"Using default LM model: {args.lm_model_path}")
+    return bool(args.lm_model_path)
+
+
+def _apply_4b_lm_memory_safety(args, gpu_config, gpu_memory_gb: float) -> None:
+    """Apply startup offload and fallback rules for 4B LM selections."""
+    if not args.lm_model_path or "4B" not in args.lm_model_path:
+        return
+
+    if 0 < gpu_memory_gb <= 24 and not args.offload_to_cpu:
+        args.offload_to_cpu = True
+        print(
+            "Auto-enabling CPU offload "
+            f"(4B LM model requires offloading on {gpu_memory_gb:.0f}GB GPU)"
+        )
+
+    if 0 < gpu_memory_gb < VRAM_AUTO_OFFLOAD_THRESHOLD_GB:
+        available_lm_models = getattr(gpu_config, "available_lm_models", [])
+        if not is_lm_model_size_allowed(args.lm_model_path, available_lm_models):
+            fallback = args.lm_model_path.replace("4B", "1.7B")
+            print(
+                f"WARNING: 4B LM model is too large for {gpu_memory_gb:.0f}GB GPU. "
+                f"Downgrading to 1.7B variant: {fallback}"
+            )
+            args.lm_model_path = fallback
 
 
 def main():
@@ -475,27 +525,7 @@ def main():
     if args.service_mode:
         print(f"  Backend: {args.backend}")
 
-    # Auto-enable CPU offload for tier6 GPUs (16-24GB) when using the 4B LM model
-    # The 4B LM (~8GB) + DiT (~4.7GB) + VAE + text encoder exceeds 16-20GB with activations
-    if not args.offload_to_cpu and args.lm_model_path and "4B" in args.lm_model_path:
-        if 0 < gpu_memory_gb <= 24:
-            args.offload_to_cpu = True
-            print(
-                f"Auto-enabling CPU offload (4B LM model requires offloading on {gpu_memory_gb:.0f}GB GPU)"
-            )
-
-    # Safety: on 16GB GPUs, prevent selecting LM models that are too large.
-    # Even with offloading, a 4B LM (8 GB weights + KV cache) leaves almost no
-    # headroom for DiT activations on a 16 GB card.
-    if args.lm_model_path and 0 < gpu_memory_gb < VRAM_AUTO_OFFLOAD_THRESHOLD_GB:
-        if "4B" in args.lm_model_path:
-            # Downgrade to 1.7B if available
-            fallback = args.lm_model_path.replace("4B", "1.7B")
-            print(
-                f"WARNING: 4B LM model is too large for {gpu_memory_gb:.0f}GB GPU. "
-                f"Downgrading to 1.7B variant: {fallback}"
-            )
-            args.lm_model_path = fallback
+    _apply_4b_lm_memory_safety(args, gpu_config, gpu_memory_gb)
 
     try:
         init_params = None
@@ -531,6 +561,17 @@ def main():
                         file=sys.stderr,
                     )
                     sys.exit(1)
+
+            if args.init_llm is None:
+                args.init_llm = gpu_config.init_lm_default
+                print(
+                    f"Auto-setting init_llm to {args.init_llm} based on GPU configuration"
+                )
+
+            if args.init_llm and _select_startup_lm_model(
+                args, llm_handler, gpu_config
+            ):
+                _apply_4b_lm_memory_safety(args, gpu_config, gpu_memory_gb)
 
             # Get project root (same logic as in handler)
             current_file = os.path.abspath(__file__)
@@ -574,28 +615,8 @@ def main():
             print(f"DiT model initialized successfully")
 
             # Initialize LM handler if requested
-            # Auto-determine init_llm based on GPU config if not explicitly set
-            if args.init_llm is None:
-                args.init_llm = gpu_config.init_lm_default
-                print(
-                    f"Auto-setting init_llm to {args.init_llm} based on GPU configuration"
-                )
-
             lm_status = ""
             if args.init_llm:
-                if args.lm_model_path is None:
-                    # Try to get default LM model
-                    available_lm_models = llm_handler.get_available_5hz_lm_models()
-                    if available_lm_models:
-                        args.lm_model_path = available_lm_models[0]
-                        print(f"Using default LM model: {args.lm_model_path}")
-                    else:
-                        print(
-                            "Warning: No LM models available, skipping LM initialization",
-                            file=sys.stderr,
-                        )
-                        args.init_llm = False
-
                 if args.init_llm and args.lm_model_path:
                     checkpoint_dir = str(get_models_dir(project_root=project_root))
 

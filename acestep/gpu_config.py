@@ -326,18 +326,21 @@ def resolve_lm_backend(
 
 # GPU tier configurations.
 #
-# Calibrated on 2026-05-10 with local XL Base, XL SFT, and XL Turbo checkpoints on
-# RTX 5090 using real 60s generations and torch CUDA peak-memory stats:
+# Calibrated on 2026-05-10 and 2026-05-11 with local XL Base, XL SFT, XL Turbo,
+# and 5Hz LM checkpoints using real Gradio generation runs:
 # - XL Base/Turbo/SFT, int8 + full offload, batch 1: 9.5-9.7 GiB reserved.
 # - XL Base/Turbo/SFT, int8 + CPU offload, batch 8: 12.4-12.5 GiB reserved.
 # - XL Base/Turbo/SFT, bf16 no offload, batch 8: 13.3-13.5 GiB reserved.
 # - XL Base/Turbo/SFT, bf16 no offload + local 1.7B LM, batch 8: 18.6 GiB reserved.
+# - XL Turbo + 4B LM, batch 1: tier5 lower bound fails at 12.5GB, tier6a
+#   passes at 15.5GB with int8 + CPU offload, tier6b passes at 24GB with CPU
+#   offload, and unlimited passes on a 31.8GB RTX 5090 with no offload.
 # These peaks make XL unsafe below 12GB even though smaller 2B checkpoints can
 # still use the low-VRAM tiers.
 #
 # tier6 is split into tier6a (16-20GB) and tier6b (20-24GB). 16GB-class GPUs
-# need quantization/offload with the XL model, while 20GB+ can use bf16 with
-# the local 1.7B LM.
+# need quantization/offload with the XL model and 4B LM. 20-24GB GPUs need CPU
+# offload for the 4B LM; higher-VRAM GPUs can keep the model stack on GPU.
 GPU_TIER_CONFIGS = {
     "tier1": {  # <= 4GB
         # XL does not fit this tier even with full offload. Keep the safest
@@ -414,7 +417,7 @@ GPU_TIER_CONFIGS = {
     "tier5": {  # 12-16GB
         # INT8 + CPU offload measured about 12.5 GiB reserved at batch 8
         # without LM and 13.0 GiB reserved at batch 4 with the local 1.7B LM.
-        # Keep LM batch lower for margin.
+        # The 4B LM OOMs at the 12.5GB lower-bound profile, so keep 1.7B here.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
         "max_batch_size_with_lm": 4,
@@ -431,30 +434,33 @@ GPU_TIER_CONFIGS = {
         "lm_memory_gb": {"0.6B": 3, "1.7B": 8},
     },
     "tier6a": {  # 16-20GB (e.g., RTX 4060 Ti 16GB, RTX 3080 16GB)
-        # INT8 + CPU offload keeps the XL model around 12.5 GiB reserved at
-        # batch 8 and about 13.0 GiB reserved at batch 4 with the local 1.7B LM.
-        # This avoids the 18.6 GiB bf16+LM peak measured with no offload.
+        # XL Turbo + 4B LM batch-1 generation fits the 15.5GB lower-bound
+        # profile at 14.91 GiB peak with INT8 + CPU offload.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
-        "max_batch_size_with_lm": 4,
+        "max_batch_size_with_lm": 1,
         "max_batch_size_without_lm": 8,
         "init_lm_default": True,
-        "available_lm_models": ["acestep-5Hz-lm-0.6B", "acestep-5Hz-lm-1.7B"],
-        "recommended_lm_model": "acestep-5Hz-lm-1.7B",
+        "available_lm_models": [
+            "acestep-5Hz-lm-0.6B",
+            "acestep-5Hz-lm-1.7B",
+            "acestep-5Hz-lm-4B",
+        ],
+        "recommended_lm_model": "acestep-5Hz-lm-4B",
         "lm_backend_restriction": "all",
         "recommended_backend": "vllm",
         "offload_to_cpu_default": True,  # Still offload VAE/TextEnc to save VRAM for LM
         "offload_dit_to_cpu_default": False,
         "quantization_default": True,
         "compile_model_default": False,
-        "lm_memory_gb": {"0.6B": 3, "1.7B": 8},
+        "lm_memory_gb": {"0.6B": 3, "1.7B": 8, "4B": 12},
     },
     "tier6b": {  # 20-24GB (e.g., RTX 3090, RTX 4090)
-        # bf16 XL + local 1.7B LM measured about 18.6 GiB reserved with a
-        # batch-8 generation after LM load.
+        # XL Turbo + 4B LM batch-1 generation OOMs at 24GB without offload, but
+        # fits at 18.81 GiB peak with CPU offload.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 480,  # 8 minutes
-        "max_batch_size_with_lm": 8,
+        "max_batch_size_with_lm": 1,
         "max_batch_size_without_lm": 8,
         "init_lm_default": True,
         "available_lm_models": [
@@ -462,19 +468,21 @@ GPU_TIER_CONFIGS = {
             "acestep-5Hz-lm-1.7B",
             "acestep-5Hz-lm-4B",
         ],
-        "recommended_lm_model": "acestep-5Hz-lm-1.7B",
+        "recommended_lm_model": "acestep-5Hz-lm-4B",
         "lm_backend_restriction": "all",
         "recommended_backend": "vllm",
-        "offload_to_cpu_default": False,  # 20-24GB can hold all models
+        "offload_to_cpu_default": True,  # Required for the 4B LM on 20-24GB
         "offload_dit_to_cpu_default": False,
         "quantization_default": False,  # Enough VRAM, quantization optional
         "compile_model_default": False,
         "lm_memory_gb": {"0.6B": 3, "1.7B": 8, "4B": 12},
     },
-    "unlimited": {  # >= 24GB
+    "unlimited": {  # > 24GB
+        # XL Turbo + 4B LM batch-1 generation fits a 31.8GB RTX 5090 at
+        # 28.10 GiB peak without offload.
         "max_duration_with_lm": 600,  # 10 minutes (max supported)
         "max_duration_without_lm": 600,  # 10 minutes
-        "max_batch_size_with_lm": 8,
+        "max_batch_size_with_lm": 1,
         "max_batch_size_without_lm": 8,
         "init_lm_default": True,
         "available_lm_models": [
@@ -482,7 +490,7 @@ GPU_TIER_CONFIGS = {
             "acestep-5Hz-lm-1.7B",
             "acestep-5Hz-lm-4B",
         ],
-        "recommended_lm_model": "acestep-5Hz-lm-1.7B",
+        "recommended_lm_model": "acestep-5Hz-lm-4B",
         "lm_backend_restriction": "all",
         "recommended_backend": "vllm",
         "offload_to_cpu_default": False,
@@ -1445,7 +1453,13 @@ def get_recommended_lm_model(gpu_config: GPUConfig) -> Optional[str]:
     if not gpu_config.available_lm_models:
         return None
 
-    # Return the largest available model (last in the list)
+    recommended_model = getattr(gpu_config, "recommended_lm_model", "")
+    if recommended_model and is_lm_model_size_allowed(
+        recommended_model, gpu_config.available_lm_models
+    ):
+        return recommended_model
+
+    # Fall back to the largest available model for older config-like objects.
     return gpu_config.available_lm_models[-1]
 
 
@@ -1477,7 +1491,7 @@ GPU_TIER_LABELS = {
     "tier5": "tier5 (12-16GB)",
     "tier6a": "tier6a (16-20GB)",
     "tier6b": "tier6b (20-24GB)",
-    "unlimited": "unlimited (≥24GB)",
+    "unlimited": "unlimited (>24GB)",
 }
 
 # Ordered list of tier keys for dropdown

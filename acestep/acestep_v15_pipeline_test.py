@@ -26,6 +26,7 @@ class PipelineStartupBackendTests(unittest.TestCase):
             max_batch_size_without_lm=4,
             init_lm_default=True,
             available_lm_models=["acestep-5Hz-lm-0.6B"],
+            recommended_lm_model="acestep-5Hz-lm-0.6B",
             recommended_backend="pt",
             lm_backend_restriction="pt_only",
             offload_dit_to_cpu_default=False,
@@ -37,16 +38,20 @@ class PipelineStartupBackendTests(unittest.TestCase):
         argv: list[str],
         *,
         env: dict[str, str] | None = None,
+        gpu_config: SimpleNamespace | None = None,
+        available_lm_models: list[str] | None = None,
     ) -> tuple[MagicMock, dict[str, object]]:
         """Run ``main`` with heavy dependencies stubbed and capture startup state."""
-        gpu_config = self._legacy_gpu_config()
+        gpu_config = gpu_config or self._legacy_gpu_config()
         dit_handler = MagicMock()
         dit_handler.get_available_acestep_v15_models.return_value = ["acestep-v15-turbo"]
         dit_handler.is_flash_attention_available.return_value = False
         dit_handler.initialize_service.return_value = ("ok", True)
 
         llm_handler = MagicMock()
-        llm_handler.get_available_5hz_lm_models.return_value = ["acestep-5Hz-lm-0.6B"]
+        llm_handler.get_available_5hz_lm_models.return_value = (
+            available_lm_models or ["acestep-5Hz-lm-0.6B"]
+        )
         llm_handler.initialize.return_value = ("ok", True)
 
         demo = MagicMock()
@@ -54,6 +59,15 @@ class PipelineStartupBackendTests(unittest.TestCase):
         demo.launch.return_value = None
 
         captured: dict[str, object] = {}
+        captured["dit_handler"] = dit_handler
+        startup_gpu_state = SimpleNamespace(
+            gpu_config=gpu_config,
+            device_name="Test CUDA GPU",
+            device_kind="cuda",
+            cuda_compute_major=9,
+        )
+        ace_step_handler_cls = MagicMock(return_value=dit_handler)
+        llm_handler_cls = MagicMock(return_value=llm_handler)
 
         def _create_demo(init_params=None, language="en"):
             captured["init_params"] = init_params
@@ -61,24 +75,18 @@ class PipelineStartupBackendTests(unittest.TestCase):
             return demo
 
         with patch.object(sys, "argv", argv), patch.dict(os.environ, env or {}, clear=True), patch(
-            "acestep.acestep_v15_pipeline.get_gpu_config",
-            return_value=gpu_config,
+            "acestep.acestep_v15_pipeline.build_startup_gpu_state",
+            return_value=startup_gpu_state,
         ), patch(
             "acestep.acestep_v15_pipeline.set_global_gpu_config"
-        ), patch(
-            "acestep.acestep_v15_pipeline.is_mps_platform",
-            return_value=False,
         ), patch(
             "acestep.acestep_v15_pipeline.get_i18n"
         ), patch(
             "acestep.acestep_v15_pipeline.available_languages_info",
             return_value=[("en", "English", "English")],
         ), patch(
-            "acestep.acestep_v15_pipeline.AceStepHandler",
-            return_value=dit_handler,
-        ), patch(
-            "acestep.acestep_v15_pipeline.LLMHandler",
-            return_value=llm_handler,
+            "acestep.acestep_v15_pipeline._import_real_handlers",
+            return_value=(ace_step_handler_cls, llm_handler_cls),
         ), patch(
             "acestep.acestep_v15_pipeline.create_demo",
             side_effect=_create_demo,
@@ -113,10 +121,70 @@ class PipelineStartupBackendTests(unittest.TestCase):
         self.assertEqual("pt", llm_handler.initialize.call_args.kwargs["backend"])
         self.assertEqual("pt", captured["init_params"]["backend"])
 
+    def test_main_auto_selects_recommended_4b_and_enables_offload(self) -> None:
+        """Startup init should use the tier recommendation before DiT initialization."""
+        gpu_config = SimpleNamespace(
+            gpu_memory_gb=24.0,
+            tier="tier6b",
+            max_duration_with_lm=480,
+            max_duration_without_lm=480,
+            max_batch_size_with_lm=1,
+            max_batch_size_without_lm=8,
+            init_lm_default=True,
+            available_lm_models=[
+                "acestep-5Hz-lm-0.6B",
+                "acestep-5Hz-lm-1.7B",
+                "acestep-5Hz-lm-4B",
+            ],
+            recommended_lm_model="acestep-5Hz-lm-4B",
+            recommended_backend="pt",
+            lm_backend_restriction="all",
+            offload_dit_to_cpu_default=False,
+            quantization_default=False,
+        )
+
+        llm_handler, captured = self._run_main(
+            [
+                "acestep",
+                "--init_service",
+                "true",
+                "--init_llm",
+                "true",
+                "--config_path",
+                "acestep-v15-turbo",
+                "--backend",
+                "pt",
+            ],
+            gpu_config=gpu_config,
+            available_lm_models=[
+                "acestep-5Hz-lm-1.7B",
+                "acestep-5Hz-lm-4B",
+            ],
+        )
+
+        dit_handler = captured["dit_handler"]
+        self.assertEqual(
+            "acestep-5Hz-lm-4B",
+            llm_handler.initialize.call_args.kwargs["lm_model_path"],
+        )
+        self.assertTrue(
+            dit_handler.initialize_service.call_args.kwargs["offload_to_cpu"]
+        )
+        self.assertTrue(llm_handler.initialize.call_args.kwargs["offload_to_cpu"])
+        self.assertTrue(captured["init_params"]["offload_to_cpu"])
+
     def test_main_forces_pt_backend_for_service_mode_backend_override(self) -> None:
         """Service mode should not re-enable vLLM on legacy CUDA hardware."""
         llm_handler, captured = self._run_main(
-            ["acestep", "--service_mode", "true", "--init_llm", "true"],
+            [
+                "acestep",
+                "--service_mode",
+                "true",
+                "--init_service",
+                "true",
+                "--init_llm",
+                "true",
+            ],
             env={"SERVICE_MODE_BACKEND": "vllm"},
         )
 

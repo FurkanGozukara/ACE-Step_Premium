@@ -29,7 +29,9 @@ REM Model settings
 REM Leave CONFIG_PATH empty by default so the app auto-selects an installed DiT
 REM model. Set ACESTEP_CONFIG_PATH in .env to force a specific model.
 if not defined CONFIG_PATH set "CONFIG_PATH="
-if not defined LM_MODEL_PATH set LM_MODEL_PATH=--lm_model_path acestep-5Hz-lm-1.7B
+REM Leave LM_MODEL_PATH empty so the app uses the GPU-tier LM recommendation.
+REM Set ACESTEP_LM_MODEL_PATH in .env to force a specific LM.
+if not defined LM_MODEL_PATH set "LM_MODEL_PATH="
 REM set OFFLOAD_TO_CPU=--offload_to_cpu true
 
 REM LLM (Language Model) initialization settings
