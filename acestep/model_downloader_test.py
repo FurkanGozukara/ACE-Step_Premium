@@ -276,11 +276,15 @@ class TestDownloadMainModel(unittest.TestCase):
         self.assertIn(self.mod.DEFAULT_TURBO_DIT_MODEL, msg)
         self.assertIn(self.mod.DEFAULT_BASE_DIT_MODEL, msg)
 
-    def test_ensure_dit_model_routes_bundled_turbo_to_main_bundle(self):
-        """Requesting XL-Turbo should ensure the full premium bundle."""
+    def test_ensure_dit_model_routes_bundled_turbo_to_dit_bundle(self):
+        """Requesting XL-Turbo should ensure only its runnable DiT bundle."""
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            with patch.object(self.mod, "ensure_main_model", return_value=(True, "main")) as ensure_main:
+            with patch.object(self.mod, "check_dit_bundle_exists", return_value=False), patch.object(
+                self.mod,
+                "download_dit_bundle",
+                return_value=(True, "dit bundle"),
+            ) as download_dit_bundle:
                 success, msg = self.mod.ensure_dit_model(
                     self.mod.DEFAULT_TURBO_DIT_MODEL,
                     Path(tmp_dir),
@@ -289,14 +293,23 @@ class TestDownloadMainModel(unittest.TestCase):
                 )
 
         self.assertTrue(success)
-        self.assertEqual(msg, "main")
-        ensure_main.assert_called_once_with(Path(tmp_dir), "token", "huggingface")
+        self.assertEqual(msg, "dit bundle")
+        download_dit_bundle.assert_called_once_with(
+            self.mod.DEFAULT_TURBO_DIT_MODEL,
+            checkpoints_dir=Path(tmp_dir),
+            token="token",
+            prefer_source="huggingface",
+        )
 
-    def test_ensure_dit_model_routes_bundled_base_to_main_bundle(self):
-        """Requesting XL-Base should ensure the full premium bundle."""
+    def test_ensure_dit_model_routes_bundled_base_to_dit_bundle(self):
+        """Requesting XL-Base should ensure only its runnable DiT bundle."""
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            with patch.object(self.mod, "ensure_main_model", return_value=(True, "main")) as ensure_main:
+            with patch.object(self.mod, "check_dit_bundle_exists", return_value=False), patch.object(
+                self.mod,
+                "download_dit_bundle",
+                return_value=(True, "dit bundle"),
+            ) as download_dit_bundle:
                 success, msg = self.mod.ensure_dit_model(
                     self.mod.DEFAULT_BASE_DIT_MODEL,
                     Path(tmp_dir),
@@ -305,8 +318,82 @@ class TestDownloadMainModel(unittest.TestCase):
                 )
 
         self.assertTrue(success)
-        self.assertEqual(msg, "main")
-        ensure_main.assert_called_once_with(Path(tmp_dir), "token", "huggingface")
+        self.assertEqual(msg, "dit bundle")
+        download_dit_bundle.assert_called_once_with(
+            self.mod.DEFAULT_BASE_DIT_MODEL,
+            checkpoints_dir=Path(tmp_dir),
+            token="token",
+            prefer_source="huggingface",
+        )
+
+    def test_download_dit_bundle_downloads_shared_components_and_selected_dit(self):
+        """A specific DiT request should fetch shared runtime plus that DiT only."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.object(
+                self.mod,
+                "download_shared_main_components",
+                return_value=(True, "shared"),
+            ) as download_shared, patch.object(
+                self.mod,
+                "download_submodel",
+                return_value=(True, "dit"),
+            ) as download_submodel:
+                success, msg = self.mod.download_dit_bundle(
+                    self.mod.DEFAULT_TURBO_DIT_MODEL,
+                    Path(tmp_dir),
+                    force=True,
+                    token="token",
+                    prefer_source="huggingface",
+                )
+
+        self.assertTrue(success)
+        self.assertIn(self.mod.DEFAULT_TURBO_DIT_MODEL, msg)
+        download_shared.assert_called_once_with(
+            checkpoints_dir=Path(tmp_dir),
+            force=True,
+            token="token",
+            prefer_source="huggingface",
+        )
+        download_submodel.assert_called_once_with(
+            self.mod.DEFAULT_TURBO_DIT_MODEL,
+            checkpoints_dir=Path(tmp_dir),
+            force=True,
+            token="token",
+            prefer_source="huggingface",
+        )
+
+
+class TestEnsureLmModel(unittest.TestCase):
+    """Tests for model_downloader.ensure_lm_model()."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = _load_module()
+
+    def test_default_lm_downloads_shared_runtime_components_when_missing(self):
+        """The bundled 1.7B LM is fetched from the shared ACE-Step 1.5 repo."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.object(self.mod, "check_model_exists", return_value=False), patch.object(
+                self.mod,
+                "download_shared_main_components",
+                return_value=(True, "shared"),
+            ) as download_shared:
+                success, msg = self.mod.ensure_lm_model(
+                    self.mod.DEFAULT_LM_MODEL,
+                    Path(tmp_dir),
+                    token="token",
+                    prefer_source="huggingface",
+                )
+
+        self.assertTrue(success)
+        self.assertEqual(msg, "shared")
+        download_shared.assert_called_once_with(
+            checkpoints_dir=Path(tmp_dir),
+            token="token",
+            prefer_source="huggingface",
+        )
 
 
 class TestResolveVaePath(unittest.TestCase):

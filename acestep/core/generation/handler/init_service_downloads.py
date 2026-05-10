@@ -7,11 +7,11 @@ from loguru import logger
 
 from acestep.model_downloader import (
     DEFAULT_VAE_VARIANT,
-    check_main_model_exists,
     check_model_exists,
+    check_shared_main_components_exist,
     check_vae_exists,
+    download_shared_main_components,
     ensure_dit_model,
-    ensure_main_model,
     ensure_vae_model,
 )
 
@@ -28,23 +28,29 @@ class InitServiceDownloadsMixin:
         vae_variant: Optional[str] = None,
     ) -> Optional[Tuple[str, bool]]:
         """Ensure required checkpoint assets exist locally, downloading when missing."""
-        if not check_main_model_exists(checkpoint_path):
-            logger.info("[initialize_service] Main model not found, starting auto-download...")
-            success, msg = ensure_main_model(checkpoint_path, prefer_source=prefer_source)
-            if not success:
-                return f"ERROR: Failed to download main model: {msg}", False
-            logger.info(f"[initialize_service] {msg}")
-
         if config_path == "":
             logger.warning(
                 "[initialize_service] Empty config_path; pass None to use the default model."
             )
 
-        if not check_model_exists(config_path, checkpoint_path):
+        model_exists = check_model_exists(config_path, checkpoint_path)
+        shared_exists = check_shared_main_components_exist(checkpoint_path)
+
+        if not model_exists:
             logger.info(f"[initialize_service] DiT model '{config_path}' not found, starting auto-download...")
             success, msg = ensure_dit_model(config_path, checkpoint_path, prefer_source=prefer_source)
             if not success:
                 return f"ERROR: Failed to download DiT model '{config_path}': {msg}", False
+            logger.info(f"[initialize_service] {msg}")
+        elif not shared_exists:
+            logger.info(
+                "[initialize_service] Shared runtime components not found, starting auto-download..."
+            )
+            success, msg = download_shared_main_components(
+                checkpoint_path, prefer_source=prefer_source
+            )
+            if not success:
+                return f"ERROR: Failed to download shared runtime components: {msg}", False
             logger.info(f"[initialize_service] {msg}")
 
         if vae_variant and vae_variant != DEFAULT_VAE_VARIANT:

@@ -26,7 +26,9 @@ REM When not specified, defaults to min(2, GPU_max)
 REM set BATCH_SIZE=--batch_size 4
 
 REM Model settings
-if not defined CONFIG_PATH set CONFIG_PATH=--config_path acestep-v15-xl-sft
+REM Leave CONFIG_PATH empty by default so the app auto-selects an installed DiT
+REM model. Set ACESTEP_CONFIG_PATH in .env to force a specific model.
+if not defined CONFIG_PATH set "CONFIG_PATH="
 if not defined LM_MODEL_PATH set LM_MODEL_PATH=--lm_model_path acestep-5Hz-lm-1.7B
 REM set OFFLOAD_TO_CPU=--offload_to_cpu true
 

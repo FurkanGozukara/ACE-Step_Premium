@@ -330,17 +330,57 @@ class InitServiceMixinTests(unittest.TestCase):
         with patch("builtins.__import__", side_effect=fake_import):
             host._validate_quantization_setup(quantization="int8_weight_only", compile_model=False)
 
-    def test_ensure_models_present_returns_download_error_when_main_model_fails(self):
-        """It returns an error tuple when main model download fails."""
+    def test_ensure_models_present_returns_download_error_when_shared_components_fail(self):
+        """It returns an error tuple when shared runtime component download fails."""
         host = _Host(project_root="K:/fake_root", device="cpu")
-        with patch.object(INIT_SERVICE_DOWNLOADS_MODULE, "check_main_model_exists", return_value=False):
-            with patch.object(INIT_SERVICE_DOWNLOADS_MODULE, "ensure_main_model", return_value=(False, "boom")):
-                result = host._ensure_models_present(
-                    checkpoint_path=Path("K:/fake_root/checkpoints"),
-                    config_path="acestep-v15-turbo",
-                    prefer_source=None,
-                )
-        self.assertEqual(result, ("ERROR: Failed to download main model: boom", False))
+        with patch.object(INIT_SERVICE_DOWNLOADS_MODULE, "check_model_exists", return_value=True):
+            with patch.object(INIT_SERVICE_DOWNLOADS_MODULE, "check_shared_main_components_exist", return_value=False):
+                with patch.object(INIT_SERVICE_DOWNLOADS_MODULE, "download_shared_main_components", return_value=(False, "boom")):
+                    result = host._ensure_models_present(
+                        checkpoint_path=Path("K:/fake_root/checkpoints"),
+                        config_path="acestep-v15-turbo",
+                        prefer_source=None,
+                    )
+        self.assertEqual(
+            result,
+            ("ERROR: Failed to download shared runtime components: boom", False),
+        )
+
+    def test_ensure_models_present_downloads_selected_dit_without_main_bundle(self):
+        """It ensures the selected DiT bundle without requiring every main DiT model."""
+        host = _Host(project_root="K:/fake_root", device="cpu")
+        with patch.object(INIT_SERVICE_DOWNLOADS_MODULE, "check_model_exists", return_value=False):
+            with patch.object(INIT_SERVICE_DOWNLOADS_MODULE, "check_shared_main_components_exist", return_value=False):
+                with patch.object(INIT_SERVICE_DOWNLOADS_MODULE, "ensure_dit_model", return_value=(True, "ok")) as ensure_dit:
+                    with patch.object(INIT_SERVICE_DOWNLOADS_MODULE, "download_shared_main_components") as download_shared:
+                        result = host._ensure_models_present(
+                            checkpoint_path=Path("K:/fake_root/checkpoints"),
+                            config_path="acestep-v15-turbo",
+                            prefer_source=None,
+                        )
+        self.assertIsNone(result)
+        ensure_dit.assert_called_once_with(
+            "acestep-v15-turbo",
+            Path("K:/fake_root/checkpoints"),
+            prefer_source=None,
+        )
+        download_shared.assert_not_called()
+
+    def test_ensure_models_present_returns_download_error_when_selected_dit_fails(self):
+        """It returns an error tuple when the selected DiT bundle cannot be fetched."""
+        host = _Host(project_root="K:/fake_root", device="cpu")
+        with patch.object(INIT_SERVICE_DOWNLOADS_MODULE, "check_model_exists", return_value=False):
+            with patch.object(INIT_SERVICE_DOWNLOADS_MODULE, "check_shared_main_components_exist", return_value=False):
+                with patch.object(INIT_SERVICE_DOWNLOADS_MODULE, "ensure_dit_model", return_value=(False, "boom")):
+                    result = host._ensure_models_present(
+                        checkpoint_path=Path("K:/fake_root/checkpoints"),
+                        config_path="acestep-v15-turbo",
+                        prefer_source=None,
+                    )
+        self.assertEqual(
+            result,
+            ("ERROR: Failed to download DiT model 'acestep-v15-turbo': boom", False),
+        )
 
     def test_build_initialize_status_message_reports_mlx_compile_label(self):
         """It renders the mx.compile label when MLX compile redirection is active."""

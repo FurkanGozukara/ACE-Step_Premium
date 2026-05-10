@@ -476,6 +476,44 @@ def check_model_exists(model_name: str, checkpoints_dir: Optional[Path] = None) 
     return _contains_model_weights(model_path)
 
 
+def check_shared_main_components_exist(checkpoints_dir: Optional[Path] = None) -> bool:
+    """Return whether the shared ACE-Step 1.5 runtime components exist."""
+    if checkpoints_dir is None:
+        checkpoints_dir = get_checkpoints_dir()
+    elif isinstance(checkpoints_dir, str):
+        checkpoints_dir = Path(checkpoints_dir)
+
+    for component in SHARED_MAIN_MODEL_COMPONENTS:
+        if not _contains_model_weights(checkpoints_dir / component):
+            return False
+    return True
+
+
+def _is_lm_model_name(model_name: str) -> bool:
+    return "lm" in str(model_name or "").lower()
+
+
+def _is_dit_model_name(model_name: str) -> bool:
+    return model_name in SUBMODEL_REGISTRY and not _is_lm_model_name(model_name)
+
+
+def check_dit_bundle_exists(
+    model_name: str,
+    checkpoints_dir: Optional[Path] = None,
+) -> bool:
+    """Return whether a DiT model and its required shared components exist."""
+    if not _is_dit_model_name(model_name):
+        return False
+    if checkpoints_dir is None:
+        checkpoints_dir = get_checkpoints_dir()
+    elif isinstance(checkpoints_dir, str):
+        checkpoints_dir = Path(checkpoints_dir)
+    return check_shared_main_components_exist(checkpoints_dir) and check_model_exists(
+        model_name,
+        checkpoints_dir,
+    )
+
+
 def list_available_models() -> Dict[str, str]:
     """
     List all available models for download.
@@ -488,6 +526,43 @@ def list_available_models() -> Dict[str, str]:
         **SUBMODEL_REGISTRY
     }
     return models
+
+
+def download_shared_main_components(
+    checkpoints_dir: Optional[Path] = None,
+    force: bool = False,
+    token: Optional[str] = None,
+    prefer_source: Optional[str] = None,
+) -> Tuple[bool, str]:
+    """Download the shared components required by every ACE-Step 1.5 DiT model."""
+    if checkpoints_dir is None:
+        checkpoints_dir = get_checkpoints_dir()
+    elif isinstance(checkpoints_dir, str):
+        checkpoints_dir = Path(checkpoints_dir)
+
+    checkpoints_dir.mkdir(parents=True, exist_ok=True)
+
+    if not force and check_shared_main_components_exist(checkpoints_dir):
+        return True, f"Shared runtime components already exist at {checkpoints_dir}"
+
+    print(f"Downloading shared runtime components into {checkpoints_dir}...")
+    print(f"Shared components: {', '.join(SHARED_MAIN_MODEL_COMPONENTS)}")
+
+    shared_patterns = _build_component_allow_patterns(SHARED_MAIN_MODEL_COMPONENTS)
+    success, msg = _smart_download(
+        MAIN_MODEL_REPO,
+        checkpoints_dir,
+        token,
+        prefer_source,
+        allow_patterns=shared_patterns,
+    )
+    if not success:
+        return False, msg
+    return (
+        True,
+        f"Shared runtime components are available at {checkpoints_dir} "
+        f"({', '.join(SHARED_MAIN_MODEL_COMPONENTS)})",
+    )
 
 
 def download_main_model(
@@ -533,13 +608,11 @@ def download_main_model(
     print(f"Bundled DiT models: {', '.join(MAIN_DIT_MODEL_COMPONENTS)}")
     print("This may take a while depending on your internet connection...")
 
-    shared_patterns = _build_component_allow_patterns(SHARED_MAIN_MODEL_COMPONENTS)
-    shared_success, shared_msg = _smart_download(
-        MAIN_MODEL_REPO,
-        checkpoints_dir,
-        token,
-        prefer_source,
-        allow_patterns=shared_patterns,
+    shared_success, shared_msg = download_shared_main_components(
+        checkpoints_dir=checkpoints_dir,
+        force=force,
+        token=token,
+        prefer_source=prefer_source,
     )
     if not shared_success:
         return False, shared_msg
@@ -614,6 +687,64 @@ def download_submodel(
         if synced:
             logger.info(f"[Model Download] Synced code files for {model_name}: {synced}")
     return success, msg
+
+
+def download_dit_bundle(
+    model_name: str,
+    checkpoints_dir: Optional[Path] = None,
+    force: bool = False,
+    token: Optional[str] = None,
+    prefer_source: Optional[str] = None,
+) -> Tuple[bool, str]:
+    """Download a DiT model plus the minimum shared runtime required to run it."""
+    if not _is_dit_model_name(model_name):
+        available = ", ".join(
+            name for name in SUBMODEL_REGISTRY if not _is_lm_model_name(name)
+        )
+        return False, f"Unknown DiT model '{model_name}'. Available DiT models: {available}"
+
+    if checkpoints_dir is None:
+        checkpoints_dir = get_checkpoints_dir()
+    elif isinstance(checkpoints_dir, str):
+        checkpoints_dir = Path(checkpoints_dir)
+
+    checkpoints_dir.mkdir(parents=True, exist_ok=True)
+
+    if not force and check_dit_bundle_exists(model_name, checkpoints_dir):
+        return (
+            True,
+            f"DiT bundle '{model_name}' already exists at {checkpoints_dir} "
+            f"(shared components + {model_name})",
+        )
+
+    print("\n" + "=" * 60)
+    print(f"Downloading runnable DiT bundle for '{model_name}'...")
+    print("=" * 60 + "\n")
+
+    shared_success, shared_msg = download_shared_main_components(
+        checkpoints_dir=checkpoints_dir,
+        force=force,
+        token=token,
+        prefer_source=prefer_source,
+    )
+    if not shared_success:
+        return False, shared_msg
+
+    model_success, model_msg = download_submodel(
+        model_name,
+        checkpoints_dir=checkpoints_dir,
+        force=force,
+        token=token,
+        prefer_source=prefer_source,
+    )
+    if not model_success:
+        return False, model_msg
+
+    return (
+        True,
+        f"DiT bundle '{model_name}' is available at {checkpoints_dir} "
+        f"(shared components + {model_name})",
+    )
 
 
 def download_all_models(
@@ -717,6 +848,19 @@ def ensure_lm_model(
     if check_model_exists(model_name, checkpoints_dir):
         return True, f"LM model '{model_name}' is available"
 
+    if model_name == DEFAULT_LM_MODEL:
+        print("\n" + "=" * 60)
+        print(
+            f"Default LM model '{model_name}' not found. "
+            "Downloading shared runtime components..."
+        )
+        print("=" * 60 + "\n")
+        return download_shared_main_components(
+            checkpoints_dir=checkpoints_dir,
+            token=token,
+            prefer_source=prefer_source,
+        )
+
     # Check if this is a known LM model
     if model_name not in SUBMODEL_REGISTRY:
         # Check if it might be a variant name
@@ -757,22 +901,17 @@ def ensure_dit_model(
     elif isinstance(checkpoints_dir, str):
         checkpoints_dir = Path(checkpoints_dir)
 
-    if check_model_exists(model_name, checkpoints_dir):
-        return True, f"DiT model '{model_name}' is available"
-
-    # Check if this is one of the bundled premium DiT models.
-    if model_name in MAIN_DIT_MODEL_COMPONENTS:
-        return ensure_main_model(checkpoints_dir, token, prefer_source)
-
-    # Check if it's a known sub-model
-    if model_name in SUBMODEL_REGISTRY:
-        print("\n" + "=" * 60)
-        print(f"DiT model '{model_name}' not found. Starting automatic download...")
-        print("=" * 60 + "\n")
-        return download_submodel(model_name, checkpoints_dir, token=token, prefer_source=prefer_source)
-
     if not model_name:
         return False, "Unknown DiT model: '' (pass None for default or choose a valid model)"
+    if _is_dit_model_name(model_name):
+        if check_dit_bundle_exists(model_name, checkpoints_dir):
+            return True, f"DiT bundle '{model_name}' is available"
+        return download_dit_bundle(
+            model_name,
+            checkpoints_dir=checkpoints_dir,
+            token=token,
+            prefer_source=prefer_source,
+        )
     return False, f"Unknown DiT model: {model_name}"
 
 
@@ -929,6 +1068,7 @@ def print_model_list():
     for name, repo in SUBMODEL_REGISTRY.items():
         if "lm" not in name.lower():
             print(f"  {name} -> {repo}")
+    print("  Note: --model for a DiT downloads the shared runtime plus that DiT model.")
 
     if VAE_REGISTRY:
         print("\n[Optional VAEs]")
@@ -948,7 +1088,7 @@ def main():
 Examples:
   acestep-download                          # Download premium default bundle
   acestep-download --all                    # Download all available models
-  acestep-download --model acestep-v15-xl-base  # Download a specific model
+  acestep-download --model acestep-v15-xl-base  # Download XL-Base + required shared runtime
   acestep-download --list                   # List all available models
 
 Network Detection:
@@ -1002,7 +1142,7 @@ Alternative using huggingface-cli:
     parser.add_argument(
         "--skip-main",
         action="store_true",
-        help="Skip downloading the main model (only download specified sub-model)"
+        help="With --model for a DiT model, skip shared runtime dependencies and download only that model repo"
     )
     
     args = parser.parse_args()
@@ -1027,15 +1167,14 @@ Alternative using huggingface-cli:
     if args.model:
         if args.model == "main":
             success, msg = download_main_model(checkpoints_dir, args.force, args.token)
+        elif _is_dit_model_name(args.model) and not args.skip_main:
+            success, msg = download_dit_bundle(
+                args.model,
+                checkpoints_dir,
+                args.force,
+                args.token,
+            )
         elif args.model in SUBMODEL_REGISTRY:
-            # Download main model first if needed (unless --skip-main)
-            if not args.skip_main and not check_main_model_exists(checkpoints_dir):
-                print("Main model not found. Downloading main model first...")
-                main_success, main_msg = download_main_model(checkpoints_dir, args.force, args.token)
-                print(main_msg)
-                if not main_success:
-                    return 1
-            
             success, msg = download_submodel(args.model, checkpoints_dir, args.force, args.token)
         else:
             print(f"Unknown model: {args.model}")

@@ -94,7 +94,9 @@ BATCH_SIZE="${BATCH_SIZE:-}"
 # BATCH_SIZE="--batch_size 4"
 
 # Model settings
-: "${CONFIG_PATH:=--config_path acestep-v15-xl-sft}"
+# Leave CONFIG_PATH empty by default so the app auto-selects an installed DiT
+# model. Set ACESTEP_CONFIG_PATH in .env to force a specific model.
+CONFIG_PATH="${CONFIG_PATH:-}"
 : "${LM_MODEL_PATH:=--lm_model_path acestep-5Hz-lm-1.7B}"
 # OFFLOAD_TO_CPU="--offload_to_cpu true"
 OFFLOAD_TO_CPU="${OFFLOAD_TO_CPU:-}"
