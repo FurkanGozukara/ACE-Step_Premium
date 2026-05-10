@@ -74,6 +74,33 @@ class BatchManagementBackgroundTests(unittest.TestCase):
         self.assertIn("messages.batch_ready", result[2])
         self.assertTrue(result[3]["interactive"])
 
+    def test_background_generation_logs_model_and_inference_steps(self):
+        """Background AutoGen should print the active model and step count."""
+        module, state = load_batch_management_module(is_windows=False)
+        dit_handler = type("FakeDit", (), {})()
+        dit_handler.last_init_params = {"config_path": "acestep-v15-xl-sft"}
+
+        def _gen(*_args, **_kwargs):
+            """Yield one synthetic final result for background success path."""
+            yield build_progress_result(length=48)
+
+        with patch.dict(module.generate_next_batch_background.__globals__, {"generate_with_progress": _gen}):
+            module.generate_next_batch_background(
+                dit_handler,
+                None,
+                autogen_enabled=True,
+                generation_params={"batch_size_input": 1, "inference_steps": 50, "allow_lm_batch": False},
+                current_batch_index=0,
+                total_batches=1,
+                batch_queue={},
+                is_format_caption=False,
+            )
+
+        log_text = "\n".join(state["log_info"])
+        self.assertIn("Starting background generation", log_text)
+        self.assertIn("model=acestep-v15-xl-sft", log_text)
+        self.assertIn("inference_steps=50", log_text)
+
     def test_background_generation_forwards_no_fsq(self):
         """Background AutoGen should preserve the Remix no_fsq option."""
         module, _state = load_batch_management_module(is_windows=False)

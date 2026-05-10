@@ -137,6 +137,13 @@ def generate_with_progress(
     actual_inference_steps = len(parsed_timesteps) - 1 if parsed_timesteps is not None else inference_steps
     audio_format = normalize_audio_format(audio_format)
     backend_audio_format = primary_audio_format(audio_format)
+    active_model = _active_dit_model_label(dit_handler)
+    logger.info(
+        f"[generate_with_progress] Generation request: model={active_model}, "
+        f"inference_steps_requested={inference_steps}, "
+        f"inference_steps_used={actual_inference_steps}, "
+        f"batch_size={batch_size_input}, duration={audio_duration}"
+    )
 
     task_type = resolve_no_fsq_task_type(task_type, bool(no_fsq))
 
@@ -395,7 +402,9 @@ def generate_with_progress(
 
     yield (
         *dump_audio,
-        None, generation_info, "Preparing generation...", gr.skip(),
+        None, generation_info,
+        f"Preparing generation... Model: {active_model}; steps: {actual_inference_steps}",
+        gr.skip(),
         *clear_scores, *clear_codes, *clear_accordions, *clear_lrcs,
         lm_generated_metadata, is_format_caption, None, None,
     )
@@ -835,6 +844,14 @@ def _build_service_metadata(dit_handler, llm_handler):
         "dit_last_init_params": getattr(dit_handler, "last_init_params", {}) or {},
         "llm_last_init_params": getattr(llm_handler, "last_init_params", {}) or {},
     }
+
+
+def _active_dit_model_label(dit_handler):
+    """Return the current DiT model label for logs and transient status."""
+
+    last_init_params = getattr(dit_handler, "last_init_params", {}) or {}
+    config_path = str(last_init_params.get("config_path") or "").strip()
+    return config_path or "unknown"
 
 
 def _extract_repaint_source_latents(extra_outputs, sample_idx):

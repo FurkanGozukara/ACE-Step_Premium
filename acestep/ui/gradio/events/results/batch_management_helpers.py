@@ -186,6 +186,8 @@ def _log_background_params(params, next_batch_idx):
     lyr = params.get("lyrics")
     logger.info(f"  - lyrics: {lyr[:50]}..." if lyr else "  - lyrics: N/A")
     logger.info(f"  - bpm: {params.get('bpm')}")
+    logger.info(f"  - config_path: {params.get('config_path', 'active foreground DiT service')}")
+    logger.info(f"  - inference_steps: {params.get('inference_steps')}")
     logger.info(f"  - batch_size_input: {params.get('batch_size_input')}")
     logger.info(f"  - allow_lm_batch: {params.get('allow_lm_batch')}")
     logger.info(f"  - think_checkbox: {params.get('think_checkbox')}")

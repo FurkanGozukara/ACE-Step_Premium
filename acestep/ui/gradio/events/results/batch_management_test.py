@@ -306,6 +306,31 @@ class BatchManagementWrapperTests(unittest.TestCase):
             "torch.mps.empty_cache() must not be called when MPS is unavailable",
         )
 
+    def test_foreground_generation_logs_model_and_inference_steps(self):
+        """Foreground generation should print the selected model and step count."""
+        module, state = load_batch_management_module(is_windows=True)
+
+        def _gen(*_args, **_kwargs):
+            """Yield one standard progress result."""
+            yield build_progress_result(length=48)
+
+        kwargs = _build_call_kwargs(module)
+        kwargs.update(
+            {
+                "config_path": "acestep-v15-xl-turbo",
+                "inference_steps": 8,
+                "batch_size_input": 1,
+                "audio_duration": 60,
+            }
+        )
+        with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
+            list(module.generate_with_batch_management(None, None, **kwargs))
+
+        log_text = "\n".join(state["log_info"])
+        self.assertIn("Starting generation", log_text)
+        self.assertIn("model=acestep-v15-xl-turbo", log_text)
+        self.assertIn("inference_steps=8", log_text)
+
     def test_foreground_generate_auto_initializes_dit_when_missing(self):
         """Generate should auto-initialize the foreground DiT service when needed."""
         module, _state = load_batch_management_module(is_windows=False)
@@ -407,7 +432,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
     def test_subprocess_generation_payload_uses_effective_lora_selection(self):
         """Subprocess generation should receive resolved LoRA path and enabled flag."""
-        module, _state = load_batch_management_module(is_windows=True)
+        module, state = load_batch_management_module(is_windows=True)
 
         with tempfile.TemporaryDirectory() as tmp:
             adapter = _write_peft_adapter(Path(tmp) / "voice")
@@ -421,6 +446,8 @@ class BatchManagementWrapperTests(unittest.TestCase):
             kwargs.update(
                 {
                     "subprocess_mode_checkbox": True,
+                    "config_path": "acestep-v15-xl-turbo",
+                    "inference_steps": 8,
                     "lora_dropdown": str(adapter),
                     "lora_path": "",
                     "use_lora_checkbox": False,
@@ -435,6 +462,12 @@ class BatchManagementWrapperTests(unittest.TestCase):
                 list(module.generate_with_batch_management(None, None, **kwargs))
 
         service_payload = seen["payload"]["service"]
+        generation_payload = seen["payload"]["generation"]
+        log_text = "\n".join(state["log_info"])
+        self.assertEqual(service_payload["config_path"], "acestep-v15-xl-turbo")
+        self.assertEqual(generation_payload["inference_steps"], 8)
+        self.assertIn("model=acestep-v15-xl-turbo", log_text)
+        self.assertIn("inference_steps=8", log_text)
         self.assertEqual(Path(service_payload["lora_path"]).resolve(), adapter.resolve())
         self.assertTrue(service_payload["use_lora"])
         self.assertEqual(service_payload["lora_scale"], 0.8)

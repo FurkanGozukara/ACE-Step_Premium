@@ -331,6 +331,13 @@ def generate_with_batch_management(
 ):
     """Wrap ``generate_with_progress`` with batch queue management state."""
     _ = (generation_params_state, use_lora_checkbox)  # reserved for API compatibility
+    selected_model = str(config_path or "").strip() or "acestep-v15-xl-sft"
+    logger.info(
+        f"[generate_with_batch_management] Starting generation: "
+        f"model={selected_model}, inference_steps={inference_steps}, "
+        f"batch_size={batch_size_input}, duration={audio_duration}, "
+        f"subprocess={bool(subprocess_mode_checkbox)}"
+    )
 
     saved_params = _build_saved_params(
         captions, lyrics, bpm, key_scale, time_signature, vocal_language,
@@ -378,7 +385,7 @@ def generate_with_batch_management(
         request_payload = {
             "project_root": project_root,
             "service": {
-                "config_path": config_path,
+                "config_path": selected_model,
                 "device": device,
                 "lm_model_path": lm_model_path,
                 "backend": backend_dropdown,
@@ -509,7 +516,7 @@ def generate_with_batch_management(
     init_ready, init_message = _ensure_in_process_service_ready(
         dit_handler,
         llm_handler,
-        config_path=config_path,
+        config_path=selected_model,
         device=device,
         lm_model_path=lm_model_path,
         backend_dropdown=backend_dropdown,

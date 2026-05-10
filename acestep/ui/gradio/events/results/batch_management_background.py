@@ -84,6 +84,13 @@ def generate_next_batch_background(
 
     try:
         _apply_param_defaults(params)
+        last_init_params = getattr(dit_handler, "last_init_params", {}) or {}
+        active_model = str(last_init_params.get("config_path") or "").strip() or "unknown"
+        logger.info(
+            f"[generate_next_batch_background] Starting background generation: "
+            f"model={active_model}, inference_steps={params.get('inference_steps')}, "
+            f"batch_size={params.get('batch_size_input')}, duration={params.get('audio_duration')}"
+        )
         _, _, lora_status = apply_lora_selection_for_generation(
             dit_handler,
             params.get("lora_path"),

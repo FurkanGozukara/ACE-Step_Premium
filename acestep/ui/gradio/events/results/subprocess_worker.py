@@ -120,16 +120,18 @@ def main() -> int:
 
         service = payload["service"]
         generation = payload["generation"]
+        selected_model = str(service.get("config_path") or "").strip() or "acestep-v15-xl-sft"
+        requested_steps = generation.get("inference_steps")
 
         print(f"[Worker] Project root: {project_root}", flush=True)
-        print(f"[Worker] Initializing DiT model: {service['config_path']}", flush=True)
+        print(f"[Worker] Initializing DiT model: {selected_model}", flush=True)
 
         dit_handler = AceStepHandler()
         llm_handler = LLMHandler()
 
         init_status, ok = dit_handler.initialize_service(
             project_root=project_root,
-            config_path=service["config_path"],
+            config_path=selected_model,
             device=service["device"],
             use_flash_attention=service["use_flash_attention"],
             compile_model=service["compile_model"],
@@ -173,7 +175,13 @@ def main() -> int:
             if not lm_ok:
                 raise RuntimeError(lm_status)
 
-        print("[Worker] Starting generation...", flush=True)
+        print(
+            f"[Worker] Starting generation: model={selected_model}, "
+            f"inference_steps={requested_steps}, "
+            f"batch_size={generation.get('batch_size_input')}, "
+            f"duration={generation.get('audio_duration')}",
+            flush=True,
+        )
         final_result = None
         for partial in generate_with_progress(
             dit_handler,
