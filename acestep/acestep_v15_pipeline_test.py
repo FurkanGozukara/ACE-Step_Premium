@@ -39,12 +39,15 @@ class PipelineStartupBackendTests(unittest.TestCase):
         *,
         env: dict[str, str] | None = None,
         gpu_config: SimpleNamespace | None = None,
+        available_dit_models: list[str] | None = None,
         available_lm_models: list[str] | None = None,
     ) -> tuple[MagicMock, dict[str, object]]:
         """Run ``main`` with heavy dependencies stubbed and capture startup state."""
         gpu_config = gpu_config or self._legacy_gpu_config()
         dit_handler = MagicMock()
-        dit_handler.get_available_acestep_v15_models.return_value = ["acestep-v15-turbo"]
+        dit_handler.get_available_acestep_v15_models.return_value = (
+            available_dit_models or ["acestep-v15-turbo"]
+        )
         dit_handler.is_flash_attention_available.return_value = False
         dit_handler.initialize_service.return_value = ("ok", True)
 
@@ -190,6 +193,32 @@ class PipelineStartupBackendTests(unittest.TestCase):
 
         self.assertEqual("pt", llm_handler.initialize.call_args.kwargs["backend"])
         self.assertEqual("pt", captured["init_params"]["backend"])
+
+    def test_main_auto_selects_xl_turbo_when_config_is_unset(self) -> None:
+        """CLI service initialization should mirror the fresh Gradio default."""
+        _llm_handler, captured = self._run_main(
+            [
+                "acestep",
+                "--init_service",
+                "true",
+                "--init_llm",
+                "false",
+            ],
+            available_dit_models=[
+                "acestep-v15-xl-sft",
+                "acestep-v15-xl-turbo",
+            ],
+        )
+
+        dit_handler = captured["dit_handler"]
+        self.assertEqual(
+            "acestep-v15-xl-turbo",
+            dit_handler.initialize_service.call_args.kwargs["config_path"],
+        )
+        self.assertEqual(
+            "acestep-v15-xl-turbo",
+            captured["init_params"]["config_path"],
+        )
 
     def test_main_forces_pt_backend_for_api_env_override(self) -> None:
         """API-mode env overrides should still resolve to the safe startup backend."""

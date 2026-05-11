@@ -222,15 +222,15 @@ PRESET_COMPONENT_KEYS: tuple[str, ...] = (
 
 DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "language_dropdown": "en",
-    "config_path": DEFAULT_PREMIUM_DIT_MODEL,
-    "simple_model_dropdown": DEFAULT_PREMIUM_DIT_MODEL,
+    "config_path": DEFAULT_TURBO_DIT_MODEL,
+    "simple_model_dropdown": DEFAULT_TURBO_DIT_MODEL,
     "lm_model_path": "",
     "generation_mode": "Custom",
     "captions": DEFAULT_PRESET_CAPTION,
     "lyrics": DEFAULT_PRESET_LYRICS,
     "batch_size_input": 1,
-    "inference_steps": 50,
-    "guidance_scale": 7.0,
+    "inference_steps": 8,
+    "guidance_scale": 1.0,
     "infer_method": "ode",
     "sampler_mode": "euler",
     "velocity_norm_threshold": 0.0,
@@ -262,7 +262,7 @@ def normalize_simple_model_dropdown_value(value: Any) -> str:
     """Return a supported Create-tab model selector value."""
 
     model_path = str(value or "").strip()
-    return model_path if model_path in SIMPLE_MODEL_VALUES else DEFAULT_PREMIUM_DIT_MODEL
+    return model_path if model_path in SIMPLE_MODEL_VALUES else DEFAULT_TURBO_DIT_MODEL
 
 
 def _runtime_default_values(base_values: dict[str, Any] | None = None) -> dict[str, Any]:

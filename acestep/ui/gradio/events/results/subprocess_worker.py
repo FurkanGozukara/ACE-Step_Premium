@@ -12,7 +12,11 @@ from typing import Any
 from acestep.handler import AceStepHandler
 from acestep.inference import GenerationConfig, GenerationParams
 from acestep.llm_inference import LLMHandler
-from acestep.model_downloader import DEFAULT_LM_MODEL, get_models_dir
+from acestep.model_downloader import (
+    DEFAULT_LM_MODEL,
+    DEFAULT_TURBO_DIT_MODEL,
+    get_models_dir,
+)
 from acestep.ui.gradio.events.generation.quantization import select_quantization_value
 from acestep.ui.gradio.events.results.batch_management_helpers import _extract_scores
 from acestep.ui.gradio.events.results.generation_progress import generate_with_progress
@@ -120,7 +124,10 @@ def main() -> int:
 
         service = payload["service"]
         generation = payload["generation"]
-        selected_model = str(service.get("config_path") or "").strip() or "acestep-v15-xl-sft"
+        selected_model = (
+            str(service.get("config_path") or "").strip()
+            or DEFAULT_TURBO_DIT_MODEL
+        )
         requested_steps = generation.get("inference_steps")
 
         print(f"[Worker] Project root: {project_root}", flush=True)

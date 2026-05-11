@@ -10,6 +10,7 @@ import gradio as gr
 from loguru import logger
 
 from acestep.gpu_config import find_best_lm_model_on_disk, get_global_gpu_config
+from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 from acestep.ui.gradio.events.results.batch_management_helpers import (
     _apply_param_defaults,
     _build_saved_params,
@@ -214,7 +215,7 @@ def _ensure_in_process_service_ready(
         return True, ""
 
     project_root = _resolve_project_root_for_generation()
-    selected_model = str(config_path or "").strip() or "acestep-v15-xl-sft"
+    selected_model = str(config_path or "").strip() or DEFAULT_TURBO_DIT_MODEL
     status_lines: list[str] = []
 
     dit_requires_init, quant_value = _dit_service_needs_reinit(
@@ -356,7 +357,7 @@ def generate_with_batch_management(
 ):
     """Wrap ``generate_with_progress`` with batch queue management state."""
     _ = (generation_params_state, use_lora_checkbox)  # reserved for API compatibility
-    selected_model = str(config_path or "").strip() or "acestep-v15-xl-sft"
+    selected_model = str(config_path or "").strip() or DEFAULT_TURBO_DIT_MODEL
     logger.info(
         f"[generate_with_batch_management] Starting generation: "
         f"model={selected_model}, inference_steps={inference_steps}, "

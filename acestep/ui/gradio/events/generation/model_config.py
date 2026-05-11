@@ -16,13 +16,13 @@ from acestep.constants import (
     GENERATION_MODES_TURBO,
     GENERATION_MODES_BASE,
 )
-from acestep.model_downloader import DEFAULT_PREMIUM_DIT_MODEL
+from acestep.model_downloader import DEFAULT_PREMIUM_DIT_MODEL, DEFAULT_TURBO_DIT_MODEL
 
 
 PREFERRED_DIT_MODEL_ORDER = (
+    DEFAULT_TURBO_DIT_MODEL,
     DEFAULT_PREMIUM_DIT_MODEL,
     "acestep-v15-xl-base",
-    "acestep-v15-xl-turbo",
     "acestep-v15-sft",
     "acestep-v15-base",
     "acestep-v15-turbo",
@@ -101,7 +101,7 @@ def select_preferred_model_path(available_models: Iterable[str] | None) -> str:
     for preferred in PREFERRED_DIT_MODEL_ORDER:
         if preferred in models:
             return preferred
-    return models[0] if models else DEFAULT_PREMIUM_DIT_MODEL
+    return models[0] if models else DEFAULT_TURBO_DIT_MODEL
 
 
 def get_ui_control_config_for_path(config_path: str | None) -> dict:

@@ -183,18 +183,18 @@ class UpdateModelTypeSettingsIntegrationTests(unittest.TestCase):
 
 
 class PreferredModelPathTests(unittest.TestCase):
-    """Verify app startup selects the same premium default model everywhere."""
+    """Verify app startup selects the same fresh-install model everywhere."""
 
-    def test_prefers_premium_default_xl_sft(self):
+    def test_prefers_xl_turbo(self):
         models = ["acestep-v15-xl-turbo", "acestep-v15-xl-sft"]
-        self.assertEqual(select_preferred_model_path(models), "acestep-v15-xl-sft")
+        self.assertEqual(select_preferred_model_path(models), "acestep-v15-xl-turbo")
 
     def test_falls_back_to_first_available_model(self):
         models = ["custom-model-a", "custom-model-b"]
         self.assertEqual(select_preferred_model_path(models), "custom-model-a")
 
-    def test_empty_models_falls_back_to_premium_default(self):
-        self.assertEqual(select_preferred_model_path([]), "acestep-v15-xl-sft")
+    def test_empty_models_falls_back_to_xl_turbo(self):
+        self.assertEqual(select_preferred_model_path([]), "acestep-v15-xl-turbo")
 
 
 if __name__ == "__main__":

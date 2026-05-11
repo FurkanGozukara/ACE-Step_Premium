@@ -77,6 +77,7 @@ try:
     from .model_downloader import (
         DEFAULT_LM_MODEL,
         DEFAULT_PREMIUM_DIT_MODEL,
+        DEFAULT_TURBO_DIT_MODEL,
         ensure_lm_model,
         get_models_dir,
     )
@@ -103,6 +104,7 @@ except ImportError:
     from acestep.model_downloader import (
         DEFAULT_LM_MODEL,
         DEFAULT_PREMIUM_DIT_MODEL,
+        DEFAULT_TURBO_DIT_MODEL,
         ensure_lm_model,
         get_models_dir,
     )
@@ -384,7 +386,7 @@ def main():
         "--config_path",
         type=str,
         default=None,
-        help=f"Main model path (e.g., '{DEFAULT_PREMIUM_DIT_MODEL}')",
+        help=f"Main model path (e.g., '{DEFAULT_TURBO_DIT_MODEL}')",
     )
     parser.add_argument(
         "--device",
@@ -508,7 +510,7 @@ def main():
         # Default DiT model for service mode (from env or fallback)
         if args.config_path is None:
             args.config_path = os.environ.get(
-                "SERVICE_MODE_DIT_MODEL", DEFAULT_PREMIUM_DIT_MODEL
+                "SERVICE_MODE_DIT_MODEL", DEFAULT_TURBO_DIT_MODEL
             )
         # Default LM model for service mode (from env or fallback)
         if args.lm_model_path is None:
@@ -546,12 +548,16 @@ def main():
                 available_models = dit_handler.get_available_acestep_v15_models()
                 if available_models:
                     args.config_path = (
-                        DEFAULT_PREMIUM_DIT_MODEL
-                        if DEFAULT_PREMIUM_DIT_MODEL in available_models
+                        DEFAULT_TURBO_DIT_MODEL
+                        if DEFAULT_TURBO_DIT_MODEL in available_models
                         else (
-                            "acestep-v15-xl-base"
-                            if "acestep-v15-xl-base" in available_models
-                            else available_models[0]
+                            DEFAULT_PREMIUM_DIT_MODEL
+                            if DEFAULT_PREMIUM_DIT_MODEL in available_models
+                            else (
+                                "acestep-v15-xl-base"
+                                if "acestep-v15-xl-base" in available_models
+                                else available_models[0]
+                            )
                         )
                     )
                     print(f"Auto-selected config_path: {args.config_path}")
