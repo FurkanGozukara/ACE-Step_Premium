@@ -202,6 +202,12 @@ def _simple_prepare_outputs(
         generation_section["time_signature"],
         results_section["is_format_caption_state"],
         simple_page["simple_status"],
+        generation_section["inference_steps"],
+        generation_section["guidance_scale"],
+        generation_section["use_adg"],
+        generation_section["shift"],
+        generation_section["cfg_interval_start"],
+        generation_section["cfg_interval_end"],
         generation_section["config_path"],
     ]
 
@@ -318,26 +324,37 @@ def _apply_simple_tier_change(tier: str | None, llm_handler: Any) -> tuple[Any, 
     updates = gen_h.on_tier_change(tier, llm_handler)
     if len(updates) != 10:
         return (gr.update(value=tier),) + tuple(gr.update() for _ in range(14))
-    quantization_update = updates[3]
-    batch_update = updates[7]
-    duration_update = updates[8]
+    quantization_update = _clone_update(updates[3])
+    simple_quantization_update = _clone_update(updates[3])
+    batch_update = _clone_update(updates[7])
+    simple_batch_update = _clone_update(updates[7])
+    duration_update = _clone_update(updates[8])
+    simple_duration_update = _clone_update(updates[8])
     return (
         gr.update(value=tier),
         updates[0],
         updates[1],
         updates[2],
         quantization_update,
-        quantization_update,
+        simple_quantization_update,
         updates[4],
         updates[5],
         updates[6],
-        updates[7],
-        updates[8],
-        updates[9],
         batch_update,
         duration_update,
+        updates[9],
+        simple_batch_update,
+        simple_duration_update,
         f"Applied GPU preset: {tier}",
     )
+
+
+def _clone_update(update: Any) -> Any:
+    """Return a separate update payload when one update feeds multiple components."""
+
+    if isinstance(update, dict):
+        return dict(update)
+    return update
 
 
 def _apply_simple_model_change(
@@ -357,13 +374,13 @@ def _apply_simple_model_change(
     elif "base" in selected_model:
         status = (
             f"Selected model: {label}. Next generation uses XL Base "
-            "50-step CFG defaults with all task modes available. "
+            "64-step ADG/CFG quality defaults with all task modes available. "
             "GPU presets remain the XL 4B profile."
         )
     else:
         status = (
             f"Selected model: {label}. Next generation uses XL SFT "
-            "50-step quality defaults. GPU presets remain the XL 4B profile."
+            "64-step ADG/CFG quality defaults. GPU presets remain the XL 4B profile."
         )
     return (gr.update(value=selected_model), *model_updates, status)
 

@@ -1,9 +1,11 @@
 """Tests for simple Create tab event wiring helpers."""
 
 import unittest
+from unittest.mock import patch
 
 from acestep.ui.gradio.events.wiring.simple_create_wiring import (
     _apply_simple_model_change,
+    _apply_simple_tier_change,
     _extract_generation_status,
     _format_enhancement_status,
     _format_simple_status,
@@ -70,27 +72,63 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
         self.assertIn("XL Turbo", result[-1])
 
     def test_simple_model_selector_applies_sft_defaults(self):
-        """Selecting XL SFT should update config_path and 50-step model controls."""
+        """Selecting XL SFT should update config_path and quality controls."""
 
         result = _apply_simple_model_change("acestep-v15-xl-sft", "Custom")
 
         self.assertEqual(result[0].get("value"), "acestep-v15-xl-sft")
-        self.assertEqual(result[1].get("value"), 50)
+        self.assertEqual(result[1].get("value"), 64)
         self.assertEqual(result[2].get("value"), 7.0)
         self.assertTrue(result[2].get("visible"))
+        self.assertTrue(result[3].get("value"))
         self.assertIn("XL SFT", result[-1])
 
     def test_simple_model_selector_applies_base_defaults(self):
-        """Selecting XL Base should update config_path, base modes, and 50-step controls."""
+        """Selecting XL Base should update config_path, base modes, and quality controls."""
 
         result = _apply_simple_model_change("acestep-v15-xl-base", "Custom")
 
         self.assertEqual(result[0].get("value"), "acestep-v15-xl-base")
-        self.assertEqual(result[1].get("value"), 50)
+        self.assertEqual(result[1].get("value"), 64)
         self.assertEqual(result[2].get("value"), 7.0)
         self.assertTrue(result[2].get("visible"))
+        self.assertTrue(result[3].get("value"))
         self.assertIn("Extract", result[8].get("choices"))
         self.assertIn("XL Base", result[-1])
+
+    def test_simple_tier_selector_mirrors_vram_preset(self):
+        """Selecting a VRAM preset should update advanced and simple VRAM controls."""
+
+        tier_updates = (
+            {"value": True},  # offload_to_cpu
+            {"value": False},  # offload_dit_to_cpu
+            {"value": False},  # compile
+            {"value": "fp8_scaled"},  # quantization
+            {"value": "pt"},  # backend
+            {"value": "acestep-5Hz-lm-4B"},  # LM model
+            {"value": True},  # init LM
+            {"value": 1, "maximum": 1},  # batch
+            {"maximum": 480.0},  # duration
+            {"value": "gpu info"},  # display
+        )
+
+        with patch(
+            "acestep.ui.gradio.events.wiring.simple_create_wiring.gen_h.on_tier_change",
+            return_value=tier_updates,
+        ):
+            result = _apply_simple_tier_change("tier6b", llm_handler=object())
+
+        self.assertEqual(result[0].get("value"), "tier6b")
+        self.assertEqual(result[1].get("value"), True)
+        self.assertEqual(result[4].get("value"), "fp8_scaled")
+        self.assertEqual(result[5].get("value"), "fp8_scaled")
+        self.assertEqual(result[7].get("value"), "acestep-5Hz-lm-4B")
+        self.assertEqual(result[12].get("value"), 1)
+        self.assertEqual(result[13].get("maximum"), 480.0)
+        self.assertIsNot(result[4], result[5])
+        self.assertIsNot(result[9], result[12])
+        self.assertIsNot(result[10], result[13])
+        self.assertIn("tier6b", result[-1])
 
 
 if __name__ == "__main__":

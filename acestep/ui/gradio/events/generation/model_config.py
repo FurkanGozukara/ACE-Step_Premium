@@ -122,8 +122,8 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
         is_turbo: Whether the model is a turbo variant.
         is_pure_base: Whether the model is a pure base model.
         is_sft: Whether the model is an SFT (supervised fine-tuned) variant.
-              SFT and base models are optimized for 50 inference steps,
-              matching the public model-zoo defaults.
+              SFT and base models use the high-quality public guidance:
+              64 diffusion steps, CFG enabled, and ADG on by default.
 
     Used by both interactive init and service-mode startup so controls stay consistent.
     """
@@ -154,14 +154,15 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
             "generation_mode_choices": mode_choices,
         }
     else:
-        # Non-turbo model-zoo defaults are 50 steps for base, SFT, and XL.
+        # Non-turbo high-quality defaults follow the public inference guide:
+        # base/SFT with 64+ steps, guidance in the 7-9 range, and ADG enabled.
         return {
-            "inference_steps_value": 50,
+            "inference_steps_value": 64,
             "inference_steps_maximum": 200,
             "inference_steps_minimum": 1,
             "guidance_scale_value": 7.0,
             "guidance_scale_visible": True,
-            "use_adg_value": False,
+            "use_adg_value": True,
             "use_adg_visible": True,
             "shift_value": 3.0,
             "shift_visible": True,

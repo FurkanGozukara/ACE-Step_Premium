@@ -28,6 +28,9 @@ from acestep.core.generation.handler.lora.folder_scan import (
     lora_dropdown_choices,
     resolve_loadable_lora_adapter_path,
 )
+from acestep.ui.gradio.events.generation.model_config import (
+    get_ui_control_config_for_path,
+)
 from acestep.ui.gradio.events.generation.quantization import default_quantization_value
 from acestep.ui.gradio.events.results.output_manager import get_results_dir
 
@@ -265,6 +268,21 @@ def normalize_simple_model_dropdown_value(value: Any) -> str:
     return model_path if model_path in SIMPLE_MODEL_VALUES else DEFAULT_TURBO_DIT_MODEL
 
 
+def model_quality_defaults(model_path: Any) -> dict[str, Any]:
+    """Return generation-control defaults for a model path."""
+
+    selected_model = str(model_path or "").strip() or DEFAULT_TURBO_DIT_MODEL
+    cfg = get_ui_control_config_for_path(selected_model)
+    return {
+        "inference_steps": cfg["inference_steps_value"],
+        "guidance_scale": cfg["guidance_scale_value"],
+        "use_adg": cfg["use_adg_value"],
+        "shift": cfg["shift_value"],
+        "cfg_interval_start": cfg["cfg_interval_start_value"],
+        "cfg_interval_end": cfg["cfg_interval_end_value"],
+    }
+
+
 def _runtime_default_values(base_values: dict[str, Any] | None = None) -> dict[str, Any]:
     """Return defaults that depend on the current installation path."""
 
@@ -434,6 +452,11 @@ def _apply_runtime_defaults(
     merged["simple_model_dropdown"] = simple_model
     if not config_path or config_path in SIMPLE_MODEL_VALUES:
         merged["config_path"] = simple_model
+    quality_model = str(merged.get("config_path") or "").strip() or simple_model
+    quality_defaults = model_quality_defaults(quality_model)
+    for key, value in quality_defaults.items():
+        if key not in provided_keys or merged.get(key) in (None, ""):
+            merged[key] = value
     raw_quantization = payload.get("quantization_checkbox")
     raw_simple_quantization = payload.get("simple_quantization")
     if raw_quantization in (None, "") and raw_simple_quantization not in (None, ""):
@@ -478,6 +501,8 @@ def _values_to_payload(values: tuple[Any, ...]) -> dict[str, Any]:
 
 def _payload_to_component_updates(payload: dict[str, Any]) -> list[Any]:
     updates: list[Any] = []
+    selected_model = payload.get("simple_model_dropdown") or payload.get("config_path")
+    ui_config = get_ui_control_config_for_path(selected_model or DEFAULT_TURBO_DIT_MODEL)
     for key in PRESET_COMPONENT_KEYS:
         if key in payload:
             value = payload[key]
@@ -496,6 +521,51 @@ def _payload_to_component_updates(payload: dict[str, Any]) -> list[Any]:
                     gr.update(
                         choices=choices,
                         value=value if value in valid_values else "",
+                    )
+                )
+            elif key == "inference_steps":
+                updates.append(
+                    gr.update(
+                        value=value,
+                        minimum=ui_config["inference_steps_minimum"],
+                        maximum=ui_config["inference_steps_maximum"],
+                    )
+                )
+            elif key == "guidance_scale":
+                updates.append(
+                    gr.update(
+                        value=value,
+                        visible=ui_config["guidance_scale_visible"],
+                    )
+                )
+            elif key == "use_adg":
+                updates.append(
+                    gr.update(value=value, visible=ui_config["use_adg_visible"])
+                )
+            elif key == "shift":
+                updates.append(
+                    gr.update(value=value, visible=ui_config["shift_visible"])
+                )
+            elif key == "cfg_interval_start":
+                updates.append(
+                    gr.update(
+                        value=value,
+                        visible=ui_config["cfg_interval_start_visible"],
+                    )
+                )
+            elif key == "cfg_interval_end":
+                updates.append(
+                    gr.update(
+                        value=value,
+                        visible=ui_config["cfg_interval_end_visible"],
+                    )
+                )
+            elif key == "generation_mode":
+                choices = ui_config["generation_mode_choices"]
+                updates.append(
+                    gr.update(
+                        choices=choices,
+                        value=value if value in choices else "Custom",
                     )
                 )
             else:

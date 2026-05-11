@@ -112,7 +112,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                 value=default_model,
                 label="Model",
                 info=(
-                    "SFT and Base use 50-step CFG defaults. Turbo uses "
+                    "SFT and Base use 64-step ADG/CFG quality defaults. Turbo uses "
                     "8-step fast defaults. All are XL 4B models; >=12GB "
                     "VRAM is the practical floor."
                 ),

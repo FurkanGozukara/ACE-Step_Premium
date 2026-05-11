@@ -8,6 +8,12 @@ from acestep.ui.gradio.events.wiring.simple_create_params import (
 )
 
 
+INFERENCE_STEPS_INDEX = 26
+GUIDANCE_SCALE_INDEX = 27
+USE_ADG_INDEX = 28
+CONFIG_PATH_INDEX = 32
+
+
 class SimpleCreateParamsTests(unittest.TestCase):
     """Verify simple Create tab values map to the full generation contract."""
 
@@ -40,10 +46,12 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertTrue(result[19])
         self.assertTrue(result[20])
         self.assertIn("Auto duration", result[25])
-        self.assertEqual(result[26], "acestep-v15-xl-turbo")
+        self.assertEqual(result[INFERENCE_STEPS_INDEX], 8)
+        self.assertEqual(result[GUIDANCE_SCALE_INDEX], 1.0)
+        self.assertEqual(result[CONFIG_PATH_INDEX], "acestep-v15-xl-turbo")
 
     def test_base_model_selector_is_forwarded_to_advanced_generation(self):
-        """The simple Base selection should reach the advanced config path output."""
+        """The simple Base selection should apply quality defaults."""
 
         result = prepare_simple_generation(
             caption="emotional pop",
@@ -59,7 +67,32 @@ class SimpleCreateParamsTests(unittest.TestCase):
             model_path="acestep-v15-xl-base",
         )
 
-        self.assertEqual(result[26], "acestep-v15-xl-base")
+        self.assertEqual(result[INFERENCE_STEPS_INDEX], 64)
+        self.assertEqual(result[GUIDANCE_SCALE_INDEX], 7.0)
+        self.assertTrue(result[USE_ADG_INDEX])
+        self.assertEqual(result[CONFIG_PATH_INDEX], "acestep-v15-xl-base")
+
+    def test_sft_model_selector_applies_quality_defaults(self):
+        """The simple SFT selection should apply quality defaults."""
+
+        result = prepare_simple_generation(
+            caption="emotional pop",
+            lyrics="verse",
+            vocal_language="en",
+            instrumental=False,
+            vocal_gender="male",
+            duration=60,
+            batch_size=1,
+            random_seed=True,
+            seed="-1",
+            quantization="none",
+            model_path="acestep-v15-xl-sft",
+        )
+
+        self.assertEqual(result[INFERENCE_STEPS_INDEX], 64)
+        self.assertEqual(result[GUIDANCE_SCALE_INDEX], 7.0)
+        self.assertTrue(result[USE_ADG_INDEX])
+        self.assertEqual(result[CONFIG_PATH_INDEX], "acestep-v15-xl-sft")
 
     def test_fixed_duration_uses_direct_generation_path(self):
         """A positive duration should be treated as explicit fixed seconds."""

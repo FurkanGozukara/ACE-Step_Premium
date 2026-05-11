@@ -5,7 +5,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from ...premium_features import normalize_simple_model_dropdown_value
+from ...premium_features import (
+    model_quality_defaults,
+    normalize_simple_model_dropdown_value,
+)
 
 
 def prepare_simple_generation(
@@ -39,6 +42,8 @@ def prepare_simple_generation(
     key_scale_value = _normalize_text_value(formatted_key_scale)
     time_signature_value = _normalize_text_value(formatted_time_signature)
     status = _build_status(auto_duration, duration_value)
+    selected_model = normalize_simple_model_dropdown_value(model_path)
+    quality_defaults = model_quality_defaults(selected_model)
 
     return (
         "Custom",
@@ -67,7 +72,13 @@ def prepare_simple_generation(
         time_signature_value,
         bool(is_format_caption),
         status,
-        normalize_simple_model_dropdown_value(model_path),
+        quality_defaults["inference_steps"],
+        quality_defaults["guidance_scale"],
+        quality_defaults["use_adg"],
+        quality_defaults["shift"],
+        quality_defaults["cfg_interval_start"],
+        quality_defaults["cfg_interval_end"],
+        selected_model,
     )
 
 
