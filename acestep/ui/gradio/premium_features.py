@@ -13,6 +13,10 @@ from typing import Any
 
 import gradio as gr
 
+from acestep.gpu_config import (
+    find_best_lm_model_on_disk,
+    get_global_gpu_config,
+)
 from acestep.model_downloader import (
     DEFAULT_BASE_DIT_MODEL,
     DEFAULT_LM_MODEL,
@@ -28,17 +32,9 @@ from acestep.ui.gradio.events.generation.quantization import default_quantizatio
 from acestep.ui.gradio.events.results.output_manager import get_results_dir
 
 
-DEFAULT_PRESET_NAME = "Premium Default"
-DEFAULT_TURBO_PRESET_NAME = "Default_Turbo"
-DEFAULT_BASE_PRESET_NAME = "Default_Base"
-DEFAULT_PRESET_FOLDER = "premium_system_presets"
+GPU_OPTIMIZATION_PRESET_NAME = "GPU Optimization Preset"
 USER_PRESET_FOLDER = "premium_user_presets"
 LAST_USED_PRESET_FILE = ".last_used_preset.txt"
-SYSTEM_PRESET_FILES = {
-    DEFAULT_PRESET_NAME: "default.json",
-    DEFAULT_TURBO_PRESET_NAME: "default_turbo.json",
-    DEFAULT_BASE_PRESET_NAME: "default_base.json",
-}
 DEFAULT_PRESET_CAPTION = (
     "Conscious melodic rap and modern cinematic pop-rap anthem, uplifting and humble, "
     "warm synth pads, punchy drums, deep 808 bass, subtle clean guitar textures, big "
@@ -228,7 +224,7 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "language_dropdown": "en",
     "config_path": DEFAULT_PREMIUM_DIT_MODEL,
     "simple_model_dropdown": DEFAULT_PREMIUM_DIT_MODEL,
-    "lm_model_path": DEFAULT_LM_MODEL,
+    "lm_model_path": "",
     "generation_mode": "Custom",
     "captions": DEFAULT_PRESET_CAPTION,
     "lyrics": DEFAULT_PRESET_LYRICS,
@@ -262,73 +258,46 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "subprocess_mode_checkbox": False,
 }
 
-DEFAULT_TURBO_PRESET_VALUES: dict[str, Any] = {
-    **DEFAULT_PRESET_VALUES,
-    "config_path": DEFAULT_TURBO_DIT_MODEL,
-    "simple_model_dropdown": DEFAULT_TURBO_DIT_MODEL,
-    "inference_steps": 8,
-    "guidance_scale": 1.0,
-    "use_adg": False,
-    "shift": 3.0,
-    "custom_timesteps": "",
-    "cfg_interval_start": 0.0,
-    "cfg_interval_end": 1.0,
-}
-
-DEFAULT_BASE_PRESET_VALUES: dict[str, Any] = {
-    **DEFAULT_PRESET_VALUES,
-    "config_path": DEFAULT_BASE_DIT_MODEL,
-    "simple_model_dropdown": DEFAULT_BASE_DIT_MODEL,
-    "inference_steps": 50,
-    "guidance_scale": 7.0,
-    "use_adg": False,
-    "shift": 3.0,
-    "custom_timesteps": "",
-    "cfg_interval_start": 0.0,
-    "cfg_interval_end": 1.0,
-}
-
-
 def normalize_simple_model_dropdown_value(value: Any) -> str:
     """Return a supported Create-tab model selector value."""
 
     model_path = str(value or "").strip()
     return model_path if model_path in SIMPLE_MODEL_VALUES else DEFAULT_PREMIUM_DIT_MODEL
 
-SYSTEM_PRESET_VALUES = {
-    DEFAULT_PRESET_NAME: DEFAULT_PRESET_VALUES,
-    DEFAULT_TURBO_PRESET_NAME: DEFAULT_TURBO_PRESET_VALUES,
-    DEFAULT_BASE_PRESET_NAME: DEFAULT_BASE_PRESET_VALUES,
-}
-
-
-def _system_preset_payload(name: str) -> dict[str, Any]:
-    """Return the canonical immutable payload for a protected system preset."""
-
-    return {
-        "_meta": {
-            "name": name,
-            "immutable": True,
-            "format": "ace_step_premium_preset",
-            "version": 2,
-        },
-        "values": SYSTEM_PRESET_VALUES[name],
-    }
-
-
-def _default_preset_payload() -> dict[str, Any]:
-    """Return the canonical immutable default-preset payload."""
-
-    return _system_preset_payload(DEFAULT_PRESET_NAME)
-
 
 def _runtime_default_values(base_values: dict[str, Any] | None = None) -> dict[str, Any]:
     """Return defaults that depend on the current installation path."""
 
+    values = dict(base_values or DEFAULT_PRESET_VALUES)
+    values["lm_model_path"] = _runtime_lm_model_default()
     return {
-        **(base_values or DEFAULT_PRESET_VALUES),
+        **values,
         "checkpoint_dropdown": str(get_models_dir(project_root=_project_root())),
     }
+
+
+def _available_lm_models_on_disk() -> list[str]:
+    """Return installed 5Hz LM model directory names."""
+    models_dir = get_models_dir(project_root=_project_root())
+    if not models_dir.exists():
+        return []
+    return sorted(
+        path.name
+        for path in models_dir.iterdir()
+        if path.is_dir() and path.name.startswith("acestep-5Hz-lm-")
+    )
+
+
+def _runtime_lm_model_default() -> str:
+    """Return the current GPU-tier LM recommendation when available locally."""
+    try:
+        gpu_config = get_global_gpu_config()
+        recommended_lm = getattr(gpu_config, "recommended_lm_model", "")
+        disk_models = _available_lm_models_on_disk()
+        selected = find_best_lm_model_on_disk(recommended_lm, disk_models)
+        return selected or recommended_lm or DEFAULT_LM_MODEL
+    except Exception:
+        return DEFAULT_LM_MODEL
 
 
 def get_preset_component_keys() -> tuple[str, ...]:
@@ -341,14 +310,6 @@ def _project_root() -> Path:
     if raw:
         return Path(raw).expanduser().resolve()
     return Path(__file__).resolve().parents[3]
-
-
-def _default_preset_path() -> Path:
-    return _system_preset_path(DEFAULT_PRESET_NAME)
-
-
-def _system_preset_path(name: str) -> Path:
-    return _project_root() / DEFAULT_PRESET_FOLDER / SYSTEM_PRESET_FILES[name]
 
 
 def _user_preset_dir() -> Path:
@@ -375,24 +336,6 @@ def _preset_name_key(name: str | None) -> str:
     return re.sub(r"[\s_-]+", " ", sanitized.casefold()).strip()
 
 
-def _system_preset_name_for(name: str | None) -> str | None:
-    """Return the canonical protected preset name for a user-provided name."""
-
-    key = _preset_name_key(name)
-    if not key:
-        return None
-    for system_name in SYSTEM_PRESET_FILES:
-        if key == _preset_name_key(system_name):
-            return system_name
-    return None
-
-
-def _is_default_preset_name(name: str | None) -> bool:
-    """Return whether a user-provided preset name targets a protected preset."""
-
-    return _system_preset_name_for(name) is not None
-
-
 def _user_preset_path(name: str | None) -> Path:
     """Return the canonical user-preset path for a preset name."""
 
@@ -400,31 +343,8 @@ def _user_preset_path(name: str | None) -> Path:
 
 
 def ensure_default_preset() -> Path:
-    """Create or refresh immutable system presets and return the default path."""
-    for name in SYSTEM_PRESET_FILES:
-        _ensure_system_preset(name)
-    return _default_preset_path()
-
-
-def _ensure_system_preset(name: str) -> Path:
-    """Create or refresh a single immutable system preset file."""
-
-    target = _system_preset_path(name)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    desired_payload = _system_preset_payload(name)
-    current_payload: dict[str, Any] | None = None
-    if target.exists():
-        try:
-            with target.open("r", encoding="utf-8") as handle:
-                loaded = json.load(handle)
-            if isinstance(loaded, dict):
-                current_payload = loaded
-        except Exception:
-            current_payload = None
-    if current_payload != desired_payload:
-        with target.open("w", encoding="utf-8") as handle:
-            json.dump(desired_payload, handle, indent=2, ensure_ascii=False)
-    return target
+    """Return the user preset directory; bundled immutable presets are removed."""
+    return _user_preset_dir()
 
 
 def _read_preset_file(path: Path) -> dict[str, Any] | None:
@@ -442,14 +362,13 @@ def _read_preset_file(path: Path) -> dict[str, Any] | None:
 
 
 def list_preset_names() -> list[str]:
-    """Return dropdown choices with immutable default first."""
-    ensure_default_preset()
-    names = list(SYSTEM_PRESET_FILES)
-    seen = {_preset_name_key(name) for name in names}
+    """Return saved user preset names."""
+    names: list[str] = []
+    seen: set[str] = set()
     for preset_path in sorted(_user_preset_dir().glob("*.json")):
         name = preset_path.stem
         key = _preset_name_key(name)
-        if _is_default_preset_name(name) or key in seen:
+        if key in seen:
             continue
         names.append(name)
         seen.add(key)
@@ -471,6 +390,13 @@ def set_last_used_preset_name(name: str) -> None:
     _last_used_path().write_text(str(name or "").strip(), encoding="utf-8")
 
 
+def _clear_last_used_preset_name() -> None:
+    """Clear remembered user-preset selection."""
+    path = _last_used_path()
+    if path.exists():
+        path.unlink()
+
+
 def _resolve_available_preset_name(name: str | None) -> tuple[str, bool]:
     """Resolve a requested preset name to an existing selectable preset.
 
@@ -480,15 +406,11 @@ def _resolve_available_preset_name(name: str | None) -> tuple[str, bool]:
 
     requested = str(name or "").strip()
     if not requested:
-        return DEFAULT_PRESET_NAME, False
-    system_name = _system_preset_name_for(requested)
-    if system_name:
-        return system_name, False
-
+        return "", False
     sanitized = _sanitize_name(requested)
     if _user_preset_path(sanitized).exists():
         return sanitized, False
-    return DEFAULT_PRESET_NAME, True
+    return "", True
 
 
 def _apply_runtime_defaults(
@@ -529,33 +451,20 @@ def _apply_runtime_defaults(
 
 
 def _load_resolved_preset_payload(name: str | None) -> tuple[str, bool, dict[str, Any]]:
-    """Load an existing preset or the protected default fallback."""
+    """Load an existing user preset, or return an empty GPU-default fallback."""
 
     preset_name, fell_back = _resolve_available_preset_name(name)
-    if preset_name in SYSTEM_PRESET_FILES:
-        payload = _read_preset_file(_ensure_system_preset(preset_name)) or {}
-        return (
-            preset_name,
-            fell_back,
-            _apply_runtime_defaults(payload, SYSTEM_PRESET_VALUES[preset_name]),
-        )
+    if not preset_name:
+        return "", fell_back, {}
 
     payload = _read_preset_file(_user_preset_path(preset_name))
     if payload is None:
-        default_payload = _read_preset_file(_ensure_system_preset(DEFAULT_PRESET_NAME)) or {}
-        return (
-            DEFAULT_PRESET_NAME,
-            True,
-            _apply_runtime_defaults(
-                default_payload,
-                SYSTEM_PRESET_VALUES[DEFAULT_PRESET_NAME],
-            ),
-        )
+        return "", True, {}
     return preset_name, fell_back, _apply_runtime_defaults(payload)
 
 
 def load_named_preset(name: str | None) -> dict[str, Any]:
-    """Load preset values, falling back to the protected default when needed."""
+    """Load user preset values, returning an empty payload when none is selected."""
     _preset_name, _fell_back, payload = _load_resolved_preset_payload(name)
     return payload
 
@@ -611,8 +520,6 @@ def _lora_status_from_payload(payload: dict[str, Any]) -> tuple[str, Any]:
 
 
 def _write_user_preset(name: str, payload: dict[str, Any]) -> str:
-    if _is_default_preset_name(name):
-        raise ValueError(f"`{_system_preset_name_for(name) or name}` is immutable.")
     sanitized = _sanitize_name(name)
     target = _user_preset_path(sanitized)
     with target.open("w", encoding="utf-8") as handle:
@@ -634,11 +541,16 @@ def _write_user_preset(name: str, payload: dict[str, Any]) -> str:
     return sanitized
 
 
-def _build_dashboard_markdown(selected_preset: str | None = None, subprocess_mode: bool | None = None) -> str:
+def _build_dashboard_markdown(
+    selected_preset: str | None = None,
+    subprocess_mode: bool | None = None,
+) -> str:
     models_dir = get_models_dir(project_root=_project_root())
     outputs_dir = get_results_dir()
-    preset_name = selected_preset or get_last_used_preset_name() or DEFAULT_PRESET_NAME
+    preset_name = selected_preset or GPU_OPTIMIZATION_PRESET_NAME
     execution_mode = "Subprocess" if subprocess_mode else "In-process"
+    gpu_config = get_global_gpu_config()
+    tier = getattr(gpu_config, "tier", "unknown")
 
     model_dirs = sorted(
         child.name for child in models_dir.iterdir()
@@ -658,6 +570,7 @@ def _build_dashboard_markdown(selected_preset: str | None = None, subprocess_mod
         [
             "### Studio Overview",
             f"- Preset: `{preset_name}`",
+            f"- GPU optimization preset: `{tier}`",
             f"- Execution mode: `{execution_mode}`",
             f"- Models folder: `{models_dir}`",
             f"- Output folder: `{outputs_dir}`",
@@ -702,23 +615,34 @@ def open_outputs_folder() -> str:
 
 def startup_preset_updates() -> tuple[Any, ...]:
     """Return startup preset updates plus dropdown, status, and dashboard."""
-    ensure_default_preset()
     remembered = get_last_used_preset_name()
     selected, fell_back, payload = _load_resolved_preset_payload(remembered)
+    choices = list_preset_names()
     if fell_back:
-        set_last_used_preset_name(DEFAULT_PRESET_NAME)
+        _clear_last_used_preset_name()
+    if not selected:
+        status = (
+            f"Remembered preset `{remembered}` was missing. "
+            f"Using {GPU_OPTIMIZATION_PRESET_NAME}."
+            if remembered and fell_back
+            else f"Using {GPU_OPTIMIZATION_PRESET_NAME}."
+        )
+        return (
+            *[gr.skip() for _ in PRESET_COMPONENT_KEYS],
+            "No LoRA will be used.",
+            gr.update(value=False),
+            gr.update(choices=choices, value=None),
+            status,
+            _build_dashboard_markdown(None, None),
+        )
+
     lora_status, use_lora_update = _lora_status_from_payload(payload)
-    status = (
-        f"Remembered preset `{remembered}` was missing. Loaded preset: {DEFAULT_PRESET_NAME}"
-        if fell_back
-        else f"Loaded preset: {selected}"
-    )
     return (
         *_payload_to_component_updates(payload),
         lora_status,
         use_lora_update,
-        gr.update(choices=list_preset_names(), value=selected),
-        status,
+        gr.update(choices=choices, value=selected),
+        f"Loaded preset: {selected}",
         _build_dashboard_markdown(selected, payload.get("subprocess_mode_checkbox")),
     )
 
@@ -736,14 +660,6 @@ def save_preset_action(
             "Enter a preset name before saving.",
             _build_dashboard_markdown(current_selection, None),
         )
-    if _is_default_preset_name(requested_name):
-        protected_name = _system_preset_name_for(requested_name) or requested_name
-        return (
-            gr.update(choices=list_preset_names(), value=current_selection),
-            f"`{protected_name}` is immutable. Save under a different name.",
-            _build_dashboard_markdown(current_selection, None),
-        )
-
     payload = _values_to_payload(values)
     saved_name = _write_user_preset(requested_name, payload)
     return (
@@ -755,43 +671,55 @@ def save_preset_action(
 
 def load_preset_action(preset_name: str | None) -> tuple[Any, ...]:
     """Load a preset and return updates for all tracked components."""
-    requested = str(preset_name or DEFAULT_PRESET_NAME).strip() or DEFAULT_PRESET_NAME
+    requested = str(preset_name or "").strip()
     selected, fell_back, payload = _load_resolved_preset_payload(requested)
+    if not selected:
+        if fell_back:
+            _clear_last_used_preset_name()
+        status = (
+            f"Preset `{requested}` was missing. Using {GPU_OPTIMIZATION_PRESET_NAME}."
+            if requested and fell_back
+            else f"Using {GPU_OPTIMIZATION_PRESET_NAME}."
+        )
+        return (
+            *[gr.skip() for _ in PRESET_COMPONENT_KEYS],
+            "No LoRA will be used.",
+            gr.update(value=False),
+            gr.update(choices=list_preset_names(), value=None),
+            status,
+            _build_dashboard_markdown(None, None),
+        )
+
     set_last_used_preset_name(selected)
     lora_status, use_lora_update = _lora_status_from_payload(payload)
-    status = (
-        f"Preset `{requested}` was missing. Loaded preset: {DEFAULT_PRESET_NAME}"
-        if fell_back
-        else f"Loaded preset: {selected}"
-    )
     return (
         *_payload_to_component_updates(payload),
         lora_status,
         use_lora_update,
         gr.update(choices=list_preset_names(), value=selected),
-        status,
+        f"Loaded preset: {selected}",
         _build_dashboard_markdown(selected, payload.get("subprocess_mode_checkbox")),
     )
 
 
 def delete_preset_action(preset_name: str | None) -> tuple[Any, ...]:
-    """Delete a user preset and fall back to the default selection."""
+    """Delete a user preset and fall back to GPU optimization defaults."""
     selected = str(preset_name or "").strip()
-    if not selected or _is_default_preset_name(selected):
+    if not selected:
         return (
-            gr.update(choices=list_preset_names(), value=DEFAULT_PRESET_NAME),
-            f"`{DEFAULT_PRESET_NAME}` cannot be deleted.",
-            _build_dashboard_markdown(DEFAULT_PRESET_NAME, None),
+            gr.update(choices=list_preset_names(), value=None),
+            "Select a user preset to delete.",
+            _build_dashboard_markdown(None, None),
         )
 
     target = _user_preset_path(selected)
     if target.exists():
         target.unlink()
 
-    fallback = DEFAULT_PRESET_NAME
-    set_last_used_preset_name(fallback)
+    if get_last_used_preset_name() == selected:
+        _clear_last_used_preset_name()
     return (
-        gr.update(choices=list_preset_names(), value=fallback),
+        gr.update(choices=list_preset_names(), value=None),
         f"Deleted preset: {selected}",
-        _build_dashboard_markdown(fallback, None),
+        _build_dashboard_markdown(None, None),
     )

@@ -13,10 +13,10 @@ def create_studio_page() -> dict[str, gr.components.Component]:
             """
             <section class="ace-page-intro">
               <span class="ace-page-eyebrow">Premium Studio</span>
-              <h2>Launch from presets, keep everything local, and monitor the workspace.</h2>
+              <h2>Save custom presets, keep everything local, and monitor the workspace.</h2>
               <p>
-                The default bundle targets <code>acestep-v15-xl-sft</code>. Optional XL Base and Turbo
-                stay available through the runtime downloader when a user selects them.
+                Startup uses the current GPU Optimization Preset. Saved user presets can override
+                those runtime defaults whenever you load one.
               </p>
             </section>
             """
@@ -28,7 +28,10 @@ def create_studio_page() -> dict[str, gr.components.Component]:
                     choices=[],
                     value=None,
                     label="Preset",
-                    info="Load the immutable default preset or one of your saved user presets.",
+                    info=(
+                        "Load one of your saved presets. With no preset selected, "
+                        "GPU optimization defaults apply."
+                    ),
                 )
                 preset_name_input = gr.Textbox(
                     label="Preset Name",
@@ -102,10 +105,10 @@ def create_studio_page() -> dict[str, gr.components.Component]:
                     <div class="ace-detail-card">
                       <h3>Recommended flow</h3>
                       <ol class="ace-flow-list">
-                        <li>Start with the Premium Default preset.</li>
-                        <li>Adjust generation settings in the Create page.</li>
+                        <li>Start from the auto-detected GPU Optimization Preset.</li>
+                        <li>Choose XL Turbo, SFT, or Base in the Create page.</li>
                         <li>Use subprocess mode for cleaner isolation on long runs.</li>
-                        <li>Review saved runs and metadata from the outputs folder.</li>
+                        <li>Save a user preset when you want to override runtime defaults.</li>
                       </ol>
                     </div>
                     """

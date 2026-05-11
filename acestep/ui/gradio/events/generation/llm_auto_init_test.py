@@ -22,6 +22,9 @@ class _FakeLLMHandler:
     def get_default_lm_model(self):
         return "acestep-5Hz-lm-1.7B"
 
+    def get_available_5hz_lm_models(self):
+        return ["acestep-5Hz-lm-1.7B"]
+
     def initialize(self, **kwargs):
         self.initialize_calls.append(kwargs)
         self.llm_initialized = True
@@ -81,6 +84,44 @@ class LlmAutoInitTests(unittest.TestCase):
                 "device": "auto",
                 "offload_to_cpu": True,
             },
+        )
+
+    def test_ensure_llm_ready_uses_gpu_recommended_model_when_unset(self):
+        """On-demand LM actions should follow the GPU-tier LM recommendation."""
+
+        handler = _FakeLLMHandler()
+        handler.get_available_5hz_lm_models = lambda: [
+            "acestep-5Hz-lm-1.7B",
+            "acestep-5Hz-lm-4B",
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.dict(os.environ, {"ACESTEP_PROJECT_ROOT": tmp_dir}, clear=False):
+                with patch(
+                    "acestep.ui.gradio.events.generation.llm_auto_init.get_global_gpu_config",
+                    return_value=types.SimpleNamespace(
+                        recommended_backend="pt",
+                        recommended_lm_model="acestep-5Hz-lm-4B",
+                    ),
+                ), patch(
+                    "acestep.ui.gradio.events.generation.llm_auto_init.resolve_lm_backend",
+                    return_value="pt",
+                ), patch(
+                    "acestep.ui.gradio.events.generation.llm_auto_init.ensure_lm_model",
+                    return_value=(True, "downloaded"),
+                ):
+                    ok, _status = ensure_llm_ready(
+                        handler,
+                        lm_model_path="",
+                        backend=None,
+                        device="auto",
+                        offload_to_cpu=False,
+                    )
+
+        self.assertTrue(ok)
+        self.assertEqual(
+            handler.initialize_calls[0]["lm_model_path"],
+            "acestep-5Hz-lm-4B",
         )
 
     def test_ensure_llm_ready_skips_reinit_when_existing_runtime_matches(self):

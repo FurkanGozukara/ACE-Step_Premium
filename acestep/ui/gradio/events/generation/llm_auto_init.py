@@ -6,7 +6,11 @@ import os
 from pathlib import Path
 from typing import Any
 
-from acestep.gpu_config import get_global_gpu_config, resolve_lm_backend
+from acestep.gpu_config import (
+    find_best_lm_model_on_disk,
+    get_global_gpu_config,
+    resolve_lm_backend,
+)
 from acestep.model_downloader import (
     DEFAULT_LM_MODEL,
     ensure_lm_model,
@@ -30,6 +34,16 @@ def _resolve_requested_lm_model(llm_handler: Any, lm_model_path: str | None) -> 
     requested = str(lm_model_path or "").strip()
     if requested:
         return requested
+
+    try:
+        gpu_config = get_global_gpu_config()
+        recommended_lm = getattr(gpu_config, "recommended_lm_model", "")
+        disk_models = list(llm_handler.get_available_5hz_lm_models())
+        selected_model = find_best_lm_model_on_disk(recommended_lm, disk_models)
+        if selected_model or recommended_lm:
+            return selected_model or recommended_lm
+    except Exception:
+        pass
 
     try:
         default_model = str(llm_handler.get_default_lm_model() or "").strip()
@@ -90,7 +104,10 @@ def ensure_llm_ready(
 
     if llm_handler is None:
         return False, "5Hz LM handler is unavailable."
-    if not getattr(llm_handler, "llm_initialized", False) and not hasattr(llm_handler, "initialize"):
+    if (
+        not getattr(llm_handler, "llm_initialized", False)
+        and not hasattr(llm_handler, "initialize")
+    ):
         return False, t("messages.lm_not_initialized")
 
     gpu_config = get_global_gpu_config()

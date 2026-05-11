@@ -9,6 +9,7 @@ from pathlib import Path
 import gradio as gr
 from loguru import logger
 
+from acestep.gpu_config import find_best_lm_model_on_disk, get_global_gpu_config
 from acestep.ui.gradio.events.results.batch_management_helpers import (
     _apply_param_defaults,
     _build_saved_params,
@@ -135,15 +136,9 @@ def _lm_service_needs_init(
 ) -> tuple[bool, str]:
     """Return whether the foreground LM handler must be initialized."""
 
-    default_lm_model = "acestep-5Hz-lm-1.7B"
-    try:
-        from acestep.model_downloader import DEFAULT_LM_MODEL
-
-        default_lm_model = DEFAULT_LM_MODEL
-    except Exception:
-        pass
-
-    requested_lm_model = str(lm_model_path or "").strip() or default_lm_model
+    requested_lm_model = str(lm_model_path or "").strip() or _default_lm_model(
+        llm_handler
+    )
     needs_lm = bool(init_llm_checkbox or think_checkbox or auto_score)
     if not needs_lm or llm_handler is None:
         return False, requested_lm_model
@@ -163,6 +158,36 @@ def _lm_service_needs_init(
     if bool(last_init_params.get("offload_to_cpu")) != bool(offload_to_cpu):
         return True, requested_lm_model
     return False, requested_lm_model
+
+
+def _default_lm_model(llm_handler) -> str:
+    """Return the current GPU-tier LM default for foreground generation."""
+    fallback_model = "acestep-5Hz-lm-1.7B"
+    try:
+        from acestep.model_downloader import DEFAULT_LM_MODEL
+
+        fallback_model = DEFAULT_LM_MODEL
+    except Exception:
+        pass
+
+    available_models: list[str] = []
+    if llm_handler is not None:
+        try:
+            available_models = list(llm_handler.get_available_5hz_lm_models())
+        except Exception:
+            available_models = []
+
+    try:
+        gpu_config = get_global_gpu_config()
+        recommended_lm = getattr(gpu_config, "recommended_lm_model", "")
+        selected_model = find_best_lm_model_on_disk(recommended_lm, available_models)
+        return selected_model or recommended_lm or fallback_model
+    except Exception:
+        return (
+            fallback_model
+            if fallback_model in available_models
+            else None
+        ) or (available_models[0] if available_models else fallback_model)
 
 
 def _ensure_in_process_service_ready(

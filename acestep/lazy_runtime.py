@@ -25,6 +25,8 @@ from acestep.gpu_config import (
     GPUConfig,
     GPU_TIER_CONFIGS,
     SAVE_MEMORY_ENV,
+    find_best_lm_model_on_disk,
+    get_global_gpu_config,
     get_gpu_tier,
 )
 from acestep.model_downloader import DEFAULT_LM_MODEL, get_models_dir
@@ -639,6 +641,17 @@ class LazyLLMHandler:
         """Return the preferred default LM model name."""
 
         available_models = self.get_available_5hz_lm_models()
-        return (DEFAULT_LM_MODEL if DEFAULT_LM_MODEL in available_models else None) or (
-            available_models[0] if available_models else DEFAULT_LM_MODEL
-        )
+        try:
+            gpu_config = get_global_gpu_config()
+            recommended_lm = getattr(gpu_config, "recommended_lm_model", "")
+            selected_model = find_best_lm_model_on_disk(
+                recommended_lm,
+                available_models,
+            )
+            return selected_model or recommended_lm or DEFAULT_LM_MODEL
+        except Exception:
+            return (
+                DEFAULT_LM_MODEL
+                if DEFAULT_LM_MODEL in available_models
+                else None
+            ) or (available_models[0] if available_models else DEFAULT_LM_MODEL)
