@@ -6,7 +6,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from acestep.ui.gradio.events.batch_folder_files import discover_batch_folder_items
+from acestep.ui.gradio.events.batch_folder_files import (
+    discover_batch_folder_items,
+    resolve_output_folder,
+)
+from acestep.ui.gradio.events.results.output_manager import use_results_dir
 
 
 class BatchFolderFilesTests(unittest.TestCase):
@@ -37,6 +41,17 @@ class BatchFolderFilesTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "No lyrics"):
                 discover_batch_folder_items(root)
+
+    def test_empty_output_folder_uses_default_results_dir(self):
+        """Leaving the output folder empty should use the active default outputs."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "outputs"
+            with use_results_dir(target):
+                output = resolve_output_folder("")
+
+            self.assertEqual(target.resolve(), output)
+            self.assertTrue(output.is_dir())
 
 
 if __name__ == "__main__":

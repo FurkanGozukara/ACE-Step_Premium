@@ -20,7 +20,11 @@ from acestep.ui.gradio.events.batch_folder_files import (
     resolve_output_folder,
 )
 from acestep.ui.gradio.events.batch_folder_text import improve_batch_text_if_requested
-from acestep.ui.gradio.events.results.output_manager import use_results_dir, write_json
+from acestep.ui.gradio.events.results.output_manager import (
+    use_generation_run_name,
+    use_results_dir,
+    write_json,
+)
 
 
 GenerationRunner = Callable[..., Iterable[tuple[Any, ...]]]
@@ -114,62 +118,62 @@ def run_batch_folder_processing(
     status_lines.append(f"Saving batch outputs under: {target_folder}")
     yield _render_status(status_lines)
 
-    with use_results_dir(target_folder):
-        for index, item in enumerate(items, start=1):
-            status_lines.append(f"[{index}/{len(items)}] Processing {item.lyrics_path.name}")
+    for index, item in enumerate(items, start=1):
+        status_lines.append(f"[{index}/{len(items)}] Processing {item.lyrics_path.name}")
+        yield _render_status(status_lines)
+
+        caption = _item_caption(item, item_args)
+        text_result = improve_batch_text_if_requested(
+            llm_handler,
+            item_args,
+            caption=caption,
+            lyrics=item.lyrics,
+            improve_style=bool(auto_improve_style),
+            improve_lyrics=bool(auto_improve_lyrics),
+        )
+        if text_result.status:
+            status_lines.extend(text_result.status.splitlines())
             yield _render_status(status_lines)
 
-            caption = _item_caption(item, item_args)
-            text_result = improve_batch_text_if_requested(
-                llm_handler,
+        generated_paths: list[str] = []
+        item_status = "Generation did not return output paths."
+        started_at = time.time()
+        try:
+            generation_call_args = build_generation_args_for_item(
                 item_args,
-                caption=caption,
-                lyrics=item.lyrics,
-                improve_style=bool(auto_improve_style),
-                improve_lyrics=bool(auto_improve_lyrics),
+                caption=text_result.caption,
+                lyrics=text_result.lyrics,
+                is_formatted=text_result.formatted,
             )
-            if text_result.status:
-                status_lines.extend(text_result.status.splitlines())
-                yield _render_status(status_lines)
-
-            generated_paths: list[str] = []
-            item_status = "Generation did not return output paths."
-            started_at = time.time()
-            try:
-                generation_call_args = build_generation_args_for_item(
-                    item_args,
-                    caption=text_result.caption,
-                    lyrics=text_result.lyrics,
-                    is_formatted=text_result.formatted,
-                )
+            with use_results_dir(target_folder), use_generation_run_name(item.stem):
                 generated_paths, item_status = _run_one_generation(
                     runner,
                     dit_handler,
                     llm_handler,
                     generation_call_args,
                 )
-            except Exception as exc:
-                logger.exception("[batch_folder] Generation failed for {}", item.lyrics_path)
-                item_status = f"Failed: {exc}"
+        except Exception as exc:
+            logger.exception("[batch_folder] Generation failed for {}", item.lyrics_path)
+            item_status = f"Failed: {exc}"
 
-            row = {
-                "name": item.stem,
-                "lyrics_path": str(item.lyrics_path),
-                "style_path": str(item.style_path) if item.style_path else None,
-                "status": "completed" if generated_paths else "failed",
-                "message": item_status,
-                "duration_seconds": round(max(0.0, time.time() - started_at), 3),
-                "output_paths": generated_paths,
-            }
-            rows.append(row)
-            manifest_path = _write_manifest(target_folder, rows)
+        row = {
+            "name": item.stem,
+            "lyrics_path": str(item.lyrics_path),
+            "style_path": str(item.style_path) if item.style_path else None,
+            "status": "completed" if generated_paths else "failed",
+            "message": item_status,
+            "duration_seconds": round(max(0.0, time.time() - started_at), 3),
+            "output_paths": generated_paths,
+        }
+        rows.append(row)
+        manifest_path = _write_manifest(target_folder, rows)
 
-            if generated_paths:
-                status_lines.append(f"[{index}/{len(items)}] Done: {item.stem}")
-            else:
-                status_lines.append(f"[{index}/{len(items)}] {item_status}")
-            status_lines.append(f"Manifest: {manifest_path}")
-            yield _render_status(status_lines)
+        if generated_paths:
+            status_lines.append(f"[{index}/{len(items)}] Done: {item.stem}")
+        else:
+            status_lines.append(f"[{index}/{len(items)}] {item_status}")
+        status_lines.append(f"Manifest: {manifest_path}")
+        yield _render_status(status_lines)
 
     completed = sum(1 for row in rows if row["status"] == "completed")
     status_lines.append(f"Batch complete: {completed}/{len(items)} item(s) generated.")

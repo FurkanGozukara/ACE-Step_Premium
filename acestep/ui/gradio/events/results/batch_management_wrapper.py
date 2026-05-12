@@ -31,7 +31,10 @@ from acestep.ui.gradio.events.results.subprocess_generation import (
     build_pending_core_outputs,
     stream_subprocess_generation,
 )
-from acestep.ui.gradio.events.results.output_manager import get_active_results_dir
+from acestep.ui.gradio.events.results.output_manager import (
+    get_active_generation_run_name,
+    get_active_results_dir,
+)
 from acestep.ui.gradio.events.generation.quantization import select_quantization_value
 from acestep.ui.gradio.i18n import t
 
@@ -466,6 +469,9 @@ def generate_with_batch_management(
         active_output_dir = get_active_results_dir()
         if active_output_dir is not None:
             request_payload["output_dir"] = str(active_output_dir)
+        active_run_name = get_active_generation_run_name()
+        if active_run_name:
+            request_payload["run_name"] = active_run_name
 
         subprocess_result = None
         try:

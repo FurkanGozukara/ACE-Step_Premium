@@ -26,7 +26,8 @@ def create_batch_folder_page() -> dict[str, Any]:
                 This batch uses the current generation settings from the Create/Advanced controls:
                 model, LoRA, audio format, batch size, seed behavior, Think mode, scoring, LRC,
                 and diffusion settings. Only lyrics and per-file style are changed per song.
-                Generated run folders and the batch manifest are saved in the output folder below.
+                Generated run folders are named after each lyrics file. Leave the output folder
+                empty to save in the default outputs folder.
               </p>
             </section>
             """
@@ -41,7 +42,7 @@ def create_batch_folder_page() -> dict[str, Any]:
                 output_folder = gr.Textbox(
                     label="Output Folder",
                     placeholder=r"G:\songs\batch_outputs",
-                    info="Generated audio is saved here instead of the default outputs folder.",
+                    info="Optional. Generated audio is saved here, or in the default outputs folder.",
                 )
             with gr.Row():
                 auto_improve_lyrics = gr.Checkbox(

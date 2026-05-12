@@ -6,6 +6,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from acestep.ui.gradio.events.results.output_manager import (
+    use_generation_run_name,
+    use_results_dir,
+)
+
 from _batch_management_test_support import build_progress_result
 from _batch_management_test_support import load_batch_management_module
 
@@ -399,6 +404,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
                     "lora_dropdown": str(adapter),
                     "lora_path": "",
                     "lora_scale_slider": 0.5,
+                    "config_path": "acestep-v15-xl-sft",
                     "mlx_dit_checkbox": True,
                     "think_checkbox": False,
                     "auto_score": False,
@@ -459,7 +465,9 @@ class BatchManagementWrapperTests(unittest.TestCase):
                 module.generate_with_batch_management.__globals__,
                 {"stream_subprocess_generation": _stream},
             ):
-                list(module.generate_with_batch_management(None, None, **kwargs))
+                target = Path(tmp) / "outputs"
+                with use_results_dir(target), use_generation_run_name("batch-song"):
+                    list(module.generate_with_batch_management(None, None, **kwargs))
 
         service_payload = seen["payload"]["service"]
         generation_payload = seen["payload"]["generation"]
@@ -468,6 +476,8 @@ class BatchManagementWrapperTests(unittest.TestCase):
         self.assertEqual(generation_payload["inference_steps"], 8)
         self.assertIn("model=acestep-v15-xl-turbo", log_text)
         self.assertIn("inference_steps=8", log_text)
+        self.assertEqual(Path(seen["payload"]["output_dir"]).resolve(), target.resolve())
+        self.assertEqual(seen["payload"]["run_name"], "batch-song")
         self.assertEqual(Path(service_payload["lora_path"]).resolve(), adapter.resolve())
         self.assertTrue(service_payload["use_lora"])
         self.assertEqual(service_payload["lora_scale"], 0.8)

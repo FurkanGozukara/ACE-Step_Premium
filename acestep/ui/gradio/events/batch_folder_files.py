@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from acestep.ui.gradio.events.results.output_manager import get_results_dir
+
 
 @dataclass(frozen=True)
 class BatchFolderItem:
@@ -38,8 +40,9 @@ def resolve_output_folder(output_folder: str | Path) -> Path:
 
     raw_value = str(output_folder or "").strip()
     if not raw_value:
-        raise ValueError("Enter an output folder before starting batch processing.")
-    folder = Path(raw_value).expanduser().resolve()
+        folder = get_results_dir()
+    else:
+        folder = Path(raw_value).expanduser().resolve()
     folder.mkdir(parents=True, exist_ok=True)
     return folder
 

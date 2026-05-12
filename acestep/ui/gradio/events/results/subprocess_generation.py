@@ -88,6 +88,8 @@ def stream_subprocess_generation(request_payload: dict[str, Any]) -> Iterator[di
     env.setdefault("PYTHONIOENCODING", "utf-8")
     if request_payload.get("output_dir"):
         env["ACESTEP_OUTPUT_DIR"] = str(request_payload["output_dir"])
+    if request_payload.get("run_name"):
+        env["ACESTEP_RUN_DIR_NAME"] = str(request_payload["run_name"])
     command = [
         sys.executable,
         "-m",

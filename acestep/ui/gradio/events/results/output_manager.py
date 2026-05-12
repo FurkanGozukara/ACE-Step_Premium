@@ -12,8 +12,10 @@ from acestep.ui.gradio.events.results.output_paths import (
     DEFAULT_RESULTS_DIR,
     PROJECT_ROOT,
     create_generation_run_dir,
+    get_active_generation_run_name,
     get_active_results_dir,
     get_results_dir,
+    use_generation_run_name,
     use_results_dir,
 )
 
@@ -22,10 +24,12 @@ __all__ = [
     "PROJECT_ROOT",
     "build_generation_manifest",
     "create_generation_run_dir",
+    "get_active_generation_run_name",
     "get_active_results_dir",
     "get_results_dir",
     "make_json_safe",
     "persist_generation_inputs",
+    "use_generation_run_name",
     "use_results_dir",
     "write_json",
     "write_text",

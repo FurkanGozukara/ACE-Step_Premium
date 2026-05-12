@@ -15,6 +15,10 @@ _ACTIVE_RESULTS_DIR: ContextVar[Path | None] = ContextVar(
     "acestep_active_results_dir",
     default=None,
 )
+_ACTIVE_RUN_DIR_NAME: ContextVar[str | None] = ContextVar(
+    "acestep_active_run_dir_name",
+    default=None,
+)
 
 
 def _resolve_configured_results_dir() -> Path:
@@ -40,6 +44,12 @@ def get_active_results_dir() -> Path | None:
     return _ACTIVE_RESULTS_DIR.get()
 
 
+def get_active_generation_run_name() -> str | None:
+    """Return the current scoped generation run folder name, if one is active."""
+
+    return _ACTIVE_RUN_DIR_NAME.get()
+
+
 @contextmanager
 def use_results_dir(output_dir: str | Path) -> Iterator[Path]:
     """Temporarily route generated artifacts into ``output_dir``."""
@@ -53,10 +63,28 @@ def use_results_dir(output_dir: str | Path) -> Iterator[Path]:
         _ACTIVE_RESULTS_DIR.reset(token)
 
 
+@contextmanager
+def use_generation_run_name(run_name: str | None) -> Iterator[str | None]:
+    """Temporarily name the next generated run folder."""
+
+    target_name = _sanitize_run_dir_name(run_name)
+    token = _ACTIVE_RUN_DIR_NAME.set(target_name)
+    try:
+        yield target_name
+    finally:
+        _ACTIVE_RUN_DIR_NAME.reset(token)
+
+
 def create_generation_run_dir() -> Path:
-    """Allocate the next sequential numbered generation folder."""
+    """Allocate the next generation folder under the active results root."""
 
     root = get_results_dir()
+    run_name = _ACTIVE_RUN_DIR_NAME.get() or _sanitize_run_dir_name(
+        os.environ.get("ACESTEP_RUN_DIR_NAME")
+    )
+    if run_name:
+        return _create_named_generation_run_dir(root, run_name)
+
     max_index = 0
     for child in root.iterdir():
         if child.is_dir() and child.name.isdigit():
@@ -68,3 +96,34 @@ def create_generation_run_dir() -> Path:
     run_dir = root / f"{max_index + 1:04d}"
     run_dir.mkdir(parents=True, exist_ok=False)
     return run_dir
+
+
+def _sanitize_run_dir_name(run_name: str | None) -> str | None:
+    """Return a filesystem-safe run folder name."""
+
+    value = str(run_name or "").strip()
+    if not value:
+        return None
+    invalid_chars = '<>:"/\\|?*'
+    cleaned = "".join(
+        "_" if char in invalid_chars or ord(char) < 32 else char
+        for char in value
+    ).strip(" .")
+    return cleaned or None
+
+
+def _create_named_generation_run_dir(root: Path, run_name: str) -> Path:
+    """Allocate a unique named generation folder under ``root``."""
+
+    candidate = root / run_name
+    if not candidate.exists():
+        candidate.mkdir(parents=True, exist_ok=False)
+        return candidate
+
+    suffix = 2
+    while True:
+        candidate = root / f"{run_name}_{suffix:03d}"
+        if not candidate.exists():
+            candidate.mkdir(parents=True, exist_ok=False)
+            return candidate
+        suffix += 1

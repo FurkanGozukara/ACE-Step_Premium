@@ -14,6 +14,11 @@ from acestep.ui.gradio.events.batch_folder_args import (
     LYRICS_ARG_INDEX,
 )
 from acestep.ui.gradio.events.batch_folder_runner import run_batch_folder_processing
+from acestep.ui.gradio.events.results.output_manager import (
+    create_generation_run_dir,
+    write_json,
+    write_text,
+)
 
 
 class BatchFolderRunnerTests(unittest.TestCase):
@@ -26,7 +31,10 @@ class BatchFolderRunnerTests(unittest.TestCase):
 
         def fake_generation_runner(_dit_handler, _llm_handler, *args):
             calls.append(args)
-            yield (None,) * 8 + (["target/song.flac"], "info", "Generation Complete")
+            run_dir = create_generation_run_dir()
+            audio_path = write_text(run_dir / "song.flac", "audio")
+            manifest_path = write_json(run_dir / "generation_manifest.json", {"ok": True})
+            yield (None,) * 8 + ([audio_path, manifest_path], "info", "Generation Complete")
 
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -63,7 +71,16 @@ class BatchFolderRunnerTests(unittest.TestCase):
                 (output_dir / "batch_folder_manifest.json").read_text(encoding="utf-8")
             )
             self.assertEqual("completed", manifest["items"][0]["status"])
-            self.assertEqual(["target/song.flac"], manifest["items"][0]["output_paths"])
+            self.assertTrue((output_dir / "song" / "generation_manifest.json").is_file())
+            self.assertEqual(
+                [
+                    str((output_dir / "song" / "song.flac").resolve()).replace("\\", "/"),
+                    str((output_dir / "song" / "generation_manifest.json").resolve()).replace(
+                        "\\", "/"
+                    ),
+                ],
+                manifest["items"][0]["output_paths"],
+            )
 
 
 if __name__ == "__main__":
