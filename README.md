@@ -104,6 +104,16 @@
 
 <img height="600" alt="image" src="https://github.com/user-attachments/assets/4a3b7851-73f6-44d6-8c0f-0a6c13df2a17" />
 
+- We have fully working LoRA training and I plan to make tutorial with it later hopefully
+- But currently you can use LLMs like Codex or Cursor or Claude or Gemini, etc. to get their help or look online sources and other sources or just try and learn yourself to train
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/386cb12a-7d40-4919-bf61-ac40a0ef5df9" />
+
+- We have fully working batch folder processing
+- Name your song txt files as you wish which will contain lyrics and also make their style files with suffix _style.txt in same folder
+- e.g. rap_song.txt and rap_song_style.txt, awesomesong.txt and awesomesong_style.txt and so on
+
+
 
 <h1 align="center">Pushing the Boundaries of Open-Source Music Generation</h1>
 <p align="center">
