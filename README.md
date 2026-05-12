@@ -1,4 +1,31 @@
-<h1 align="center">ACE-Step 1.5</h1>
+<h1>ACE-Step 1.5 XL Premium - Better Music & Song Generator Than SUNO 5.0 - Remix and Repaint Features - Windows, RunPod, Massed Compute, Linux 1-click Installers</h1>
+
+<h2>Quick Info</h2>
+
+**<p>Latest installer zip file : https://www.patreon.com/posts/157675060 </p>**
+
+<p>ACE Step 1.5 XL is the newest State Of The Art (SOTA) Music and Song generator model. It has 3 variants and we support all 3 variants (Turbo, SFT, Base) with fully automatic setup, models download, VRAM presets for all GPUs starting from 4 GB and with all best researched generation values / settings / configurations.</p>
+
+- The zip file contains installers for
+	- Windows : Windows_Install_or_Update.bat
+		- Please follow requirements video for Windows before starting installation : https://youtu.be/DrhUHnYfwC0
+		- Requirements tutorial is 1 time mandatory for all of my applications
+  			- Windows installer will download only ACEStep 1.5 XL Turbo model
+			- To download all models also run Windows_Download_All_Models.bat after installation
+	- RunPod and SimplePod : Runpod_SimplePod_ACE_Step_Instructions.txt
+	- Massed Compute / Local Linux : Massed_Compute_Instructions_READ.txt
+ 	- RunPod, Massed Compute installers automatically downloads all 3 ACEStep 1.5 XL models, Turbo, SFT and Base 
+  	- The installers will generate a Python 3.11 VENV automatically and install everything inside there, thus your system or any other of your APPs will never be impacted
+  		- For Windows, you have to have Python 3.11 properly installed into your system, cloud images are all pre-setup by me so nothing needed just follow instructions
+
+<img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
+
+- Main app interface screenshot
+
+<img height="600" alt="0" src="https://github.com/user-attachments/assets/57185562-5b03-4790-a48e-a8b1760bd457" />
+
+
+
 <h1 align="center">Pushing the Boundaries of Open-Source Music Generation</h1>
 <p align="center">
     <a href="https://acemusic.ai">ACEMusic</a> |
