@@ -11,7 +11,7 @@ data/
 *.pkf
 flow_edit_test_outputs/
 retake_test_outputs/
-
+premium_user_presets
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

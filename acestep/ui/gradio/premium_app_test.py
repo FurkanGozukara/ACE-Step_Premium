@@ -48,6 +48,7 @@ class PremiumAppTests(unittest.TestCase):
 
         source = Path(premium_app.__file__).read_text(encoding="utf-8")
         self.assertIn('gr.Tab("Generate Song"', source)
+        self.assertIn('gr.Tab("Custom Preset System"', source)
         self.assertIn('studio_page["preset_dropdown"].change', source)
         self.assertIn("preset_load_outputs", source)
 

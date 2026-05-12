@@ -562,7 +562,7 @@ def create_gradio_interface(
                 with gr.Column(visible=True) as results_wrapper:
                     results_section = create_results_section(dit_handler)
 
-            with gr.Tab("Studio", render_children=True):
+            with gr.Tab("Custom Preset System", render_children=True):
                 studio_page = create_studio_page()
 
             with gr.Tab("Dataset", render_children=True):
