@@ -6,6 +6,8 @@
 
 <p>ACE Step 1.5 XL is the newest State Of The Art (SOTA) Music and Song generator model. It has 3 variants and we support all 3 variants (Turbo, SFT, Base) with fully automatic setup, models download, VRAM presets for all GPUs starting from 4 GB and with all best researched generation values / settings / configurations.</p>
 
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/6766ac91-650f-4fa6-b0b4-3a23d85c42a5" />
+
 - The zip file contains installers for
 	- Windows : Windows_Install_or_Update.bat
 		- Please follow requirements video for Windows before starting installation : https://youtu.be/DrhUHnYfwC0
@@ -113,6 +115,7 @@
 - Name your song txt files as you wish which will contain lyrics and also make their style files with suffix _style.txt in same folder
 - e.g. rap_song.txt and rap_song_style.txt, awesomesong.txt and awesomesong_style.txt and so on
 
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/87bd7bcf-c464-47e1-8061-04f70c499e69" />
 
 
 <h1 align="center">Pushing the Boundaries of Open-Source Music Generation</h1>
