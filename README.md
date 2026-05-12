@@ -20,6 +20,8 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+<h2>How To Use ACEStep 1.5 XL SECourses Premium App and its features</h2>
+
 - Main app interface screenshot
 
 <img height="600" alt="0" src="https://github.com/user-attachments/assets/57185562-5b03-4790-a48e-a8b1760bd457" />
@@ -39,6 +41,22 @@
 <img width="405" height="294" alt="image" src="https://github.com/user-attachments/assets/7fc3e680-990c-4fb9-ac8f-1522f79f9562" />
 <img width="378" height="600" alt="image" src="https://github.com/user-attachments/assets/6a8aee7c-7a49-4439-a840-2bc313ae329e" />
 
+- We have high quality FP8 Cache feature as well - custom implemented
+- On the first time, it will generate FP8 Scaled version of the used model, save it and use it when you next time use FP8 Scaled
+
+<img width="488" height="507" alt="image" src="https://github.com/user-attachments/assets/c3761b0a-f462-40e6-ada0-63e9c19c06ec" />
+
+- You can set most needed parameters regarding song / music generation on our specially designed easy generation screen like below
+	- Change language of your song
+	- Change Male / Female
+	- Set Instrumental
+	- Set song duration, -1 means auto
+	- Set number of songs you want to generate
+- You can also provide an image and if provided it will generate additional MP4 music video with generated audio file with desired video resolution while keeping your image aspect ratio
+- All generations are fully saved with full metadata into outputs folder as sub folders
+	- You can use open outputs folder to open it quickly
+
+<img width="1327" height="1005" alt="image" src="https://github.com/user-attachments/assets/3aa1cb3f-c198-4359-ad51-e5f9b4bf0875" />
 
 
 
