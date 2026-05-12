@@ -48,7 +48,7 @@ def compute_init_defaults(
     if cli_batch_size is not None:
         default_batch_size = min(cli_batch_size, max_batch_size)
     else:
-        default_batch_size = min(2, max_batch_size)
+        default_batch_size = min(1, max_batch_size)
 
     init_lm_default = gpu_config.init_lm_default
     default_offload = gpu_config.offload_to_cpu_default

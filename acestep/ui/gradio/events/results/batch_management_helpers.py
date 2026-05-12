@@ -208,7 +208,7 @@ def _apply_param_defaults(params):
         "inference_steps": 8, "guidance_scale": 7.0,
         "random_seed_checkbox": True, "seed": "-1",
         "reference_audio": None, "audio_duration": -1,
-        "batch_size_input": 2, "src_audio": None,
+        "batch_size_input": 1, "src_audio": None,
         "text2music_audio_code_string": "",
         "repainting_start": 0.0, "repainting_end": -1,
         "instruction_display_gen": "",

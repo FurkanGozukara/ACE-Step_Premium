@@ -33,7 +33,7 @@ def store_batch_in_queue(
     codes=None,
     scores=None,
     allow_lm_batch=False,
-    batch_size=2,
+    batch_size=1,
     generation_params=None,
     lm_generated_metadata=None,
     extra_outputs=None,
@@ -219,7 +219,7 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     time_signature = params.get("time_signature", "")
     vocal_language = params.get("vocal_language", "unknown")
     audio_duration = params.get("audio_duration", -1)
-    batch_size_input = params.get("batch_size_input", 2)
+    batch_size_input = params.get("batch_size_input", 1)
     inference_steps = params.get("inference_steps", 8)
     audio_format = params.get("audio_format", DEFAULT_AUDIO_FORMAT)
     mp3_bitrate = params.get("mp3_bitrate", DEFAULT_MP3_BITRATE)

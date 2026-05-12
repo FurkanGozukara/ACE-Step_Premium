@@ -242,7 +242,7 @@ class GenerationConfig:
         mp3_bitrate: MP3 bitrate used when audio_format="mp3". Default: "128k"
         mp3_sample_rate: MP3 output sample rate used when audio_format="mp3". Default: 48000
     """
-    batch_size: int = 2
+    batch_size: int = 1
     allow_lm_batch: bool = False
     use_random_seed: bool = True
     seeds: Optional[List[int]] = None

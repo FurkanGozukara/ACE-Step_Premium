@@ -545,7 +545,7 @@ async def release_task(request: Request, authorization: Optional[str] = Header(N
                 resolved_seeds = [int(raw_seed)]
 
         config = GenerationConfig(
-            batch_size=get_param("batch_size", default=2),
+            batch_size=get_param("batch_size", default=1),
             use_random_seed=use_random_seed,
             seeds=resolved_seeds,
             audio_format=get_param("audio_format", default="flac"),

@@ -61,13 +61,13 @@ class GpuConfigMeasuredPresetTests(unittest.TestCase):
         self.assertTrue(config.quantization_default)
         self.assertFalse(config.compile_model_default)
 
-    def test_tier5_allows_batch_eight_without_lm_under_int8_offload(self) -> None:
-        """12-16GB GPUs use the measured INT8 CPU-offload path."""
+    def test_tier5_presets_batch_one_under_int8_offload(self) -> None:
+        """12-16GB GPUs use the measured INT8 path while keeping batch-1 presets."""
         config = get_gpu_config(gpu_memory_gb=13.0)
 
         self.assertEqual("tier5", config.tier)
-        self.assertEqual(4, config.max_batch_size_with_lm)
-        self.assertEqual(8, config.max_batch_size_without_lm)
+        self.assertEqual(1, config.max_batch_size_with_lm)
+        self.assertEqual(1, config.max_batch_size_without_lm)
         self.assertTrue(config.offload_to_cpu_default)
         self.assertFalse(config.offload_dit_to_cpu_default)
         self.assertTrue(config.quantization_default)
@@ -79,6 +79,7 @@ class GpuConfigMeasuredPresetTests(unittest.TestCase):
 
         self.assertEqual("tier6a", config.tier)
         self.assertEqual(1, config.max_batch_size_with_lm)
+        self.assertEqual(1, config.max_batch_size_without_lm)
         self.assertIn("acestep-5Hz-lm-4B", config.available_lm_models)
         self.assertEqual("acestep-5Hz-lm-4B", config.recommended_lm_model)
         self.assertTrue(config.offload_to_cpu_default)
@@ -92,6 +93,7 @@ class GpuConfigMeasuredPresetTests(unittest.TestCase):
 
         self.assertEqual("tier6b", config.tier)
         self.assertEqual(1, config.max_batch_size_with_lm)
+        self.assertEqual(1, config.max_batch_size_without_lm)
         self.assertIn("acestep-5Hz-lm-4B", config.available_lm_models)
         self.assertEqual("acestep-5Hz-lm-4B", config.recommended_lm_model)
         self.assertTrue(config.offload_to_cpu_default)
@@ -105,6 +107,7 @@ class GpuConfigMeasuredPresetTests(unittest.TestCase):
 
         self.assertEqual("unlimited", config.tier)
         self.assertEqual(1, config.max_batch_size_with_lm)
+        self.assertEqual(1, config.max_batch_size_without_lm)
         self.assertEqual("acestep-5Hz-lm-4B", config.recommended_lm_model)
         self.assertFalse(config.offload_to_cpu_default)
         self.assertFalse(config.compile_model_default)

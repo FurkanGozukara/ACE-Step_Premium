@@ -18,8 +18,8 @@ def _gpu_config(init_lm_default: bool = True) -> SimpleNamespace:
         tier="high",
         max_duration_with_lm=180,
         max_duration_without_lm=300,
-        max_batch_size_with_lm=2,
-        max_batch_size_without_lm=4,
+        max_batch_size_with_lm=1,
+        max_batch_size_without_lm=1,
         init_lm_default=init_lm_default,
         available_lm_models=["acestep-5Hz-lm-1.1B"],
     )

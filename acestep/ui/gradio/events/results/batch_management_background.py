@@ -199,7 +199,7 @@ def generate_next_batch_background(
         extra_outputs_from_bg = final_result[46] if len(final_result) > 46 and final_result[46] is not None else {}
         scores_from_bg = _extract_scores(final_result)
 
-        batch_size = params.get("batch_size_input", 2)
+        batch_size = params.get("batch_size_input", 1)
         allow_lm_batch_val = params.get("allow_lm_batch", False)
         if allow_lm_batch_val and batch_size >= 2:
             codes_to_store = generated_codes_batch[:int(batch_size)]

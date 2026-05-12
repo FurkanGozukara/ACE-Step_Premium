@@ -461,7 +461,7 @@ def main():
         "--batch_size",
         type=int,
         default=None,
-        help="Default batch size for generation (1-8). Defaults to min(2, GPU_max) if not specified",
+        help="Default batch size for generation. Defaults to 1 from VRAM presets if not specified",
     )
 
     # API mode argument

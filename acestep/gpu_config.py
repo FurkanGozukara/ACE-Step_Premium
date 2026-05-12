@@ -397,12 +397,12 @@ GPU_TIER_CONFIGS = {
         "lm_memory_gb": {"0.6B": 3},
     },
     "tier4": {  # 8-12GB
-        # XL full-offload batch 4 measured about 10.6 GiB reserved. This fits
-        # 12GB-class cards with headroom, but not the low end of 8-12GB.
+        # XL full-offload batch 4 measured about 10.6 GiB reserved, but presets
+        # stay batch-1 to keep quality and model-switch behavior consistent.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
-        "max_batch_size_with_lm": 2,
-        "max_batch_size_without_lm": 4,
+        "max_batch_size_with_lm": 1,
+        "max_batch_size_without_lm": 1,
         "init_lm_default": True,
         "available_lm_models": ["acestep-5Hz-lm-0.6B"],
         "recommended_lm_model": "acestep-5Hz-lm-0.6B",
@@ -415,13 +415,12 @@ GPU_TIER_CONFIGS = {
         "lm_memory_gb": {"0.6B": 3},
     },
     "tier5": {  # 12-16GB
-        # INT8 + CPU offload measured about 12.5 GiB reserved at batch 8
-        # without LM and 13.0 GiB reserved at batch 4 with the local 1.7B LM.
-        # The 4B LM OOMs at the 12.5GB lower-bound profile, so keep 1.7B here.
+        # Higher batches fit here, but presets stay batch-1 for deterministic
+        # quality and safe model switches. Keep 1.7B LM for this tier.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
-        "max_batch_size_with_lm": 4,
-        "max_batch_size_without_lm": 8,
+        "max_batch_size_with_lm": 1,
+        "max_batch_size_without_lm": 1,
         "init_lm_default": True,
         "available_lm_models": ["acestep-5Hz-lm-0.6B", "acestep-5Hz-lm-1.7B"],
         "recommended_lm_model": "acestep-5Hz-lm-1.7B",
@@ -439,7 +438,7 @@ GPU_TIER_CONFIGS = {
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
         "max_batch_size_with_lm": 1,
-        "max_batch_size_without_lm": 8,
+        "max_batch_size_without_lm": 1,
         "init_lm_default": True,
         "available_lm_models": [
             "acestep-5Hz-lm-0.6B",
@@ -461,7 +460,7 @@ GPU_TIER_CONFIGS = {
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 480,  # 8 minutes
         "max_batch_size_with_lm": 1,
-        "max_batch_size_without_lm": 8,
+        "max_batch_size_without_lm": 1,
         "init_lm_default": True,
         "available_lm_models": [
             "acestep-5Hz-lm-0.6B",
@@ -483,7 +482,7 @@ GPU_TIER_CONFIGS = {
         "max_duration_with_lm": 600,  # 10 minutes (max supported)
         "max_duration_without_lm": 600,  # 10 minutes
         "max_batch_size_with_lm": 1,
-        "max_batch_size_without_lm": 8,
+        "max_batch_size_without_lm": 1,
         "init_lm_default": True,
         "available_lm_models": [
             "acestep-5Hz-lm-0.6B",
@@ -1145,22 +1144,11 @@ def compute_adaptive_config(total_vram_gb: float, dit_type: str = "turbo") -> GP
             available_lm_models.append(model_name)
             lm_memory_gb[size_key] = lm_info["weights"] + lm_info["kv_cache_4k"]
 
-    # Determine max batch sizes
-    inference_per_batch = DIT_INFERENCE_VRAM_PER_BATCH.get(dit_type, 0.8)
+    # Determine max batch sizes. VRAM presets intentionally expose batch-1 only;
+    # explicit custom configs can still override generation behavior elsewhere.
+    max_batch_no_lm = 1
 
-    # Without LM: all available VRAM goes to inference
-    max_batch_no_lm = max(1, int(available / inference_per_batch))
-    max_batch_no_lm = min(max_batch_no_lm, 8)  # Cap at 8
-
-    # With LM: subtract the largest available LM from available
-    if available_lm_models:
-        largest_lm_size = list(lm_memory_gb.keys())[-1]
-        lm_usage = lm_memory_gb[largest_lm_size]
-        remaining_for_inference = available - lm_usage
-        max_batch_with_lm = max(1, int(remaining_for_inference / inference_per_batch))
-        max_batch_with_lm = min(max_batch_with_lm, 8)
-    else:
-        max_batch_with_lm = max_batch_no_lm
+    max_batch_with_lm = 1
 
     # Determine duration limits based on available VRAM
     # Longer durations need more VRAM for latents

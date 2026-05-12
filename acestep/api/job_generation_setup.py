@@ -200,7 +200,7 @@ def build_generation_setup(
         use_constrained_decoding=True,
     )
 
-    batch_size = req.batch_size if req.batch_size is not None else 2
+    batch_size = req.batch_size if req.batch_size is not None else 1
     config = GenerationConfig(
         batch_size=batch_size,
         allow_lm_batch=req.allow_lm_batch,

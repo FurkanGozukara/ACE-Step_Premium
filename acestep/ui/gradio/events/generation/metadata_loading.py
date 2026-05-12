@@ -72,7 +72,7 @@ def load_metadata(file_obj, llm_handler=None):
         else:
             audio_duration = -1
 
-        batch_size = metadata.get('batch_size', 2)
+        batch_size = metadata.get('batch_size', 1)
         gpu_config = get_global_gpu_config()
         lm_initialized = llm_handler.llm_initialized if llm_handler else False
         max_batch_size = gpu_config.max_batch_size_with_lm if lm_initialized else gpu_config.max_batch_size_without_lm

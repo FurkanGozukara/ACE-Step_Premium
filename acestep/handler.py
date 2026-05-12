@@ -124,7 +124,7 @@ class AceStepHandler(
         self.reward_model = None
         
         # Batch size
-        self.batch_size = 2
+        self.batch_size = 1
         
         # Lyric alignment attention layers config.  Defaults to the 2B DiT
         # mapping; overridden by the model's lyric_alignment_layers_config
