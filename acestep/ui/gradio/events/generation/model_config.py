@@ -28,6 +28,22 @@ PREFERRED_DIT_MODEL_ORDER = (
     "acestep-v15-turbo",
 )
 
+COMMON_DIFFUSION_CONTROL_RANGES = {
+    "inference_steps_server_maximum": 200,
+    "guidance_scale_minimum": 1.0,
+    "guidance_scale_maximum": 15.0,
+    "guidance_scale_step": 0.1,
+    "shift_minimum": 1.0,
+    "shift_maximum": 5.0,
+    "shift_step": 0.1,
+    "cfg_interval_start_minimum": 0.0,
+    "cfg_interval_start_maximum": 1.0,
+    "cfg_interval_start_step": 0.01,
+    "cfg_interval_end_minimum": 0.0,
+    "cfg_interval_end_maximum": 1.0,
+    "cfg_interval_end_step": 0.01,
+}
+
 
 def _has_token(token: str, path: str) -> bool:
     """Check if *token* appears as a delimited word in *path*.
@@ -137,6 +153,7 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
 
     if is_turbo:
         return {
+            **COMMON_DIFFUSION_CONTROL_RANGES,
             "inference_steps_value": 8,
             "inference_steps_maximum": 20,
             "inference_steps_minimum": 1,
@@ -157,6 +174,7 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
         # Keep Base on the same APG/CFG path used by the official pipeline.
         # The optional ADG branch remains user-selectable, but is not default.
         return {
+            **COMMON_DIFFUSION_CONTROL_RANGES,
             "inference_steps_value": 64,
             "inference_steps_maximum": 200,
             "inference_steps_minimum": 1,
@@ -164,7 +182,7 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
             "guidance_scale_visible": True,
             "use_adg_value": False,
             "use_adg_visible": True,
-            "shift_value": 3.0,
+            "shift_value": 1.0,
             "shift_visible": True,
             "cfg_interval_start_value": 0.0,
             "cfg_interval_start_visible": True,
@@ -175,8 +193,9 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
         }
 
     # SFT and unknown non-turbo checkpoints default to the documented CFG
-    # schedule. Turbo and non-turbo quality presets both use shift=3.0.
+    # schedule. Base/SFT use the model's native continuous shift=1.0 schedule.
     return {
+        **COMMON_DIFFUSION_CONTROL_RANGES,
         "inference_steps_value": 50,
         "inference_steps_maximum": 200,
         "inference_steps_minimum": 1,
@@ -184,7 +203,7 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
         "guidance_scale_visible": True,
         "use_adg_value": False,
         "use_adg_visible": True,
-        "shift_value": 3.0,
+        "shift_value": 1.0,
         "shift_visible": True,
         "cfg_interval_start_value": 0.0,
         "cfg_interval_start_visible": True,
@@ -210,11 +229,35 @@ def get_model_type_ui_settings_from_config(cfg: dict, current_mode: str | None =
             maximum=cfg["inference_steps_maximum"],
             minimum=cfg["inference_steps_minimum"],
         ),
-        gr.update(value=cfg["guidance_scale_value"], visible=cfg["guidance_scale_visible"]),
+        gr.update(
+            value=cfg["guidance_scale_value"],
+            minimum=cfg["guidance_scale_minimum"],
+            maximum=cfg["guidance_scale_maximum"],
+            step=cfg["guidance_scale_step"],
+            visible=cfg["guidance_scale_visible"],
+        ),
         gr.update(value=cfg["use_adg_value"], visible=cfg["use_adg_visible"]),
-        gr.update(value=cfg["shift_value"], visible=cfg["shift_visible"]),
-        gr.update(value=cfg["cfg_interval_start_value"], visible=cfg["cfg_interval_start_visible"]),
-        gr.update(value=cfg["cfg_interval_end_value"], visible=cfg["cfg_interval_end_visible"]),
+        gr.update(
+            value=cfg["shift_value"],
+            minimum=cfg["shift_minimum"],
+            maximum=cfg["shift_maximum"],
+            step=cfg["shift_step"],
+            visible=cfg["shift_visible"],
+        ),
+        gr.update(
+            value=cfg["cfg_interval_start_value"],
+            minimum=cfg["cfg_interval_start_minimum"],
+            maximum=cfg["cfg_interval_start_maximum"],
+            step=cfg["cfg_interval_start_step"],
+            visible=cfg["cfg_interval_start_visible"],
+        ),
+        gr.update(
+            value=cfg["cfg_interval_end_value"],
+            minimum=cfg["cfg_interval_end_minimum"],
+            maximum=cfg["cfg_interval_end_maximum"],
+            step=cfg["cfg_interval_end_step"],
+            visible=cfg["cfg_interval_end_visible"],
+        ),
         gr.update(),  # task_type
         mode_update,
         init_llm_update,

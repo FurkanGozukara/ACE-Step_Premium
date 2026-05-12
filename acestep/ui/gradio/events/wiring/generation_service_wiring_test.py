@@ -63,7 +63,9 @@ class GenerationServiceWiringTests(unittest.TestCase):
         )
 
         self.assertEqual(result[0].get("value"), 50)
-        self.assertEqual(result[3].get("value"), 3.0)
+        self.assertEqual(result[3].get("value"), 1.0)
+        self.assertEqual(result[3].get("minimum"), 1.0)
+        self.assertEqual(result[3].get("maximum"), 5.0)
         self.assertEqual(result[8].get("value"), True)
         self.assertEqual(result[9].get("value"), True)
         self.assertEqual(result[10].get("value"), False)
@@ -75,6 +77,12 @@ class GenerationServiceWiringTests(unittest.TestCase):
         self.assertEqual(result[16].get("value"), 0.0)
         self.assertEqual(result[17].get("value"), 0.0)
         self.assertEqual(result[18].get("value"), "acestep-v15-xl-sft")
+        self.assertEqual(result[19].get("value"), "ode")
+        self.assertEqual(result[20].get("value"), "euler")
+        self.assertEqual(result[21].get("value"), 0.0)
+        self.assertEqual(result[22].get("value"), 0.0)
+        self.assertEqual(result[23].get("value"), "")
+        self.assertEqual(result[24].get("value"), "haar")
 
     def test_config_path_change_applies_base_direct_defaults(self):
         """Advanced model dropdown should reset LM/Think controls for Base."""
@@ -86,7 +94,9 @@ class GenerationServiceWiringTests(unittest.TestCase):
 
         self.assertEqual(result[0].get("value"), 64)
         self.assertEqual(result[2].get("value"), False)
-        self.assertEqual(result[3].get("value"), 3.0)
+        self.assertEqual(result[3].get("value"), 1.0)
+        self.assertEqual(result[3].get("minimum"), 1.0)
+        self.assertEqual(result[3].get("maximum"), 5.0)
         self.assertEqual(result[8].get("value"), False)
         self.assertEqual(result[9].get("value"), False)
         self.assertEqual(result[10].get("value"), False)
@@ -98,6 +108,12 @@ class GenerationServiceWiringTests(unittest.TestCase):
         self.assertEqual(result[16].get("value"), 0.0)
         self.assertEqual(result[17].get("value"), 0.0)
         self.assertEqual(result[18].get("value"), "acestep-v15-xl-base")
+        self.assertEqual(result[19].get("value"), "ode")
+        self.assertEqual(result[20].get("value"), "euler")
+        self.assertEqual(result[21].get("value"), 0.0)
+        self.assertEqual(result[22].get("value"), 0.0)
+        self.assertEqual(result[23].get("value"), "")
+        self.assertEqual(result[24].get("value"), "haar")
 
     def test_config_path_change_keeps_turbo_think_defaults(self):
         """Advanced model dropdown should keep LM/Think controls for Turbo."""
@@ -108,6 +124,7 @@ class GenerationServiceWiringTests(unittest.TestCase):
         )
 
         self.assertEqual(result[0].get("value"), 8)
+        self.assertEqual(result[0].get("maximum"), 20)
         self.assertEqual(result[8].get("value"), True)
         self.assertEqual(result[9].get("value"), True)
         self.assertEqual(result[10].get("value"), True)
@@ -119,6 +136,12 @@ class GenerationServiceWiringTests(unittest.TestCase):
         self.assertEqual(result[16].get("value"), 0.02)
         self.assertEqual(result[17].get("value"), 0.06)
         self.assertEqual(result[18].get("value"), "acestep-v15-xl-turbo")
+        self.assertEqual(result[19].get("value"), "ode")
+        self.assertEqual(result[20].get("value"), "euler")
+        self.assertEqual(result[21].get("value"), 0.0)
+        self.assertEqual(result[22].get("value"), 0.0)
+        self.assertEqual(result[23].get("value"), "")
+        self.assertEqual(result[24].get("value"), "haar")
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ from .context import (
     build_auto_checkbox_inputs,
     build_auto_checkbox_outputs,
 )
+from .model_default_updates import build_advanced_model_reset_updates
 
 
 def register_generation_service_handlers(
@@ -83,6 +84,14 @@ def register_generation_service_handlers(
         generation_section["dcw_scaler"],
         generation_section["dcw_high_scaler"],
     ]
+    advanced_model_reset_outputs = [
+        generation_section["infer_method"],
+        generation_section["sampler_mode"],
+        generation_section["velocity_norm_threshold"],
+        generation_section["velocity_ema_factor"],
+        generation_section["custom_timesteps"],
+        generation_section["dcw_wavelet"],
+    ]
     if "simple_model_dropdown" in generation_section:
         generation_section["config_path"].change(
             fn=_apply_config_path_change_with_simple_sync,
@@ -93,16 +102,20 @@ def register_generation_service_handlers(
             outputs=[
                 *model_type_outputs,
                 generation_section["simple_model_dropdown"],
+                *advanced_model_reset_outputs,
             ],
         )
     else:
         generation_section["config_path"].change(
-            fn=_apply_config_path_change,
+            fn=_apply_config_path_change_with_advanced_resets,
             inputs=[
                 generation_section["config_path"],
                 generation_section["generation_mode"],
             ],
-            outputs=model_type_outputs,
+            outputs=[
+                *model_type_outputs,
+                *advanced_model_reset_outputs,
+            ],
         )
 
     if "simple_quantization" in generation_section:
@@ -341,7 +354,7 @@ def _apply_config_path_change_with_simple_sync(
     config_path: str | None,
     current_mode: str | None = None,
 ) -> tuple[Any, ...]:
-    """Update model-type controls and mirror XL selections into the simple selector."""
+    """Update model controls, mirror simple selector, and reset advanced defaults."""
 
     model_and_behavior_updates = _apply_config_path_change(config_path, current_mode)
     selected = str(config_path or "").strip()
@@ -350,7 +363,23 @@ def _apply_config_path_change_with_simple_sync(
         if selected in SIMPLE_MODEL_VALUES
         else gr.update()
     )
-    return (*model_and_behavior_updates, simple_model_update)
+    return (
+        *model_and_behavior_updates,
+        simple_model_update,
+        *build_advanced_model_reset_updates(config_path),
+    )
+
+
+def _apply_config_path_change_with_advanced_resets(
+    config_path: str | None,
+    current_mode: str | None = None,
+) -> tuple[Any, ...]:
+    """Update model controls and reset advanced-only model defaults."""
+
+    return (
+        *_apply_config_path_change(config_path, current_mode),
+        *build_advanced_model_reset_updates(config_path),
+    )
 
 
 def _apply_config_path_change(

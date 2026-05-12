@@ -17,6 +17,12 @@ DCW_ENABLED_INDEX = 34
 DCW_MODE_INDEX = 35
 DCW_SCALER_INDEX = 36
 DCW_HIGH_SCALER_INDEX = 37
+INFER_METHOD_INDEX = 38
+SAMPLER_MODE_INDEX = 39
+VELOCITY_NORM_THRESHOLD_INDEX = 40
+VELOCITY_EMA_FACTOR_INDEX = 41
+CUSTOM_TIMESTEPS_INDEX = 42
+DCW_WAVELET_INDEX = 43
 
 
 class SimpleCreateParamsTests(unittest.TestCase):
@@ -58,6 +64,12 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertEqual(result[DCW_MODE_INDEX], "double")
         self.assertEqual(result[DCW_SCALER_INDEX], 0.02)
         self.assertEqual(result[DCW_HIGH_SCALER_INDEX], 0.06)
+        self.assertEqual(result[INFER_METHOD_INDEX], "ode")
+        self.assertEqual(result[SAMPLER_MODE_INDEX], "euler")
+        self.assertEqual(result[VELOCITY_NORM_THRESHOLD_INDEX], 0.0)
+        self.assertEqual(result[VELOCITY_EMA_FACTOR_INDEX], 0.0)
+        self.assertEqual(result[CUSTOM_TIMESTEPS_INDEX], "")
+        self.assertEqual(result[DCW_WAVELET_INDEX], "haar")
 
     def test_base_model_selector_is_forwarded_to_advanced_generation(self):
         """The simple Base selection should apply quality defaults."""
@@ -79,7 +91,7 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertEqual(result[INFERENCE_STEPS_INDEX], 64)
         self.assertEqual(result[GUIDANCE_SCALE_INDEX], 7.0)
         self.assertFalse(result[USE_ADG_INDEX])
-        self.assertEqual(result[SHIFT_INDEX], 3.0)
+        self.assertEqual(result[SHIFT_INDEX], 1.0)
         self.assertEqual(result[CONFIG_PATH_INDEX], "acestep-v15-xl-base")
         self.assertFalse(result[8])
         self.assertFalse(result[9])
@@ -91,6 +103,12 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertEqual(result[DCW_MODE_INDEX], "double")
         self.assertEqual(result[DCW_SCALER_INDEX], 0.0)
         self.assertEqual(result[DCW_HIGH_SCALER_INDEX], 0.0)
+        self.assertEqual(result[INFER_METHOD_INDEX], "ode")
+        self.assertEqual(result[SAMPLER_MODE_INDEX], "euler")
+        self.assertEqual(result[VELOCITY_NORM_THRESHOLD_INDEX], 0.0)
+        self.assertEqual(result[VELOCITY_EMA_FACTOR_INDEX], 0.0)
+        self.assertEqual(result[CUSTOM_TIMESTEPS_INDEX], "")
+        self.assertEqual(result[DCW_WAVELET_INDEX], "haar")
 
     def test_sft_model_selector_applies_quality_defaults(self):
         """The simple SFT selection should apply LM-assisted SFT defaults."""
@@ -112,7 +130,7 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertEqual(result[INFERENCE_STEPS_INDEX], 50)
         self.assertEqual(result[GUIDANCE_SCALE_INDEX], 7.0)
         self.assertFalse(result[USE_ADG_INDEX])
-        self.assertEqual(result[SHIFT_INDEX], 3.0)
+        self.assertEqual(result[SHIFT_INDEX], 1.0)
         self.assertEqual(result[CONFIG_PATH_INDEX], "acestep-v15-xl-sft")
         self.assertTrue(result[8])
         self.assertTrue(result[9])

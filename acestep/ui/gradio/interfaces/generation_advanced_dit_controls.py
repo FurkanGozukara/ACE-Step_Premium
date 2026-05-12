@@ -27,7 +27,7 @@ def build_dit_controls(ui_config: dict[str, Any], think_enabled: bool = False) -
         with gr.Row():
             inference_steps = gr.Slider(
                 minimum=ui_config["inference_steps_minimum"],
-                maximum=ui_config["inference_steps_maximum"],
+                maximum=ui_config["inference_steps_server_maximum"],
                 value=ui_config["inference_steps_value"],
                 step=1,
                 label=t("generation.inference_steps_label"),
@@ -35,10 +35,10 @@ def build_dit_controls(ui_config: dict[str, Any], think_enabled: bool = False) -
                 elem_classes=["has-info-container"],
             )
             guidance_scale = gr.Slider(
-                minimum=1.0,
-                maximum=15.0,
+                minimum=ui_config["guidance_scale_minimum"],
+                maximum=ui_config["guidance_scale_maximum"],
                 value=ui_config["guidance_scale_value"],
-                step=0.1,
+                step=ui_config["guidance_scale_step"],
                 label=t("generation.guidance_scale_label"),
                 info=t("generation.guidance_scale_info"),
                 elem_classes=["has-info-container"],
@@ -127,10 +127,10 @@ def build_dit_controls(ui_config: dict[str, Any], think_enabled: bool = False) -
                 visible=ui_config["use_adg_visible"],
             )
             shift = gr.Slider(
-                minimum=1.0,
-                maximum=5.0,
+                minimum=ui_config["shift_minimum"],
+                maximum=ui_config["shift_maximum"],
                 value=ui_config["shift_value"],
-                step=0.1,
+                step=ui_config["shift_step"],
                 label=t("generation.shift_label"),
                 info=t("generation.shift_info"),
                 elem_classes=["has-info-container"],
@@ -146,20 +146,20 @@ def build_dit_controls(ui_config: dict[str, Any], think_enabled: bool = False) -
             )
         with gr.Row():
             cfg_interval_start = gr.Slider(
-                minimum=0.0,
-                maximum=1.0,
+                minimum=ui_config["cfg_interval_start_minimum"],
+                maximum=ui_config["cfg_interval_start_maximum"],
                 value=ui_config["cfg_interval_start_value"],
-                step=0.01,
+                step=ui_config["cfg_interval_start_step"],
                 label=t("generation.cfg_interval_start"),
                 info=t("generation.cfg_interval_start_info"),
                 visible=ui_config["cfg_interval_start_visible"],
                 elem_classes=["has-info-container"],
             )
             cfg_interval_end = gr.Slider(
-                minimum=0.0,
-                maximum=1.0,
+                minimum=ui_config["cfg_interval_end_minimum"],
+                maximum=ui_config["cfg_interval_end_maximum"],
                 value=ui_config["cfg_interval_end_value"],
-                step=0.01,
+                step=ui_config["cfg_interval_end_step"],
                 label=t("generation.cfg_interval_end"),
                 info=t("generation.cfg_interval_end_info"),
                 visible=ui_config["cfg_interval_end_visible"],

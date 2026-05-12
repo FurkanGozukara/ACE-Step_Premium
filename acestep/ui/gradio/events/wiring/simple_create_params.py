@@ -93,6 +93,12 @@ def prepare_simple_generation(
         quality_defaults["dcw_mode"],
         quality_defaults["dcw_scaler"],
         quality_defaults["dcw_high_scaler"],
+        quality_defaults["infer_method"],
+        quality_defaults["sampler_mode"],
+        quality_defaults["velocity_norm_threshold"],
+        quality_defaults["velocity_ema_factor"],
+        quality_defaults["custom_timesteps"],
+        quality_defaults["dcw_wavelet"],
     )
 
 

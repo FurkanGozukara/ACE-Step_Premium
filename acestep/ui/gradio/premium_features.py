@@ -297,8 +297,13 @@ def model_quality_defaults(model_path: Any) -> dict[str, Any]:
     return {
         "inference_steps": cfg["inference_steps_value"],
         "guidance_scale": cfg["guidance_scale_value"],
+        "infer_method": DEFAULT_PRESET_VALUES["infer_method"],
+        "sampler_mode": DEFAULT_PRESET_VALUES["sampler_mode"],
+        "velocity_norm_threshold": DEFAULT_PRESET_VALUES["velocity_norm_threshold"],
+        "velocity_ema_factor": DEFAULT_PRESET_VALUES["velocity_ema_factor"],
         "use_adg": cfg["use_adg_value"],
         "shift": cfg["shift_value"],
+        "custom_timesteps": DEFAULT_PRESET_VALUES["custom_timesteps"],
         "cfg_interval_start": cfg["cfg_interval_start_value"],
         "cfg_interval_end": cfg["cfg_interval_end_value"],
         "init_lm_checkbox": uses_lm_defaults,
@@ -311,6 +316,7 @@ def model_quality_defaults(model_path: Any) -> dict[str, Any]:
         "dcw_mode": dcw_defaults["mode"],
         "dcw_scaler": dcw_defaults["scaler"],
         "dcw_high_scaler": dcw_defaults["high_scaler"],
+        "dcw_wavelet": DEFAULT_PRESET_VALUES["dcw_wavelet"],
     }
 
 
@@ -560,12 +566,16 @@ def _payload_to_component_updates(payload: dict[str, Any]) -> list[Any]:
                         value=value,
                         minimum=ui_config["inference_steps_minimum"],
                         maximum=ui_config["inference_steps_maximum"],
+                        step=1,
                     )
                 )
             elif key == "guidance_scale":
                 updates.append(
                     gr.update(
                         value=value,
+                        minimum=ui_config["guidance_scale_minimum"],
+                        maximum=ui_config["guidance_scale_maximum"],
+                        step=ui_config["guidance_scale_step"],
                         visible=ui_config["guidance_scale_visible"],
                     )
                 )
@@ -575,12 +585,21 @@ def _payload_to_component_updates(payload: dict[str, Any]) -> list[Any]:
                 )
             elif key == "shift":
                 updates.append(
-                    gr.update(value=value, visible=ui_config["shift_visible"])
+                    gr.update(
+                        value=value,
+                        minimum=ui_config["shift_minimum"],
+                        maximum=ui_config["shift_maximum"],
+                        step=ui_config["shift_step"],
+                        visible=ui_config["shift_visible"],
+                    )
                 )
             elif key == "cfg_interval_start":
                 updates.append(
                     gr.update(
                         value=value,
+                        minimum=ui_config["cfg_interval_start_minimum"],
+                        maximum=ui_config["cfg_interval_start_maximum"],
+                        step=ui_config["cfg_interval_start_step"],
                         visible=ui_config["cfg_interval_start_visible"],
                     )
                 )
@@ -588,6 +607,9 @@ def _payload_to_component_updates(payload: dict[str, Any]) -> list[Any]:
                 updates.append(
                     gr.update(
                         value=value,
+                        minimum=ui_config["cfg_interval_end_minimum"],
+                        maximum=ui_config["cfg_interval_end_maximum"],
+                        step=ui_config["cfg_interval_end_step"],
                         visible=ui_config["cfg_interval_end_visible"],
                     )
                 )

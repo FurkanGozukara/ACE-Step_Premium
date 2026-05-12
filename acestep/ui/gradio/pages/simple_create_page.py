@@ -112,9 +112,9 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                 value=default_model,
                 label="Model",
                 info=(
-                    "SFT uses 50-step CFG with Thinking metadata and shift 3.0. Base uses 64-step APG/CFG "
-                    "with shift 3.0. Turbo uses 8-step fast defaults. All are XL 4B models; >=12GB "
-                    "VRAM is the practical floor."
+                    "SFT uses 50-step CFG with Thinking metadata and shift 1.0. Base uses 64-step "
+                    "APG/CFG with shift 1.0. Turbo uses 8-step fast defaults with shift 3.0. "
+                    "All are XL 4B models; >=12GB VRAM is the practical floor."
                 ),
             )
             with gr.Row():

@@ -109,7 +109,9 @@ class GetUiControlConfigTests(unittest.TestCase):
         self.assertEqual(cfg["inference_steps_value"], 50)
         self.assertEqual(cfg["guidance_scale_value"], 7.0)
         self.assertFalse(cfg["use_adg_value"])
-        self.assertEqual(cfg["shift_value"], 3.0)
+        self.assertEqual(cfg["shift_value"], 1.0)
+        self.assertEqual(cfg["shift_minimum"], 1.0)
+        self.assertEqual(cfg["shift_maximum"], 5.0)
 
     def test_base_model_returns_quality_defaults(self):
         """Base models should default to APG/CFG quality settings."""
@@ -117,7 +119,9 @@ class GetUiControlConfigTests(unittest.TestCase):
         self.assertEqual(cfg["inference_steps_value"], 64)
         self.assertEqual(cfg["guidance_scale_value"], 7.0)
         self.assertFalse(cfg["use_adg_value"])
-        self.assertEqual(cfg["shift_value"], 3.0)
+        self.assertEqual(cfg["shift_value"], 1.0)
+        self.assertEqual(cfg["cfg_interval_start_minimum"], 0.0)
+        self.assertEqual(cfg["cfg_interval_end_maximum"], 1.0)
 
     def test_turbo_model_returns_8_steps(self):
         """Turbo models should default to 8 inference steps."""
@@ -126,6 +130,7 @@ class GetUiControlConfigTests(unittest.TestCase):
         self.assertEqual(cfg["guidance_scale_value"], 1.0)
         self.assertFalse(cfg["use_adg_value"])
         self.assertEqual(cfg["shift_value"], 3.0)
+        self.assertEqual(cfg["guidance_scale_maximum"], 15.0)
 
     def test_turbo_takes_precedence_over_sft(self):
         """When both turbo and SFT flags are set, turbo should win."""
@@ -136,14 +141,14 @@ class GetUiControlConfigTests(unittest.TestCase):
         """The premium default XL-SFT model should use SFT defaults."""
         cfg = get_ui_control_config_for_path("acestep-v15-xl-sft")
         self.assertEqual(cfg["inference_steps_value"], 50)
-        self.assertEqual(cfg["shift_value"], 3.0)
+        self.assertEqual(cfg["shift_value"], 1.0)
         self.assertFalse(cfg["use_adg_value"])
 
     def test_xl_base_path_returns_quality_steps_and_base_modes(self):
         """XL-Base should use non-turbo defaults and expose base-only modes."""
         cfg = get_ui_control_config_for_path("acestep-v15-xl-base")
         self.assertEqual(cfg["inference_steps_value"], 64)
-        self.assertEqual(cfg["shift_value"], 3.0)
+        self.assertEqual(cfg["shift_value"], 1.0)
         self.assertFalse(cfg["use_adg_value"])
         self.assertIn("Extract", cfg["generation_mode_choices"])
 
@@ -162,7 +167,9 @@ class UpdateModelTypeSettingsIntegrationTests(unittest.TestCase):
         # First element is the inference_steps gr.update()
         self.assertEqual(result[0]["value"], 50)
         self.assertEqual(result[2]["value"], False)
-        self.assertEqual(result[3]["value"], 3.0)
+        self.assertEqual(result[3]["value"], 1.0)
+        self.assertEqual(result[3]["minimum"], 1.0)
+        self.assertEqual(result[3]["maximum"], 5.0)
 
     def test_turbo_path_produces_8_steps(self):
         """Passing a turbo model path should yield 8 inference steps."""
@@ -178,7 +185,7 @@ class UpdateModelTypeSettingsIntegrationTests(unittest.TestCase):
         self.assertEqual(result[1]["value"], 7.0)
         self.assertTrue(result[1]["visible"])
         self.assertFalse(result[2]["value"])
-        self.assertEqual(result[3]["value"], 3.0)
+        self.assertEqual(result[3]["value"], 1.0)
 
     def test_none_path_does_not_crash(self):
         """Passing None as config_path should not raise."""

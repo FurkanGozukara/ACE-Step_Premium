@@ -20,6 +20,7 @@ from .generation_run_wiring import (
     build_generation_run_inputs,
     build_generation_run_outputs,
 )
+from .model_default_updates import build_advanced_model_reset_updates
 from .simple_media_outputs import build_simple_media_preview, clear_simple_media_preview
 from .simple_create_params import prepare_simple_generation
 
@@ -104,6 +105,12 @@ def register_simple_create_handlers(
             generation_section["dcw_mode"],
             generation_section["dcw_scaler"],
             generation_section["dcw_high_scaler"],
+            generation_section["infer_method"],
+            generation_section["sampler_mode"],
+            generation_section["velocity_norm_threshold"],
+            generation_section["velocity_ema_factor"],
+            generation_section["custom_timesteps"],
+            generation_section["dcw_wavelet"],
             simple_page["simple_status"],
         ],
     )
@@ -224,6 +231,12 @@ def _simple_prepare_outputs(
         generation_section["dcw_mode"],
         generation_section["dcw_scaler"],
         generation_section["dcw_high_scaler"],
+        generation_section["infer_method"],
+        generation_section["sampler_mode"],
+        generation_section["velocity_norm_threshold"],
+        generation_section["velocity_ema_factor"],
+        generation_section["custom_timesteps"],
+        generation_section["dcw_wavelet"],
     ]
 
 
@@ -402,16 +415,23 @@ def _apply_simple_model_change(
     elif "base" in selected_model:
         status = (
             f"Selected model: {label}. Next generation uses XL Base "
-            "64-step direct DiT APG/CFG quality defaults with shift 3.0 and all task modes available. "
+            "64-step direct DiT APG/CFG quality defaults with shift 1.0 "
+            "and all task modes available. "
             "GPU presets remain the XL 4B profile."
         )
     else:
         status = (
             f"Selected model: {label}. Next generation uses XL SFT "
-            "50-step CFG quality defaults with 5Hz LM Thinking metadata and shift 3.0. "
+            "50-step CFG quality defaults with 5Hz LM Thinking metadata and shift 1.0. "
             "GPU presets remain the XL 4B profile."
         )
-    return (gr.update(value=selected_model), *model_updates, *behavior_updates, status)
+    return (
+        gr.update(value=selected_model),
+        *model_updates,
+        *behavior_updates,
+        *build_advanced_model_reset_updates(selected_model),
+        status,
+    )
 
 
 def _extract_generation_status(outputs: Any) -> str:
