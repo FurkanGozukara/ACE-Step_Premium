@@ -109,6 +109,18 @@ def build_generate_row_controls(
             elem_id="acestep-generate-btn",
             elem_classes=["action-btn", "action-btn-generate"],
         )
+        with gr.Group():
+            gr.Markdown(t("generation.inline_result_info"))
+            inline_generated_audio = gr.Audio(
+                label=t("generation.inline_result_audio_label"),
+                type="filepath",
+                interactive=False,
+                buttons=["download"],
+            )
+            inline_generation_status = gr.Textbox(
+                label=t("generation.inline_result_status_label"),
+                interactive=False,
+            )
     return {
         "think_checkbox": think_checkbox,
         "auto_score": auto_score,
@@ -116,4 +128,6 @@ def build_generate_row_controls(
         "generate_btn_row": generate_btn_row,
         "autogen_checkbox": autogen_checkbox,
         "auto_lrc": auto_lrc,
+        "inline_generated_audio": inline_generated_audio,
+        "inline_generation_status": inline_generation_status,
     }

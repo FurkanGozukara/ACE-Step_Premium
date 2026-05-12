@@ -8,6 +8,7 @@ from typing import Any
 
 from .. import results_handlers as res_h
 from .context import GenerationWiringContext
+from .inline_result_preview import build_inline_result_outputs, sync_inline_result_preview
 
 
 def _build_navigation_outputs(results_section: dict[str, Any], include_next_status: bool) -> list[Any]:
@@ -204,6 +205,13 @@ def register_generation_batch_navigation_handlers(context: GenerationWiringConte
             results_section["batch_queue"],
         ],
         outputs=prev_navigation_outputs,
+    ).then(
+        fn=sync_inline_result_preview,
+        inputs=[
+            results_section["generated_audio_1"],
+            results_section["status_output"],
+        ],
+        outputs=build_inline_result_outputs(generation_section),
     )
 
     results_section["next_batch_btn"].click(
@@ -219,6 +227,13 @@ def register_generation_batch_navigation_handlers(context: GenerationWiringConte
             results_section["batch_queue"],
         ],
         outputs=next_navigation_outputs,
+    ).then(
+        fn=sync_inline_result_preview,
+        inputs=[
+            results_section["generated_audio_1"],
+            results_section["status_output"],
+        ],
+        outputs=build_inline_result_outputs(generation_section),
     ).then(
         fn=lambda *args: res_h.generate_next_batch_background(dit_handler, llm_handler, *args),
         inputs=[

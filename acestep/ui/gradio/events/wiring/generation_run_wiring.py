@@ -6,6 +6,11 @@ outputs, runs batched generation, and schedules background pre-generation.
 
 from .. import results_handlers as res_h
 from .context import GenerationWiringContext
+from .inline_result_preview import (
+    build_inline_result_outputs,
+    clear_inline_result_preview,
+    sync_inline_result_preview,
+)
 
 
 def build_generation_run_inputs(generation_section, results_section):
@@ -237,6 +242,9 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
             results_section["generated_audio_batch"],
         ],
     ).then(
+        fn=clear_inline_result_preview,
+        outputs=build_inline_result_outputs(generation_section),
+    ).then(
         fn=generation_wrapper,
         inputs=[
             generation_section["captions"],
@@ -391,6 +399,13 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
             results_section["next_batch_status"],
             results_section["restore_params_btn"],
         ],
+    ).then(
+        fn=sync_inline_result_preview,
+        inputs=[
+            results_section["generated_audio_1"],
+            results_section["status_output"],
+        ],
+        outputs=build_inline_result_outputs(generation_section),
     ).then(
         fn=lambda *args: res_h.generate_next_batch_background(dit_handler, llm_handler, *args),
         inputs=[

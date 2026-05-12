@@ -20,6 +20,11 @@ from .generation_run_wiring import (
     build_generation_run_inputs,
     build_generation_run_outputs,
 )
+from .inline_result_preview import (
+    build_inline_result_outputs,
+    clear_inline_result_preview,
+    sync_inline_result_preview,
+)
 from .model_default_updates import build_advanced_model_reset_updates
 from .simple_media_outputs import build_simple_media_preview, clear_simple_media_preview
 from .simple_create_params import prepare_simple_generation
@@ -157,6 +162,9 @@ def register_simple_create_handlers(
         fn=res_h.clear_audio_outputs_for_new_generation,
         outputs=build_clear_audio_outputs(results_section),
     ).then(
+        fn=clear_inline_result_preview,
+        outputs=build_inline_result_outputs(generation_section),
+    ).then(
         fn=clear_simple_media_preview,
         outputs=[
             simple_page["simple_latest_audio"],
@@ -169,6 +177,13 @@ def register_simple_create_handlers(
             *build_generation_run_outputs(generation_section, results_section),
             simple_page["simple_status"],
         ],
+    ).then(
+        fn=sync_inline_result_preview,
+        inputs=[
+            results_section["generated_audio_1"],
+            results_section["status_output"],
+        ],
+        outputs=build_inline_result_outputs(generation_section),
     ).then(
         fn=build_simple_media_preview,
         inputs=[
