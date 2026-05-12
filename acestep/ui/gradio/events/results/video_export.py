@@ -123,7 +123,13 @@ def copy_video_image_to_run_dir(image_path: str, run_dir: str | Path) -> str:
     """Copy the uploaded image next to generated outputs and return its path."""
 
     source = Path(image_path).expanduser().resolve()
-    target = Path(run_dir) / f"video_image{source.suffix or '.png'}"
+    if not source.is_file():
+        raise RuntimeError(f"Image file not found: {source}")
+
+    target = Path(run_dir).expanduser().resolve() / f"video_image{source.suffix or '.png'}"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if source == target:
+        return str(target).replace("\\", "/")
     shutil.copy2(source, target)
     return str(target.resolve()).replace("\\", "/")
 

@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any, Iterator
 
 import gradio as gr
 from loguru import logger
 
-from ..results.output_manager import write_json
-from ..results.video_export import copy_video_image_to_run_dir, create_still_image_video
+from .simple_run_paths import resolve_simple_audio_path
+from .simple_video_artifacts import export_simple_video_artifacts
 
 
 def clear_simple_media_preview() -> tuple[Any, Any]:
@@ -24,6 +23,7 @@ def build_simple_media_preview(
     status: str | None,
     image_path: Any,
     video_resolution: str | None,
+    generated_files: Any = None,
 ) -> Iterator[tuple[Any, Any, str]]:
     """Yield final simple-tab media preview updates.
 
@@ -37,13 +37,14 @@ def build_simple_media_preview(
             status or "Generation finished without an audio output."
         )
         return
+    output_audio = resolve_simple_audio_path(normalized_audio, generated_files)
 
     normalized_image = _normalize_path(image_path)
     if not normalized_image:
         yield (
-            gr.update(value=normalized_audio, visible=True),
+            gr.update(value=output_audio, visible=True),
             gr.update(value=None, visible=False),
-            _final_status(status, normalized_audio, "Audio ready."),
+            _final_status(status, output_audio, "Audio ready."),
         )
         return
 
@@ -54,11 +55,15 @@ def build_simple_media_preview(
     )
 
     try:
-        video_path = _create_video(normalized_audio, normalized_image, video_resolution)
-    except RuntimeError as exc:
+        artifacts = export_simple_video_artifacts(
+            output_audio,
+            normalized_image,
+            video_resolution,
+        )
+    except (OSError, RuntimeError) as exc:
         logger.exception("Failed to create simple-tab MP4 preview")
         yield (
-            gr.update(value=normalized_audio, visible=True),
+            gr.update(value=output_audio, visible=True),
             gr.update(value=None, visible=False),
             f"{status or 'Generation complete.'}\nMP4 creation failed: {exc}",
         )
@@ -66,97 +71,14 @@ def build_simple_media_preview(
 
     yield (
         gr.update(value=None, visible=False),
-        gr.update(value=video_path, visible=True),
-        _final_status(status, video_path, "MP4 video ready."),
+        gr.update(value=artifacts.video_path, visible=True),
+        _final_status(
+            status,
+            artifacts.video_path,
+            "MP4 video ready.",
+            image_path=artifacts.image_path,
+        ),
     )
-
-
-def _create_video(audio_path: str, image_path: str, video_resolution: str | None) -> str:
-    """Create an MP4 next to the generated audio and update metadata files."""
-
-    audio = Path(audio_path).expanduser().resolve()
-    run_dir = audio.parent
-    image_copy = copy_video_image_to_run_dir(image_path, run_dir)
-    output_path = run_dir / f"{audio.stem}_{str(video_resolution or '1080p').lower()}.mp4"
-    video_path = create_still_image_video(
-        image_path=image_copy,
-        audio_path=str(audio),
-        output_path=str(output_path),
-        resolution=video_resolution or "1080p",
-    )
-    _update_generation_metadata(
-        run_dir=run_dir,
-        audio_path=str(audio).replace("\\", "/"),
-        video_path=video_path,
-        image_path=image_copy,
-        video_resolution=video_resolution or "1080p",
-    )
-    return video_path
-
-
-def _update_generation_metadata(
-    *,
-    run_dir: Path,
-    audio_path: str,
-    video_path: str,
-    image_path: str,
-    video_resolution: str,
-) -> None:
-    """Patch manifest and sidecar metadata with generated video paths."""
-
-    manifest_path = run_dir / "generation_manifest.json"
-    if not manifest_path.is_file():
-        return
-
-    manifest = _read_json(manifest_path)
-    samples = manifest.get("samples", []) if isinstance(manifest, dict) else []
-    for sample in samples:
-        if sample.get("audio_path") != audio_path:
-            continue
-        sample["video_path"] = video_path
-        sample["video_image_path"] = image_path
-        sample["video_resolution"] = video_resolution
-        metadata_path = sample.get("metadata_path")
-        if metadata_path:
-            _update_sidecar(metadata_path, video_path, image_path, video_resolution)
-        break
-
-    request = manifest.setdefault("request", {})
-    if isinstance(request, dict):
-        request["video_image_path"] = image_path
-        request["video_resolution"] = video_resolution
-    write_json(manifest_path, manifest)
-
-
-def _update_sidecar(
-    metadata_path: str,
-    video_path: str,
-    image_path: str,
-    video_resolution: str,
-) -> None:
-    """Patch a per-sample metadata sidecar with video export details."""
-
-    target = Path(metadata_path)
-    sidecar = _read_json(target)
-    if not isinstance(sidecar, dict):
-        return
-    meta = sidecar.setdefault("_meta", {})
-    if isinstance(meta, dict):
-        meta["video_path"] = video_path
-        meta["video_image_path"] = image_path
-        meta["video_resolution"] = video_resolution
-    write_json(target, sidecar)
-
-
-def _read_json(path: str | Path) -> dict[str, Any]:
-    """Read a JSON object from disk, returning an empty dict on failure."""
-
-    try:
-        with Path(path).open("r", encoding="utf-8") as handle:
-            payload = json.load(handle)
-    except (OSError, json.JSONDecodeError, TypeError):
-        return {}
-    return payload if isinstance(payload, dict) else {}
 
 
 def _normalize_path(value: Any) -> str:
@@ -164,14 +86,31 @@ def _normalize_path(value: Any) -> str:
 
     if isinstance(value, dict):
         value = value.get("path") or value.get("name")
+    elif hasattr(value, "path"):
+        value = getattr(value, "path")
+    elif hasattr(value, "name"):
+        value = getattr(value, "name")
     return str(value or "").strip().replace("\\", "/")
 
 
-def _final_status(status: str | None, media_path: str, ready_message: str) -> str:
+def _final_status(
+    status: str | None,
+    media_path: str,
+    ready_message: str,
+    *,
+    image_path: str | None = None,
+) -> str:
     """Return compact final status with the saved run folder."""
 
-    base = "Generation complete. Outputs are saved."
     if status and "failed" in status.lower():
-        base = status.strip()
+        return status.strip()
+
     run_folder = Path(media_path).expanduser().parent
-    return f"{ready_message}\n{base}\nFolder: {run_folder}"
+    if image_path:
+        return (
+            f"{ready_message} Outputs are saved.\n"
+            f"MP4: {media_path}\n"
+            f"Image: {image_path}\n"
+            f"Folder: {run_folder}"
+        )
+    return f"{ready_message}\nGeneration complete. Outputs are saved.\nFolder: {run_folder}"

@@ -191,6 +191,7 @@ def register_simple_create_handlers(
             results_section["status_output"],
             simple_page["simple_cover_image"],
             simple_page["simple_video_resolution"],
+            results_section["generated_audio_batch"],
         ],
         outputs=[
             simple_page["simple_latest_audio"],

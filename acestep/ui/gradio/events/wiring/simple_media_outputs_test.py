@@ -6,6 +6,7 @@ from unittest.mock import patch
 from acestep.ui.gradio.events.wiring.simple_media_outputs import (
     build_simple_media_preview,
 )
+from acestep.ui.gradio.events.wiring.simple_video_artifacts import SimpleVideoArtifacts
 
 
 class SimpleMediaOutputsTests(unittest.TestCase):
@@ -29,14 +30,28 @@ class SimpleMediaOutputsTests(unittest.TestCase):
         """Image uploads should hide audio and show the generated MP4."""
 
         with patch(
-            "acestep.ui.gradio.events.wiring.simple_media_outputs._create_video",
-            return_value="song.mp4",
-        ):
+            "acestep.ui.gradio.events.wiring.simple_media_outputs.export_simple_video_artifacts",
+            return_value=SimpleVideoArtifacts(
+                video_path="song.mp4",
+                image_path="video_image.png",
+            ),
+        ) as mock_export:
             updates = list(
-                build_simple_media_preview("song.flac", "done", "cover.png", "720p")
+                build_simple_media_preview(
+                    "C:/temp/gradio/song.flac",
+                    "done",
+                    "cover.png",
+                    "720p",
+                    ["G:/ACE_Step_v1/ACE-Step_Premium/outputs/0011/song.flac"],
+                )
             )
 
         self.assertEqual(len(updates), 2)
+        mock_export.assert_called_once_with(
+            "G:/ACE_Step_v1/ACE-Step_Premium/outputs/0011/song.flac",
+            "cover.png",
+            "720p",
+        )
         self.assertIn("Creating MP4", updates[0][2])
         audio_update, video_update, status = updates[1]
         self.assertFalse(audio_update["visible"])
@@ -44,6 +59,7 @@ class SimpleMediaOutputsTests(unittest.TestCase):
         self.assertTrue(video_update["visible"])
         self.assertIn("MP4 video ready", status)
         self.assertIn("Outputs are saved", status)
+        self.assertIn("video_image.png", status)
 
 
 if __name__ == "__main__":
