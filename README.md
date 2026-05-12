@@ -56,8 +56,20 @@
 - All generations are fully saved with full metadata into outputs folder as sub folders
 	- You can use open outputs folder to open it quickly
 
-<img width="1327" height="1005" alt="image" src="https://github.com/user-attachments/assets/3aa1cb3f-c198-4359-ad51-e5f9b4bf0875" />
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/3aa1cb3f-c198-4359-ad51-e5f9b4bf0875" />
+<img  height="600" alt="3" src="https://github.com/user-attachments/assets/4b878c6c-d2f8-4af9-8835-c6c494b05651" />
 
+- For advanced users our advanced tab supports all the features these models have
+	- They are Custom, Remix and Repaint
+
+<img width="3549" height="440" alt="image" src="https://github.com/user-attachments/assets/2a6fe22c-98c9-416c-bc3a-c23643dcdc24" />
+
+- Every feature has a detailed instructions and description so read everything to understand how app works
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/4c3363eb-1403-4064-ac47-602cb72402c2" />
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/1f20043f-8786-43eb-b7ba-8876dfe9c5f0" />
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/1a272134-e3a9-455b-94f7-681fd75664dc" />
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/8e914e6a-5a0c-41bd-b47c-40dc4393a9e6" />
 
 
 <h1 align="center">Pushing the Boundaries of Open-Source Music Generation</h1>
