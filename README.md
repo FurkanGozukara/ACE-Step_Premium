@@ -71,6 +71,39 @@
 <img  height="600" alt="image" src="https://github.com/user-attachments/assets/1a272134-e3a9-455b-94f7-681fd75664dc" />
 <img  height="600" alt="image" src="https://github.com/user-attachments/assets/8e914e6a-5a0c-41bd-b47c-40dc4393a9e6" />
 
+- You can set all the parameters individually but totally not needed since the presets we developed auto sets all of them and service is auto initialized so no need to click
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/76a3e783-33c8-43a8-b736-a9c3081c3983" />
+
+- We support LoRA folder feature as well that you can pick and use automatically
+- LoRA folder is ACE-Step_Premium\Loras - put your custom LoRAs here, app also supports LoRA training
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/eb628e84-1b89-4a0b-b07e-3aa3d5648e03" />
+
+- More custom parameters that you can set if you want but all auto set to best with presets
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/2dad6879-900b-4003-91a3-8dd3904c4e7b" />
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/a5bd9ad4-e9ca-4c29-85c6-ddc8649f4f95" />
+
+- You can make repaint as well
+
+<img width="3502" height="512" alt="image" src="https://github.com/user-attachments/assets/12e62e1f-35b9-4b2b-91a0-684393e1741a" />
+
+- We have a custom Library page where you can see all your generations with their metadata
+- It is daily based filtered and very convenient to use
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/f7ad703c-5610-4a53-bd51-08f80080d82a" />
+
+- We have results page for some custom fast and easy operations
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/c904082a-466f-4be2-9265-a15a6d4efd29" />
+
+- We have custom preset system where you can save your config and load them later if you want
+- Your last saved / used config will be auto remembered at next launch
+- Delete this folder to return back to defaults : ACE-Step_Premium\premium_user_presets
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/4a3b7851-73f6-44d6-8c0f-0a6c13df2a17" />
+
 
 <h1 align="center">Pushing the Boundaries of Open-Source Music Generation</h1>
 <p align="center">
