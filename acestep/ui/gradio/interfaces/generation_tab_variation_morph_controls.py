@@ -75,8 +75,11 @@ def build_variation_morph_controls() -> dict[str, Any]:
                         value=False,
                         scale=8,
                         info=(
-                            "Morph source audio toward new caption/lyrics "
-                            "while keeping structure."
+                            "Whole-track prompt edit for Source Audio. Use it "
+                            "to change style or lyrics across the uploaded "
+                            "audio while keeping its timing/arrangement as much "
+                            "as possible. Different from Repaint: Repaint "
+                            "replaces only a selected start/end time range."
                         ),
                         elem_classes=["has-info-container"],
                     )
@@ -88,16 +91,41 @@ def build_variation_morph_controls() -> dict[str, Any]:
                             variant="secondary", size="lg", scale=0, min_width=180,
                             elem_classes=["action-btn", "action-btn-preview"],
                         )
+                    gr.Markdown(
+                        "**Edit changes the whole uploaded Source Audio using "
+                        "two prompts.** The source fields below describe the "
+                        "original audio. The top **Music Caption / Lyrics** "
+                        "describe the target result. Use **Copy current -> "
+                        "source** before rewriting the top fields.\n\n"
+                        "**Custom + Edit:** turns Source Audio into the starting "
+                        "point instead of generating from silence. Good for "
+                        "changing an existing track's style or lyrics.\n\n"
+                        "**Remix + Edit:** keeps Remix's source-audio scaffold, "
+                        "but applies the difference between the source prompt "
+                        "and target prompt more directly. Good for smoother "
+                        "style/lyric changes than a normal Remix.\n\n"
+                        "**Repaint:** does not use this Edit path. Repaint is "
+                        "for replacing one selected time range while preserving "
+                        "the rest of the audio."
+                    )
                     with gr.Row(equal_height=False):
                         flow_edit_source_caption = gr.Textbox(
                             label="source caption",
                             placeholder="Describe the ORIGINAL audio.",
                             lines=4, max_lines=8, scale=1,
+                            info=(
+                                "Original/source description. This should match "
+                                "the uploaded Source Audio before the edit."
+                            ),
                         )
                         flow_edit_source_lyrics = gr.Textbox(
                             label="source lyrics",
                             placeholder="Original lyrics; top-level lyrics is the target.",
                             lines=4, max_lines=8, scale=1,
+                            info=(
+                                "Original/source lyrics. The top Lyrics field is "
+                                "the target lyrics after the edit."
+                            ),
                         )
                     with gr.Row():
                         flow_edit_n_min = gr.Slider(

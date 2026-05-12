@@ -5,6 +5,7 @@ from typing import Any
 import gradio as gr
 
 from acestep.constants import GENERATION_MODES_BASE, GENERATION_MODES_TURBO
+from acestep.ui.gradio.i18n import t
 
 from .generation_defaults import compute_init_defaults, resolve_is_pure_base_model
 from .generation_tab_primary_controls import (
@@ -17,9 +18,7 @@ from .generation_tab_simple_controls import (
 from .generation_tab_source_controls import (
     build_source_track_and_code_controls,
 )
-from .generation_tab_generate_controls import (
-    build_generate_row_controls,
-)
+from .generation_tab_generate_controls import build_generate_row_controls
 from .generation_tab_optional_controls import (
     build_optional_parameter_controls,
 )
@@ -94,6 +93,8 @@ def create_generation_body_section(
     max_duration = defaults["max_duration"]
     max_batch_size = defaults["max_batch_size"]
     default_batch_size = defaults["default_batch_size"]
+
+    gr.Markdown(t("generation.composition_guide"), elem_classes=["has-info-container"])
 
     hidden_state_controls = build_hidden_generation_state()
     simple_mode_controls = build_simple_mode_controls()

@@ -20,7 +20,13 @@ def build_source_audio_controls() -> dict[str, Any]:
     """
 
     with gr.Row(equal_height=True, visible=False) as src_audio_row:
-        src_audio = gr.Audio(label=t("generation.source_audio"), type="filepath", scale=10)
+        with gr.Column(scale=10):
+            src_audio = gr.Audio(
+                label=t("generation.source_audio"),
+                type="filepath",
+                elem_classes=["has-info-container"],
+            )
+            gr.Markdown(t("generation.source_audio_info"))
         with gr.Column(scale=1, min_width=80):
             analyze_btn = gr.Button(
                 t("generation.analyze_btn"),
@@ -90,10 +96,13 @@ def build_lm_code_hint_controls() -> dict[str, Any]:
         elem_classes=["has-info-container"],
     ) as text2music_audio_codes_group:
         with gr.Row(equal_height=True):
-            lm_codes_audio_upload = gr.Audio(
-                label=t("generation.lm_codes_audio_upload_label"),
-                type="filepath", scale=3,
-            )
+            with gr.Column(scale=3):
+                lm_codes_audio_upload = gr.Audio(
+                    label=t("generation.lm_codes_audio_upload_label"),
+                    type="filepath",
+                    elem_classes=["has-info-container"],
+                )
+                gr.Markdown(t("generation.lm_codes_audio_upload_info"))
             text2music_audio_code_string = gr.Textbox(
                 label=t("generation.lm_codes_label"),
                 placeholder=t("generation.lm_codes_placeholder"),

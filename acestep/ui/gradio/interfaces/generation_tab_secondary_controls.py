@@ -79,7 +79,9 @@ def build_custom_mode_controls() -> dict[str, Any]:
                     label=t("generation.reference_audio"),
                     type="filepath",
                     show_label=True,
+                    elem_classes=["has-info-container"],
                 )
+                gr.Markdown(t("generation.reference_audio_info"))
             with gr.Column(scale=8):
                 with gr.Row(equal_height=True):
                     with gr.Column(scale=1):
@@ -89,6 +91,8 @@ def build_custom_mode_controls() -> dict[str, Any]:
                             value=DEFAULT_PRESET_CAPTION,
                             lines=12,
                             max_lines=12,
+                            info=t("generation.caption_info"),
+                            elem_classes=["has-info-container"],
                         )
                         with gr.Row(elem_classes="instrumental-row"):
                             format_caption_btn = gr.Button(
@@ -104,12 +108,16 @@ def build_custom_mode_controls() -> dict[str, Any]:
                             value=DEFAULT_PRESET_LYRICS,
                             lines=18,
                             max_lines=18,
+                            info=t("generation.lyrics_info"),
+                            elem_classes=["has-info-container"],
                         )
                         with gr.Row(elem_classes="instrumental-row"):
                             instrumental_checkbox = gr.Checkbox(
                                 label=t("generation.instrumental_label"),
                                 value=False,
                                 scale=1,
+                                info=t("generation.instrumental_info"),
+                                elem_classes=["has-info-container"],
                             )
                             format_lyrics_btn = gr.Button(
                                 t("generation.format_lyrics_btn"),
@@ -155,23 +163,24 @@ def build_repainting_controls() -> dict[str, Any]:
                 label=t("generation.repainting_start"),
                 value=0.0,
                 step=0.1,
+                info=t("generation.repainting_start_info"),
+                elem_classes=["has-info-container"],
             )
             repainting_end = gr.Number(
                 label=t("generation.repainting_end"),
                 value=-1,
                 minimum=-1,
                 step=0.1,
+                info=t("generation.repainting_end_info"),
+                elem_classes=["has-info-container"],
             )
         with gr.Row():
             repaint_mode = gr.Dropdown(
                 label="Repaint Mode",
                 choices=["conservative", "balanced", "aggressive"],
                 value="balanced",
-                info=(
-                    "conservative preserves the source most strongly; balanced "
-                    "blends preservation and regeneration; aggressive allows "
-                    "the selected range to change more freely."
-                ),
+                info=t("generation.repaint_mode_info"),
+                elem_classes=["has-info-container"],
             )
             repaint_strength = gr.Slider(
                 label="Repaint Strength",
@@ -179,10 +188,8 @@ def build_repainting_controls() -> dict[str, Any]:
                 maximum=1.0,
                 step=0.05,
                 value=0.5,
-                info=(
-                    "In balanced mode, lower values keep more source audio and "
-                    "higher values regenerate more of the selected range."
-                ),
+                info=t("generation.repaint_strength_info"),
+                elem_classes=["has-info-container"],
             )
         repaint_strength_memory = gr.State(value=0.5)
     return {
