@@ -24,6 +24,22 @@
 
 <img height="600" alt="0" src="https://github.com/user-attachments/assets/57185562-5b03-4790-a48e-a8b1760bd457" />
 
+- All 3 models SFT, Base and Turbo are fully automatically supported with VRAM presets
+
+- Each preset automatically updates best values when you change the selected ACEStep XL 1.5 model from selection
+
+- Each preset change also updates necessary config automatically according to VRAM tier selection
+
+- More VRAM tiers may have higher quality since using some different configs and models such as using acestep-5Hz-lm-4B vs 1.7B vs 0.6B, etc.
+
+	- So for best quality, you may run the app on cloud services
+
+	- 3 minutes song generation takes around 40 seconds on RTX 5090 with Turbo model, other models are also very close to this and all are really fast locally
+
+<img width="405" height="294" alt="image" src="https://github.com/user-attachments/assets/7fc3e680-990c-4fb9-ac8f-1522f79f9562" />
+<img width="378" height="600" alt="image" src="https://github.com/user-attachments/assets/6a8aee7c-7a49-4439-a840-2bc313ae329e" />
+
+
 
 
 <h1 align="center">Pushing the Boundaries of Open-Source Music Generation</h1>
