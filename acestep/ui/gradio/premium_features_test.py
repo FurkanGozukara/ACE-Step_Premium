@@ -188,9 +188,16 @@ class PremiumFeaturesTests(unittest.TestCase):
         self.assertEqual(payload["checkpoint_dropdown"], expected)
         self.assertEqual(payload["config_path"], "acestep-v15-xl-sft")
         self.assertEqual(payload["simple_model_dropdown"], "acestep-v15-xl-sft")
-        self.assertEqual(payload["inference_steps"], 64)
+        self.assertEqual(payload["inference_steps"], 50)
         self.assertEqual(payload["guidance_scale"], 7.0)
-        self.assertTrue(payload["use_adg"])
+        self.assertFalse(payload["use_adg"])
+        self.assertEqual(payload["shift"], 3.0)
+        self.assertTrue(payload["init_lm_checkbox"])
+        self.assertTrue(payload["think_checkbox"])
+        self.assertTrue(payload["use_cot_metas"])
+        self.assertFalse(payload["dcw_enabled"])
+        self.assertEqual(payload["dcw_scaler"], 0.0)
+        self.assertEqual(payload["dcw_high_scaler"], 0.0)
 
     def test_user_preset_without_quality_values_uses_model_defaults(self) -> None:
         """Legacy SFT/Base presets should not inherit Turbo's 8-step values."""
@@ -220,16 +227,38 @@ class PremiumFeaturesTests(unittest.TestCase):
                 self._restore_project_root(original)
 
         keys = premium_features.get_preset_component_keys()
-        for payload in (base_payload, sft_payload, legacy_sft_payload):
-            self.assertEqual(payload["inference_steps"], 64)
+        for payload in (sft_payload, legacy_sft_payload):
+            self.assertEqual(payload["inference_steps"], 50)
             self.assertEqual(payload["guidance_scale"], 7.0)
-            self.assertTrue(payload["use_adg"])
+            self.assertFalse(payload["use_adg"])
+            self.assertEqual(payload["shift"], 3.0)
+            self.assertTrue(payload["init_lm_checkbox"])
+            self.assertTrue(payload["think_checkbox"])
+            self.assertTrue(payload["use_cot_metas"])
+            self.assertFalse(payload["allow_lm_batch"])
+            self.assertFalse(payload["dcw_enabled"])
+            self.assertEqual(payload["dcw_scaler"], 0.0)
+            self.assertEqual(payload["dcw_high_scaler"], 0.0)
+
+        self.assertEqual(base_payload["inference_steps"], 64)
+        self.assertEqual(base_payload["guidance_scale"], 7.0)
+        self.assertFalse(base_payload["use_adg"])
+        self.assertEqual(base_payload["shift"], 3.0)
+        self.assertFalse(base_payload["dcw_enabled"])
+        self.assertEqual(base_payload["dcw_scaler"], 0.0)
+        self.assertEqual(base_payload["dcw_high_scaler"], 0.0)
 
         self.assertEqual(base_updates[keys.index("inference_steps")].get("value"), 64)
         self.assertEqual(base_updates[keys.index("inference_steps")].get("maximum"), 200)
         self.assertTrue(base_updates[keys.index("guidance_scale")].get("visible"))
-        self.assertTrue(base_updates[keys.index("use_adg")].get("value"))
-        self.assertEqual(sft_updates[keys.index("inference_steps")].get("value"), 64)
+        self.assertFalse(base_updates[keys.index("use_adg")].get("value"))
+        self.assertFalse(base_updates[keys.index("dcw_enabled")].get("value"))
+        self.assertEqual(sft_updates[keys.index("shift")].get("value"), 3.0)
+        self.assertEqual(sft_updates[keys.index("inference_steps")].get("value"), 50)
+        self.assertFalse(sft_updates[keys.index("use_adg")].get("value"))
+        self.assertFalse(sft_updates[keys.index("dcw_enabled")].get("value"))
+        self.assertEqual(sft_updates[keys.index("dcw_scaler")].get("value"), 0.0)
+        self.assertEqual(sft_updates[keys.index("dcw_high_scaler")].get("value"), 0.0)
         self.assertTrue(sft_updates[keys.index("guidance_scale")].get("visible"))
 
     def test_user_preset_keeps_custom_quality_and_vram_settings_selected(self) -> None:

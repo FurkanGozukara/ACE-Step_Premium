@@ -153,7 +153,7 @@
     "batch_size_info": "How many variations to generate at once. Higher = more options to choose from, but uses more VRAM and takes longer. Generate 2–4 to compare and pick the best result.",
     "advanced_settings": "⚙️ Settings",
     "inference_steps_label": "DiT Inference Steps",
-    "inference_steps_info": "How many denoising passes the DiT model makes. More steps = higher quality but slower. Fresh installs start on XL-Turbo, so this starts at 8. Turbo/XL-Turbo models: 4-8 steps (default 8; the backend clamps above 8). Base/SFT/XL non-turbo models: default 50, with 30-100 useful for quality tuning. Doubling steps roughly doubles diffusion time.",
+    "inference_steps_info": "How many denoising passes the DiT model makes. More steps = higher quality but slower. Fresh installs start on XL-Turbo, so this starts at 8. Turbo/XL-Turbo models: 4-8 steps (default 8; the backend clamps above 8). Base/SFT/XL non-turbo models: default 64, with 50-100 useful for quality tuning. Doubling steps roughly doubles diffusion time.",
     "guidance_scale_label": "DiT Guidance Scale (non-turbo)",
     "guidance_scale_info": "Controls how strictly the output follows your caption/prompt for Base/SFT/XL non-turbo models. Higher (10-15) = more faithful to prompt but can sound harsh or distorted. Lower (1-5) = more natural/creative but may drift from your description. Default 7.0. Turbo models ignore CFG; the backend forces guidance_scale to 1.0.",
     "seed_label": "Seed",

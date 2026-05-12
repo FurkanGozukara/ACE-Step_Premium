@@ -112,8 +112,8 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                 value=default_model,
                 label="Model",
                 info=(
-                    "SFT and Base use 64-step ADG/CFG quality defaults. Turbo uses "
-                    "8-step fast defaults. All are XL 4B models; >=12GB "
+                    "SFT uses 50-step CFG with Thinking metadata and shift 3.0. Base uses 64-step APG/CFG "
+                    "with shift 3.0. Turbo uses 8-step fast defaults. All are XL 4B models; >=12GB "
                     "VRAM is the practical floor."
                 ),
             )
@@ -152,7 +152,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                     minimum=-1,
                     maximum=float(max_duration),
                     step=0.1,
-                    info="-1 = auto with 5Hz LM; positive seconds = fixed length.",
+                    info="-1 = auto. Turbo uses 5Hz LM; Base/SFT estimate duration directly from lyrics.",
                     scale=1,
                 )
                 simple_batch_size = gr.Number(

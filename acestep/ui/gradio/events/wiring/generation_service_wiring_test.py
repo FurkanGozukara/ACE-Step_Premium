@@ -4,6 +4,10 @@ import ast
 from pathlib import Path
 import unittest
 
+from acestep.ui.gradio.events.wiring.generation_service_wiring import (
+    _apply_config_path_change_with_simple_sync,
+)
+
 
 _WIRING_PATH = Path(__file__).resolve().parent / "generation_service_wiring.py"
 
@@ -49,6 +53,72 @@ class GenerationServiceWiringTests(unittest.TestCase):
             node.name for node in module.body if isinstance(node, ast.FunctionDef)
         }
         self.assertIn("_apply_runtime_language", function_names)
+
+    def test_config_path_change_applies_sft_quality_defaults(self):
+        """Advanced model dropdown should apply LM-assisted SFT controls."""
+
+        result = _apply_config_path_change_with_simple_sync(
+            "acestep-v15-xl-sft",
+            "Custom",
+        )
+
+        self.assertEqual(result[0].get("value"), 50)
+        self.assertEqual(result[3].get("value"), 3.0)
+        self.assertEqual(result[8].get("value"), True)
+        self.assertEqual(result[9].get("value"), True)
+        self.assertEqual(result[10].get("value"), False)
+        self.assertEqual(result[11].get("value"), True)
+        self.assertEqual(result[12].get("value"), True)
+        self.assertEqual(result[13].get("value"), True)
+        self.assertEqual(result[14].get("value"), False)
+        self.assertEqual(result[15].get("value"), "double")
+        self.assertEqual(result[16].get("value"), 0.0)
+        self.assertEqual(result[17].get("value"), 0.0)
+        self.assertEqual(result[18].get("value"), "acestep-v15-xl-sft")
+
+    def test_config_path_change_applies_base_direct_defaults(self):
+        """Advanced model dropdown should reset LM/Think controls for Base."""
+
+        result = _apply_config_path_change_with_simple_sync(
+            "acestep-v15-xl-base",
+            "Custom",
+        )
+
+        self.assertEqual(result[0].get("value"), 64)
+        self.assertEqual(result[2].get("value"), False)
+        self.assertEqual(result[3].get("value"), 3.0)
+        self.assertEqual(result[8].get("value"), False)
+        self.assertEqual(result[9].get("value"), False)
+        self.assertEqual(result[10].get("value"), False)
+        self.assertEqual(result[11].get("value"), False)
+        self.assertEqual(result[12].get("value"), False)
+        self.assertEqual(result[13].get("value"), False)
+        self.assertEqual(result[14].get("value"), False)
+        self.assertEqual(result[15].get("value"), "double")
+        self.assertEqual(result[16].get("value"), 0.0)
+        self.assertEqual(result[17].get("value"), 0.0)
+        self.assertEqual(result[18].get("value"), "acestep-v15-xl-base")
+
+    def test_config_path_change_keeps_turbo_think_defaults(self):
+        """Advanced model dropdown should keep LM/Think controls for Turbo."""
+
+        result = _apply_config_path_change_with_simple_sync(
+            "acestep-v15-xl-turbo",
+            "Custom",
+        )
+
+        self.assertEqual(result[0].get("value"), 8)
+        self.assertEqual(result[8].get("value"), True)
+        self.assertEqual(result[9].get("value"), True)
+        self.assertEqual(result[10].get("value"), True)
+        self.assertEqual(result[11].get("value"), True)
+        self.assertEqual(result[12].get("value"), True)
+        self.assertEqual(result[13].get("value"), True)
+        self.assertEqual(result[14].get("value"), True)
+        self.assertEqual(result[15].get("value"), "double")
+        self.assertEqual(result[16].get("value"), 0.02)
+        self.assertEqual(result[17].get("value"), 0.06)
+        self.assertEqual(result[18].get("value"), "acestep-v15-xl-turbo")
 
 
 if __name__ == "__main__":

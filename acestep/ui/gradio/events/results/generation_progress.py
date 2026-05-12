@@ -747,6 +747,9 @@ def _build_request_payload(
 ):
     """Build the full persisted request payload for a generation run."""
     return {
+        "active_config_path": (
+            service_metadata.get("dit_last_init_params", {}) or {}
+        ).get("config_path"),
         "caption": captions or "",
         "lyrics": lyrics or "",
         "bpm": bpm,
@@ -837,7 +840,13 @@ def _build_request_payload(
 def _build_service_metadata(dit_handler, llm_handler):
     """Return serializable service/runtime metadata for generated songs."""
 
+    dit_model = getattr(dit_handler, "model", None)
+    dit_config = getattr(dit_model, "config", None) or getattr(dit_handler, "config", None)
     return {
+        "dit_model_class": type(dit_model).__name__ if dit_model is not None else None,
+        "dit_model_module": type(dit_model).__module__ if dit_model is not None else None,
+        "dit_config_model_version": getattr(dit_config, "model_version", None),
+        "dit_config_is_turbo": getattr(dit_config, "is_turbo", None),
         "dit_quantization": getattr(dit_handler, "quantization", None),
         "dit_device": str(getattr(dit_handler, "device", "")),
         "dit_dtype": str(getattr(dit_handler, "dtype", "")),

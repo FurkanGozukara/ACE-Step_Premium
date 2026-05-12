@@ -69,18 +69,36 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
         self.assertEqual(result[1].get("value"), 8)
         self.assertEqual(result[2].get("value"), 1.0)
         self.assertFalse(result[2].get("visible"))
+        self.assertTrue(result[9].get("value"))
+        self.assertTrue(result[10].get("value"))
+        self.assertTrue(result[11].get("value"))
+        self.assertTrue(result[15].get("value"))
+        self.assertEqual(result[16].get("value"), "double")
+        self.assertEqual(result[17].get("value"), 0.02)
+        self.assertEqual(result[18].get("value"), 0.06)
         self.assertIn("XL Turbo", result[-1])
 
     def test_simple_model_selector_applies_sft_defaults(self):
-        """Selecting XL SFT should update config_path and quality controls."""
+        """Selecting XL SFT should update config_path and stable controls."""
 
         result = _apply_simple_model_change("acestep-v15-xl-sft", "Custom")
 
         self.assertEqual(result[0].get("value"), "acestep-v15-xl-sft")
-        self.assertEqual(result[1].get("value"), 64)
+        self.assertEqual(result[1].get("value"), 50)
         self.assertEqual(result[2].get("value"), 7.0)
         self.assertTrue(result[2].get("visible"))
-        self.assertTrue(result[3].get("value"))
+        self.assertFalse(result[3].get("value"))
+        self.assertEqual(result[4].get("value"), 3.0)
+        self.assertTrue(result[9].get("value"))
+        self.assertTrue(result[10].get("value"))
+        self.assertFalse(result[11].get("value"))
+        self.assertTrue(result[12].get("value"))
+        self.assertTrue(result[13].get("value"))
+        self.assertTrue(result[14].get("value"))
+        self.assertFalse(result[15].get("value"))
+        self.assertEqual(result[16].get("value"), "double")
+        self.assertEqual(result[17].get("value"), 0.0)
+        self.assertEqual(result[18].get("value"), 0.0)
         self.assertIn("XL SFT", result[-1])
 
     def test_simple_model_selector_applies_base_defaults(self):
@@ -92,8 +110,16 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
         self.assertEqual(result[1].get("value"), 64)
         self.assertEqual(result[2].get("value"), 7.0)
         self.assertTrue(result[2].get("visible"))
-        self.assertTrue(result[3].get("value"))
+        self.assertFalse(result[3].get("value"))
+        self.assertEqual(result[4].get("value"), 3.0)
         self.assertIn("Extract", result[8].get("choices"))
+        self.assertFalse(result[9].get("value"))
+        self.assertFalse(result[10].get("value"))
+        self.assertFalse(result[11].get("value"))
+        self.assertFalse(result[15].get("value"))
+        self.assertEqual(result[16].get("value"), "double")
+        self.assertEqual(result[17].get("value"), 0.0)
+        self.assertEqual(result[18].get("value"), 0.0)
         self.assertIn("XL Base", result[-1])
 
     def test_simple_tier_selector_mirrors_vram_preset(self):

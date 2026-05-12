@@ -31,6 +31,7 @@ from acestep.core.generation.handler.lora.folder_scan import (
 from acestep.ui.gradio.events.generation.model_config import (
     get_ui_control_config_for_path,
 )
+from acestep.ui.gradio.events.dcw_defaults import get_dcw_defaults_for_think
 from acestep.ui.gradio.events.generation.quantization import default_quantization_value
 from acestep.ui.gradio.events.results.output_manager import get_results_dir
 
@@ -188,6 +189,11 @@ PRESET_COMPONENT_KEYS: tuple[str, ...] = (
     "sampler_mode",
     "velocity_norm_threshold",
     "velocity_ema_factor",
+    "dcw_enabled",
+    "dcw_mode",
+    "dcw_scaler",
+    "dcw_high_scaler",
+    "dcw_wavelet",
     "use_adg",
     "shift",
     "custom_timesteps",
@@ -238,6 +244,11 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "sampler_mode": "euler",
     "velocity_norm_threshold": 0.0,
     "velocity_ema_factor": 0.0,
+    "dcw_enabled": True,
+    "dcw_mode": "double",
+    "dcw_scaler": 0.02,
+    "dcw_high_scaler": 0.06,
+    "dcw_wavelet": "haar",
     "use_adg": False,
     "shift": 3.0,
     "custom_timesteps": "",
@@ -272,6 +283,16 @@ def model_quality_defaults(model_path: Any) -> dict[str, Any]:
     """Return generation-control defaults for a model path."""
 
     selected_model = str(model_path or "").strip() or DEFAULT_TURBO_DIT_MODEL
+    selected_model_lower = selected_model.lower()
+    is_turbo = "turbo" in selected_model_lower
+    is_sft = "sft" in selected_model_lower and not is_turbo
+    uses_lm_defaults = is_turbo or is_sft
+    dcw_enabled = is_turbo
+    dcw_defaults = (
+        get_dcw_defaults_for_think(uses_lm_defaults)
+        if dcw_enabled
+        else {"mode": "double", "scaler": 0.0, "high_scaler": 0.0}
+    )
     cfg = get_ui_control_config_for_path(selected_model)
     return {
         "inference_steps": cfg["inference_steps_value"],
@@ -280,6 +301,16 @@ def model_quality_defaults(model_path: Any) -> dict[str, Any]:
         "shift": cfg["shift_value"],
         "cfg_interval_start": cfg["cfg_interval_start_value"],
         "cfg_interval_end": cfg["cfg_interval_end_value"],
+        "init_lm_checkbox": uses_lm_defaults,
+        "think_checkbox": uses_lm_defaults,
+        "use_cot_metas": uses_lm_defaults,
+        "use_cot_caption": uses_lm_defaults,
+        "use_cot_language": uses_lm_defaults,
+        "allow_lm_batch": is_turbo,
+        "dcw_enabled": dcw_enabled,
+        "dcw_mode": dcw_defaults["mode"],
+        "dcw_scaler": dcw_defaults["scaler"],
+        "dcw_high_scaler": dcw_defaults["high_scaler"],
     }
 
 

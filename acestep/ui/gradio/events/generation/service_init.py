@@ -148,7 +148,7 @@ def init_service_wrapper(
     is_turbo = dit_handler.is_turbo_model()
     config_path_lower = (config_path or "").lower()
     is_pure_base = is_pure_base_model(config_path_lower)
-    # Match interactive path — SFT models need 50-step default here too.
+    # Match interactive path: SFT models use the documented 50-step CFG default.
     is_sft = is_sft_model(config_path_lower)
     model_type_settings = get_model_type_ui_settings(
         is_turbo, current_mode=current_mode, is_pure_base=is_pure_base,

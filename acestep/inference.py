@@ -12,6 +12,7 @@ import json
 import math
 import os
 import random
+import re
 import tempfile
 from typing import Optional, Union, List, Dict, Any, Tuple
 from dataclasses import dataclass, field, asdict
@@ -22,6 +23,7 @@ import torch
 
 from acestep.audio_utils import AudioSaver, apply_fade, generate_uuid_from_params, normalize_audio, get_lora_weights_hash
 from acestep.constants import BPM_MIN, BPM_MAX, DURATION_MAX, TASK_TYPES, VALID_TIME_SIGNATURES
+from acestep.gpu_config import get_dit_type_from_path
 
 # HuggingFace Space environment detection
 IS_HUGGINGFACE_SPACE = os.environ.get("SPACE_ID") is not None
@@ -342,12 +344,15 @@ def _update_metadata_from_lm(
     """Update metadata fields from LM output if not provided by user."""
 
     if bpm is None and metadata.get('bpm'):
-        bpm_value = metadata.get('bpm')
-        if bpm_value not in ["N/A", ""]:
-            try:
-                bpm = int(bpm_value)
-            except (ValueError, TypeError):
-                pass
+        normalized_bpm = _normalize_lm_bpm(
+            metadata.get('bpm'),
+            context=" ".join(
+                str(part or "")
+                for part in (caption, lyrics, metadata.get("caption", ""))
+            ),
+        )
+        if normalized_bpm is not None:
+            bpm = normalized_bpm
 
     if not key_scale and metadata.get('keyscale'):
         key_scale_value = metadata.get('keyscale', metadata.get('key_scale', ""))
@@ -366,6 +371,11 @@ def _update_metadata_from_lm(
                 audio_duration = float(audio_duration_value)
             except (ValueError, TypeError):
                 pass
+        audio_duration = _stabilize_lm_duration(
+            audio_duration,
+            lyrics=lyrics,
+            caption=caption,
+        )
 
     if not vocal_language and metadata.get('vocal_language'):
         vocal_language = metadata.get('vocal_language')
@@ -416,6 +426,142 @@ def _coerce_seed_value(value: Any) -> Optional[int]:
     except (TypeError, ValueError, OverflowError):
         return None
     return seed if seed >= 0 else None
+
+
+def _normalize_lm_bpm(value: Any, context: str = "") -> Optional[int]:
+    """Return a stable LM-derived BPM value for generation conditioning."""
+
+    if value in (None, "N/A", ""):
+        return None
+    try:
+        bpm = int(float(value))
+    except (ValueError, TypeError, OverflowError):
+        return None
+    if bpm <= 0:
+        return None
+
+    original_bpm = bpm
+    min_full_time_bpm = 80 if _context_prefers_full_time_tempo(context) else 60
+    while bpm < min_full_time_bpm:
+        bpm *= 2
+    bpm = max(BPM_MIN, min(BPM_MAX, bpm))
+    if bpm != original_bpm:
+        logger.info(
+            "[metadata] Normalized LM-derived BPM {} -> {} for stable generation.",
+            original_bpm,
+            bpm,
+        )
+    return bpm
+
+
+def _context_prefers_full_time_tempo(context: str) -> bool:
+    """Return whether low BPM is likely a half-time genre guess."""
+
+    text = (context or "").lower()
+    return bool(
+        re.search(
+            r"\b(rap|hip[-\s]?hop|trap|drill|grime|pop[-\s]?rap|808|boom[-\s]?bap|r&b|rnb)\b",
+            text,
+        )
+    )
+
+
+def _stabilize_lm_duration(
+    audio_duration: Optional[float],
+    lyrics: str,
+    caption: str = "",
+) -> Optional[float]:
+    """Prevent LM auto-duration from underfitting long lyrical songs."""
+
+    if audio_duration is None or audio_duration <= 0:
+        return audio_duration
+    min_duration = _minimum_duration_for_lyrics(lyrics, caption=caption)
+    if min_duration is None or audio_duration >= min_duration:
+        return audio_duration
+
+    stabilized = float(min(DURATION_MAX, min_duration))
+    logger.info(
+        "[metadata] Raised LM-derived duration {:.1f}s -> {:.1f}s for lyric density.",
+        audio_duration,
+        stabilized,
+    )
+    return stabilized
+
+
+def _minimum_duration_for_lyrics(lyrics: str, caption: str = "") -> Optional[int]:
+    """Estimate a conservative minimum duration from lyric density."""
+
+    lyric_text = str(lyrics or "")
+    if not lyric_text.strip() or "[instrumental]" in lyric_text.lower():
+        return None
+
+    without_tags = re.sub(r"\[[^\]]+\]", " ", lyric_text)
+    words = re.findall(r"[A-Za-z0-9']+", without_tags)
+    if len(words) < 80:
+        return None
+
+    context = " ".join([str(caption or ""), lyric_text])
+    max_words_per_second = 2.35 if _context_prefers_full_time_tempo(context) else 2.10
+    return int(math.ceil(len(words) / max_words_per_second))
+
+
+def _dit_handler_config_path(dit_handler: Any) -> str:
+    """Return the active DiT config path when the handler exposes it."""
+
+    init_params = getattr(dit_handler, "last_init_params", None) or {}
+    if isinstance(init_params, dict):
+        config_path = init_params.get("config_path")
+        if config_path:
+            return str(config_path)
+    return str(getattr(dit_handler, "config_path", "") or "")
+
+
+def _is_turbo_dit_handler(dit_handler: Any) -> bool:
+    """Return whether the active DiT handler is a turbo checkpoint."""
+
+    config_path = _dit_handler_config_path(dit_handler)
+    if config_path:
+        return get_dit_type_from_path(config_path).endswith("turbo")
+
+    is_turbo_model = getattr(dit_handler, "is_turbo_model", None)
+    if callable(is_turbo_model):
+        try:
+            return bool(is_turbo_model())
+        except Exception:
+            logger.debug("[generate_music] Could not query dit_handler.is_turbo_model()", exc_info=True)
+    return False
+
+
+def _should_generate_lm_audio_codes(
+    dit_handler: Any,
+    params: GenerationParams,
+    user_provided_audio_codes: bool,
+) -> bool:
+    """Return whether Think mode should ask the LM for semantic audio codes."""
+
+    if user_provided_audio_codes or not params.thinking:
+        return False
+    if params.task_type == "text2music" and not _is_turbo_dit_handler(dit_handler):
+        return False
+    return True
+
+
+def _should_apply_lm_caption_to_dit(
+    dit_handler: Any,
+    params: GenerationParams,
+    need_audio_codes: bool,
+    current_caption: str,
+) -> bool:
+    """Return whether LM caption rewriting should replace the DiT caption."""
+
+    if not params.use_cot_caption:
+        return False
+    if not str(current_caption or "").strip():
+        return True
+    if params.task_type == "text2music" and not _is_turbo_dit_handler(dit_handler):
+        return False
+    return need_audio_codes
+
 
 
 def _resample_matching_source_seeds(
@@ -561,16 +707,19 @@ def generate_music(
         source_repaint_latents = (
             cached_repaint_source.latents if cached_repaint_source is not None else None
         )
-        # Determine if we need to generate audio codes
-        # If user has provided audio_codes, we don't need to generate them
-        # Otherwise, check if we need audio codes (lm_dit mode) or just metas (dit mode)
         user_provided_audio_codes = bool(params.audio_codes and str(params.audio_codes).strip())
-
-        # Determine infer_type: use "llm_dit" if we need audio codes, "dit" if only metas needed
-        # For now, we use "llm_dit" if batch mode or if user hasn't provided codes
-        # Use "dit" if user has provided codes (only need metas) or if explicitly only need metas
-        # Note: This logic can be refined based on specific requirements
-        need_audio_codes = not user_provided_audio_codes
+        need_audio_codes = _should_generate_lm_audio_codes(
+            dit_handler,
+            params,
+            user_provided_audio_codes,
+        )
+        if params.thinking and params.task_type == "text2music" and not need_audio_codes:
+            active_config_path = _dit_handler_config_path(dit_handler) or "unknown"
+            logger.info(
+                "[generate_music] Active DiT config '{}' uses LM metadata-only mode for text2music; "
+                "semantic audio codes are not injected unless the model is turbo or the user supplied code hints.",
+                active_config_path,
+            )
 
         # Determine if we should use chunk-based LM generation (always use chunks for consistency)
         # Determine actual batch size for chunk processing
@@ -595,17 +744,23 @@ def generate_music(
                 # Previously, this would crash because 'len()' was called on an int.
                 seed_for_generation = str(config.seeds)
 
-        # Use dit_handler.prepare_seeds to handle seed list generation and padding
-        # This will handle all the logic: padding with random seeds if needed, etc.
-        actual_seed_list, _ = dit_handler.prepare_seeds(actual_batch_size, seed_for_generation, config.use_random_seed)
-        use_random_seed_for_dit = config.use_random_seed
+        # Resolve seeds once and pass the same fixed list to the LM and DiT.
+        # Previously random mode sampled once for LM semantic codes and again
+        # inside DiT generation, so saved sidecars recorded the wrong seed and
+        # a single "random" song was not internally reproducible.
+        actual_seed_list, _ = dit_handler.prepare_seeds(
+            actual_batch_size,
+            seed_for_generation,
+            config.use_random_seed,
+        )
+        seed_for_generation = ",".join(str(seed) for seed in actual_seed_list)
+        use_random_seed_for_dit = False
         if cached_repaint_source is not None:
             actual_seed_list = _resample_matching_source_seeds(
                 actual_seed_list,
                 cached_repaint_source.source_seed,
             )
             seed_for_generation = ",".join(str(seed) for seed in actual_seed_list)
-            use_random_seed_for_dit = False
 
         # LM-based Chain-of-Thought reasoning
         # Skip LM for cover/repaint/extract tasks - these tasks use reference/src audio directly
@@ -644,6 +799,7 @@ def generate_music(
         logger.info(f"[generate_music] LLM usage decision: thinking={params.thinking}, "
                    f"use_cot_caption={params.use_cot_caption}, use_cot_language={params.use_cot_language}, "
                    f"use_cot_metas={params.use_cot_metas}, need_lm_for_cot={need_lm_for_cot}, "
+                   f"need_audio_codes={need_audio_codes}, "
                    f"llm_initialized={llm_handler.llm_initialized if llm_handler else False}, use_lm={use_lm}")
         
         if use_lm:
@@ -764,10 +920,10 @@ def generate_music(
                     lm_status.append(f"✅ LM chunk {chunk_idx+1}: {time_str}")
 
             lm_generated_metadata = all_metadata_list[0] if all_metadata_list else None
-            lm_generated_audio_codes_list = all_audio_codes_list
 
             # Set audio_code_string_to_use based on infer_type
             if infer_type == "llm_dit":
+                lm_generated_audio_codes_list = all_audio_codes_list
                 # If batch mode, use list; otherwise use single string
                 if actual_batch_size > 1:
                     audio_code_string_to_use = all_audio_codes_list
@@ -775,6 +931,7 @@ def generate_music(
                     audio_code_string_to_use = all_audio_codes_list[0] if all_audio_codes_list else ""
             else:
                 # For "dit" mode, keep user-provided codes or empty
+                lm_generated_audio_codes_list = []
                 audio_code_string_to_use = params.audio_codes
 
             # Update metadata from LM if not provided by user
@@ -803,9 +960,22 @@ def generate_music(
                 if not params.lyrics:
                     params.cot_lyrics = lyrics
 
-            # set cot caption and language if needed
-            if params.use_cot_caption:
+            # Set CoT caption and language if needed.  Base/SFT text2music
+            # keep the user's prompt as the DiT caption; the LM still fills
+            # metadata, but its free-form caption rewrite can over-compress
+            # detailed prompts after switching away from Turbo.
+            if _should_apply_lm_caption_to_dit(
+                dit_handler,
+                params,
+                need_audio_codes,
+                dit_input_caption,
+            ):
                 dit_input_caption = lm_generated_metadata.get("caption", dit_input_caption)
+            elif params.use_cot_caption and params.task_type == "text2music":
+                logger.info(
+                    "[generate_music] Keeping user caption for non-turbo text2music; "
+                    "LM caption rewrite remains recorded as metadata only."
+                )
             if params.use_cot_language:
                 dit_input_vocal_language = lm_generated_metadata.get("vocal_language", dit_input_vocal_language)
 
@@ -916,8 +1086,21 @@ def generate_music(
         # actual_seed_list was computed earlier using dit_handler.prepare_seeds
         seed_list = actual_seed_list
 
-        # Get base params dictionary
+        # Get base params dictionary.  Persist the resolved DiT conditioning
+        # values, not only the raw UI values, so manifests show what actually
+        # reached the model after LM metadata/default resolution.
         base_params_dict = params.to_dict()
+        base_params_dict.update(
+            {
+                "caption": dit_input_caption,
+                "lyrics": dit_input_lyrics,
+                "vocal_language": dit_input_vocal_language,
+                "bpm": bpm,
+                "keyscale": key_scale or "",
+                "timesignature": time_signature or "",
+                "duration": audio_duration,
+            }
+        )
 
         # Save audio files using AudioSaver (format from config)
         audio_format = str(config.audio_format).strip().lower() if config.audio_format else "flac"

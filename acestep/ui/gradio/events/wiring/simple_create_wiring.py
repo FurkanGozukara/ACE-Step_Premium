@@ -11,6 +11,7 @@ from .. import results_handlers as res_h
 from ..generation.quantization import default_quantization_value
 from ...premium_features import (
     SIMPLE_MODEL_CHOICES,
+    model_quality_defaults,
     normalize_simple_model_dropdown_value,
     open_outputs_folder,
 )
@@ -94,6 +95,15 @@ def register_simple_create_handlers(
             generation_section["task_type"],
             generation_section["generation_mode"],
             generation_section["init_llm_checkbox"],
+            generation_section["think_checkbox"],
+            generation_section["allow_lm_batch"],
+            generation_section["use_cot_metas"],
+            generation_section["use_cot_caption"],
+            generation_section["use_cot_language"],
+            generation_section["dcw_enabled"],
+            generation_section["dcw_mode"],
+            generation_section["dcw_scaler"],
+            generation_section["dcw_high_scaler"],
             simple_page["simple_status"],
         ],
     )
@@ -186,6 +196,7 @@ def _simple_prepare_outputs(
         generation_section["quantization_checkbox"],
         generation_section["init_llm_checkbox"],
         generation_section["think_checkbox"],
+        generation_section["allow_lm_batch"],
         generation_section["random_seed_checkbox"],
         generation_section["seed"],
         generation_section["text2music_audio_code_string"],
@@ -209,6 +220,10 @@ def _simple_prepare_outputs(
         generation_section["cfg_interval_start"],
         generation_section["cfg_interval_end"],
         generation_section["config_path"],
+        generation_section["dcw_enabled"],
+        generation_section["dcw_mode"],
+        generation_section["dcw_scaler"],
+        generation_section["dcw_high_scaler"],
     ]
 
 
@@ -364,25 +379,39 @@ def _apply_simple_model_change(
     """Apply the Create-tab XL model selector to the advanced model controls."""
 
     selected_model = normalize_simple_model_dropdown_value(model_path)
-    model_updates = gen_h.update_model_type_settings(selected_model, current_mode)
+    model_updates = list(gen_h.update_model_type_settings(selected_model, current_mode))
+    quality_defaults = model_quality_defaults(selected_model)
+    model_updates[8] = gr.update(value=quality_defaults["init_lm_checkbox"])
+    behavior_updates = (
+        gr.update(value=quality_defaults["think_checkbox"]),
+        gr.update(value=quality_defaults["allow_lm_batch"]),
+        gr.update(value=quality_defaults["use_cot_metas"]),
+        gr.update(value=quality_defaults["use_cot_caption"]),
+        gr.update(value=quality_defaults["use_cot_language"]),
+        gr.update(value=quality_defaults["dcw_enabled"]),
+        gr.update(value=quality_defaults["dcw_mode"]),
+        gr.update(value=quality_defaults["dcw_scaler"]),
+        gr.update(value=quality_defaults["dcw_high_scaler"]),
+    )
     label = _SIMPLE_MODEL_LABELS.get(selected_model, selected_model)
     if "turbo" in selected_model:
         status = (
             f"Selected model: {label}. Next generation uses XL Turbo "
-            "8-step fast defaults. GPU presets remain the XL 4B profile."
+            "8-step LM-conditioned defaults. GPU presets remain the XL 4B profile."
         )
     elif "base" in selected_model:
         status = (
             f"Selected model: {label}. Next generation uses XL Base "
-            "64-step ADG/CFG quality defaults with all task modes available. "
+            "64-step direct DiT APG/CFG quality defaults with shift 3.0 and all task modes available. "
             "GPU presets remain the XL 4B profile."
         )
     else:
         status = (
             f"Selected model: {label}. Next generation uses XL SFT "
-            "64-step ADG/CFG quality defaults. GPU presets remain the XL 4B profile."
+            "50-step CFG quality defaults with 5Hz LM Thinking metadata and shift 3.0. "
+            "GPU presets remain the XL 4B profile."
         )
-    return (gr.update(value=selected_model), *model_updates, status)
+    return (gr.update(value=selected_model), *model_updates, *behavior_updates, status)
 
 
 def _extract_generation_status(outputs: Any) -> str:

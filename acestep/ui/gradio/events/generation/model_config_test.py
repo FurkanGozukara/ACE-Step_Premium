@@ -104,18 +104,20 @@ class GetUiControlConfigTests(unittest.TestCase):
     """Verify get_ui_control_config returns correct defaults per model type."""
 
     def test_sft_model_returns_quality_defaults(self):
-        """SFT models should default to high-quality inference settings."""
+        """SFT models should default to the documented CFG quality schedule."""
         cfg = get_ui_control_config(is_turbo=False, is_sft=True)
-        self.assertEqual(cfg["inference_steps_value"], 64)
+        self.assertEqual(cfg["inference_steps_value"], 50)
         self.assertEqual(cfg["guidance_scale_value"], 7.0)
-        self.assertTrue(cfg["use_adg_value"])
+        self.assertFalse(cfg["use_adg_value"])
+        self.assertEqual(cfg["shift_value"], 3.0)
 
     def test_base_model_returns_quality_defaults(self):
-        """Non-turbo models should default to high-quality inference settings."""
-        cfg = get_ui_control_config(is_turbo=False, is_sft=False)
+        """Base models should default to APG/CFG quality settings."""
+        cfg = get_ui_control_config(is_turbo=False, is_pure_base=True)
         self.assertEqual(cfg["inference_steps_value"], 64)
         self.assertEqual(cfg["guidance_scale_value"], 7.0)
-        self.assertTrue(cfg["use_adg_value"])
+        self.assertFalse(cfg["use_adg_value"])
+        self.assertEqual(cfg["shift_value"], 3.0)
 
     def test_turbo_model_returns_8_steps(self):
         """Turbo models should default to 8 inference steps."""
@@ -123,6 +125,7 @@ class GetUiControlConfigTests(unittest.TestCase):
         self.assertEqual(cfg["inference_steps_value"], 8)
         self.assertEqual(cfg["guidance_scale_value"], 1.0)
         self.assertFalse(cfg["use_adg_value"])
+        self.assertEqual(cfg["shift_value"], 3.0)
 
     def test_turbo_takes_precedence_over_sft(self):
         """When both turbo and SFT flags are set, turbo should win."""
@@ -130,14 +133,18 @@ class GetUiControlConfigTests(unittest.TestCase):
         self.assertEqual(cfg["inference_steps_value"], 8)
 
     def test_xl_sft_path_returns_quality_steps(self):
-        """The premium default XL-SFT model should use non-turbo defaults."""
+        """The premium default XL-SFT model should use SFT defaults."""
         cfg = get_ui_control_config_for_path("acestep-v15-xl-sft")
-        self.assertEqual(cfg["inference_steps_value"], 64)
+        self.assertEqual(cfg["inference_steps_value"], 50)
+        self.assertEqual(cfg["shift_value"], 3.0)
+        self.assertFalse(cfg["use_adg_value"])
 
     def test_xl_base_path_returns_quality_steps_and_base_modes(self):
         """XL-Base should use non-turbo defaults and expose base-only modes."""
         cfg = get_ui_control_config_for_path("acestep-v15-xl-base")
         self.assertEqual(cfg["inference_steps_value"], 64)
+        self.assertEqual(cfg["shift_value"], 3.0)
+        self.assertFalse(cfg["use_adg_value"])
         self.assertIn("Extract", cfg["generation_mode_choices"])
 
     def test_xl_turbo_path_returns_8_steps(self):
@@ -150,10 +157,12 @@ class UpdateModelTypeSettingsIntegrationTests(unittest.TestCase):
     """End-to-end tests: config path string in, correct step defaults out."""
 
     def test_sft_path_produces_quality_steps(self):
-        """Passing an SFT model path should yield high-quality inference steps."""
+        """Passing an SFT model path should yield documented quality settings."""
         result = update_model_type_settings("acestep-v15-sft")
         # First element is the inference_steps gr.update()
-        self.assertEqual(result[0]["value"], 64)
+        self.assertEqual(result[0]["value"], 50)
+        self.assertEqual(result[2]["value"], False)
+        self.assertEqual(result[3]["value"], 3.0)
 
     def test_turbo_path_produces_8_steps(self):
         """Passing a turbo model path should yield 8 inference steps."""
@@ -168,20 +177,22 @@ class UpdateModelTypeSettingsIntegrationTests(unittest.TestCase):
         self.assertEqual(result[0]["value"], 64)
         self.assertEqual(result[1]["value"], 7.0)
         self.assertTrue(result[1]["visible"])
+        self.assertFalse(result[2]["value"])
+        self.assertEqual(result[3]["value"], 3.0)
 
     def test_none_path_does_not_crash(self):
         """Passing None as config_path should not raise."""
         result = update_model_type_settings(None)
-        self.assertEqual(result[0]["value"], 64)
+        self.assertEqual(result[0]["value"], 50)
 
     def test_substring_no_false_positive_end_to_end(self):
         """Word-boundary matching prevents false positives end-to-end.
 
         "sftp-server" contains "sft" but not as a delimited token,
-        so it correctly falls through to the non-turbo quality default.
+        so it correctly falls through to the non-turbo SFT-compatible default.
         """
         result = update_model_type_settings("sftp-server")
-        self.assertEqual(result[0]["value"], 64)
+        self.assertEqual(result[0]["value"], 50)
 
 
 class PreferredModelPathTests(unittest.TestCase):

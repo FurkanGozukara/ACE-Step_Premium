@@ -10,7 +10,11 @@ import gradio as gr
 
 from .. import generation_handlers as gen_h
 from ..generation.quantization import default_quantization_value
-from ...premium_features import SIMPLE_MODEL_VALUES, open_outputs_folder
+from ...premium_features import (
+    SIMPLE_MODEL_VALUES,
+    model_quality_defaults,
+    open_outputs_folder,
+)
 from ...i18n import get_i18n, reset_language_context, set_language_context
 from .context import (
     GenerationWiringContext,
@@ -69,6 +73,15 @@ def register_generation_service_handlers(
         generation_section["task_type"],
         generation_section["generation_mode"],
         generation_section["init_llm_checkbox"],
+        generation_section["think_checkbox"],
+        generation_section["allow_lm_batch"],
+        generation_section["use_cot_metas"],
+        generation_section["use_cot_caption"],
+        generation_section["use_cot_language"],
+        generation_section["dcw_enabled"],
+        generation_section["dcw_mode"],
+        generation_section["dcw_scaler"],
+        generation_section["dcw_high_scaler"],
     ]
     if "simple_model_dropdown" in generation_section:
         generation_section["config_path"].change(
@@ -84,7 +97,7 @@ def register_generation_service_handlers(
         )
     else:
         generation_section["config_path"].change(
-            fn=gen_h.update_model_type_settings,
+            fn=_apply_config_path_change,
             inputs=[
                 generation_section["config_path"],
                 generation_section["generation_mode"],
@@ -181,9 +194,10 @@ def register_generation_service_handlers(
         ],
     )
     init_event.then(
-        fn=gen_h.update_dcw_defaults_for_think,
-        inputs=[generation_section["think_checkbox"]],
+        fn=_apply_dcw_defaults_for_model,
+        inputs=[generation_section["config_path"]],
         outputs=[
+            generation_section["dcw_enabled"],
             generation_section["dcw_mode"],
             generation_section["dcw_scaler"],
             generation_section["dcw_high_scaler"],
@@ -329,14 +343,49 @@ def _apply_config_path_change_with_simple_sync(
 ) -> tuple[Any, ...]:
     """Update model-type controls and mirror XL selections into the simple selector."""
 
-    model_updates = gen_h.update_model_type_settings(config_path, current_mode)
+    model_and_behavior_updates = _apply_config_path_change(config_path, current_mode)
     selected = str(config_path or "").strip()
     simple_model_update = (
         gr.update(value=selected)
         if selected in SIMPLE_MODEL_VALUES
         else gr.update()
     )
-    return (*model_updates, simple_model_update)
+    return (*model_and_behavior_updates, simple_model_update)
+
+
+def _apply_config_path_change(
+    config_path: str | None,
+    current_mode: str | None = None,
+) -> tuple[Any, ...]:
+    """Update model-type controls and all LM/DCW behavior controls."""
+
+    model_updates = list(gen_h.update_model_type_settings(config_path, current_mode))
+    quality_defaults = model_quality_defaults(config_path)
+    model_updates[8] = gr.update(value=quality_defaults["init_lm_checkbox"])
+    behavior_updates = (
+        gr.update(value=quality_defaults["think_checkbox"]),
+        gr.update(value=quality_defaults["allow_lm_batch"]),
+        gr.update(value=quality_defaults["use_cot_metas"]),
+        gr.update(value=quality_defaults["use_cot_caption"]),
+        gr.update(value=quality_defaults["use_cot_language"]),
+        gr.update(value=quality_defaults["dcw_enabled"]),
+        gr.update(value=quality_defaults["dcw_mode"]),
+        gr.update(value=quality_defaults["dcw_scaler"]),
+        gr.update(value=quality_defaults["dcw_high_scaler"]),
+    )
+    return (*model_updates, *behavior_updates)
+
+
+def _apply_dcw_defaults_for_model(config_path: str | None) -> tuple[Any, ...]:
+    """Return DCW enable/mode/scaler defaults for the selected model."""
+
+    quality_defaults = model_quality_defaults(config_path)
+    return (
+        gr.update(value=quality_defaults["dcw_enabled"]),
+        gr.update(value=quality_defaults["dcw_mode"]),
+        gr.update(value=quality_defaults["dcw_scaler"]),
+        gr.update(value=quality_defaults["dcw_high_scaler"]),
+    )
 
 
 def _apply_tier_change_with_simple_quantization(

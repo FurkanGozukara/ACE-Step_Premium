@@ -161,6 +161,30 @@ def _lm_service_needs_init(
     return False, requested_lm_model
 
 
+def _unload_lm_when_unused(
+    llm_handler,
+    *,
+    init_llm_checkbox: bool,
+    think_checkbox: bool,
+    auto_score: bool,
+) -> str:
+    """Unload the foreground LM when the selected generation path will not use it."""
+
+    needs_lm = bool(init_llm_checkbox or think_checkbox or auto_score)
+    if needs_lm or llm_handler is None:
+        return ""
+    if not getattr(llm_handler, "llm_initialized", False):
+        return ""
+    unload = getattr(llm_handler, "unload", None)
+    if not callable(unload):
+        return ""
+    logger.info(
+        "[generate_with_batch_management] Unloading foreground 5Hz LM; selected run does not use LM."
+    )
+    unload()
+    return "Unloaded 5Hz LM for direct DiT generation."
+
+
 def _default_lm_model(llm_handler) -> str:
     """Return the current GPU-tier LM default for foreground generation."""
     fallback_model = "acestep-5Hz-lm-1.7B"
@@ -249,6 +273,15 @@ def _ensure_in_process_service_ready(
         status_lines.append(init_status)
         if not ok:
             return False, "\n".join(status_lines)
+
+    lm_unload_status = _unload_lm_when_unused(
+        llm_handler,
+        init_llm_checkbox=bool(init_llm_checkbox),
+        think_checkbox=bool(think_checkbox),
+        auto_score=bool(auto_score),
+    )
+    if lm_unload_status:
+        status_lines.append(lm_unload_status)
 
     lm_requires_init, requested_lm_model = _lm_service_needs_init(
         llm_handler,

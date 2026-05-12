@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import math
 import re
 from typing import Any
 
+from acestep.constants import DURATION_MAX, DURATION_MIN
 from ...premium_features import (
     model_quality_defaults,
     normalize_simple_model_dropdown_value,
@@ -41,9 +43,16 @@ def prepare_simple_generation(
     bpm_value = _normalize_bpm(formatted_bpm)
     key_scale_value = _normalize_text_value(formatted_key_scale)
     time_signature_value = _normalize_text_value(formatted_time_signature)
-    status = _build_status(auto_duration, duration_value)
     selected_model = normalize_simple_model_dropdown_value(model_path)
     quality_defaults = model_quality_defaults(selected_model)
+    model_uses_lm = bool(quality_defaults["think_checkbox"])
+    use_lm_for_generation = model_uses_lm
+    if auto_duration and not use_lm_for_generation:
+        duration_value = _estimate_direct_auto_duration(final_lyrics, final_caption)
+        auto_duration = False
+        status = _build_status(auto_duration, duration_value, estimated=True)
+    else:
+        status = _build_status(auto_duration, duration_value)
 
     return (
         "Custom",
@@ -54,8 +63,9 @@ def prepare_simple_generation(
         duration_value,
         batch_value,
         quantization or "none",
-        auto_duration,
-        auto_duration,
+        use_lm_for_generation,
+        use_lm_for_generation,
+        quality_defaults["allow_lm_batch"] if use_lm_for_generation else False,
         random_seed_value,
         seed_value,
         "",
@@ -64,9 +74,9 @@ def prepare_simple_generation(
         not time_signature_value,
         True,
         auto_duration,
-        auto_duration,
-        auto_duration,
-        auto_duration,
+        use_lm_for_generation,
+        use_lm_for_generation,
+        use_lm_for_generation,
         bpm_value,
         key_scale_value,
         time_signature_value,
@@ -79,6 +89,10 @@ def prepare_simple_generation(
         quality_defaults["cfg_interval_start"],
         quality_defaults["cfg_interval_end"],
         selected_model,
+        quality_defaults["dcw_enabled"],
+        quality_defaults["dcw_mode"],
+        quality_defaults["dcw_scaler"],
+        quality_defaults["dcw_high_scaler"],
     )
 
 
@@ -181,12 +195,33 @@ def _normalize_text_value(value: Any) -> str:
 
 
 def _is_auto_duration(duration: float) -> bool:
-    """Return whether the value requests LM-estimated automatic duration."""
+    """Return whether the value requests automatic duration."""
 
     return duration <= 0
 
 
-def _build_status(auto_duration: bool, duration: float) -> str:
+def _estimate_direct_auto_duration(lyrics: str, caption: str) -> float:
+    """Estimate a fixed duration for non-LM Base/SFT generation."""
+
+    lyric_text = str(lyrics or "")
+    without_tags = re.sub(r"\[[^\]]+\]", " ", lyric_text)
+    words = re.findall(r"[A-Za-z0-9']+", without_tags)
+    if len(words) < 80:
+        return 60.0
+
+    context = " ".join([str(caption or ""), lyric_text]).lower()
+    rap_like = bool(
+        re.search(
+            r"\b(rap|hip[-\s]?hop|trap|drill|grime|pop[-\s]?rap|808|boom[-\s]?bap|r&b|rnb)\b",
+            context,
+        )
+    )
+    max_words_per_second = 2.35 if rap_like else 2.10
+    seconds = int(math.ceil(len(words) / max_words_per_second))
+    return float(max(DURATION_MIN, min(DURATION_MAX, seconds)))
+
+
+def _build_status(auto_duration: bool, duration: float, estimated: bool = False) -> str:
     """Build the simple-tab generation status message."""
 
     if auto_duration:
@@ -194,4 +229,6 @@ def _build_status(auto_duration: bool, duration: float) -> str:
             "Generation started. Auto duration will be estimated from the "
             "prompt and lyrics with the 5Hz LM."
         )
+    if estimated:
+        return f"Generation started. Auto duration estimated from lyrics: {duration:g}s."
     return f"Generation started. Fixed duration: {duration:g}s."

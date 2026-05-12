@@ -1,5 +1,6 @@
 """Top-level initialization orchestration for the handler."""
 
+import gc
 import os
 import traceback
 from pathlib import Path
@@ -15,6 +16,31 @@ _ROCM_DTYPE_MAP = {
     "float16": torch.float16,
     "bfloat16": torch.bfloat16,
 }
+
+
+def _release_accelerator_cache() -> None:
+    """Best-effort accelerator cache cleanup after releasing model objects."""
+
+    try:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
+    except Exception:
+        pass
+    try:
+        if hasattr(torch, "mps") and torch.backends.mps.is_available():
+            if hasattr(torch.mps, "empty_cache"):
+                torch.mps.empty_cache()
+            if hasattr(torch.mps, "synchronize"):
+                torch.mps.synchronize()
+    except Exception:
+        pass
+    try:
+        if hasattr(torch, "xpu") and torch.xpu.is_available():
+            torch.xpu.empty_cache()
+            torch.xpu.synchronize()
+    except Exception:
+        pass
 
 
 def _cuda_supports_bfloat16() -> bool:
@@ -44,6 +70,51 @@ def _resolve_rocm_dtype() -> torch.dtype:
 
 class InitServiceOrchestratorMixin:
     """Public ``initialize_service`` orchestration entrypoint."""
+
+    def _release_loaded_runtime_components(self) -> None:
+        """Release the currently loaded DiT runtime before switching checkpoints."""
+
+        had_runtime = any(
+            getattr(self, attr, None) is not None
+            for attr in (
+                "model",
+                "vae",
+                "text_encoder",
+                "text_tokenizer",
+                "silence_latent",
+                "mlx_decoder",
+                "_base_decoder",
+            )
+        )
+        if not had_runtime:
+            return
+
+        logger.info("[initialize_service] Releasing existing DiT runtime before loading new checkpoint.")
+        for attr in (
+            "model",
+            "vae",
+            "text_encoder",
+            "text_tokenizer",
+            "silence_latent",
+            "reward_model",
+            "mlx_decoder",
+            "_base_decoder",
+        ):
+            if hasattr(self, attr):
+                setattr(self, attr, None)
+
+        self.config = None
+        self.lora_loaded = False
+        self.use_lora = False
+        self.lora_scale = 1.0
+        self._active_loras = {}
+        self._lora_adapter_registry = {}
+        self._lora_active_adapter = None
+        self.use_mlx_dit = False
+        self.mlx_dit_compiled = False
+        self.last_init_params = None
+        gc.collect()
+        _release_accelerator_cache()
 
     def initialize_service(
         self,
@@ -146,6 +217,7 @@ class InitServiceOrchestratorMixin:
                 return precheck_failure
 
             self._sync_model_code_if_needed(config_path, checkpoint_path)
+            self._release_loaded_runtime_components()
 
             model_path = os.path.join(checkpoint_dir, config_path)
             self._load_main_model_from_checkpoint(
