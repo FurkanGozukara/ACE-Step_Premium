@@ -16,7 +16,8 @@
 			- To download all models also run Windows_Download_All_Models.bat after installation
 	- RunPod and SimplePod : Runpod_SimplePod_ACE_Step_Instructions.txt
 	- Massed Compute / Local Linux : Massed_Compute_Instructions_READ.txt
- 	- RunPod, Massed Compute installers automatically downloads all 3 ACEStep 1.5 XL models, Turbo, SFT and Base 
+ 	- RunPod, Massed Compute installers automatically downloads all 3 ACEStep 1.5 XL models, Turbo, SFT and Base
+  	- Zip file also has ACE_Step_Lyric_Generation_Instructions_For_LLMs.txt which you can use to better format your Music / Song lyrics and style by providing this file to your favorite LLM
   	- The installers will generate a Python 3.11 VENV automatically and install everything inside there, thus your system or any other of your APPs will never be impacted
   		- For Windows, you have to have Python 3.11 properly installed into your system, cloud images are all pre-setup by me so nothing needed just follow instructions
   	 	- With our pre-compiled libraries for both Windows and Linux, we support literally all of the GPUs out there starting from RTX 2000 series to RTX 5000 series, or cloud GPUs like RTX PRO 6000, H100, B200, etc.
