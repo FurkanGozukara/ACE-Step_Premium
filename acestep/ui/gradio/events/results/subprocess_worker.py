@@ -185,7 +185,7 @@ def main() -> int:
         print(
             f"[Worker] Starting generation: model={selected_model}, "
             f"inference_steps={requested_steps}, "
-            f"batch_size={generation.get('batch_size_input')}, "
+            f"songs={generation.get('batch_size_input')}, "
             f"duration={generation.get('audio_duration')}",
             flush=True,
         )

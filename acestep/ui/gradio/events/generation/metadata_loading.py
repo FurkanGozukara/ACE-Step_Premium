@@ -13,6 +13,7 @@ from typing import Optional
 
 from acestep.gpu_config import get_global_gpu_config
 from acestep.inference import understand_music
+from acestep.ui.gradio.events.generation.generation_count import normalize_generation_count
 from acestep.ui.gradio.events.generation.audio_format_options import (
     DEFAULT_AUDIO_FORMAT,
     DEFAULT_MP3_BITRATE,
@@ -72,11 +73,8 @@ def load_metadata(file_obj, llm_handler=None):
         else:
             audio_duration = -1
 
-        batch_size = metadata.get('batch_size', 1)
-        gpu_config = get_global_gpu_config()
-        lm_initialized = llm_handler.llm_initialized if llm_handler else False
-        max_batch_size = gpu_config.max_batch_size_with_lm if lm_initialized else gpu_config.max_batch_size_without_lm
-        batch_size = min(int(batch_size), max_batch_size)
+        batch_size = metadata.get('generation_count', metadata.get('batch_size', 1))
+        batch_size = normalize_generation_count(batch_size)
         inference_steps = metadata.get('inference_steps', 8)
         guidance_scale = metadata.get('guidance_scale', 7.0)
         seed = metadata.get('seed', '-1')

@@ -147,9 +147,9 @@ class GenerationHandlersTests(unittest.TestCase):
         # batch_update is at index -2 (second to last)
         batch_update = result[-2]
         
-        # Verify batch_update preserves the value 5 (clamped to max_batch of 8)
+        # Verify the Songs control preserves the value 5 without a UI maximum.
         self.assertEqual(batch_update["value"], 5)
-        self.assertEqual(batch_update["maximum"], 8)
+        self.assertIsNone(batch_update["maximum"])
 
     @patch("acestep.ui.gradio.events.generation.service_init.get_global_gpu_config")
     @patch("acestep.ui.gradio.events.generation.service_init.get_model_type_ui_settings")
@@ -202,9 +202,9 @@ class GenerationHandlersTests(unittest.TestCase):
 
         batch_update = result[-2]
         
-        # Verify batch_update defaults to min(1, max_batch)
+        # Verify the Songs control defaults to 1 without a UI maximum.
         self.assertEqual(batch_update["value"], 1)
-        self.assertEqual(batch_update["maximum"], 8)
+        self.assertIsNone(batch_update["maximum"])
 
     @patch("acestep.ui.gradio.events.generation.validation.gr.Warning")
     @patch("acestep.ui.gradio.events.generation.validation.soundfile.info")

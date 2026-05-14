@@ -4,6 +4,9 @@ import sys
 from typing import Any
 
 from acestep.gpu_config import GPUConfig, get_global_gpu_config
+from acestep.ui.gradio.events.generation.generation_count import (
+    normalize_generation_count,
+)
 from acestep.ui.gradio.events.generation.model_config import (
     is_pure_base_model,
     select_preferred_model_path,
@@ -38,17 +41,13 @@ def compute_init_defaults(
         if lm_initialized
         else gpu_config.max_duration_without_lm
     )
-    max_batch_size = (
-        gpu_config.max_batch_size_with_lm
-        if lm_initialized
-        else gpu_config.max_batch_size_without_lm
-    )
+    max_batch_size = None
 
     cli_batch_size = (init_params or {}).get("default_batch_size")
     if cli_batch_size is not None:
-        default_batch_size = min(cli_batch_size, max_batch_size)
+        default_batch_size = normalize_generation_count(cli_batch_size)
     else:
-        default_batch_size = min(1, max_batch_size)
+        default_batch_size = 1
 
     init_lm_default = gpu_config.init_lm_default
     default_offload = gpu_config.offload_to_cpu_default

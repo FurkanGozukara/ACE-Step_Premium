@@ -15,9 +15,12 @@ from loguru import logger
 from acestep.gpu_config import (
     get_global_gpu_config,
     check_duration_limit,
-    check_batch_size_limit,
 )
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.events.generation.generation_count import (
+    normalize_generation_count,
+    seed_for_generation_index,
+)
 from acestep.ui.gradio.events.generation_handlers import parse_and_validate_timesteps
 from acestep.ui.gradio.events.generation.audio_format_options import (
     audio_file_extension,
@@ -28,6 +31,7 @@ from acestep.ui.gradio.events.generation.audio_format_options import (
 from acestep.ui.gradio.events.results.generation_info import (
     _build_generation_info,
 )
+from acestep.ui.gradio.events.results.generation_sequence import generate_sequential_songs
 from acestep.ui.gradio.events.results.output_manager import (
     build_generation_manifest,
     create_generation_run_dir,
@@ -118,13 +122,7 @@ def generate_with_progress(
             audio_duration = min(audio_duration, max_dur)
             logger.warning(f"Duration clamped to {audio_duration}s due to GPU memory limits")
 
-    if batch_size_input is not None and batch_size_input > 0:
-        is_valid, warning_msg = check_batch_size_limit(int(batch_size_input), gpu_config, lm_initialized)
-        if not is_valid:
-            gr.Warning(warning_msg)
-            max_bs = gpu_config.max_batch_size_with_lm if lm_initialized else gpu_config.max_batch_size_without_lm
-            batch_size_input = min(int(batch_size_input), max_bs)
-            logger.warning(f"Batch size clamped to {batch_size_input} due to GPU memory limits")
+    generation_count = normalize_generation_count(batch_size_input)
 
     # Skip Phase 1 metas COT if sample is already formatted
     actual_use_cot_metas = use_cot_metas
@@ -142,7 +140,7 @@ def generate_with_progress(
         f"[generate_with_progress] Generation request: model={active_model}, "
         f"inference_steps_requested={inference_steps}, "
         f"inference_steps_used={actual_inference_steps}, "
-        f"batch_size={batch_size_input}, duration={audio_duration}"
+        f"songs={generation_count}, backend_batch_size=1, duration={audio_duration}"
     )
 
     task_type = resolve_no_fsq_task_type(task_type, bool(no_fsq))
@@ -224,16 +222,15 @@ def generate_with_progress(
         flow_edit_n_avg=int(flow_edit_n_avg) if flow_edit_n_avg is not None else 1,
     )
 
-    if isinstance(seed, str) and seed.strip():
-        seed_list = [int(s.strip()) for s in seed.split(",")] if "," in seed else [int(seed.strip())]
-    else:
-        seed_list = None
-
     gen_config = GenerationConfig(
-        batch_size=batch_size_input,
-        allow_lm_batch=allow_lm_batch,
+        batch_size=1,
+        allow_lm_batch=False,
         use_random_seed=random_seed_checkbox,
-        seeds=seed_list,
+        seeds=seed_for_generation_index(
+            seed,
+            0,
+            random_seed=bool(random_seed_checkbox),
+        ),
         lm_batch_chunk_size=lm_batch_chunk_size,
         constrained_decoding_debug=constrained_decoding_debug,
         audio_format=backend_audio_format,
@@ -241,14 +238,19 @@ def generate_with_progress(
         mp3_sample_rate=mp3_sample_rate,
     )
 
-    result = generate_music(dit_handler, llm_handler, params=gen_params, config=gen_config, progress=progress)
+    result = generate_sequential_songs(
+        generate_music,
+        dit_handler,
+        llm_handler,
+        params=gen_params,
+        base_config=gen_config,
+        generation_count=generation_count,
+        seed=seed,
+        random_seed=bool(random_seed_checkbox),
+        progress=progress,
+    )
 
-    audio_outputs = [None] * 8
     all_audio_paths: list = []
-    final_codes_list = [""] * 8
-    final_scores_list = [""] * 8
-    final_lrcs_list = [""] * 8
-    final_subtitles_list = [None] * 8
 
     seed_value_for_ui = result.extra_outputs.get("seed_value", "")
     lm_generated_metadata = result.extra_outputs.get("lm_metadata", {})
@@ -282,7 +284,7 @@ def generate_with_progress(
         seed_value_for_ui=seed_value_for_ui,
         reference_audio=reference_audio,
         audio_duration=audio_duration,
-        batch_size_input=batch_size_input,
+        batch_size_input=generation_count,
         src_audio=src_audio,
         text2music_audio_code_string=text2music_audio_code_string,
         repainting_start=repainting_start,
@@ -390,6 +392,13 @@ def generate_with_progress(
         return
 
     audios = result.audios
+    visible_slots = 8
+    stored_sample_count = max(visible_slots, len(audios))
+    audio_outputs = [None] * visible_slots
+    final_codes_list = [""] * stored_sample_count
+    final_scores_list = [""] * visible_slots
+    final_lrcs_list = [""] * stored_sample_count
+    final_subtitles_list = [None] * stored_sample_count
     progress(0.99, "Preparing audio files...")
 
     # Clear all scores/codes/lrc displays
@@ -410,14 +419,11 @@ def generate_with_progress(
     )
     time_module.sleep(0.1)
 
-    for i in range(8):
-        if i >= len(audios):
-            continue
-
-        key = audios[i]["key"]
-        audio_tensor = audios[i]["tensor"]
-        sample_rate = audios[i]["sample_rate"]
-        audio_params = audios[i]["params"]
+    for i, dit_audio in enumerate(audios):
+        key = dit_audio["key"]
+        audio_tensor = dit_audio["tensor"]
+        sample_rate = dit_audio["sample_rate"]
+        audio_params = dit_audio["params"]
 
         temp_dir = str(run_dir.resolve()).replace("\\", "/")
         json_path = os.path.join(temp_dir, f"{key}.json").replace("\\", "/")
@@ -461,7 +467,8 @@ def generate_with_progress(
             audio_params=audio_params,
         )
 
-        audio_outputs[i] = audio_path
+        if i < visible_slots:
+            audio_outputs[i] = audio_path
         all_audio_paths.extend(saved_audio_paths.values())
         all_audio_paths.append(json_path)
 
@@ -481,8 +488,9 @@ def generate_with_progress(
             )
             total_auto_score_time += time_module.time() - auto_score_start
 
-        scores_ui_updates[i] = score_str
-        final_scores_list[i] = score_str
+        if i < visible_slots:
+            scores_ui_updates[i] = score_str
+            final_scores_list[i] = score_str
 
         if auto_lrc:
             auto_lrc_start = time_module.time()
@@ -535,13 +543,14 @@ def generate_with_progress(
         )
 
         # STEP 1: yield audio + clear LRC
-        cur_audio = [gr.skip()] * 8
-        cur_audio[i] = build_audio_slot_update(gr, audio_path)
-        cur_codes = [gr.skip()] * 8
-        cur_codes[i] = gr.update(value=code_str, visible=True)
+        cur_audio = [gr.skip()] * visible_slots
+        cur_codes = [gr.skip()] * visible_slots
         cur_accordions = [gr.skip()] * 8
-        lrc_clear = [gr.skip()] * 8
-        lrc_clear[i] = gr.update(value="", visible=True)
+        lrc_clear = [gr.skip()] * visible_slots
+        if i < visible_slots:
+            cur_audio[i] = build_audio_slot_update(gr, audio_path)
+            cur_codes[i] = gr.update(value=code_str, visible=True)
+            lrc_clear[i] = gr.update(value="", visible=True)
 
         yield (
             *cur_audio,
@@ -552,9 +561,9 @@ def generate_with_progress(
         time_module.sleep(0.05)
 
         # STEP 2: set actual LRC (triggers .change() for subtitles)
-        if final_lrcs_list[i]:
-            skip8 = [gr.skip()] * 8
-            lrc_set = [gr.skip()] * 8
+        if i < visible_slots and final_lrcs_list[i]:
+            skip8 = [gr.skip()] * visible_slots
+            lrc_set = [gr.skip()] * visible_slots
             lrc_set[i] = gr.update(value=final_lrcs_list[i], visible=True)
             yield (
                 *skip8,
@@ -621,16 +630,13 @@ def generate_with_progress(
     yield (
         *audio_playback_updates,
         all_audio_paths, generation_info, "Generation Complete", seed_value_for_ui,
-        *final_scores_list, *final_codes_display, *final_accordions, *final_lrcs_list,
+        *final_scores_list, *final_codes_display, *final_accordions,
+        *final_lrcs_list[:visible_slots],
         lm_generated_metadata, is_format_caption,
         extra_to_store,
         final_codes_list,
     )
 
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 def _extract_sample_tensor(extra_outputs, sample_idx):
     """Slice per-sample tensor data from *extra_outputs* for scoring.
@@ -757,7 +763,8 @@ def _build_request_payload(
         "time_signature": time_signature,
         "vocal_language": vocal_language,
         "audio_duration": audio_duration,
-        "batch_size": batch_size_input,
+        "generation_count": batch_size_input,
+        "batch_size": 1,
         "task_type": task_type,
         "no_fsq": no_fsq,
         "instruction": instruction_display_gen,
@@ -827,7 +834,10 @@ def _build_request_payload(
         "flow_edit_n_max": flow_edit_n_max,
         "flow_edit_n_avg": flow_edit_n_avg,
         "generation_params": vars(gen_params),
-        "generation_config": vars(gen_config),
+        "generation_config": {
+            **vars(gen_config),
+            "generation_count": batch_size_input,
+        },
         "runtime": {
             "lm_initialized_at_start": lm_initialized,
             "save_memory_mode": gpu_config.save_memory_mode,

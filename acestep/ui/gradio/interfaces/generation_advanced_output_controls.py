@@ -174,7 +174,7 @@ def build_output_controls(
 
 
 def build_automation_controls(service_mode: bool) -> dict[str, Any]:
-    """Create automation controls for LM batch chunking.
+    """Create hidden legacy automation controls kept for wiring compatibility.
 
     Args:
         service_mode: Whether the UI is running in service mode (disables some controls).
@@ -183,22 +183,17 @@ def build_automation_controls(service_mode: bool) -> dict[str, Any]:
         A component map containing ``lm_batch_chunk_size``.
     """
 
-    with gr.Accordion(
-        t("generation.advanced_automation_section"),
-        open=True,
+    lm_batch_chunk_size = gr.Number(
+        label=t("generation.lm_batch_chunk_label"),
+        value=8,
+        minimum=1,
+        maximum=32,
+        step=1,
+        info=t("generation.lm_batch_chunk_info"),
+        scale=1,
+        interactive=not service_mode,
+        visible=False,
+        elem_id="acestep-lm-batch-chunk-size",
         elem_classes=["has-info-container"],
-    ):
-        with gr.Row():
-            lm_batch_chunk_size = gr.Number(
-                label=t("generation.lm_batch_chunk_label"),
-                value=8,
-                minimum=1,
-                maximum=32,
-                step=1,
-                info=t("generation.lm_batch_chunk_info"),
-                scale=1,
-                interactive=not service_mode,
-                elem_id="acestep-lm-batch-chunk-size",
-                elem_classes=["has-info-container"],
-            )
+    )
     return {"lm_batch_chunk_size": lm_batch_chunk_size}

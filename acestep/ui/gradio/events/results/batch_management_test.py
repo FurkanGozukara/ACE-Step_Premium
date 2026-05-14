@@ -119,6 +119,24 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         self.assertEqual(state["store_calls"][0]["codes"], ["code-0", "code-1", "code-2"])
 
+    def test_multi_song_run_stores_multiple_codes_without_lm_batch(self):
+        """Sequential Songs should store multiple codes even when LM batching is off."""
+        module, state = load_batch_management_module(is_windows=False)
+
+        def _gen(*_args, **_kwargs):
+            """Yield a result carrying a list of generated codes."""
+            result = list(build_progress_result(length=48))
+            result[47] = [f"code-{idx}" for idx in range(8)]
+            yield tuple(result)
+
+        kwargs = _build_call_kwargs(module)
+        kwargs["allow_lm_batch"] = False
+        kwargs["batch_size_input"] = 3
+        with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
+            list(module.generate_with_batch_management(None, None, **kwargs))
+
+        self.assertEqual(state["store_calls"][0]["codes"], ["code-0", "code-1", "code-2"])
+
     def test_no_fsq_forwards_to_generation_and_saved_params(self):
         """Wrapper should pass and persist the Remix no_fsq checkbox."""
         module, state = load_batch_management_module(is_windows=False)

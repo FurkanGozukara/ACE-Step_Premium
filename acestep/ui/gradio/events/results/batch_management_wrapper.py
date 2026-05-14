@@ -35,6 +35,7 @@ from acestep.ui.gradio.events.results.output_manager import (
     get_active_generation_run_name,
     get_active_results_dir,
 )
+from acestep.ui.gradio.events.generation.generation_count import normalize_generation_count
 from acestep.ui.gradio.events.generation.quantization import select_quantization_value
 from acestep.ui.gradio.i18n import t
 
@@ -397,7 +398,7 @@ def generate_with_batch_management(
     logger.info(
         f"[generate_with_batch_management] Starting generation: "
         f"model={selected_model}, inference_steps={inference_steps}, "
-        f"batch_size={batch_size_input}, duration={audio_duration}, "
+        f"songs={normalize_generation_count(batch_size_input)}, duration={audio_duration}, "
         f"subprocess={bool(subprocess_mode_checkbox)}"
     )
 
@@ -525,8 +526,9 @@ def generate_with_batch_management(
         generated_codes_single = generated_codes_batch[0] if generated_codes_batch else ""
         extra_outputs_from_result = subprocess_result.get("extra_outputs", {}) or {}
 
-        if allow_lm_batch and batch_size_input >= 2:
-            codes_to_store = generated_codes_batch[:int(batch_size_input)]
+        generation_count = normalize_generation_count(batch_size_input)
+        if generation_count >= 2:
+            codes_to_store = generated_codes_batch[:generation_count]
         else:
             codes_to_store = generated_codes_single
 
@@ -536,7 +538,7 @@ def generate_with_batch_management(
             scores=scores_from_fg,
             codes=codes_to_store,
             allow_lm_batch=allow_lm_batch,
-            batch_size=int(batch_size_input),
+            batch_size=generation_count,
             generation_params=saved_params,
             lm_generated_metadata=lm_generated_metadata,
             extra_outputs=extra_outputs_from_result,
@@ -705,8 +707,9 @@ def generate_with_batch_management(
     generated_codes_batch = raw_codes_list if isinstance(raw_codes_list, list) else [""] * 8
     generated_codes_single = generated_codes_batch[0] if generated_codes_batch else ""
 
-    if allow_lm_batch and batch_size_input >= 2:
-        codes_to_store = generated_codes_batch[:int(batch_size_input)]
+    generation_count = normalize_generation_count(batch_size_input)
+    if generation_count >= 2:
+        codes_to_store = generated_codes_batch[:generation_count]
     else:
         codes_to_store = generated_codes_single
 
@@ -724,7 +727,7 @@ def generate_with_batch_management(
         scores=scores_from_fg,
         codes=codes_to_store,
         allow_lm_batch=allow_lm_batch,
-        batch_size=int(batch_size_input),
+        batch_size=generation_count,
         generation_params=saved_params,
         lm_generated_metadata=lm_generated_metadata,
         extra_outputs=extra_outputs_from_result,

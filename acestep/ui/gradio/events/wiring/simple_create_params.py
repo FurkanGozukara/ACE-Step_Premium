@@ -7,6 +7,7 @@ import re
 from typing import Any
 
 from acestep.constants import DURATION_MAX, DURATION_MIN
+from ..generation.generation_count import normalize_generation_count
 from ...premium_features import (
     model_quality_defaults,
     normalize_simple_model_dropdown_value,
@@ -37,7 +38,7 @@ def prepare_simple_generation(
     final_language = "unknown" if instrumental else (vocal_language or "unknown")
     duration_value = _normalize_duration(duration)
     auto_duration = _is_auto_duration(duration_value)
-    batch_value = max(1, int(batch_size or 1))
+    batch_value = normalize_generation_count(batch_size)
     random_seed_value = bool(random_seed)
     seed_value = _normalize_seed(seed)
     bpm_value = _normalize_bpm(formatted_bpm)

@@ -167,9 +167,10 @@ def build_lm_controls(service_mode: bool) -> dict[str, Any]:
         with gr.Row():
             allow_lm_batch = gr.Checkbox(
                 label=t("generation.parallel_thinking_label"),
-                value=True,
+                value=False,
                 info=t("generation.parallel_thinking_info"),
                 scale=1,
+                visible=False,
                 elem_classes=["has-info-container"],
             )
             use_cot_caption = gr.Checkbox(

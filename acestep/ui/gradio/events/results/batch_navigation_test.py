@@ -100,6 +100,22 @@ class NavigateToNextBatchTests(unittest.TestCase):
         mock_gr.Warning.assert_called_once()
         self.assertEqual(len(result), 49)
 
+    def test_code_list_updates_do_not_require_lm_batch_flag(self, _mock_t, mock_gr):
+        """Sequential Songs should restore per-song codes from list-shaped storage."""
+        mock_gr.update = MagicMock(side_effect=lambda **kw: ("update", kw))
+        mock_gr.skip = MagicMock(return_value="skip")
+
+        from acestep.ui.gradio.events.results.batch_navigation import _build_detail_updates
+
+        batch_data = _make_batch()
+        batch_data["codes"] = ["code-1", "code-2"]
+        batch_data["allow_lm_batch"] = False
+
+        codes_updates, _, _, _ = _build_detail_updates(batch_data, [""] * 8)
+
+        self.assertEqual(codes_updates[0][1]["value"], "code-1")
+        self.assertEqual(codes_updates[1][1]["value"], "code-2")
+
 
 if __name__ == "__main__":
     unittest.main()

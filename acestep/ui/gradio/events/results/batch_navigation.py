@@ -168,7 +168,6 @@ def _build_detail_updates(batch_data, lrc_displays):
         ``(codes_updates, lrc_updates, lrc_clears, accordion_updates)``.
     """
     stored_codes = batch_data.get("codes", "")
-    stored_allow_lm_batch = batch_data.get("allow_lm_batch", False)
 
     codes_updates = []
     lrc_updates = []
@@ -176,7 +175,7 @@ def _build_detail_updates(batch_data, lrc_displays):
     accordion_updates = []
 
     for i in range(8):
-        if stored_allow_lm_batch and isinstance(stored_codes, list):
+        if isinstance(stored_codes, list):
             code_str = stored_codes[i] if i < len(stored_codes) else ""
         else:
             code_str = stored_codes if isinstance(stored_codes, str) and i == 0 else ""

@@ -13,6 +13,7 @@ from acestep.ui.gradio.events.results.batch_management_helpers import (
     _log_background_params,
     apply_lora_selection_for_generation,
 )
+from acestep.ui.gradio.events.generation.generation_count import normalize_generation_count
 from acestep.ui.gradio.events.results.batch_queue import store_batch_in_queue
 from acestep.ui.gradio.events.results.generation_progress import generate_with_progress
 from acestep.ui.gradio.i18n import t
@@ -89,7 +90,8 @@ def generate_next_batch_background(
         logger.info(
             f"[generate_next_batch_background] Starting background generation: "
             f"model={active_model}, inference_steps={params.get('inference_steps')}, "
-            f"batch_size={params.get('batch_size_input')}, duration={params.get('audio_duration')}"
+            f"songs={normalize_generation_count(params.get('batch_size_input'))}, "
+            f"duration={params.get('audio_duration')}"
         )
         _, _, lora_status = apply_lora_selection_for_generation(
             dit_handler,
@@ -199,10 +201,10 @@ def generate_next_batch_background(
         extra_outputs_from_bg = final_result[46] if len(final_result) > 46 and final_result[46] is not None else {}
         scores_from_bg = _extract_scores(final_result)
 
-        batch_size = params.get("batch_size_input", 1)
+        generation_count = normalize_generation_count(params.get("batch_size_input", 1))
         allow_lm_batch_val = params.get("allow_lm_batch", False)
-        if allow_lm_batch_val and batch_size >= 2:
-            codes_to_store = generated_codes_batch[:int(batch_size)]
+        if generation_count >= 2:
+            codes_to_store = generated_codes_batch[:generation_count]
         else:
             codes_to_store = generated_codes_single
 
@@ -216,7 +218,7 @@ def generate_next_batch_background(
             codes=codes_to_store,
             scores=scores_from_bg,
             allow_lm_batch=allow_lm_batch_val,
-            batch_size=int(batch_size),
+            batch_size=generation_count,
             generation_params=params,
             lm_generated_metadata=lm_generated_metadata,
             extra_outputs=extra_outputs_from_bg,

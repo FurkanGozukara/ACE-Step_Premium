@@ -12,6 +12,10 @@ from acestep.ui.gradio.events.generation.quantization import (
     QUANTIZATION_CHOICES,
     default_quantization_value,
 )
+from acestep.ui.gradio.events.generation.generation_count import (
+    generation_count_info,
+    normalize_generation_count,
+)
 from acestep.ui.gradio.language_choices import language_dropdown_choices
 from acestep.ui.gradio.premium_features import (
     DEFAULT_PRESET_CAPTION,
@@ -28,8 +32,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
     gpu_config = params.get("gpu_config")
     tier_value = getattr(gpu_config, "tier", None)
     max_duration = getattr(gpu_config, "max_duration_without_lm", 240)
-    max_batch = getattr(gpu_config, "max_batch_size_without_lm", 1)
-    default_batch = min(int(params.get("default_batch_size") or 1), int(max_batch))
+    default_batch = normalize_generation_count(params.get("default_batch_size") or 1)
     default_quant = default_quantization_value(
         params.get(
             "simple_quantization",
@@ -159,8 +162,8 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                     label="Songs",
                     value=default_batch,
                     minimum=1,
-                    maximum=max_batch,
                     step=1,
+                    info=generation_count_info(),
                     scale=1,
                 )
                 simple_random_seed = gr.Checkbox(

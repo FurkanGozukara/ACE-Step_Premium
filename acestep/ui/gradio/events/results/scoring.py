@@ -306,10 +306,9 @@ def calculate_score_handler_with_selection(
     lm_metadata = batch_data.get("lm_generated_metadata", None)
 
     stored_codes = batch_data.get("codes", "")
-    stored_allow_lm_batch = batch_data.get("allow_lm_batch", False)
 
     audio_codes_str = ""
-    if stored_allow_lm_batch and isinstance(stored_codes, list):
+    if isinstance(stored_codes, list):
         if 0 <= sample_idx - 1 < len(stored_codes):
             code_item = stored_codes[sample_idx - 1]
             audio_codes_str = code_item if isinstance(code_item, str) else ""

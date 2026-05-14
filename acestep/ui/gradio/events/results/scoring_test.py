@@ -6,7 +6,10 @@ from unittest.mock import MagicMock, patch
 
 import torch
 
-from acestep.ui.gradio.events.results.scoring import calculate_score_handler
+from acestep.ui.gradio.events.results.scoring import (
+    calculate_score_handler,
+    calculate_score_handler_with_selection,
+)
 
 
 class CalculateScoreHandlerTests(unittest.TestCase):
@@ -177,6 +180,33 @@ class CalculateScoreHandlerTests(unittest.TestCase):
 
         self.assertIn("PMI Score Failed", result)
         self.assertNotIn("-inf", result)
+
+    @patch("acestep.ui.gradio.events.results.scoring.gr")
+    @patch("acestep.ui.gradio.events.results.scoring.calculate_score_handler")
+    def test_selection_uses_code_list_without_lm_batch_flag(self, score_mock, gr_mock):
+        """Sequential Songs should score the selected code from list-shaped storage."""
+        score_mock.return_value = "score ok"
+        gr_mock.update = MagicMock(side_effect=lambda **kw: ("update", kw))
+        gr_mock.skip = MagicMock(return_value="skip")
+        batch_queue = {
+            0: {
+                "codes": ["code-1", "code-2"],
+                "allow_lm_batch": False,
+                "generation_params": {},
+                "scores": [""] * 8,
+            }
+        }
+
+        calculate_score_handler_with_selection(
+            dit_handler=None,
+            llm_handler=None,
+            sample_idx=2,
+            score_scale=1.0,
+            current_batch_index=0,
+            batch_queue=batch_queue,
+        )
+
+        self.assertEqual(score_mock.call_args.args[1], "code-2")
 
     @staticmethod
     def _llm_handler(model_path, restorable=True):

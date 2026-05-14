@@ -21,6 +21,10 @@ from acestep.gpu_config import (
 )
 from .model_config import is_pure_base_model, is_sft_model, is_xl_model, get_model_type_ui_settings
 from .quantization import default_quantization_value, select_quantization_value
+from .generation_count import (
+    generation_count_info,
+    normalize_generation_count,
+)
 
 
 def _select_quantization_value(
@@ -170,7 +174,6 @@ def init_service_wrapper(
             )
     lm_actually_initialized = llm_handler.llm_initialized if llm_handler else False
     max_duration = gpu_config.max_duration_with_lm if lm_actually_initialized else gpu_config.max_duration_without_lm
-    max_batch = gpu_config.max_batch_size_with_lm if lm_actually_initialized else gpu_config.max_batch_size_without_lm
 
     duration_update = gr.update(
         maximum=float(max_duration),
@@ -179,31 +182,17 @@ def init_service_wrapper(
     )
 
     if current_batch_size is not None:
-        try:
-            batch_value_int = int(current_batch_size)
-            if batch_value_int >= 1:
-                batch_value = min(batch_value_int, max_batch)
-                if batch_value_int > max_batch:
-                    logger.warning(f"Batch size {batch_value_int} exceeds GPU limit {max_batch}, clamping to {batch_value}")
-            else:
-                logger.warning(f"Invalid batch size {batch_value_int} (must be >= 1), using default {min(1, max_batch)}")
-                batch_value = min(1, max_batch)
-        except ValueError:
-            logger.warning(f"Cannot convert batch size '{current_batch_size}' to integer, using default {min(1, max_batch)}")
-            batch_value = min(1, max_batch)
-        except TypeError:
-            logger.warning(f"Invalid batch size type {type(current_batch_size).__name__}, using default {min(1, max_batch)}")
-            batch_value = min(1, max_batch)
+        batch_value = normalize_generation_count(current_batch_size)
     else:
-        batch_value = min(1, max_batch)
+        batch_value = 1
 
     batch_update = gr.update(
-        value=batch_value, maximum=max_batch,
-        info=f"Number of samples to generate (Max: {max_batch}).",
+        value=batch_value, maximum=None,
+        info=generation_count_info(),
         elem_classes=["has-info-container"],
     )
 
-    status += f"\n📊 GPU Config: tier={gpu_config.tier}, max_duration={max_duration}s, max_batch={max_batch}"
+    status += f"\n📊 GPU Config: tier={gpu_config.tier}, max_duration={max_duration}s, songs=sequential"
     if gpu_config.available_lm_models:
         status += f", available_lm={gpu_config.available_lm_models}"
     else:
@@ -263,8 +252,6 @@ def on_tier_change(selected_tier, llm_handler=None):
     default_lm_model = find_best_lm_model_on_disk(recommended_lm, all_disk_models)
 
     max_duration = new_config.max_duration_without_lm
-    max_batch = new_config.max_batch_size_without_lm
-
     tier_label = GPU_TIER_LABELS.get(selected_tier, selected_tier)
     _gpu_device_name = build_startup_gpu_state().device_name
     gpu_info_text = (
@@ -297,8 +284,8 @@ def on_tier_change(selected_tier, llm_handler=None):
         ),
         gr.update(value=new_config.init_lm_default, elem_classes=["has-info-container"]),
         gr.update(
-            value=min(1, max_batch), maximum=max_batch,
-            info=f"Number of samples to generate (Max: {max_batch}).",
+            value=1, maximum=None,
+            info=generation_count_info(),
             elem_classes=["has-info-container"],
         ),
         gr.update(

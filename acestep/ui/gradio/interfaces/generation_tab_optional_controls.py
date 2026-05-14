@@ -5,12 +5,13 @@ from typing import Any
 import gradio as gr
 
 from acestep.ui.gradio.language_choices import language_dropdown_choices
+from acestep.ui.gradio.events.generation.generation_count import generation_count_info
 from acestep.ui.gradio.i18n import t
 
 
 def build_optional_parameter_controls(
     max_duration: float,
-    max_batch_size: int,
+    max_batch_size: int | None,
     default_batch_size: int,
     service_mode: bool,
 ) -> dict[str, Any]:
@@ -18,7 +19,7 @@ def build_optional_parameter_controls(
 
     Args:
         max_duration: Maximum allowed duration derived from current GPU profile.
-        max_batch_size: Maximum allowed batch size derived from current GPU profile.
+        max_batch_size: Optional maximum sequential song count.
         default_batch_size: Initial batch size value shown in the UI.
         service_mode: Whether the UI is running in service mode (disables some controls).
 
@@ -110,7 +111,7 @@ def build_optional_parameter_controls(
                 minimum=1,
                 maximum=max_batch_size,
                 step=1,
-                info=t("generation.batch_size_info") + f" (Max: {max_batch_size})",
+                info=generation_count_info(),
                 elem_classes=["has-info-container"],
                 interactive=not service_mode,
             )

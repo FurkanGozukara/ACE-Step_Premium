@@ -188,7 +188,7 @@ def _log_background_params(params, next_batch_idx):
     logger.info(f"  - bpm: {params.get('bpm')}")
     logger.info(f"  - config_path: {params.get('config_path', 'active foreground DiT service')}")
     logger.info(f"  - inference_steps: {params.get('inference_steps')}")
-    logger.info(f"  - batch_size_input: {params.get('batch_size_input')}")
+    logger.info(f"  - songs: {params.get('batch_size_input')}")
     logger.info(f"  - allow_lm_batch: {params.get('allow_lm_batch')}")
     logger.info(f"  - think_checkbox: {params.get('think_checkbox')}")
     logger.info(f"  - no_fsq: {params.get('no_fsq')}")
