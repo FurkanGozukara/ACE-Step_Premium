@@ -26,7 +26,12 @@ from .inline_result_preview import (
     sync_inline_result_preview,
 )
 from .model_default_updates import build_advanced_model_reset_updates
-from .simple_media_outputs import build_simple_media_preview, clear_simple_media_preview
+from .simple_media_outputs import (
+    build_simple_generated_files_update,
+    build_simple_media_preview,
+    clear_simple_generated_files,
+    clear_simple_media_preview,
+)
 from .simple_create_params import prepare_simple_generation
 
 
@@ -171,6 +176,9 @@ def register_simple_create_handlers(
             simple_page["simple_latest_video"],
         ],
     ).then(
+        fn=clear_simple_generated_files,
+        outputs=[simple_page["simple_generated_files"]],
+    ).then(
         fn=generation_wrapper,
         inputs=build_generation_run_inputs(generation_section, results_section),
         outputs=[
@@ -185,6 +193,10 @@ def register_simple_create_handlers(
         ],
         outputs=build_inline_result_outputs(generation_section),
     ).then(
+        fn=build_simple_generated_files_update,
+        inputs=[results_section["generated_audio_batch"]],
+        outputs=[simple_page["simple_generated_files"]],
+    ).then(
         fn=build_simple_media_preview,
         inputs=[
             results_section["generated_audio_1"],
@@ -197,6 +209,7 @@ def register_simple_create_handlers(
             simple_page["simple_latest_audio"],
             simple_page["simple_latest_video"],
             simple_page["simple_status"],
+            simple_page["simple_generated_files"],
         ],
     )
 

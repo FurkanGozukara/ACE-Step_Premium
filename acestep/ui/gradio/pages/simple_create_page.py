@@ -110,6 +110,12 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                 interactive=False,
                 visible=False,
             )
+            simple_generated_files = gr.File(
+                label="Generated Files (All Songs)",
+                file_count="multiple",
+                interactive=False,
+                visible=False,
+            )
             simple_model_dropdown = gr.Dropdown(
                 choices=SIMPLE_MODEL_CHOICES,
                 value=default_model,
@@ -230,6 +236,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
         "simple_status": simple_status,
         "simple_latest_audio": simple_latest_audio,
         "simple_latest_video": simple_latest_video,
+        "simple_generated_files": simple_generated_files,
         "simple_bpm_state": simple_bpm_state,
         "simple_key_scale_state": simple_key_scale_state,
         "simple_time_signature_state": simple_time_signature_state,

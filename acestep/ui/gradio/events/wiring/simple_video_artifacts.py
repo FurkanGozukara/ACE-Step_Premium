@@ -105,9 +105,11 @@ def _update_generation_manifest(
 
     request = manifest.setdefault("request", {})
     if isinstance(request, dict):
-        request["video_path"] = video_path
-        request["video_image_path"] = image_path
+        request.setdefault("video_path", video_path)
+        request.setdefault("video_image_path", image_path)
         request["video_resolution"] = video_resolution
+        _append_unique(request, "video_paths", video_path)
+        _append_unique(request, "video_image_paths", image_path)
     write_json(manifest_path, manifest)
 
 
@@ -128,12 +130,16 @@ def _update_generation_request(
     request = payload.setdefault("request", {})
     assets = payload.setdefault("assets", {})
     if isinstance(request, dict):
-        request["video_path"] = video_path
-        request["video_image_path"] = image_path
+        request.setdefault("video_path", video_path)
+        request.setdefault("video_image_path", image_path)
         request["video_resolution"] = video_resolution
+        _append_unique(request, "video_paths", video_path)
+        _append_unique(request, "video_image_paths", image_path)
     if isinstance(assets, dict):
-        assets["video_path"] = video_path
-        assets["video_image_path"] = image_path
+        assets.setdefault("video_path", video_path)
+        assets.setdefault("video_image_path", image_path)
+        _append_unique(assets, "video_paths", video_path)
+        _append_unique(assets, "video_image_paths", image_path)
     write_json(request_path, payload)
 
 
@@ -166,3 +172,14 @@ def _read_json(path: str | Path) -> dict[str, Any]:
     except (OSError, json.JSONDecodeError, TypeError):
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _append_unique(container: dict[str, Any], key: str, value: str) -> None:
+    """Append a metadata value once while preserving existing scalar fields."""
+
+    values = container.get(key)
+    if not isinstance(values, list):
+        values = []
+    if value not in values:
+        values.append(value)
+    container[key] = values

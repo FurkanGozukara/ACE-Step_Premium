@@ -56,10 +56,13 @@ class SimpleVideoArtifactsTests(unittest.TestCase):
             self.assertEqual(sample["video_path"], expected_video)
             self.assertEqual(sample["video_image_path"], expected_image)
             self.assertEqual(manifest["request"]["video_path"], expected_video)
+            self.assertEqual(manifest["request"]["video_paths"], [expected_video])
 
             request = _read_json(run_dir / "generation_request.json")
             self.assertEqual(request["request"]["video_path"], expected_video)
+            self.assertEqual(request["request"]["video_paths"], [expected_video])
             self.assertEqual(request["assets"]["video_image_path"], expected_image)
+            self.assertEqual(request["assets"]["video_paths"], [expected_video])
 
             sidecar = _read_json(sidecar_path)
             self.assertEqual(sidecar["_meta"]["video_path"], expected_video)
