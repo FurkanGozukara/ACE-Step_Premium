@@ -174,7 +174,7 @@
     "use_adg_label": "Use ADG (Angle Domain Guidance)",
     "use_adg_info": "Alternative guidance method that can improve prompt adherence with fewer artifacts than standard CFG. Try enabling if you get distortion at high guidance scales. Experimental — may not always improve results.",
     "shift_label": "Shift",
-    "shift_info": "Controls the noise schedule timing. Range: 1.0-5.0. Base/SFT use shift 1.0 by default for their continuous schedule. Turbo uses shift 3.0 by default; distilled turbo schedules are centered around supported shift values. Higher values concentrate denoising earlier; lower values spread it more evenly.",
+    "shift_info": "Controls the noise schedule timing. Range: 1.0-5.0. Base/SFT and Turbo default to shift 3.0. Higher values concentrate denoising earlier; lower values spread it more evenly.",
     "infer_method_label": "Inference Method",
     "infer_method_info": "ODE (Euler): Deterministic and faster — same seed always gives same result. Recommended for most use cases. SDE (Stochastic): Adds randomness during diffusion — can produce more varied/creative results but less predictable. Try SDE if ODE results feel too 'safe'.",
     "sampler_mode_label": "Sampler Mode",

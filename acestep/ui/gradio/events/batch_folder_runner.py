@@ -8,6 +8,14 @@ from typing import Any, Callable, Iterable, Iterator, Sequence
 
 from loguru import logger
 
+from acestep.core.generation.cancellation import (
+    CANCEL_MESSAGE,
+    GenerationCancelled,
+    check_generation_cancelled,
+    cleanup_runtime_memory,
+    generation_cancel_scope,
+    is_generation_cancelled,
+)
 from acestep.ui.gradio.events.batch_folder_args import (
     CAPTION_ARG_INDEX,
     build_generation_args_for_item,
@@ -83,6 +91,7 @@ def _run_one_generation(
     final_result: tuple[Any, ...] | None = None
     final_status = ""
     for partial in runner(dit_handler, llm_handler, *args):
+        check_generation_cancelled()
         final_result = partial
         partial_status = extract_generation_status(partial)
         if partial_status:
@@ -114,66 +123,83 @@ def run_batch_folder_processing(
 
     runner = generation_runner or _default_generation_runner()
     rows: list[dict[str, Any]] = []
-    status_lines.append(f"Found {len(items)} lyrics file(s).")
-    status_lines.append(f"Saving batch outputs under: {target_folder}")
-    yield _render_status(status_lines)
 
-    for index, item in enumerate(items, start=1):
-        status_lines.append(f"[{index}/{len(items)}] Processing {item.lyrics_path.name}")
-        yield _render_status(status_lines)
-
-        caption = _item_caption(item, item_args)
-        text_result = improve_batch_text_if_requested(
-            llm_handler,
-            item_args,
-            caption=caption,
-            lyrics=item.lyrics,
-            improve_style=bool(auto_improve_style),
-            improve_lyrics=bool(auto_improve_lyrics),
-        )
-        if text_result.status:
-            status_lines.extend(text_result.status.splitlines())
+    with generation_cancel_scope():
+        try:
+            status_lines.append(f"Found {len(items)} lyrics file(s).")
+            status_lines.append(f"Saving batch outputs under: {target_folder}")
             yield _render_status(status_lines)
 
-        generated_paths: list[str] = []
-        item_status = "Generation did not return output paths."
-        started_at = time.time()
-        try:
-            generation_call_args = build_generation_args_for_item(
-                item_args,
-                caption=text_result.caption,
-                lyrics=text_result.lyrics,
-                is_formatted=text_result.formatted,
-            )
-            with use_results_dir(target_folder), use_generation_run_name(item.stem):
-                generated_paths, item_status = _run_one_generation(
-                    runner,
-                    dit_handler,
+            for index, item in enumerate(items, start=1):
+                check_generation_cancelled()
+                status_lines.append(f"[{index}/{len(items)}] Processing {item.lyrics_path.name}")
+                yield _render_status(status_lines)
+
+                caption = _item_caption(item, item_args)
+                text_result = improve_batch_text_if_requested(
                     llm_handler,
-                    generation_call_args,
+                    item_args,
+                    caption=caption,
+                    lyrics=item.lyrics,
+                    improve_style=bool(auto_improve_style),
+                    improve_lyrics=bool(auto_improve_lyrics),
                 )
-        except Exception as exc:
-            logger.exception("[batch_folder] Generation failed for {}", item.lyrics_path)
-            item_status = f"Failed: {exc}"
+                check_generation_cancelled()
+                if text_result.status:
+                    status_lines.extend(text_result.status.splitlines())
+                    yield _render_status(status_lines)
 
-        row = {
-            "name": item.stem,
-            "lyrics_path": str(item.lyrics_path),
-            "style_path": str(item.style_path) if item.style_path else None,
-            "status": "completed" if generated_paths else "failed",
-            "message": item_status,
-            "duration_seconds": round(max(0.0, time.time() - started_at), 3),
-            "output_paths": generated_paths,
-        }
-        rows.append(row)
-        manifest_path = _write_manifest(target_folder, rows)
+                generated_paths: list[str] = []
+                item_status = "Generation did not return output paths."
+                started_at = time.time()
+                try:
+                    generation_call_args = build_generation_args_for_item(
+                        item_args,
+                        caption=text_result.caption,
+                        lyrics=text_result.lyrics,
+                        is_formatted=text_result.formatted,
+                    )
+                    with use_results_dir(target_folder), use_generation_run_name(item.stem):
+                        generated_paths, item_status = _run_one_generation(
+                            runner,
+                            dit_handler,
+                            llm_handler,
+                            generation_call_args,
+                        )
+                    check_generation_cancelled()
+                except GenerationCancelled:
+                    raise
+                except Exception as exc:
+                    logger.exception("[batch_folder] Generation failed for {}", item.lyrics_path)
+                    item_status = f"Failed: {exc}"
 
-        if generated_paths:
-            status_lines.append(f"[{index}/{len(items)}] Done: {item.stem}")
-        else:
-            status_lines.append(f"[{index}/{len(items)}] {item_status}")
-        status_lines.append(f"Manifest: {manifest_path}")
-        yield _render_status(status_lines)
+                row = {
+                    "name": item.stem,
+                    "lyrics_path": str(item.lyrics_path),
+                    "style_path": str(item.style_path) if item.style_path else None,
+                    "status": "completed" if generated_paths else "failed",
+                    "message": item_status,
+                    "duration_seconds": round(max(0.0, time.time() - started_at), 3),
+                    "output_paths": generated_paths,
+                }
+                rows.append(row)
+                manifest_path = _write_manifest(target_folder, rows)
+
+                if generated_paths:
+                    status_lines.append(f"[{index}/{len(items)}] Done: {item.stem}")
+                else:
+                    status_lines.append(f"[{index}/{len(items)}] {item_status}")
+                status_lines.append(f"Manifest: {manifest_path}")
+                yield _render_status(status_lines)
+        except GenerationCancelled:
+            cleanup_runtime_memory()
+            status_lines.append(CANCEL_MESSAGE)
+            status_lines.append("Batch cancelled. Remaining files were not started.")
+            yield _render_status(status_lines)
+            return
+        finally:
+            if is_generation_cancelled():
+                cleanup_runtime_memory()
 
     completed = sum(1 for row in rows if row["status"] == "completed")
     status_lines.append(f"Batch complete: {completed}/{len(items)} item(s) generated.")

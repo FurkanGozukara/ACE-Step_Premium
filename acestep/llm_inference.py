@@ -22,6 +22,7 @@ from transformers.generation.logits_process import (
     LogitsProcessorList,
     RepetitionPenaltyLogitsProcessor,
 )
+from acestep.core.generation.cancellation import check_generation_cancelled
 from acestep.llm_backend_compat import get_vllm_preflight_warning
 from acestep.constrained_logits_processor import MetadataConstrainedLogitsProcessor
 from acestep.constants import DEFAULT_LM_INSTRUCTION, DEFAULT_LM_UNDERSTAND_INSTRUCTION, DEFAULT_LM_INSPIRED_INSTRUCTION, DEFAULT_LM_REWRITE_INSTRUCTION, DURATION_MIN, DURATION_MAX
@@ -1363,6 +1364,7 @@ class LLMHandler:
                 seeds = seeds[:actual_batch_size]
 
         # ========== PHASE 1: CoT Generation ==========
+        check_generation_cancelled()
         # Skip CoT if all metadata are user-provided OR caption is already formatted
         progress(0.1, f"Phase 1: Generating CoT metadata (once for all items)...")
         if not has_all_metas and use_cot_metas:
@@ -1477,6 +1479,7 @@ class LLMHandler:
                 }
 
         # ========== PHASE 2: Audio Codes Generation ==========
+        check_generation_cancelled()
         if is_batch:
             logger.info(f"Batch Phase 2: Generating audio codes for {actual_batch_size} items...")
         else:
@@ -2564,6 +2567,7 @@ class LLMHandler:
 
         with torch.inference_mode():
             for step in tqdm(range(max_new_tokens), desc="LLM Constrained Decoding", unit="token", disable=self.disable_tqdm):
+                check_generation_cancelled()
                 # Forward pass
                 outputs = self._forward_pass(model, generated_ids, model_kwargs, past_key_values, use_cache)
 
@@ -2678,6 +2682,7 @@ class LLMHandler:
 
         with torch.inference_mode():
             for step in tqdm(range(max_new_tokens), desc="LLM CFG Generation", unit="token", disable=self.disable_tqdm):
+                check_generation_cancelled()
                 # Forward pass for the entire batch (conditional + unconditional)
                 outputs = self._forward_pass(model, generated_ids, model_kwargs, past_key_values, use_cache)
 
@@ -3184,6 +3189,7 @@ class LLMHandler:
             # Chunked prefill for conditional prompt
             cond_remaining = prompt
             while len(cond_remaining) > 1:
+                check_generation_cancelled()
                 chunk_size = min(prefill_step_size, len(cond_remaining) - 1)
                 self._mlx_model(cond_remaining[:chunk_size][None], cache=base_cond_cache)
                 mx.eval([c.state for c in base_cond_cache])
@@ -3193,6 +3199,7 @@ class LLMHandler:
             # Chunked prefill for unconditional prompt
             uncond_remaining = uncond_prompt
             while len(uncond_remaining) > 1:
+                check_generation_cancelled()
                 chunk_size = min(prefill_step_size, len(uncond_remaining) - 1)
                 self._mlx_model(uncond_remaining[:chunk_size][None], cache=base_uncond_cache)
                 mx.eval([c.state for c in base_uncond_cache])
@@ -3233,6 +3240,7 @@ class LLMHandler:
             base_cache = make_prompt_cache(self._mlx_model)
             remaining = prompt
             while len(remaining) > 1:
+                check_generation_cancelled()
                 chunk_size = min(prefill_step_size, len(remaining) - 1)
                 self._mlx_model(remaining[:chunk_size][None], cache=base_cache)
                 mx.eval([c.state for c in base_cache])
@@ -3285,12 +3293,14 @@ class LLMHandler:
         pbar = tqdm(total=max_new_tokens, desc=f"MLX {cfg_label}Batch Gen (native, n={batch_size})", unit="tok")
 
         for step in range(max_new_tokens):
+            check_generation_cancelled()
             # Check if all items are done
             if all(item_finished):
                 break
 
             # Process each active item (interleaved B=1 forward passes)
             for i in range(batch_size):
+                check_generation_cancelled()
                 if item_finished[i]:
                     continue
 
@@ -3543,6 +3553,7 @@ class LLMHandler:
             # Chunked prefill for conditional prompt
             cond_remaining = prompt
             while len(cond_remaining) > 1:
+                check_generation_cancelled()
                 chunk_size = min(prefill_step_size, len(cond_remaining) - 1)
                 self._mlx_model(cond_remaining[:chunk_size][None], cache=cond_cache)
                 mx.eval([c.state for c in cond_cache])
@@ -3552,6 +3563,7 @@ class LLMHandler:
             # Chunked prefill for unconditional prompt
             uncond_remaining = uncond_prompt
             while len(uncond_remaining) > 1:
+                check_generation_cancelled()
                 chunk_size = min(prefill_step_size, len(uncond_remaining) - 1)
                 self._mlx_model(uncond_remaining[:chunk_size][None], cache=uncond_cache)
                 mx.eval([c.state for c in uncond_cache])
@@ -3581,6 +3593,7 @@ class LLMHandler:
             # Chunked prefill
             remaining = prompt
             while len(remaining) > 1:
+                check_generation_cancelled()
                 chunk_size = min(prefill_step_size, len(remaining) - 1)
                 self._mlx_model(remaining[:chunk_size][None], cache=cache)
                 mx.eval([c.state for c in cache])
@@ -3605,6 +3618,7 @@ class LLMHandler:
 
         pbar = tqdm(total=max_new_tokens, desc=tqdm_desc, unit="tok")
         for step in range(max_new_tokens):
+            check_generation_cancelled()
             # ---- Combine logits (CFG formula in MLX, lazy) ----
             if use_cfg:
                 step_logits = last_uncond + cfg_scale * (last_cond - last_uncond)
@@ -3881,6 +3895,7 @@ class LLMHandler:
 
         pbar = tqdm(total=max_new_tokens, desc=tqdm_desc, unit="tok")
         for step in range(max_new_tokens):
+            check_generation_cancelled()
             # Apply CFG formula in MLX
             if use_cfg:
                 step_logits = last_uncond + cfg_scale * (last_cond - last_uncond)

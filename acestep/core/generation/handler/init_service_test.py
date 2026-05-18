@@ -389,6 +389,35 @@ class InitServiceMixinTests(unittest.TestCase):
             ("ERROR: Failed to download DiT model 'acestep-v15-turbo': boom", False),
         )
 
+    def test_ensure_models_present_reports_missing_bf16_and_legacy_fallback(self):
+        """It errors when both a generated BF16 folder and its source fallback are missing."""
+        host = _Host(project_root="K:/fake_root", device="cpu")
+        with patch.object(INIT_SERVICE_DOWNLOADS_MODULE, "check_model_exists", return_value=False):
+            with patch.object(
+                INIT_SERVICE_DOWNLOADS_MODULE,
+                "check_shared_main_components_exist",
+                return_value=True,
+            ):
+                with patch.object(
+                    INIT_SERVICE_DOWNLOADS_MODULE,
+                    "ensure_dit_model",
+                ) as ensure_dit:
+                    result = host._ensure_models_present(
+                        checkpoint_path=Path("K:/fake_root/checkpoints"),
+                        config_path="ACEStep_1_5_XL_Turbo_BF16",
+                        prefer_source=None,
+                    )
+        self.assertEqual(
+            result,
+            (
+                "ERROR: DiT model 'ACEStep_1_5_XL_Turbo_BF16' was not found. "
+                "Also checked older compatible folder 'acestep-v15-xl-turbo', "
+                "but it is missing or has no model weights.",
+                False,
+            ),
+        )
+        ensure_dit.assert_not_called()
+
     def test_build_initialize_status_message_reports_mlx_compile_label(self):
         """It renders the mx.compile label when MLX compile redirection is active."""
         msg = _Host._build_initialize_status_message(
@@ -525,6 +554,7 @@ class InitServiceMixinTests(unittest.TestCase):
         expected_keys = {
             "project_root",
             "config_path",
+            "resolved_config_path",
             "device",
             "use_flash_attention",
             "compile_model",
@@ -537,10 +567,79 @@ class InitServiceMixinTests(unittest.TestCase):
         }
         self.assertEqual(set(host.last_init_params.keys()), expected_keys)
         self.assertEqual(host.last_init_params["config_path"], "acestep-v15-turbo")
+        self.assertEqual(
+            host.last_init_params["resolved_config_path"],
+            "acestep-v15-turbo",
+        )
         self.assertEqual(host.last_init_params["device"], "cpu")
         self.assertEqual(host.last_init_params["vae_checkpoint"], "official")
         ensure_models.assert_called_once()
         sync_code.assert_called_once()
+
+    def test_initialize_service_loads_legacy_source_when_bf16_folder_is_missing(self):
+        """It loads the older source XL folder when a requested BF16 folder is absent."""
+        host = _Host(project_root="K:/fake_root", device="cpu")
+
+        def _fake_load_main_model(**kwargs):
+            """Capture model path and initialize minimal config state."""
+            host._captured_model_path = kwargs["model_checkpoint_path"]
+            host.config = types.SimpleNamespace(_attn_implementation="sdpa")
+            host.model = object()
+
+        with patch.object(host, "_ensure_models_present", return_value=None):
+            with patch.object(
+                INIT_SERVICE_DOWNLOADS_MODULE,
+                "resolve_existing_model_name",
+                return_value="acestep-v15-xl-turbo",
+            ):
+                with patch.object(host, "_sync_model_code_if_needed") as sync_code:
+                    with patch.object(
+                        host,
+                        "_load_main_model_from_checkpoint",
+                        side_effect=_fake_load_main_model,
+                    ):
+                        with patch.object(
+                            host,
+                            "_load_vae_model",
+                            return_value="K:/fake_root/models/vae",
+                        ):
+                            with patch.object(
+                                host,
+                                "_load_text_encoder_and_tokenizer",
+                                return_value="K:/fake_root/models/Qwen3-Embedding-0.6B",
+                            ):
+                                with patch.object(
+                                    host,
+                                    "_initialize_mlx_backends",
+                                    return_value=("Disabled", "Disabled"),
+                                ):
+                                    status, ok = host.initialize_service(
+                                        project_root="K:/fake_root",
+                                        config_path="ACEStep_1_5_XL_Turbo_BF16",
+                                        device="cpu",
+                                    )
+
+        self.assertTrue(ok)
+        expected_model_path = os.path.normpath(
+            "K:/fake_root/models/acestep-v15-xl-turbo"
+        )
+        self.assertEqual(
+            os.path.normpath(host._captured_model_path),
+            expected_model_path,
+        )
+        self.assertIn(expected_model_path, os.path.normpath(status))
+        self.assertEqual(
+            host.last_init_params["config_path"],
+            "ACEStep_1_5_XL_Turbo_BF16",
+        )
+        self.assertEqual(
+            host.last_init_params["resolved_config_path"],
+            "acestep-v15-xl-turbo",
+        )
+        sync_code.assert_called_once_with(
+            "acestep-v15-xl-turbo",
+            Path("K:/fake_root/models"),
+        )
 
     def test_initialize_service_honors_env_var_when_param_omitted(self):
         """ACESTEP_VAE_CHECKPOINT seeds the variant when no explicit kwarg is given."""

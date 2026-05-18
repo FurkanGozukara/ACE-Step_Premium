@@ -13,17 +13,43 @@ from typing import Any, Iterator
 
 import gradio as gr
 
+from acestep.core.generation.cancellation import (
+    CANCEL_MESSAGE,
+    GenerationCancelled,
+    check_generation_cancelled,
+    is_generation_cancelled,
+    register_generation_subprocess,
+    unregister_generation_subprocess,
+)
+from acestep.core.generation.subprocess_termination import terminate_generation_process
 from acestep.ui.gradio.events.results.audio_playback_updates import build_audio_slot_update
 from acestep.ui.gradio.events.results.batch_management_helpers import _extract_scores
 
 
 _AUDIO_SUFFIXES = {".wav", ".mp3", ".flac", ".opus", ".aac"}
+_WORKER_SHUTDOWN_TIMEOUT_SECONDS = 0.5
 
 
 def _job_dir(project_root: str | Path) -> Path:
     target = Path(project_root).resolve() / ".cache" / "acestep" / "subprocess_jobs"
     target.mkdir(parents=True, exist_ok=True)
     return target
+
+
+def _wait_for_process_exit(process: subprocess.Popen) -> int | None:
+    """Wait for a worker process and force-kill it if shutdown stalls."""
+
+    try:
+        return process.wait(timeout=_WORKER_SHUTDOWN_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        terminate_generation_process(
+            process,
+            timeout_seconds=_WORKER_SHUTDOWN_TIMEOUT_SECONDS,
+        )
+        try:
+            return process.wait(timeout=_WORKER_SHUTDOWN_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired:
+            return process.poll()
 
 
 def build_pending_core_outputs(status_text: str, is_format_caption: bool) -> tuple[Any, ...]:
@@ -104,20 +130,31 @@ def stream_subprocess_generation(request_payload: dict[str, Any]) -> Iterator[di
         cwd=project_root,
         env=env,
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
+        stderr=None,
         text=True,
         encoding="utf-8",
         errors="replace",
         bufsize=1,
     )
+    register_generation_subprocess(process)
 
     log_lines: list[str] = []
     yield {"kind": "status", "message": "Starting isolated generation worker..."}
 
     try:
         while True:
+            try:
+                check_generation_cancelled()
+            except GenerationCancelled:
+                terminate_generation_process(
+                    process,
+                    timeout_seconds=_WORKER_SHUTDOWN_TIMEOUT_SECONDS,
+                )
+                raise
             line = process.stdout.readline() if process.stdout else ""
             if line:
+                sys.stdout.write(line)
+                sys.stdout.flush()
                 log_lines.append(line.rstrip())
                 yield {"kind": "status", "message": "\n".join(log_lines[-18:])}
                 continue
@@ -130,7 +167,11 @@ def stream_subprocess_generation(request_payload: dict[str, Any]) -> Iterator[di
             for remaining in process.stdout.readlines():
                 log_lines.append(remaining.rstrip())
     finally:
-        return_code = process.wait()
+        return_code = _wait_for_process_exit(process)
+        was_cancelled = is_generation_cancelled()
+        unregister_generation_subprocess(process)
+    if was_cancelled:
+        raise GenerationCancelled(CANCEL_MESSAGE)
 
     if not result_path.exists():
         raise RuntimeError(

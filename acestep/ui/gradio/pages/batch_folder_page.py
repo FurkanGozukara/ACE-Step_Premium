@@ -55,12 +55,26 @@ def create_batch_folder_page() -> dict[str, Any]:
                     value=False,
                     info="Use the 5Hz LM formatter before generation for each style prompt.",
                 )
-            process_btn = gr.Button(
-                "Process Folder",
-                variant="primary",
-                size="lg",
-                elem_classes=["action-btn", "action-btn-generate"],
-            )
+            with gr.Row(equal_height=True):
+                process_btn = gr.Button(
+                    "Process Folder",
+                    variant="primary",
+                    size="lg",
+                    scale=2,
+                    elem_classes=["action-btn", "action-btn-generate"],
+                )
+                cancel_btn = gr.Button(
+                    "Cancel Batch",
+                    variant="stop",
+                    size="lg",
+                    scale=1,
+                    elem_classes=[
+                        "action-btn",
+                        "action-btn-cancel",
+                        "action-btn-cancel-batch",
+                    ],
+                )
+            cancel_confirmed_state = gr.State(value=False)
             status = gr.Textbox(
                 label="Batch Status",
                 value=(
@@ -77,5 +91,7 @@ def create_batch_folder_page() -> dict[str, Any]:
         "batch_auto_improve_lyrics": auto_improve_lyrics,
         "batch_auto_improve_style": auto_improve_style,
         "batch_process_btn": process_btn,
+        "batch_cancel_btn": cancel_btn,
+        "batch_cancel_confirmed_state": cancel_confirmed_state,
         "batch_status": status,
     }

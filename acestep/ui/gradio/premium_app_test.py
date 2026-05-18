@@ -6,6 +6,10 @@ import unittest
 from pathlib import Path
 
 from acestep.ui.gradio import premium_app
+from acestep.ui.gradio.events.generation.cancel_actions import (
+    BATCH_CANCEL_CONFIRM_JS,
+    CANCEL_CONFIRM_JS,
+)
 
 
 class PremiumAppTests(unittest.TestCase):
@@ -25,6 +29,8 @@ class PremiumAppTests(unittest.TestCase):
         self.assertIn(premium_app.APP_BROWSER_TITLE, head)
         self.assertIn('rel="icon"', head)
         self.assertIn("data:image/svg+xml,", head)
+        self.assertIn("/ace-step/cancel-generation", head)
+        self.assertIn("subprocessModeEnabled", head)
 
     def test_header_shows_plain_title_and_release_link(self):
         """Visible app header should show a plain title and clickable release URL."""
@@ -51,6 +57,17 @@ class PremiumAppTests(unittest.TestCase):
         self.assertIn('gr.Tab("Custom Preset System"', source)
         self.assertIn('studio_page["preset_dropdown"].change', source)
         self.assertIn("preset_load_outputs", source)
+
+    def test_cancel_buttons_have_confirmation_and_distinct_colors(self):
+        """Cancel controls should confirm and use per-screen color classes."""
+
+        source = Path(premium_app.__file__).read_text(encoding="utf-8")
+        self.assertIn("Are you sure", CANCEL_CONFIRM_JS)
+        self.assertIn("Are you sure", BATCH_CANCEL_CONFIRM_JS)
+        self.assertIn("action-btn-cancel-simple", source)
+        self.assertIn("action-btn-cancel-advanced", source)
+        self.assertIn("action-btn-cancel-batch", source)
+        self.assertIn("acestep-subprocess-mode-checkbox", source)
 
 
 if __name__ == "__main__":

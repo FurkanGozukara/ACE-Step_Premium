@@ -5,6 +5,10 @@ outputs, runs batched generation, and schedules background pre-generation.
 """
 
 from .. import results_handlers as res_h
+from ..generation.cancel_actions import (
+    CANCEL_CONFIRM_JS,
+    request_generation_cancel_pair_from_ui,
+)
 from .context import GenerationWiringContext
 from .inline_result_preview import (
     build_inline_result_outputs,
@@ -422,4 +426,25 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
             results_section["next_batch_status"],
             results_section["next_batch_btn"],
         ],
+    )
+    cancel_event = generation_section["cancel_generation_btn"].click(
+        fn=None,
+        inputs=None,
+        outputs=[generation_section["cancel_confirmed_state"]],
+        js=CANCEL_CONFIRM_JS,
+        queue=False,
+        show_progress="hidden",
+    )
+    cancel_event.then(
+        fn=request_generation_cancel_pair_from_ui,
+        inputs=[
+            generation_section["cancel_confirmed_state"],
+            generation_section["subprocess_mode_checkbox"],
+        ],
+        outputs=[
+            results_section["status_output"],
+            generation_section["inline_generation_status"],
+        ],
+        queue=False,
+        show_progress="hidden",
     )

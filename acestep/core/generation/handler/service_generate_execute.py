@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import torch
 from loguru import logger
 
+from acestep.core.generation.cancellation import check_generation_cancelled
+
 
 class ServiceGenerateExecuteMixin:
     """Run diffusion execution for normalized service-generation requests."""
@@ -151,6 +153,7 @@ class ServiceGenerateExecuteMixin:
         if flow_edit_ctx is not None and flow_edit_ctx.get("morph"):
             from .service_generate_flow_edit import dispatch_flow_edit_overlay
 
+            check_generation_cancelled()
             return dispatch_flow_edit_overlay(
                 self, payload=payload, generate_kwargs=generate_kwargs,
                 seed_param=seed_param, flow_edit_ctx=flow_edit_ctx,
@@ -159,9 +162,11 @@ class ServiceGenerateExecuteMixin:
             "MLX (native)" if (self.use_mlx_dit and self.mlx_decoder is not None) else f"PyTorch ({self.device})"
         )
         logger.info(f"[service_generate] Generating audio... (DiT backend: {dit_backend})")
+        check_generation_cancelled()
         inference_mode = getattr(self, "quantization", None) != "fp8_weight_only"
         with torch.inference_mode(inference_mode):
             with self._load_model_context("model"):
+                check_generation_cancelled()
                 encoder_hidden_states, encoder_attention_mask, context_latents = self.model.prepare_condition(
                     text_hidden_states=payload["text_hidden_states"],
                     text_attention_mask=payload["text_attention_mask"],
@@ -251,6 +256,7 @@ class ServiceGenerateExecuteMixin:
                             repaint_crossfade_frames=generate_kwargs.get("repaint_crossfade_frames", 10),
                             repaint_injection_ratio=generate_kwargs.get("repaint_injection_ratio", 0.5),
                         )
+                        check_generation_cancelled()
                         _tc = outputs.get("time_costs", {})
                         logger.info(
                             "[service_generate] DiT diffusion complete via MLX ({:.2f}s total, {:.3f}s/step).",
@@ -262,6 +268,8 @@ class ServiceGenerateExecuteMixin:
                         outputs = self.model.generate_audio(**generate_kwargs)
                 else:
                     logger.info("[service_generate] DiT diffusion via PyTorch ({})...", self.device)
+                    check_generation_cancelled()
                     outputs = self.model.generate_audio(**generate_kwargs)
+                    check_generation_cancelled()
 
         return outputs, encoder_hidden_states, encoder_attention_mask, context_latents

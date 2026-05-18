@@ -8,6 +8,10 @@ import gradio as gr
 
 from .. import generation_handlers as gen_h
 from .. import results_handlers as res_h
+from ..generation.cancel_actions import (
+    CANCEL_CONFIRM_JS,
+    request_generation_cancel_from_ui,
+)
 from ..generation.quantization import default_quantization_value
 from ...premium_features import (
     SIMPLE_MODEL_CHOICES,
@@ -211,6 +215,24 @@ def register_simple_create_handlers(
             simple_page["simple_status"],
             simple_page["simple_generated_files"],
         ],
+    )
+    simple_cancel_event = simple_page["simple_cancel_generation_btn"].click(
+        fn=None,
+        inputs=None,
+        outputs=[simple_page["simple_cancel_confirmed_state"]],
+        js=CANCEL_CONFIRM_JS,
+        queue=False,
+        show_progress="hidden",
+    )
+    simple_cancel_event.then(
+        fn=request_generation_cancel_from_ui,
+        inputs=[
+            simple_page["simple_cancel_confirmed_state"],
+            generation_section["subprocess_mode_checkbox"],
+        ],
+        outputs=[simple_page["simple_status"]],
+        queue=False,
+        show_progress="hidden",
     )
 
 
@@ -445,14 +467,14 @@ def _apply_simple_model_change(
     elif "base" in selected_model_lower:
         status = (
             f"Selected model: {label}. Next generation uses XL Base "
-            "64-step direct DiT APG/CFG quality defaults with shift 1.0 "
+            "64-step direct DiT APG/CFG quality defaults with shift 3.0 "
             "and all task modes available. "
             "GPU presets remain the XL 4B profile."
         )
     else:
         status = (
             f"Selected model: {label}. Next generation uses XL SFT "
-            "50-step CFG quality defaults with 5Hz LM Thinking metadata and shift 1.0. "
+            "50-step CFG quality defaults with 5Hz LM Thinking metadata and shift 3.0. "
             "GPU presets remain the XL 4B profile."
         )
     return (
@@ -480,6 +502,8 @@ def _format_simple_status(status: Any) -> str:
         return "Generating song..."
 
     normalized = raw_status.lower()
+    if "cancelled" in normalized or "canceled" in normalized:
+        return "Generation cancelled."
     if "initializing dit service" in normalized:
         return _compact_status("Loading DiT model...", raw_status)
     if "initializing 5hz lm" in normalized or "initializing 5hz language" in normalized:

@@ -24,6 +24,8 @@ from typing import Any, Dict, Tuple
 import torch
 from loguru import logger
 
+from acestep.core.generation.cancellation import check_generation_cancelled
+
 from .service_generate_flow_edit_source import embed_source, tokenize_source
 
 
@@ -50,6 +52,7 @@ def dispatch_flow_edit_overlay(
             "model does not expose flowedit_generate_audio.  Supported "
             "variants: xl_base, xl_sft, sft, base."
         )
+    check_generation_cancelled()
     real_src_latents = payload["src_latents"]
     bsz, seq, ch = real_src_latents.shape
     task_type = flow_edit_ctx.get("task_type") or "text2music"
@@ -79,6 +82,7 @@ def dispatch_flow_edit_overlay(
         batch_size=bsz,
     )
     src_text_hs, src_lyric_hs = embed_source(handler, src_text_ids, src_lyric_ids)
+    check_generation_cancelled()
 
     device, dtype = real_src_latents.device, real_src_latents.dtype
     src_text_am = src_text_am.to(device=device, dtype=dtype)
@@ -163,6 +167,7 @@ def dispatch_flow_edit_overlay(
                 use_adg=generate_kwargs.get("use_adg", False),
                 dcw_enabled=generate_kwargs.get("dcw_enabled", False),
             )
+    check_generation_cancelled()
 
     # Return target-side encoder/context for downstream auto-LRC + scoring.
     attn = torch.ones(bsz, seq, device=device, dtype=dtype)

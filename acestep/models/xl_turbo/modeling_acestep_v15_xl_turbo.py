@@ -50,6 +50,7 @@ except ImportError:
 # DCW (Differential Correction in Wavelet domain) — CVPR 2026.
 # Opt-in sampler-side correction for SNR-t bias; see the `dcw_*` kwargs
 # on `generate_audio` and docs/en/DCW.md for details.
+from acestep.core.generation.cancellation import check_generation_cancelled
 from acestep.models.common.dcw_correction import DCWCorrector
 
 
@@ -1923,6 +1924,7 @@ class AceStepConditionGenerationModel(AceStepPreTrainedModel):
                 diffusion_guidance_scale, use_adg, cfg_interval_start, cfg_interval_end,
             )
 
+        check_generation_cancelled()
         # Valid shifts: only discrete values 1, 2, 3 are supported
         VALID_SHIFTS = [1.0, 2.0, 3.0]
         
@@ -2103,6 +2105,7 @@ class AceStepConditionGenerationModel(AceStepPreTrainedModel):
         cover_steps = int(num_steps * audio_cover_strength)
         _switched_to_non_cover = False
         for step_idx in range(num_steps):
+            check_generation_cancelled()
             current_timestep = t_schedule[step_idx].item()
             t_curr_tensor = current_timestep * torch.ones((bsz,), device=device, dtype=dtype)
             

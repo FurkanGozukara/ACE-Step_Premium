@@ -25,6 +25,8 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 from tqdm import tqdm
 
+from acestep.core.generation.cancellation import check_generation_cancelled
+
 logger = logging.getLogger(__name__)
 
 VALID_SAMPLER_MODES = {"euler", "heun"}
@@ -415,6 +417,7 @@ def mlx_generate_diffusion(
         )
 
     for step_idx in tqdm(range(num_steps), desc="MLX DiT diffusion", disable=disable_tqdm):
+        check_generation_cancelled()
         current_t = t_schedule_list[step_idx]
 
         # Switch to non-cover conditions when appropriate

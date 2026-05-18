@@ -134,6 +134,18 @@ def _import_gradio_factory():
     return create_gradio_interface
 
 
+def _import_generation_cancel_route():
+    """Import the Gradio generation cancel route registrar lazily."""
+
+    try:
+        from .ui.gradio.events.generation.cancel_api import register_generation_cancel_route
+    except ImportError:
+        from acestep.ui.gradio.events.generation.cancel_api import (
+            register_generation_cancel_route,
+        )
+    return register_generation_cancel_route
+
+
 def create_demo(init_params=None, language="en"):
     """
     Create Gradio demo interface
@@ -729,6 +741,7 @@ def main():
             status_update_rate="auto",  # Update rate for queue status
             default_concurrency_limit=1,  # Prevents VRAM saturation
         )
+        _import_generation_cancel_route()(demo)
 
         launch_host = args.server_name or "127.0.0.1"
         launch_port = args.port if args.port is not None else 7860
@@ -756,6 +769,7 @@ def main():
             "theme": getattr(demo, "_ace_launch_theme", None),
             "css": getattr(demo, "_ace_launch_css", None),
             "head": getattr(demo, "_ace_launch_head", None),
+            "_app": demo.app,
         }
         if args.server_name:
             launch_kwargs["server_name"] = args.server_name

@@ -12,6 +12,12 @@ import torch
 from loguru import logger
 
 from acestep.constants import DEFAULT_DIT_INSTRUCTION
+from acestep.core.generation.cancellation import (
+    CANCEL_MESSAGE,
+    GenerationCancelled,
+    check_generation_cancelled,
+    cleanup_runtime_memory,
+)
 from acestep.core.generation.handler.repaint_waveform_splice import (
     apply_repaint_waveform_splice,
 )
@@ -271,6 +277,7 @@ class GenerateMusicMixin:
             No exceptions are re-raised. Runtime failures are converted into the
             returned error payload.
         """
+        check_generation_cancelled()
         progress = self._resolve_generate_music_progress(progress)
         if self.model is None or self.vae is None or self.text_tokenizer is None or self.text_encoder is None:
             readiness_error = self._validate_generate_music_readiness()
@@ -324,6 +331,7 @@ class GenerateMusicMixin:
         repainting_end = runtime["repainting_end"]
 
         try:
+            check_generation_cancelled()
             refer_audios, processed_src_audio, audio_error = self._prepare_reference_and_source_audio(
                 reference_audio=reference_audio,
                 src_audio=src_audio,
@@ -422,6 +430,7 @@ class GenerateMusicMixin:
                 flow_edit_n_avg=flow_edit_n_avg,
             )
             outputs = service_run["outputs"]
+            check_generation_cancelled()
             infer_steps_for_progress = service_run["infer_steps_for_progress"]
 
             pred_latents, time_costs = self._prepare_generate_music_decode_state(
@@ -438,6 +447,7 @@ class GenerateMusicMixin:
                 use_tiled_decode=use_tiled_decode,
                 time_costs=time_costs,
             )
+            check_generation_cancelled()
             repainting_start_batch = service_inputs.get("repainting_start_batch")
             repainting_end_batch = service_inputs.get("repainting_end_batch")
             do_wav_splice = (
@@ -478,7 +488,21 @@ class GenerateMusicMixin:
             del outputs, pred_wavs, pred_latents_cpu
             gc.collect()
             self._empty_cache()
+            check_generation_cancelled()
             return result
+        except GenerationCancelled:
+            cleanup_runtime_memory()
+            try:
+                self._empty_cache()
+            except Exception as cleanup_exc:
+                logger.debug("[generate_music] cache cleanup after cancel skipped: {}", cleanup_exc)
+            return {
+                "audios": [],
+                "status_message": CANCEL_MESSAGE,
+                "extra_outputs": {},
+                "success": False,
+                "error": CANCEL_MESSAGE,
+            }
         except Exception as exc:
             error_msg = f"Error: {exc!s}\n{traceback.format_exc()}"
             logger.exception("[generate_music] Generation failed")

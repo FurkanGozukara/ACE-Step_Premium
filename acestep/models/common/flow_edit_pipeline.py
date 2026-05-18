@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Optional, Union
 import torch
 from loguru import logger
 
+from acestep.core.generation.cancellation import check_generation_cancelled
+
 from .flow_edit import flowedit_sampling_loop
 
 
@@ -129,6 +131,7 @@ def flowedit_generate_audio(
     """
     _ = kwargs  # tolerate forwarded but unused kwargs (e.g. dcw_*)
     _warn_about_disabled_v1_tricks(sampler_mode, use_adg, dcw_enabled)
+    check_generation_cancelled()
 
     if attention_mask is None:
         latent_length = src_latents.shape[1]
@@ -158,6 +161,7 @@ def flowedit_generate_audio(
         target_text_hidden_states, target_text_attention_mask,
         target_lyric_hidden_states, target_lyric_attention_mask,
     )
+    check_generation_cancelled()
 
     # Forward-noise generators: prefer retake_seed (independent draws), else
     # fall back to the main seed so a fixed (seed, n_min, n_max, n_avg) tuple

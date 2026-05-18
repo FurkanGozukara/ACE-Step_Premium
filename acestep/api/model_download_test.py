@@ -96,6 +96,26 @@ class ModelDownloadTests(unittest.TestCase):
         hf_mock.assert_not_called()
         ms_mock.assert_not_called()
 
+    def test_ensure_model_downloaded_uses_older_source_fallback_for_bf16(self):
+        """Generated BF16 defaults should reuse installed older source folders."""
+
+        with mock.patch(
+            "acestep.api.model_download.resolve_existing_model_name",
+            return_value="acestep-v15-xl-sft",
+        ), mock.patch(
+            "acestep.api.model_download.download_from_huggingface"
+        ) as hf_mock, mock.patch(
+            "acestep.api.model_download.download_from_modelscope"
+        ) as ms_mock:
+            out = model_download.ensure_model_downloaded(
+                model_download.DEFAULT_PREMIUM_DIT_MODEL,
+                "checkpoints",
+            )
+
+        self.assertEqual(os.path.join("checkpoints", "acestep-v15-xl-sft"), out)
+        hf_mock.assert_not_called()
+        ms_mock.assert_not_called()
+
     def test_ensure_model_downloaded_uses_huggingface_when_env_prefers_it(self):
         """Ensure helper should honor explicit HuggingFace preference."""
 

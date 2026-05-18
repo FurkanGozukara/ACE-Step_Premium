@@ -218,10 +218,15 @@ class InitServiceOrchestratorMixin:
                 self.silence_latent = None
                 return precheck_failure
 
-            self._sync_model_code_if_needed(config_path, checkpoint_path)
+            resolved_config_path = self._resolve_model_name_for_loading(
+                config_path,
+                checkpoint_path,
+            )
+
+            self._sync_model_code_if_needed(resolved_config_path, checkpoint_path)
             self._release_loaded_runtime_components()
 
-            model_path = os.path.join(checkpoint_dir, config_path)
+            model_path = os.path.join(checkpoint_dir, resolved_config_path)
             self._load_main_model_from_checkpoint(
                 model_checkpoint_path=model_path,
                 device=resolved_device,
@@ -265,6 +270,7 @@ class InitServiceOrchestratorMixin:
             self.last_init_params = {
                 "project_root": project_root,
                 "config_path": config_path,
+                "resolved_config_path": resolved_config_path,
                 "device": resolved_device,
                 "use_flash_attention": use_flash_attention,
                 "compile_model": normalized_compile,

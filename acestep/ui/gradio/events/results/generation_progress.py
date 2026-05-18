@@ -12,6 +12,7 @@ import time as time_module
 import gradio as gr
 from loguru import logger
 
+from acestep.core.generation.cancellation import check_generation_cancelled
 from acestep.gpu_config import (
     get_global_gpu_config,
     check_duration_limit,
@@ -104,6 +105,7 @@ def generate_with_progress(
     request_started_at = time_module.time()
     run_dir = create_generation_run_dir()
     logger.info(f"[generate_with_progress] Saving run outputs to {run_dir}")
+    check_generation_cancelled()
 
     # GPU memory validation
     gpu_config = get_global_gpu_config()
@@ -249,6 +251,7 @@ def generate_with_progress(
         random_seed=bool(random_seed_checkbox),
         progress=progress,
     )
+    check_generation_cancelled()
 
     all_audio_paths: list = []
 
@@ -420,6 +423,7 @@ def generate_with_progress(
     time_module.sleep(0.1)
 
     for i, dit_audio in enumerate(audios):
+        check_generation_cancelled()
         key = dit_audio["key"]
         audio_tensor = dit_audio["tensor"]
         sample_rate = dit_audio["sample_rate"]
@@ -575,6 +579,7 @@ def generate_with_progress(
         time_module.sleep(0.05)
 
     # Final timing
+    check_generation_cancelled()
     audio_conversion_time = time_module.time() - audio_conversion_start_time
     if audio_conversion_time > 0:
         time_costs['audio_conversion_time'] = audio_conversion_time

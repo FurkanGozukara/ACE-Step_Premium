@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from acestep.core.generation.cancellation import generation_cancel_scope, request_generation_cancel
 from acestep.ui.gradio.events.batch_folder_args import (
     BATCH_QUEUE_ARG_INDEX,
     CAPTION_ARG_INDEX,
@@ -23,6 +24,12 @@ from acestep.ui.gradio.events.results.output_manager import (
 
 class BatchFolderRunnerTests(unittest.TestCase):
     """Verify folder items are mapped into generation calls and manifests."""
+
+    def tearDown(self) -> None:
+        """Clear cancellation state left by each test."""
+
+        with generation_cancel_scope():
+            pass
 
     def test_runner_overrides_caption_and_lyrics_and_writes_manifest(self):
         """Each lyrics/style pair should produce one generation call."""
@@ -81,6 +88,45 @@ class BatchFolderRunnerTests(unittest.TestCase):
                 ],
                 manifest["items"][0]["output_paths"],
             )
+
+    def test_runner_cancel_stops_current_generation_and_remaining_batch(self):
+        """A cancel request should stop the active item and skip later files."""
+
+        calls = []
+
+        def cancel_generation_runner(_dit_handler, _llm_handler, *args):
+            calls.append(args)
+            request_generation_cancel()
+            yield (None,) * 8 + (None, "info", "Generation cancelled")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            input_dir = root / "inputs"
+            output_dir = root / "outputs"
+            input_dir.mkdir()
+            (input_dir / "first.txt").write_text("[verse]\nfirst", encoding="utf-8")
+            (input_dir / "second.txt").write_text("[verse]\nsecond", encoding="utf-8")
+
+            base_args = [None] * GENERATION_ARG_COUNT
+            base_args[CAPTION_ARG_INDEX] = "style"
+            base_args[LYRICS_ARG_INDEX] = "lyrics"
+            base_args[BATCH_QUEUE_ARG_INDEX] = {}
+
+            statuses = list(
+                run_batch_folder_processing(
+                    None,
+                    None,
+                    str(input_dir),
+                    str(output_dir),
+                    False,
+                    False,
+                    base_args,
+                    generation_runner=cancel_generation_runner,
+                )
+            )
+
+        self.assertEqual(1, len(calls))
+        self.assertIn("Batch cancelled. Remaining files were not started.", statuses[-1])
 
 
 if __name__ == "__main__":

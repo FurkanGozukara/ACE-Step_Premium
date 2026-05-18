@@ -465,6 +465,46 @@ def _contains_model_weights(model_path: Path) -> bool:
     return any((model_path / filename).exists() for filename in weight_filenames)
 
 
+def resolve_existing_model_name(
+    model_name: str,
+    checkpoints_dir: Optional[Path] = None,
+) -> Optional[str]:
+    """Resolve a requested model name to an installed compatible model folder.
+
+    Args:
+        model_name: Requested model directory name.
+        checkpoints_dir: Root directory containing model subdirectories.
+
+    Returns:
+        The installed model folder to load, or ``None`` when neither the requested
+        folder nor its supported legacy fallback exists.
+    """
+    if not model_name:
+        return None
+    if checkpoints_dir is None:
+        checkpoints_dir = get_checkpoints_dir()
+    elif isinstance(checkpoints_dir, str):
+        checkpoints_dir = Path(checkpoints_dir)
+
+    requested_path = checkpoints_dir / model_name
+    if _contains_model_weights(requested_path):
+        return model_name
+
+    fallback_name = GENERATED_BF16_DIT_SOURCE_MODELS.get(model_name)
+    if not fallback_name:
+        return None
+
+    fallback_path = checkpoints_dir / fallback_name
+    if _contains_model_weights(fallback_path):
+        return fallback_name
+    return None
+
+
+def get_legacy_fallback_model_name(model_name: str) -> Optional[str]:
+    """Return the older source-checkpoint folder for generated BF16 model names."""
+    return GENERATED_BF16_DIT_SOURCE_MODELS.get(model_name)
+
+
 def check_main_model_exists(checkpoints_dir: Optional[Path] = None) -> bool:
     """
     Check if the main model components exist in the checkpoints directory.
@@ -478,8 +518,7 @@ def check_main_model_exists(checkpoints_dir: Optional[Path] = None) -> bool:
         checkpoints_dir = Path(checkpoints_dir)
 
     for component in MAIN_MODEL_COMPONENTS:
-        component_path = checkpoints_dir / component
-        if not _contains_model_weights(component_path):
+        if not check_model_exists(component, checkpoints_dir):
             return False
     return True
 
@@ -503,8 +542,7 @@ def check_model_exists(model_name: str, checkpoints_dir: Optional[Path] = None) 
     elif isinstance(checkpoints_dir, str):
         checkpoints_dir = Path(checkpoints_dir)
 
-    model_path = checkpoints_dir / model_name
-    return _contains_model_weights(model_path)
+    return resolve_existing_model_name(model_name, checkpoints_dir) is not None
 
 
 def check_shared_main_components_exist(checkpoints_dir: Optional[Path] = None) -> bool:

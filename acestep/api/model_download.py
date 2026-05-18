@@ -11,6 +11,7 @@ from acestep.model_downloader import (
     GENERATED_BF16_DIT_SOURCE_MODELS,
     MAIN_MODEL_REPO,
     SUBMODEL_REGISTRY,
+    resolve_existing_model_name,
 )
 
 
@@ -129,6 +130,17 @@ def ensure_model_downloaded(model_name: str, checkpoint_dir: str) -> str:
     """Ensure model exists locally, downloading from configured source if missing."""
 
     model_path = os.path.join(checkpoint_dir, model_name)
+    resolved_model_name = resolve_existing_model_name(model_name, checkpoint_dir)
+    if resolved_model_name:
+        resolved_path = os.path.join(checkpoint_dir, resolved_model_name)
+        if resolved_model_name != model_name:
+            print(
+                f"[Model Download] Model {model_name} not found; using older "
+                f"compatible model {resolved_model_name} at {resolved_path}"
+            )
+        else:
+            print(f"[Model Download] Model {model_name} already exists at {model_path}")
+        return resolved_path
 
     if os.path.exists(model_path) and os.listdir(model_path):
         print(f"[Model Download] Model {model_name} already exists at {model_path}")

@@ -41,6 +41,7 @@ def create_generation_workspace_page(
                         label="Use isolated subprocess generation",
                         value=False,
                         info="Safer memory isolation with a separate worker process. Slightly slower because models initialize inside that worker.",
+                        elem_id="acestep-subprocess-mode-checkbox",
                     )
                     gr.Markdown(
                         "**Execution note**\n\n"

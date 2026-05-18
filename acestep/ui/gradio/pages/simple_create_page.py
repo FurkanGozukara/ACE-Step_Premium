@@ -89,6 +89,17 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                     scale=1,
                     elem_classes=["action-btn", "action-btn-clear"],
                 )
+                simple_cancel_generation_btn = gr.Button(
+                    "Cancel Generation",
+                    variant="stop",
+                    size="lg",
+                    scale=1,
+                    elem_classes=[
+                        "action-btn",
+                        "action-btn-cancel",
+                        "action-btn-cancel-simple",
+                    ],
+                )
             simple_lyrics = gr.Textbox(
                 label="Lyrics",
                 placeholder="Write lyrics here, or leave empty for instrumental.",
@@ -121,8 +132,8 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                 value=default_model,
                 label="Model",
                 info=(
-                    "SFT uses 50-step CFG with Thinking metadata and shift 1.0. Base uses 64-step "
-                    "APG/CFG with shift 1.0. Turbo uses 8-step fast defaults with shift 3.0. "
+                    "SFT uses 50-step CFG with Thinking metadata and shift 3.0. Base uses 64-step "
+                    "APG/CFG with shift 3.0. Turbo uses 8-step fast defaults with shift 3.0. "
                     "All are XL 4B models; >=12GB VRAM is the practical floor."
                 ),
             )
@@ -161,7 +172,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                     minimum=-1,
                     maximum=float(max_duration),
                     step=0.1,
-                    info="-1 = auto. Turbo uses 5Hz LM; Base/SFT estimate duration directly from lyrics.",
+                    info="-1 = auto. Turbo/SFT use 5Hz LM; Base estimates duration from lyrics.",
                     scale=1,
                 )
                 simple_batch_size = gr.Number(
@@ -212,6 +223,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
             simple_key_scale_state = gr.State(value="")
             simple_time_signature_state = gr.State(value="")
             simple_is_format_caption_state = gr.State(value=False)
+            simple_cancel_confirmed_state = gr.State(value=False)
 
     return {
         "simple_caption": simple_caption,
@@ -219,6 +231,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
         "simple_enhance_lyrics_btn": simple_enhance_lyrics_btn,
         "simple_lyrics": simple_lyrics,
         "simple_generate_btn": simple_generate_btn,
+        "simple_cancel_generation_btn": simple_cancel_generation_btn,
         "simple_random_btn": simple_random_btn,
         "simple_model_dropdown": simple_model_dropdown,
         "simple_tier_dropdown": simple_tier_dropdown,
@@ -241,4 +254,5 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
         "simple_key_scale_state": simple_key_scale_state,
         "simple_time_signature_state": simple_time_signature_state,
         "simple_is_format_caption_state": simple_is_format_caption_state,
+        "simple_cancel_confirmed_state": simple_cancel_confirmed_state,
     }

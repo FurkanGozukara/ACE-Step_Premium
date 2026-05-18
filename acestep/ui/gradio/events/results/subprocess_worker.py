@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import os
 import sys
@@ -10,7 +11,6 @@ from pathlib import Path
 from typing import Any
 
 from acestep.handler import AceStepHandler
-from acestep.inference import GenerationConfig, GenerationParams
 from acestep.llm_inference import LLMHandler
 from acestep.model_downloader import (
     DEFAULT_LM_MODEL,
@@ -18,78 +18,40 @@ from acestep.model_downloader import (
     get_models_dir,
 )
 from acestep.ui.gradio.events.generation.quantization import select_quantization_value
-from acestep.ui.gradio.events.results.batch_management_helpers import _extract_scores
+from acestep.ui.gradio.events.results.batch_management_helpers import (
+    _apply_param_defaults,
+    _extract_scores,
+)
 from acestep.ui.gradio.events.results.generation_progress import generate_with_progress
+from acestep.ui.gradio.events.results.subprocess_worker_progress import worker_console_progress
 
+
+_GENERATION_KWARG_EXCLUDES = {"dit_handler", "llm_handler", "progress"}
 
 def _coerce_quantization(selection: Any, device: str | None) -> str | None:
+    """Return the backend quantization mode for the worker's selected device."""
     return select_quantization_value(selection, device=device or "auto")
 
 
 def _build_generation_kwargs(payload: dict[str, Any]) -> dict[str, Any]:
-    generation = payload["generation"]
-    return {
-        "captions": generation.get("captions"),
-        "lyrics": generation.get("lyrics"),
-        "bpm": generation.get("bpm"),
-        "key_scale": generation.get("key_scale"),
-        "time_signature": generation.get("time_signature"),
-        "vocal_language": generation.get("vocal_language"),
-        "inference_steps": generation.get("inference_steps"),
-        "guidance_scale": generation.get("guidance_scale"),
-        "random_seed_checkbox": generation.get("random_seed_checkbox"),
-        "seed": generation.get("seed"),
-        "reference_audio": generation.get("reference_audio"),
-        "audio_duration": generation.get("audio_duration"),
-        "batch_size_input": generation.get("batch_size_input"),
-        "src_audio": generation.get("src_audio"),
-        "text2music_audio_code_string": generation.get("text2music_audio_code_string"),
-        "repainting_start": generation.get("repainting_start"),
-        "repainting_end": generation.get("repainting_end"),
-        "instruction_display_gen": generation.get("instruction_display_gen"),
-        "audio_cover_strength": generation.get("audio_cover_strength"),
-        "cover_noise_strength": generation.get("cover_noise_strength"),
-        "task_type": generation.get("task_type"),
-        "use_adg": generation.get("use_adg"),
-        "cfg_interval_start": generation.get("cfg_interval_start"),
-        "cfg_interval_end": generation.get("cfg_interval_end"),
-        "shift": generation.get("shift"),
-        "infer_method": generation.get("infer_method"),
-        "sampler_mode": generation.get("sampler_mode"),
-        "velocity_norm_threshold": generation.get("velocity_norm_threshold"),
-        "velocity_ema_factor": generation.get("velocity_ema_factor"),
-        "custom_timesteps": generation.get("custom_timesteps"),
-        "audio_format": generation.get("audio_format"),
-        "mp3_bitrate": generation.get("mp3_bitrate"),
-        "mp3_sample_rate": generation.get("mp3_sample_rate"),
-        "lm_temperature": generation.get("lm_temperature"),
-        "think_checkbox": generation.get("think_checkbox"),
-        "lm_cfg_scale": generation.get("lm_cfg_scale"),
-        "lm_top_k": generation.get("lm_top_k"),
-        "lm_top_p": generation.get("lm_top_p"),
-        "lm_negative_prompt": generation.get("lm_negative_prompt"),
-        "use_cot_metas": generation.get("use_cot_metas"),
-        "use_cot_caption": generation.get("use_cot_caption"),
-        "use_cot_language": generation.get("use_cot_language"),
-        "is_format_caption": generation.get("is_format_caption", False),
-        "constrained_decoding_debug": generation.get("constrained_decoding_debug"),
-        "allow_lm_batch": generation.get("allow_lm_batch"),
-        "auto_score": generation.get("auto_score"),
-        "auto_lrc": generation.get("auto_lrc"),
-        "score_scale": generation.get("score_scale"),
-        "lm_batch_chunk_size": generation.get("lm_batch_chunk_size"),
-        "enable_normalization": generation.get("enable_normalization"),
-        "normalization_db": generation.get("normalization_db"),
-        "fade_in_duration": generation.get("fade_in_duration"),
-        "fade_out_duration": generation.get("fade_out_duration"),
-        "latent_shift": generation.get("latent_shift"),
-        "latent_rescale": generation.get("latent_rescale"),
-        "repaint_mode": generation.get("repaint_mode"),
-        "repaint_strength": generation.get("repaint_strength"),
-    }
+    """Return keyword arguments matching the current generation function."""
+    generation = dict(payload["generation"])
+    _apply_param_defaults(generation)
+    generation.setdefault("is_format_caption", False)
+    kwargs: dict[str, Any] = {}
+    for name, parameter in inspect.signature(generate_with_progress).parameters.items():
+        if name in _GENERATION_KWARG_EXCLUDES:
+            continue
+        if name in generation:
+            kwargs[name] = generation[name]
+            continue
+        if parameter.default is inspect.Parameter.empty:
+            raise RuntimeError(f"Subprocess payload missing generation parameter: {name}")
+    return kwargs
 
 
 def _json_safe_extra(extra_outputs: dict[str, Any] | None) -> dict[str, Any]:
+    """Return JSON-serializable extra generation outputs."""
     if not isinstance(extra_outputs, dict):
         return {}
     return {
@@ -99,6 +61,7 @@ def _json_safe_extra(extra_outputs: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def _write_result(path: str | Path, payload: dict[str, Any]) -> None:
+    """Write the worker result JSON for the parent process."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("w", encoding="utf-8") as handle:
@@ -106,6 +69,7 @@ def _write_result(path: str | Path, payload: dict[str, Any]) -> None:
 
 
 def main() -> int:
+    """Run one isolated ACE-Step generation request."""
     parser = argparse.ArgumentParser(description="ACE-Step subprocess generation worker")
     parser.add_argument("--request", required=True)
     parser.add_argument("--result", required=True)
@@ -124,6 +88,7 @@ def main() -> int:
 
         service = payload["service"]
         generation = payload["generation"]
+        _apply_param_defaults(generation)
         selected_model = (
             str(service.get("config_path") or "").strip()
             or DEFAULT_TURBO_DIT_MODEL
@@ -193,6 +158,7 @@ def main() -> int:
         for partial in generate_with_progress(
             dit_handler,
             llm_handler,
+            progress=worker_console_progress,
             **_build_generation_kwargs(payload),
         ):
             final_result = partial

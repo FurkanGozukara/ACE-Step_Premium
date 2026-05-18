@@ -163,6 +163,30 @@ class TestCheckMainModelExists(unittest.TestCase):
 
         self.assertTrue(result)
 
+    def test_returns_true_when_default_bf16_dits_use_source_fallbacks(self):
+        """check_main_model_exists accepts older source folders as BF16 fallbacks."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            checkpoints_dir = Path(tmp_dir)
+            fallback_components = {
+                self.mod.DEFAULT_PREMIUM_DIT_MODEL: self.mod.SOURCE_PREMIUM_DIT_MODEL,
+                self.mod.DEFAULT_TURBO_DIT_MODEL: self.mod.SOURCE_TURBO_DIT_MODEL,
+                self.mod.DEFAULT_BASE_DIT_MODEL: self.mod.SOURCE_BASE_DIT_MODEL,
+            }
+            for component in self.mod.MAIN_MODEL_COMPONENTS:
+                component_dir = checkpoints_dir / fallback_components.get(
+                    component,
+                    component,
+                )
+                component_dir.mkdir()
+                (component_dir / "model.safetensors").write_text(
+                    "weights",
+                    encoding="utf-8",
+                )
+
+            result = self.mod.check_main_model_exists(checkpoints_dir)
+
+        self.assertTrue(result)
+
     def test_main_components_include_lm_and_default_xl_models(self):
         """The premium bundle requires all bundled LMs and the XL DiT checkpoints."""
 
@@ -262,6 +286,28 @@ class TestCheckModelExists(unittest.TestCase):
             result = self.mod.check_model_exists("acestep-v15-turbo", Path(tmp_dir))
 
         self.assertTrue(result)
+
+    def test_bf16_model_exists_when_older_source_folder_has_weights(self):
+        """check_model_exists accepts older source folders as generated BF16 fallbacks."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            fallback_dir = Path(tmp_dir) / self.mod.SOURCE_TURBO_DIT_MODEL
+            fallback_dir.mkdir()
+            (fallback_dir / "model.safetensors").write_text(
+                "weights",
+                encoding="utf-8",
+            )
+
+            result = self.mod.check_model_exists(
+                self.mod.DEFAULT_TURBO_DIT_MODEL,
+                Path(tmp_dir),
+            )
+            resolved = self.mod.resolve_existing_model_name(
+                self.mod.DEFAULT_TURBO_DIT_MODEL,
+                Path(tmp_dir),
+            )
+
+        self.assertTrue(result)
+        self.assertEqual(resolved, self.mod.SOURCE_TURBO_DIT_MODEL)
 
 
 class TestDownloadSubmodel(unittest.TestCase):

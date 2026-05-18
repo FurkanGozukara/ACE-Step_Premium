@@ -23,6 +23,12 @@ import torch
 
 from acestep.audio_utils import AudioSaver, apply_fade, generate_uuid_from_params, normalize_audio, get_lora_weights_hash
 from acestep.constants import BPM_MIN, BPM_MAX, DURATION_MAX, TASK_TYPES, VALID_TIME_SIGNATURES
+from acestep.core.generation.cancellation import (
+    CANCEL_MESSAGE,
+    GenerationCancelled,
+    check_generation_cancelled,
+    cleanup_runtime_memory,
+)
 from acestep.gpu_config import get_dit_type_from_path
 
 # HuggingFace Space environment detection
@@ -669,6 +675,7 @@ def generate_music(
         GenerationResult with generated audio files and metadata
     """
     try:
+        check_generation_cancelled()
         # Phase 1: LM-based metadata and code generation (if enabled)
         # Flow-edit overlay on text2music must use the *VAE encoding* of
         # ``src_audio`` as the V_delta integration's starting latent, not
@@ -850,6 +857,7 @@ def generate_music(
             all_audio_codes_list = []
 
             for chunk_idx in range(num_chunks):
+                check_generation_cancelled()
                 chunk_start = chunk_idx * max_inference_batch_size
                 chunk_end = min(chunk_start + max_inference_batch_size, actual_batch_size)
                 chunk_size = chunk_end - chunk_start
@@ -881,6 +889,7 @@ def generate_music(
                     seeds=chunk_seeds,
                     progress=progress,
                 )
+                check_generation_cancelled()
 
                 # Check if LM generation failed
                 if not result.get("success", False):
@@ -993,6 +1002,7 @@ def generate_music(
             audio_duration = None
 
         # Phase 2: DiT music generation
+        check_generation_cancelled()
         # Use seed_for_generation (from config.seed or params.seed) instead of params.seed for actual generation
         dit_generate_kwargs = {
             "captions": dit_input_caption,
@@ -1066,6 +1076,7 @@ def generate_music(
                 f"[generate_music] Skipping unsupported generate_music kwargs: {dropped_generate_keys}"
             )
         result = dit_handler.generate_music(**filtered_generate_kwargs)
+        check_generation_cancelled()
 
         # Check if generation failed
         if not result.get("success", False):
@@ -1127,6 +1138,7 @@ def generate_music(
         # Audio saving and UUID generation handled here, outside of handler
         audios = []
         for idx, dit_audio in enumerate(dit_audios):
+            check_generation_cancelled()
             # Create a copy of params dict for this audio
             audio_params = base_params_dict.copy()
 
@@ -1267,6 +1279,16 @@ def generate_music(
             extra_outputs=extra_outputs,
             success=True,
             error=None,
+        )
+
+    except GenerationCancelled:
+        cleanup_runtime_memory()
+        return GenerationResult(
+            audios=[],
+            status_message=CANCEL_MESSAGE,
+            extra_outputs={},
+            success=False,
+            error=CANCEL_MESSAGE,
         )
 
     except Exception as e:

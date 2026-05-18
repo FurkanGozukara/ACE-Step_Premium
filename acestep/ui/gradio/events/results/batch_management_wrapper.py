@@ -1,6 +1,7 @@
 """Foreground batch generation wrapper for UI streaming updates."""
 
 import gc
+import inspect
 import os
 import sys
 import time as time_module
@@ -10,6 +11,14 @@ import gradio as gr
 from loguru import logger
 
 from acestep.gpu_config import find_best_lm_model_on_disk, get_global_gpu_config
+from acestep.core.generation.cancellation import (
+    CANCEL_MESSAGE,
+    GenerationCancelled,
+    check_generation_cancelled,
+    cleanup_runtime_memory,
+    generation_cancel_scope,
+    is_generation_cancelled,
+)
 from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 from acestep.ui.gradio.events.results.batch_management_helpers import (
     _apply_param_defaults,
@@ -275,6 +284,7 @@ def _ensure_in_process_service_ready(
             use_mlx_dit=bool(mlx_dit_checkbox),
         )
         status_lines.append(init_status)
+        check_generation_cancelled()
         if not ok:
             return False, "\n".join(status_lines)
 
@@ -286,6 +296,7 @@ def _ensure_in_process_service_ready(
     )
     if lm_unload_status:
         status_lines.append(lm_unload_status)
+    check_generation_cancelled()
 
     lm_requires_init, requested_lm_model = _lm_service_needs_init(
         llm_handler,
@@ -326,13 +337,14 @@ def _ensure_in_process_service_ready(
             "offload_to_cpu": bool(offload_to_cpu_checkbox),
         }
         status_lines.append(lm_status)
+        check_generation_cancelled()
         if not lm_ok:
             return False, "\n".join(status_lines)
 
     return True, "\n".join(status_lines)
 
 
-def generate_with_batch_management(
+def _generate_with_batch_management_impl(
     dit_handler, llm_handler,
     captions, lyrics, bpm, key_scale, time_signature, vocal_language,
     inference_steps, guidance_scale, random_seed_checkbox, seed,
@@ -393,6 +405,7 @@ def generate_with_batch_management(
     progress=gr.Progress(track_tqdm=True),
 ):
     """Wrap ``generate_with_progress`` with batch queue management state."""
+    check_generation_cancelled()
     _ = (generation_params_state, use_lora_checkbox)  # reserved for API compatibility
     selected_model = str(config_path or "").strip() or DEFAULT_TURBO_DIT_MODEL
     logger.info(
@@ -602,6 +615,7 @@ def generate_with_batch_management(
             gr.skip(), gr.skip(), gr.skip(), gr.skip(),
             gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(),
         )
+    check_generation_cancelled()
     if not init_ready:
         error_msg = t("messages.batch_failed", error=init_message or "Service initialization failed")
         logger.warning("[generate_with_batch_management] Foreground auto-init failed")
@@ -762,3 +776,48 @@ def generate_with_batch_management(
         gr.update(interactive=True),
     )
     time_module.sleep(0.1)
+
+
+def generate_with_batch_management(*args, **kwargs):
+    """Run batch-managed generation under a cancellation scope."""
+
+    is_format_caption = _extract_is_format_caption_arg(args, kwargs)
+    with generation_cancel_scope():
+        try:
+            check_generation_cancelled()
+            yield from _generate_with_batch_management_impl(*args, **kwargs)
+        except GenerationCancelled:
+            logger.info("[generate_with_batch_management] {}", CANCEL_MESSAGE)
+            cleanup_runtime_memory()
+            yield _cancelled_generation_outputs(is_format_caption)
+        finally:
+            if is_generation_cancelled():
+                cleanup_runtime_memory()
+
+
+def _cancelled_generation_outputs(is_format_caption: bool) -> tuple:
+    """Return a 55-output Gradio update tuple for cancelled generation."""
+
+    return build_pending_core_outputs(CANCEL_MESSAGE, is_format_caption) + (
+        gr.skip(),
+        gr.skip(),
+        gr.skip(),
+        gr.skip(),
+        gr.skip(),
+        gr.skip(),
+        gr.skip(),
+        CANCEL_MESSAGE,
+        gr.update(interactive=False),
+    )
+
+
+def _extract_is_format_caption_arg(args: tuple, kwargs: dict) -> bool:
+    """Extract the ``is_format_caption`` positional argument for cancel output."""
+
+    if "is_format_caption" in kwargs:
+        return bool(kwargs["is_format_caption"])
+    # Positional index 50 follows dit_handler, llm_handler, and generation inputs.
+    return bool(args[50]) if len(args) > 50 else False
+
+
+generate_with_batch_management.__signature__ = inspect.signature(_generate_with_batch_management_impl)

@@ -7,6 +7,14 @@ import traceback
 import gradio as gr
 from loguru import logger
 
+from acestep.core.generation.cancellation import (
+    CANCEL_MESSAGE,
+    GenerationCancelled,
+    check_generation_cancelled,
+    cleanup_runtime_memory,
+    generation_cancel_scope,
+    is_generation_cancelled,
+)
 from acestep.ui.gradio.events.results.batch_management_helpers import (
     _apply_param_defaults,
     _extract_scores,
@@ -67,6 +75,9 @@ def generate_next_batch_background(
             gr.update(interactive=False),
         )
 
+    if is_generation_cancelled():
+        return batch_queue, total_batches, CANCEL_MESSAGE, gr.update(interactive=False)
+
     next_batch_idx = current_batch_index + 1
 
     if next_batch_idx in batch_queue and batch_queue[next_batch_idx].get("status") == "completed":
@@ -84,6 +95,9 @@ def generate_next_batch_background(
     _log_background_params(params, next_batch_idx)
 
     try:
+        generation_cancel_scope_handle = generation_cancel_scope()
+        generation_cancel_scope_handle.__enter__()
+        check_generation_cancelled()
         _apply_param_defaults(params)
         last_init_params = getattr(dit_handler, "last_init_params", {}) or {}
         active_model = str(last_init_params.get("config_path") or "").strip() or "unknown"
@@ -185,6 +199,7 @@ def generate_next_batch_background(
 
         final_result = None
         for partial_result in generator:
+            check_generation_cancelled()
             final_result = partial_result
 
         if final_result is None:
@@ -237,6 +252,10 @@ def generate_next_batch_background(
             gr.update(interactive=True),
         )
 
+    except GenerationCancelled:
+        cleanup_runtime_memory()
+        return batch_queue, total_batches, CANCEL_MESSAGE, gr.update(interactive=False)
+
     except Exception as exc:
         error_msg = t("messages.batch_failed", error=str(exc))
         gr.Warning(error_msg)
@@ -246,3 +265,8 @@ def generate_next_batch_background(
             "traceback": traceback.format_exc(),
         }
         return batch_queue, total_batches, error_msg, gr.update(interactive=False)
+    finally:
+        if "generation_cancel_scope_handle" in locals():
+            generation_cancel_scope_handle.__exit__(None, None, None)
+        if is_generation_cancelled():
+            cleanup_runtime_memory()

@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from acestep.ui.gradio.events.generation.cancel_actions import (
+    BATCH_CANCEL_CONFIRM_JS,
+    request_generation_cancel_from_ui,
+)
 from acestep.ui.gradio.events.batch_folder_runner import run_batch_folder_processing
 from acestep.ui.gradio.events.wiring.generation_run_wiring import build_generation_run_inputs
 
@@ -41,4 +45,22 @@ def register_batch_folder_handlers(
             *build_generation_run_inputs(generation_section, results_section),
         ],
         outputs=[batch_section["batch_status"]],
+    )
+    batch_cancel_event = batch_section["batch_cancel_btn"].click(
+        fn=None,
+        inputs=None,
+        outputs=[batch_section["batch_cancel_confirmed_state"]],
+        js=BATCH_CANCEL_CONFIRM_JS,
+        queue=False,
+        show_progress="hidden",
+    )
+    batch_cancel_event.then(
+        fn=request_generation_cancel_from_ui,
+        inputs=[
+            batch_section["batch_cancel_confirmed_state"],
+            generation_section["subprocess_mode_checkbox"],
+        ],
+        outputs=[batch_section["batch_status"]],
+        queue=False,
+        show_progress="hidden",
     )

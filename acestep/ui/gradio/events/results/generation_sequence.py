@@ -8,6 +8,7 @@ from typing import Any
 
 from loguru import logger
 
+from acestep.core.generation.cancellation import check_generation_cancelled
 from acestep.ui.gradio.events.generation.generation_count import seed_for_generation_index
 
 
@@ -31,6 +32,7 @@ def generate_sequential_songs(
 
     results = []
     for generation_index in range(generation_count):
+        check_generation_cancelled()
         run_config = replace(
             base_config,
             batch_size=1,
@@ -52,6 +54,7 @@ def generate_sequential_songs(
             config=run_config,
             progress=progress,
         )
+        check_generation_cancelled()
         results.append(result)
         if not result.success:
             return result

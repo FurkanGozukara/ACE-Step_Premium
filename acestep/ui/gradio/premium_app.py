@@ -14,6 +14,10 @@ from acestep.ui.gradio.events import (
     setup_event_handlers,
     setup_training_event_handlers,
 )
+from acestep.ui.gradio.events.generation.cancel_api import (
+    CANCEL_GENERATION_ENDPOINT,
+    register_generation_cancel_route,
+)
 from acestep.ui.gradio.events.wiring import (
     register_batch_folder_handlers,
     register_library_handlers,
@@ -72,6 +76,7 @@ document.addEventListener('mouseover', function(e) {
 _BUTTON_PERSONALIZATION_SCRIPT = """
 <script>
 (function() {
+    const cancelEndpoint = "__ACE_CANCEL_ENDPOINT__";
     const colorPalette = [
         ["#1d4ed8", "#0e7490"],
         ["#6d28d9", "#7e22ce"],
@@ -216,11 +221,93 @@ _BUTTON_PERSONALIZATION_SCRIPT = """
         };
     }
 
+    function cancelColorFor(button) {
+        if (button.closest(".action-btn-cancel-simple")) {
+            return {
+                gradient: "linear-gradient(135deg, #991b1b 0%, #e11d48 100%)",
+                shadow: "0 8px 20px rgba(225, 29, 72, 0.28)",
+            };
+        }
+        if (button.closest(".action-btn-cancel-advanced")) {
+            return {
+                gradient: "linear-gradient(135deg, #7c2d12 0%, #f97316 100%)",
+                shadow: "0 8px 20px rgba(249, 115, 22, 0.28)",
+            };
+        }
+        if (button.closest(".action-btn-cancel-batch")) {
+            return {
+                gradient: "linear-gradient(135deg, #4c1d95 0%, #7e22ce 100%)",
+                shadow: "0 8px 20px rgba(126, 34, 206, 0.28)",
+            };
+        }
+        return null;
+    }
+
     function setStyleProperty(button, name, value) {
         if (button.style.getPropertyValue(name) !== value) {
             button.style.setProperty(name, value);
         }
     }
+
+    function isCancelButton(button) {
+        return button instanceof HTMLButtonElement
+            && Boolean(button.closest(".action-btn-cancel"));
+    }
+
+    function subprocessModeEnabled() {
+        const container = document.getElementById("acestep-subprocess-mode-checkbox");
+        const input = container && container.matches('input[type="checkbox"]')
+            ? container
+            : (
+                container
+                    ? container.querySelector('input[type="checkbox"]')
+                    : document.querySelector('#acestep-subprocess-mode-checkbox input[type="checkbox"]')
+            );
+        return Boolean(input && input.checked);
+    }
+
+    async function requestCancel(button) {
+        const isBatchCancel = Boolean(button.closest(".action-btn-cancel-batch"));
+        const message = isBatchCancel
+            ? "Are you sure you want to cancel the current generation and the remaining batch?"
+            : "Are you sure you want to cancel the current generation?";
+        if (!window.confirm(message)) return;
+
+        const originalText = buttonText(button);
+        if (!subprocessModeEnabled()) {
+            button.dataset.aceOriginalLabel = originalText.replace(/^\\S+\\s+/, "");
+            button.textContent = "Subprocess Mode Off";
+            window.setTimeout(schedulePersonalization, 1200);
+            return;
+        }
+        button.textContent = "Cancelling...";
+        try {
+            const response = await fetch(cancelEndpoint, {
+                method: "POST",
+                headers: {"Accept": "application/json"},
+            });
+            if (!response.ok) {
+                throw new Error(`Cancel request failed: HTTP ${response.status}`);
+            }
+            const payload = await response.json();
+            button.dataset.aceOriginalLabel = originalText.replace(/^\\S+\\s+/, "");
+            button.textContent = payload.active ? "Subprocess Cancel Requested" : "No Active Subprocess";
+            window.setTimeout(schedulePersonalization, 1200);
+        } catch (error) {
+            console.error("[ACE-Step] Cancel request failed", error);
+            button.textContent = "Cancel Failed";
+            window.setTimeout(schedulePersonalization, 1800);
+        }
+    }
+
+    document.addEventListener("click", function(event) {
+        const button = event.target instanceof Element ? event.target.closest("button") : null;
+        if (!isCancelButton(button)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        requestCancel(button);
+    }, true);
 
     function personalizeButtons() {
         const tabKey = selectedTabKey();
@@ -243,7 +330,7 @@ _BUTTON_PERSONALIZATION_SCRIPT = """
                 button.textContent = desiredLabel;
             }
 
-            const color = colorFor(tabKey, index);
+            const color = cancelColorFor(button) || colorFor(tabKey, index);
             button.dataset.aceCommandButton = "true";
             button.dataset.aceButtonOrdinal = String(index + 1);
             setStyleProperty(button, "--ace-btn-bg", color.gradient);
@@ -279,7 +366,7 @@ _BUTTON_PERSONALIZATION_SCRIPT = """
     window.setTimeout(schedulePersonalization, 3000);
 })();
 </script>
-"""
+""".replace("__ACE_CANCEL_ENDPOINT__", CANCEL_GENERATION_ENDPOINT)
 
 _PREMIUM_CSS = """
 .gradio-container button[data-ace-command-button="true"] {
@@ -427,6 +514,21 @@ button.action-btn-cancel {
 button.action-btn-cancel:hover {
     box-shadow: 0 10px 24px rgba(220, 38, 38, 0.32) !important;
 }
+.action-btn-cancel-simple button,
+button.action-btn-cancel-simple {
+    background: linear-gradient(135deg, #991b1b 0%, #e11d48 100%) !important;
+    box-shadow: 0 8px 20px rgba(225, 29, 72, 0.28) !important;
+}
+.action-btn-cancel-advanced button,
+button.action-btn-cancel-advanced {
+    background: linear-gradient(135deg, #7c2d12 0%, #f97316 100%) !important;
+    box-shadow: 0 8px 20px rgba(249, 115, 22, 0.28) !important;
+}
+.action-btn-cancel-batch button,
+button.action-btn-cancel-batch {
+    background: linear-gradient(135deg, #4c1d95 0%, #7e22ce 100%) !important;
+    box-shadow: 0 8px 20px rgba(126, 34, 206, 0.28) !important;
+}
 .action-btn-open button,
 button.action-btn-open {
     background: linear-gradient(135deg, #059669 0%, #14b8a6 100%) !important;
@@ -461,6 +563,7 @@ def _build_head(service_mode: bool) -> str:
         + get_audio_player_preferences_head()
         + ("" if service_mode else get_user_preferences_head())
         + _TOOLTIP_SCRIPT
+        + _BUTTON_PERSONALIZATION_SCRIPT
     )
 
 
@@ -705,6 +808,7 @@ def create_gradio_interface(
             service_mode=service_mode,
         )
 
+    register_generation_cancel_route(demo)
     demo._ace_launch_theme = launch_theme
     demo._ace_launch_css = _PREMIUM_CSS
     demo._ace_launch_head = launch_head

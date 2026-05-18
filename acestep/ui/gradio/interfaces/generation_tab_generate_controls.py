@@ -101,14 +101,28 @@ def build_generate_row_controls(
                 service_mode=service_mode,
             )
             autogen_checkbox, auto_lrc = _build_right_generate_toggles(service_mode=service_mode)
-        generate_btn = gr.Button(
-            t("generation.generate_btn"),
-            variant="primary",
-            size="lg",
-            interactive=generate_btn_interactive,
-            elem_id="acestep-generate-btn",
-            elem_classes=["action-btn", "action-btn-generate"],
-        )
+        with gr.Row(equal_height=True):
+            generate_btn = gr.Button(
+                t("generation.generate_btn"),
+                variant="primary",
+                size="lg",
+                scale=2,
+                interactive=generate_btn_interactive,
+                elem_id="acestep-generate-btn",
+                elem_classes=["action-btn", "action-btn-generate"],
+            )
+            cancel_generation_btn = gr.Button(
+                "Cancel Generation",
+                variant="stop",
+                size="lg",
+                scale=1,
+                elem_classes=[
+                    "action-btn",
+                    "action-btn-cancel",
+                    "action-btn-cancel-advanced",
+                ],
+            )
+        cancel_confirmed_state = gr.State(value=False)
         with gr.Group():
             gr.Markdown(t("generation.inline_result_info"))
             inline_generated_audio = gr.Audio(
@@ -125,6 +139,8 @@ def build_generate_row_controls(
         "think_checkbox": think_checkbox,
         "auto_score": auto_score,
         "generate_btn": generate_btn,
+        "cancel_generation_btn": cancel_generation_btn,
+        "cancel_confirmed_state": cancel_confirmed_state,
         "generate_btn_row": generate_btn_row,
         "autogen_checkbox": autogen_checkbox,
         "auto_lrc": auto_lrc,

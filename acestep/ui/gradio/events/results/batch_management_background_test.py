@@ -3,12 +3,23 @@
 import unittest
 from unittest.mock import patch
 
+from acestep.core.generation.cancellation import (
+    CANCEL_MESSAGE,
+    generation_cancel_scope,
+    request_generation_cancel,
+)
 from _batch_management_test_support import build_progress_result
 from _batch_management_test_support import load_batch_management_module
 
 
 class BatchManagementBackgroundTests(unittest.TestCase):
     """Tests for background AutoGen batch generation flow."""
+
+    def tearDown(self):
+        """Clear cancellation state left by cancellation-specific tests."""
+
+        with generation_cancel_scope():
+            pass
 
     def test_autogen_disabled_returns_noop_state(self):
         """Disabled AutoGen should not trigger generation or queue mutations."""
@@ -156,6 +167,36 @@ class BatchManagementBackgroundTests(unittest.TestCase):
 
         self.assertEqual(result[0][1]["lrcs"], lrcs)
         self.assertEqual(result[0][1]["subtitles"], subtitles)
+
+    def test_background_cancel_returns_cancelled_state_without_storing_batch(self):
+        """Cancellation should stop AutoGen and avoid storing the partial batch."""
+
+        module, _state = load_batch_management_module(is_windows=False)
+
+        def _cancel_gen(*_args, **_kwargs):
+            """Request cancellation while background generation is streaming."""
+
+            request_generation_cancel()
+            yield build_progress_result(length=48)
+
+        with patch.dict(
+            module.generate_next_batch_background.__globals__,
+            {"generate_with_progress": _cancel_gen},
+        ):
+            result = module.generate_next_batch_background(
+                None,
+                None,
+                autogen_enabled=True,
+                generation_params={"batch_size_input": 1, "allow_lm_batch": False},
+                current_batch_index=0,
+                total_batches=1,
+                batch_queue={},
+                is_format_caption=False,
+            )
+
+        self.assertEqual({}, result[0])
+        self.assertEqual(CANCEL_MESSAGE, result[2])
+        self.assertFalse(result[3]["interactive"])
 
     def test_background_generation_exception_sets_error_entry(self):
         """Background exceptions should produce warning and mark batch as error."""

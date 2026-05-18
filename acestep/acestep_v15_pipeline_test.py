@@ -58,10 +58,12 @@ class PipelineStartupBackendTests(unittest.TestCase):
         llm_handler.initialize.return_value = ("ok", True)
 
         demo = MagicMock()
+        demo.app = MagicMock(name="queued_gradio_app")
         demo.queue.return_value = demo
         demo.launch.return_value = None
 
         captured: dict[str, object] = {}
+        captured["demo"] = demo
         captured["dit_handler"] = dit_handler
         startup_gpu_state = SimpleNamespace(
             gpu_config=gpu_config,
@@ -76,6 +78,11 @@ class PipelineStartupBackendTests(unittest.TestCase):
             captured["init_params"] = init_params
             captured["language"] = language
             return demo
+
+        def _register_cancel_route(route_demo):
+            captured["cancel_route_registered_demo"] = route_demo
+            captured["cancel_route_registered_after_queue"] = demo.queue.called
+            captured["cancel_route_registered_app"] = route_demo.app
 
         with patch.object(sys, "argv", argv), patch.dict(os.environ, env or {}, clear=True), patch(
             "acestep.acestep_v15_pipeline.build_startup_gpu_state",
@@ -94,6 +101,9 @@ class PipelineStartupBackendTests(unittest.TestCase):
             "acestep.acestep_v15_pipeline.create_demo",
             side_effect=_create_demo,
         ), patch(
+            "acestep.acestep_v15_pipeline._import_generation_cancel_route",
+            return_value=_register_cancel_route,
+        ), patch(
             "acestep.acestep_v15_pipeline.ensure_lm_model",
             return_value=(True, "ok"),
         ), patch(
@@ -102,6 +112,19 @@ class PipelineStartupBackendTests(unittest.TestCase):
             acestep_v15_pipeline.main()
 
         return llm_handler, captured
+
+    def test_main_registers_cancel_route_after_queue_before_launch(self) -> None:
+        """Queued Gradio startup should serve the out-of-band cancel route."""
+
+        _llm_handler, captured = self._run_main(["acestep"])
+
+        demo = captured["demo"]
+        self.assertIs(captured["cancel_route_registered_demo"], demo)
+        self.assertTrue(captured["cancel_route_registered_after_queue"])
+        self.assertIs(
+            demo.launch.call_args.kwargs["_app"],
+            captured["cancel_route_registered_app"],
+        )
 
     def test_main_forces_pt_backend_for_explicit_vllm_argument(self) -> None:
         """Legacy CUDA startup should override an explicit CLI vLLM request."""

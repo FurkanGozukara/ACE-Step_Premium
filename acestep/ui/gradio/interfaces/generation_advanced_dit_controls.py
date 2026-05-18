@@ -27,7 +27,7 @@ def build_dit_controls(ui_config: dict[str, Any], think_enabled: bool = False) -
         with gr.Row():
             inference_steps = gr.Slider(
                 minimum=ui_config["inference_steps_minimum"],
-                maximum=ui_config["inference_steps_server_maximum"],
+                maximum=ui_config["inference_steps_maximum"],
                 value=ui_config["inference_steps_value"],
                 step=1,
                 label=t("generation.inference_steps_label"),

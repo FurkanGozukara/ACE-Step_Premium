@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Optional, Union
 
 import torch
 
+from acestep.core.generation.cancellation import check_generation_cancelled
+
 
 class ServiceGenerateMixin:
     """Run the high-level service-generation pipeline over prepared helper APIs.
@@ -83,6 +85,7 @@ class ServiceGenerateMixin:
             Exception: Propagates exceptions raised by downstream helper methods
                 (e.g., normalization, diffusion execution, output assembly).
         """
+        check_generation_cancelled()
         normalized = self._normalize_service_generate_inputs(
             captions=captions,
             lyrics=lyrics,
@@ -97,6 +100,7 @@ class ServiceGenerateMixin:
             seed=seed,
             return_intermediate=return_intermediate,
         )
+        check_generation_cancelled()
         batch = self._prepare_batch(
             captions=normalized["captions"],
             global_captions=global_captions,
@@ -116,7 +120,9 @@ class ServiceGenerateMixin:
             task_type=task_type,
             source_repaint_latents=source_repaint_latents,
         )
+        check_generation_cancelled()
         payload = self._unpack_service_processed_data(self.preprocess_batch(batch))
+        check_generation_cancelled()
         seed_param = self._resolve_service_seed_param(normalized["seed_list"])
         self._ensure_silence_latent_on_device()
         generate_kwargs = self._build_service_generate_kwargs(
@@ -172,6 +178,7 @@ class ServiceGenerateMixin:
                 flow_edit_ctx=flow_edit_ctx,
             )
         )
+        check_generation_cancelled()
         return self._attach_service_generate_outputs(
             outputs=outputs,
             payload=payload,

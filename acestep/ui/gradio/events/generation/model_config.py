@@ -192,7 +192,7 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
             "guidance_scale_visible": True,
             "use_adg_value": False,
             "use_adg_visible": True,
-            "shift_value": 1.0,
+            "shift_value": 3.0,
             "shift_visible": True,
             "cfg_interval_start_value": 0.0,
             "cfg_interval_start_visible": True,
@@ -203,7 +203,7 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
         }
 
     # SFT and unknown non-turbo checkpoints default to the documented CFG
-    # schedule. Base/SFT use the model's native continuous shift=1.0 schedule.
+    # schedule with the same shift used by the official API defaults.
     return {
         **COMMON_DIFFUSION_CONTROL_RANGES,
         "inference_steps_value": 50,
@@ -213,7 +213,7 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
         "guidance_scale_visible": True,
         "use_adg_value": False,
         "use_adg_visible": True,
-        "shift_value": 1.0,
+        "shift_value": 3.0,
         "shift_visible": True,
         "cfg_interval_start_value": 0.0,
         "cfg_interval_start_visible": True,

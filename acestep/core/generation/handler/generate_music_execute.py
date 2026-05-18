@@ -2,9 +2,12 @@
 
 import os
 import threading
+import time
 from typing import Any, Dict, List, Optional, Sequence
 
 from loguru import logger
+
+from acestep.core.generation.cancellation import check_generation_cancelled, is_generation_cancelled
 
 # Maximum wall-clock seconds to wait for service_generate before declaring a hang.
 # Generous default: most generations finish in 30-120s, but large batches on slow
@@ -63,6 +66,7 @@ class GenerateMusicExecuteMixin:
         infer_steps_for_progress = len(timesteps) if timesteps else inference_steps
         progress_desc = f"Generating music (batch size: {actual_batch_size})..."
         progress(0.52, desc=progress_desc)
+        check_generation_cancelled()
         stop_event = None
         progress_thread = None
 
@@ -141,8 +145,16 @@ class GenerateMusicExecuteMixin:
                 name="service-generate",
                 daemon=True,
             )
+            check_generation_cancelled()
             gen_thread.start()
-            gen_thread.join(timeout=_DEFAULT_GENERATION_TIMEOUT)
+            deadline = time.monotonic() + _DEFAULT_GENERATION_TIMEOUT
+            cancel_requested = False
+            while gen_thread.is_alive() and time.monotonic() < deadline:
+                gen_thread.join(timeout=0.25)
+                if is_generation_cancelled():
+                    cancel_requested = True
+            if cancel_requested:
+                check_generation_cancelled()
 
             if gen_thread.is_alive():
                 logger.error(

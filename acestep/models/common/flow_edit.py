@@ -37,6 +37,8 @@ from loguru import logger
 from tqdm import tqdm
 from transformers.cache_utils import DynamicCache, EncoderDecoderCache
 
+from acestep.core.generation.cancellation import check_generation_cancelled
+
 from .apg_guidance import MomentumBuffer
 from .flow_edit_helpers import (
     apply_cfg_branch,
@@ -133,6 +135,7 @@ def flowedit_sampling_loop(
         return out[0], out[1]
 
     for step_idx, (t_curr, t_prev) in enumerate(iterator):
+        check_generation_cancelled()
         if step_idx < n_min_step:
             continue
         t_curr_f = float(t_curr)
@@ -150,6 +153,7 @@ def flowedit_sampling_loop(
             diff_src_sum: Optional[torch.Tensor] = None
             diff_tar_sum: Optional[torch.Tensor] = None
             for _ in range(n_avg):
+                check_generation_cancelled()
                 src_momentum.running_average = src_pre
                 tar_momentum.running_average = tar_pre
                 fwd_noise = draw_fwd_noise(src_latents.shape, retake_generators, device, dtype)
