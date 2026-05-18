@@ -2,6 +2,7 @@
 
 import unittest
 
+from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 from acestep.ui.gradio.events.generation.model_config import (
     _has_token,
     is_sft_model,
@@ -214,7 +215,7 @@ class PreferredModelPathTests(unittest.TestCase):
         self.assertEqual(select_preferred_model_path(models), "custom-model-a")
 
     def test_empty_models_falls_back_to_xl_turbo(self):
-        self.assertEqual(select_preferred_model_path([]), "acestep-v15-xl-turbo")
+        self.assertEqual(select_preferred_model_path([]), DEFAULT_TURBO_DIT_MODEL)
 
 
 if __name__ == "__main__":

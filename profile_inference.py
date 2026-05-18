@@ -80,6 +80,7 @@ from acestep.gpu_config import (
     GPUConfig,
     VRAM_AUTO_OFFLOAD_THRESHOLD_GB,
 )
+from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 
 
 # =============================================================================
@@ -116,7 +117,7 @@ def auto_detect_backend(device: str) -> str:
 def load_env_config() -> Dict[str, str]:
     """Load configuration defaults from .env file."""
     env_config = {
-        "ACESTEP_CONFIG_PATH": "acestep-v15-turbo",
+        "ACESTEP_CONFIG_PATH": DEFAULT_TURBO_DIT_MODEL,
         "ACESTEP_LM_MODEL_PATH": "acestep-5Hz-lm-0.6B",
         "ACESTEP_DEVICE": "auto",
         "ACESTEP_LM_BACKEND": "auto",

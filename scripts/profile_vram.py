@@ -33,6 +33,8 @@ if PROJECT_ROOT not in sys.path:
 
 import torch
 
+from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
+
 
 def get_memory_stats() -> Dict[str, float]:
     """Get current CUDA memory statistics in GB."""
@@ -97,7 +99,7 @@ def measure_cuda_context() -> Dict[str, float]:
     return result
 
 
-def profile_dit(checkpoint_dir: str, config_path: str = "acestep-v15-turbo") -> Dict[str, Any]:
+def profile_dit(checkpoint_dir: str, config_path: str = DEFAULT_TURBO_DIT_MODEL) -> Dict[str, Any]:
     """Profile DiT model memory consumption."""
     print("\n" + "=" * 60)
     print(f"Profiling DiT model: {config_path}")
@@ -435,8 +437,8 @@ def main():
                        help="Component to profile (default: all)")
     parser.add_argument("--checkpoint-dir", type=str, default=None,
                        help="Checkpoint directory (default: auto-detect)")
-    parser.add_argument("--dit-config", type=str, default="acestep-v15-turbo",
-                       help="DiT model config name (default: acestep-v15-turbo)")
+    parser.add_argument("--dit-config", type=str, default=DEFAULT_TURBO_DIT_MODEL,
+                       help=f"DiT model config name (default: {DEFAULT_TURBO_DIT_MODEL})")
     parser.add_argument("--lm-models", type=str, nargs="*", default=None,
                        help="LM models to profile (default: auto-detect)")
     parser.add_argument("--output", type=str, default=None,

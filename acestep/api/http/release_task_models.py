@@ -7,6 +7,7 @@ from typing import List, Literal, Optional, Union
 from pydantic import BaseModel, Field
 
 from acestep.constants import DEFAULT_DIT_INSTRUCTION
+from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 
 
 class GenerateMusicRequest(BaseModel):
@@ -32,7 +33,10 @@ class GenerateMusicRequest(BaseModel):
     # Whether to use format_sample() to enhance input caption/lyrics
     use_format: bool = Field(default=False, description="Use format_sample() to enhance input (default: False)")
     # Model name for multi-model support (select which DiT model to use)
-    model: Optional[str] = Field(default=None, description="Model name to use (e.g., 'acestep-v15-turbo')")
+    model: Optional[str] = Field(
+        default=None,
+        description=f"Model name to use (e.g., '{DEFAULT_TURBO_DIT_MODEL}')",
+    )
 
     bpm: Optional[int] = None
     key_scale: str = ""

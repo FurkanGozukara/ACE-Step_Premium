@@ -28,14 +28,18 @@ class InitServiceCatalogMixin:
         return [checkpoint_dir]
 
     def get_available_acestep_v15_models(self) -> List[str]:
-        """Scan and return all model directory names starting with ``acestep-v15-``."""
+        """Scan and return all installed ACE-Step DiT model directory names."""
+        from acestep.model_downloader import GENERATED_BF16_DIT_SOURCE_MODELS
+
         checkpoint_dir = self._resolve_checkpoint_dir()
 
         models = []
         if os.path.exists(checkpoint_dir):
             for item in os.listdir(checkpoint_dir):
                 item_path = os.path.join(checkpoint_dir, item)
-                if os.path.isdir(item_path) and item.startswith("acestep-v15-"):
+                if not os.path.isdir(item_path):
+                    continue
+                if item.startswith("acestep-v15-") or item in GENERATED_BF16_DIT_SOURCE_MODELS:
                     models.append(item)
 
         models.sort()

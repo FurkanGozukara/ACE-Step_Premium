@@ -1,5 +1,6 @@
 """Unit tests for service-generation execution helper mixin."""
 
+from contextlib import contextmanager
 import unittest
 from unittest.mock import patch
 
@@ -16,6 +17,34 @@ class _Host(ServiceGenerateExecuteMixin, ServiceGenerateOutputsMixin):
         """Initialize static runtime fields for helper-method tests."""
         self.device = "cpu"
         self.silence_latent = torch.zeros(1, 4, 4, dtype=torch.float32)
+        self.use_mlx_dit = False
+        self.mlx_decoder = None
+        self.quantization = None
+
+    @contextmanager
+    def _load_model_context(self, model_name):
+        """Yield without moving test models between devices."""
+        yield
+
+
+class _InferenceModeRecordingModel:
+    """Minimal model that records inference-mode state during diffusion calls."""
+
+    def __init__(self):
+        """Initialize recorded state for assertions."""
+        self.prepare_condition_inference_mode = None
+        self.generate_audio_inference_mode = None
+
+    def prepare_condition(self, **_kwargs):
+        """Return placeholder conditioning tensors while recording inference mode."""
+        self.prepare_condition_inference_mode = torch.is_inference_mode_enabled()
+        tensor = torch.zeros(1, 2)
+        return tensor, tensor, tensor
+
+    def generate_audio(self, **_kwargs):
+        """Return placeholder latents while recording inference mode."""
+        self.generate_audio_inference_mode = torch.is_inference_mode_enabled()
+        return {"target_latents": torch.zeros(1, 4, 4)}
 
 
 class ServiceGenerateExecuteMixinTests(unittest.TestCase):
@@ -90,6 +119,40 @@ class ServiceGenerateExecuteMixinTests(unittest.TestCase):
         with patch("acestep.core.generation.handler.service_generate_execute.random.randint", return_value=42):
             seed_param = host._resolve_service_seed_param(None)
         self.assertEqual(seed_param, 42)
+
+    def test_fp8_weight_only_disables_inference_mode_for_diffusion(self):
+        """TorchAO FP8 weight-only tensors need version counters during F.linear."""
+        host = _Host()
+        host.quantization = "fp8_weight_only"
+        host.model = _InferenceModeRecordingModel()
+        payload = {
+            "text_hidden_states": torch.zeros(1, 2),
+            "text_attention_mask": torch.ones(1, 2),
+            "lyric_hidden_states": torch.zeros(1, 2),
+            "lyric_attention_mask": torch.ones(1, 2),
+            "refer_audio_acoustic_hidden_states_packed": None,
+            "refer_audio_order_mask": None,
+            "src_latents": torch.zeros(1, 4, 4),
+            "chunk_mask": torch.ones(1, 4, dtype=torch.bool),
+            "is_covers": torch.tensor([False]),
+            "precomputed_lm_hints_25Hz": None,
+            "non_cover_text_hidden_states": None,
+            "non_cover_text_attention_masks": None,
+        }
+        generate_kwargs = {"infer_steps": 1}
+
+        with torch.inference_mode():
+            host._execute_service_generate_diffusion(
+                payload=payload,
+                generate_kwargs=generate_kwargs,
+                seed_param=123,
+                infer_method="ode",
+                shift=1.0,
+                audio_cover_strength=1.0,
+            )
+
+        self.assertFalse(host.model.prepare_condition_inference_mode)
+        self.assertFalse(host.model.generate_audio_inference_mode)
 
 
 if __name__ == "__main__":

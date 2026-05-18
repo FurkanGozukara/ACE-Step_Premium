@@ -33,11 +33,12 @@ from loguru import logger
 from acestep.handler import AceStepHandler
 from acestep.inference import GenerationConfig, GenerationParams, generate_music
 from acestep.llm_inference import LLMHandler
+from acestep.model_downloader import DEFAULT_PREMIUM_DIT_MODEL
 
 OUT = REPO / "flow_edit_test_outputs"
 OUT.mkdir(exist_ok=True)
 SEED = 42
-DIT_CONFIG = "acestep-v15-sft"
+DIT_CONFIG = DEFAULT_PREMIUM_DIT_MODEL
 
 ex = json.loads((REPO / "examples/text2music/example_01.json").read_text())
 src_path = OUT / f"baseline_01_seed{SEED}.wav"

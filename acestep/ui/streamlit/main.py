@@ -55,6 +55,7 @@ from components import (
     show_settings_panel,
 )
 from utils import is_dit_ready, initialize_dit, initialize_llm
+from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 
 # ------------------------------------------------------------------
 # Auto-initialise models on first load (runs once per session)
@@ -66,7 +67,7 @@ if "_models_auto_init_done" not in st.session_state:
             "Loading DiT model (first launch, may take a minute)..."
         ):
             _status, _ok = initialize_dit(
-                config_path="acestep-v15-turbo",
+                config_path=DEFAULT_TURBO_DIT_MODEL,
                 device="auto",
                 offload_to_cpu=(sys.platform != "darwin"),
             )

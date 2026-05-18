@@ -10,6 +10,7 @@ import torch
 from loguru import logger
 
 from acestep import gpu_config
+from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 
 _ROCM_DTYPE_MAP = {
     "float32": torch.float32,
@@ -137,9 +138,10 @@ class InitServiceOrchestratorMixin:
         """
         try:
             if config_path is None:
-                config_path = "acestep-v15-turbo"
+                config_path = DEFAULT_TURBO_DIT_MODEL
                 logger.warning(
-                    "[initialize_service] config_path not set; defaulting to 'acestep-v15-turbo'."
+                    "[initialize_service] config_path not set; defaulting to '{}'.",
+                    DEFAULT_TURBO_DIT_MODEL,
                 )
 
             resolved_device = self._resolve_initialize_device(device)

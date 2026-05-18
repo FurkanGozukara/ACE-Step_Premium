@@ -102,7 +102,7 @@ esac
 : "${LANGUAGE:=en}"
 
 # ==================== Model Configuration ====================
-: "${CONFIG_PATH:=--config_path acestep-v15-turbo}"
+: "${CONFIG_PATH:=--config_path ACEStep_1_5_XL_Turbo_BF16}"
 : "${LM_MODEL_PATH:=--lm_model_path acestep-5Hz-lm-4B}"
 
 # CPU offload: required for 4B LM on GPUs with <=20GB VRAM

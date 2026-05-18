@@ -264,6 +264,29 @@ class TestCheckModelExists(unittest.TestCase):
         self.assertTrue(result)
 
 
+class TestDownloadSubmodel(unittest.TestCase):
+    """Tests for model_downloader.download_submodel()."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = _load_module()
+
+    def test_generated_bf16_model_is_not_downloaded_directly(self):
+        """Generated BF16 DiT directories must be created locally from source weights."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.object(self.mod, "_smart_download") as smart_download:
+                success, msg = self.mod.download_submodel(
+                    self.mod.DEFAULT_TURBO_DIT_MODEL,
+                    Path(tmp_dir),
+                )
+
+        self.assertFalse(success)
+        self.assertIn(self.mod.DEFAULT_TURBO_DIT_MODEL, msg)
+        self.assertIn(self.mod.SOURCE_TURBO_DIT_MODEL, msg)
+        smart_download.assert_not_called()
+
+
 class TestDownloadMainModel(unittest.TestCase):
     """Tests for model_downloader.download_main_model()."""
 

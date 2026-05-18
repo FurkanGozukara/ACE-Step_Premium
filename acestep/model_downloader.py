@@ -18,9 +18,15 @@ from loguru import logger
 
 
 DEFAULT_MODEL_DIRNAME = "models"
-DEFAULT_PREMIUM_DIT_MODEL = "acestep-v15-xl-sft"
-DEFAULT_TURBO_DIT_MODEL = "acestep-v15-xl-turbo"
-DEFAULT_BASE_DIT_MODEL = "acestep-v15-xl-base"
+SOURCE_PREMIUM_DIT_MODEL = "acestep-v15-xl-sft"
+SOURCE_TURBO_DIT_MODEL = "acestep-v15-xl-turbo"
+SOURCE_BASE_DIT_MODEL = "acestep-v15-xl-base"
+LEGACY_BF16_PREMIUM_DIT_MODEL = "acestep-v15-xl-sft-bf16"
+LEGACY_BF16_TURBO_DIT_MODEL = "acestep-v15-xl-turbo-bf16"
+LEGACY_BF16_BASE_DIT_MODEL = "acestep-v15-xl-base-bf16"
+DEFAULT_PREMIUM_DIT_MODEL = "ACEStep_1_5_XL_SFT_BF16"
+DEFAULT_TURBO_DIT_MODEL = "ACEStep_1_5_XL_Turbo_BF16"
+DEFAULT_BASE_DIT_MODEL = "ACEStep_1_5_XL_Base_BF16"
 MAIN_MODEL_REPO = "ACE-Step/Ace-Step1.5"
 DEFAULT_SMALL_LM_MODEL = "acestep-5Hz-lm-0.6B"
 DEFAULT_LM_MODEL = "acestep-5Hz-lm-1.7B"
@@ -48,6 +54,14 @@ MAIN_MODEL_COMPONENTS = [
     *PRESET_LM_MODEL_COMPONENTS,
     *MAIN_DIT_MODEL_COMPONENTS,
 ]
+GENERATED_BF16_DIT_SOURCE_MODELS = {
+    DEFAULT_BASE_DIT_MODEL: SOURCE_BASE_DIT_MODEL,
+    DEFAULT_PREMIUM_DIT_MODEL: SOURCE_PREMIUM_DIT_MODEL,
+    DEFAULT_TURBO_DIT_MODEL: SOURCE_TURBO_DIT_MODEL,
+    LEGACY_BF16_BASE_DIT_MODEL: SOURCE_BASE_DIT_MODEL,
+    LEGACY_BF16_PREMIUM_DIT_MODEL: SOURCE_PREMIUM_DIT_MODEL,
+    LEGACY_BF16_TURBO_DIT_MODEL: SOURCE_TURBO_DIT_MODEL,
+}
 
 
 # =============================================================================
@@ -70,9 +84,15 @@ _CHECKPOINT_TO_VARIANT: Dict[str, str] = {
     "acestep-v15-turbo-fix-inst-shift-dynamic": "turbo",
     "acestep-v15-turbo-rl": "turbo",
     # XL (4B DiT) variants have their own model code under acestep/models/xl_*/
-    "acestep-v15-xl-base": "xl_base",
-    "acestep-v15-xl-sft": "xl_sft",
-    "acestep-v15-xl-turbo": "xl_turbo",
+    SOURCE_BASE_DIT_MODEL: "xl_base",
+    SOURCE_PREMIUM_DIT_MODEL: "xl_sft",
+    SOURCE_TURBO_DIT_MODEL: "xl_turbo",
+    DEFAULT_BASE_DIT_MODEL: "xl_base",
+    DEFAULT_PREMIUM_DIT_MODEL: "xl_sft",
+    DEFAULT_TURBO_DIT_MODEL: "xl_turbo",
+    LEGACY_BF16_BASE_DIT_MODEL: "xl_base",
+    LEGACY_BF16_PREMIUM_DIT_MODEL: "xl_sft",
+    LEGACY_BF16_TURBO_DIT_MODEL: "xl_turbo",
 }
 
 
@@ -359,9 +379,9 @@ SUBMODEL_REGISTRY: Dict[str, str] = {
     "acestep-v15-turbo-shift1": "ACE-Step/acestep-v15-turbo-shift1",
     "acestep-v15-turbo-continuous": "ACE-Step/acestep-v15-turbo-continuous",
     # XL (4B DiT) models
-    "acestep-v15-xl-base": "ACE-Step/acestep-v15-xl-base",
-    "acestep-v15-xl-sft": "ACE-Step/acestep-v15-xl-sft",
-    "acestep-v15-xl-turbo": "ACE-Step/acestep-v15-xl-turbo",
+    SOURCE_BASE_DIT_MODEL: f"ACE-Step/{SOURCE_BASE_DIT_MODEL}",
+    SOURCE_PREMIUM_DIT_MODEL: f"ACE-Step/{SOURCE_PREMIUM_DIT_MODEL}",
+    SOURCE_TURBO_DIT_MODEL: f"ACE-Step/{SOURCE_TURBO_DIT_MODEL}",
 }
 
 # Optional community-finetuned VAE checkpoints. Each entry maps a short
@@ -505,7 +525,10 @@ def _is_lm_model_name(model_name: str) -> bool:
 
 
 def _is_dit_model_name(model_name: str) -> bool:
-    return model_name in SUBMODEL_REGISTRY and not _is_lm_model_name(model_name)
+    return (
+        model_name in SUBMODEL_REGISTRY
+        or model_name in GENERATED_BF16_DIT_SOURCE_MODELS
+    ) and not _is_lm_model_name(model_name)
 
 
 def check_dit_bundle_exists(
@@ -630,9 +653,9 @@ def download_main_model(
     - acestep-5Hz-lm-1.7B (default LM model)
     - acestep-5Hz-lm-0.6B (small LM model included with premium presets)
     - acestep-5Hz-lm-4B (large LM model included with premium presets)
-    - acestep-v15-xl-sft (default premium DiT model)
-    - acestep-v15-xl-turbo (default turbo DiT preset model)
-    - acestep-v15-xl-base (default base DiT preset model)
+    - ACEStep_1_5_XL_SFT_BF16 (default premium DiT model)
+    - ACEStep_1_5_XL_Turbo_BF16 (default turbo DiT preset model)
+    - ACEStep_1_5_XL_Base_BF16 (default base DiT preset model)
 
     Args:
         checkpoints_dir: Custom checkpoints directory (optional)
@@ -719,6 +742,14 @@ def download_submodel(
     Returns:
         Tuple of (success, message)
     """
+    if model_name in GENERATED_BF16_DIT_SOURCE_MODELS:
+        source_model = GENERATED_BF16_DIT_SOURCE_MODELS[model_name]
+        return (
+            False,
+            f"Generated BF16 model '{model_name}' is not downloadable directly. "
+            f"Create it from local source checkpoint '{source_model}' or select that source model.",
+        )
+
     if model_name not in SUBMODEL_REGISTRY:
         available = ", ".join(SUBMODEL_REGISTRY.keys())
         return False, f"Unknown model '{model_name}'. Available models: {available}"

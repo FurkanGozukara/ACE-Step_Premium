@@ -112,22 +112,22 @@ _load_manual() {
 
     echo
     echo "-------------------- Select DiT Model --------------------"
-    echo "1) acestep-v15-base"
-    echo "2) acestep-v15-sft"
-    echo "3) acestep-v15-turbo (Recommended)"
+    echo "1) ACEStep_1_5_XL_Base_BF16"
+    echo "2) ACEStep_1_5_XL_SFT_BF16"
+    echo "3) ACEStep_1_5_XL_Turbo_BF16 (Recommended)"
     echo "4) acestep-v15-turbo-rl"
     echo
     while true; do
         read -rp "Enter selection (1-4): " DIT_CHOICE
         case "$DIT_CHOICE" in
             1)
-                CONFIG_PATH="--config_path acestep-v15-base"
+                CONFIG_PATH="--config_path ACEStep_1_5_XL_Base_BF16"
                 break ;;
             2)
-                CONFIG_PATH="--config_path acestep-v15-sft"
+                CONFIG_PATH="--config_path ACEStep_1_5_XL_SFT_BF16"
                 break ;;
             3)
-                CONFIG_PATH="--config_path acestep-v15-turbo"
+                CONFIG_PATH="--config_path ACEStep_1_5_XL_Turbo_BF16"
                 break ;;
             4)
                 CONFIG_PATH="--config_path acestep-v15-turbo-rl"
@@ -223,7 +223,7 @@ esac
 : "${LANGUAGE:=en}"
 
 # ==================== Model Configuration ====================
-: "${CONFIG_PATH:=--config_path acestep-v15-turbo}"
+: "${CONFIG_PATH:=--config_path ACEStep_1_5_XL_Turbo_BF16}"
 : "${LM_MODEL_PATH:=--lm_model_path acestep-5Hz-lm-4B}"
 
 # CPU offload: required for 4B LM on GPUs with <=20GB VRAM

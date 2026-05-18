@@ -22,6 +22,12 @@ from acestep.model_downloader import (
     DEFAULT_LM_MODEL,
     DEFAULT_PREMIUM_DIT_MODEL,
     DEFAULT_TURBO_DIT_MODEL,
+    LEGACY_BF16_BASE_DIT_MODEL,
+    LEGACY_BF16_PREMIUM_DIT_MODEL,
+    LEGACY_BF16_TURBO_DIT_MODEL,
+    SOURCE_BASE_DIT_MODEL,
+    SOURCE_PREMIUM_DIT_MODEL,
+    SOURCE_TURBO_DIT_MODEL,
     get_models_dir,
 )
 from acestep.core.generation.handler.lora.folder_scan import (
@@ -133,6 +139,14 @@ SIMPLE_MODEL_CHOICES: tuple[tuple[str, str], ...] = (
     ("ACEStep XL 1.5 Base", DEFAULT_BASE_DIT_MODEL),
 )
 SIMPLE_MODEL_VALUES = frozenset(value for _label, value in SIMPLE_MODEL_CHOICES)
+SIMPLE_MODEL_ALIASES = {
+    SOURCE_PREMIUM_DIT_MODEL: DEFAULT_PREMIUM_DIT_MODEL,
+    SOURCE_TURBO_DIT_MODEL: DEFAULT_TURBO_DIT_MODEL,
+    SOURCE_BASE_DIT_MODEL: DEFAULT_BASE_DIT_MODEL,
+    LEGACY_BF16_PREMIUM_DIT_MODEL: DEFAULT_PREMIUM_DIT_MODEL,
+    LEGACY_BF16_TURBO_DIT_MODEL: DEFAULT_TURBO_DIT_MODEL,
+    LEGACY_BF16_BASE_DIT_MODEL: DEFAULT_BASE_DIT_MODEL,
+}
 
 PRESET_COMPONENT_KEYS: tuple[str, ...] = (
     "language_dropdown",
@@ -275,8 +289,17 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
 def normalize_simple_model_dropdown_value(value: Any) -> str:
     """Return a supported Create-tab model selector value."""
 
+    resolved = _resolve_simple_model_reference(value)
+    return resolved or DEFAULT_TURBO_DIT_MODEL
+
+
+def _resolve_simple_model_reference(value: Any) -> str | None:
+    """Return the BF16 Simple-tab model value for known model names."""
+
     model_path = str(value or "").strip()
-    return model_path if model_path in SIMPLE_MODEL_VALUES else DEFAULT_TURBO_DIT_MODEL
+    if model_path in SIMPLE_MODEL_VALUES:
+        return model_path
+    return SIMPLE_MODEL_ALIASES.get(model_path)
 
 
 def model_quality_defaults(model_path: Any) -> dict[str, Any]:
@@ -483,11 +506,12 @@ def _apply_runtime_defaults(
     config_path = str(merged.get("config_path") or "").strip()
     raw_simple_model = str(payload.get("simple_model_dropdown") or "").strip()
     simple_model = str(merged.get("simple_model_dropdown") or "").strip()
-    if raw_simple_model not in SIMPLE_MODEL_VALUES and config_path in SIMPLE_MODEL_VALUES:
-        simple_model = config_path
+    config_simple_model = _resolve_simple_model_reference(config_path)
+    if raw_simple_model not in SIMPLE_MODEL_VALUES and config_simple_model:
+        simple_model = config_simple_model
     simple_model = normalize_simple_model_dropdown_value(simple_model)
     merged["simple_model_dropdown"] = simple_model
-    if not config_path or config_path in SIMPLE_MODEL_VALUES:
+    if not config_path or config_simple_model:
         merged["config_path"] = simple_model
     quality_model = str(merged.get("config_path") or "").strip() or simple_model
     quality_defaults = model_quality_defaults(quality_model)

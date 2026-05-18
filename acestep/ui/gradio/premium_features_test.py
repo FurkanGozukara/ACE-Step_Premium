@@ -186,8 +186,8 @@ class PremiumFeaturesTests(unittest.TestCase):
                 self._restore_project_root(original)
 
         self.assertEqual(payload["checkpoint_dropdown"], expected)
-        self.assertEqual(payload["config_path"], "acestep-v15-xl-sft")
-        self.assertEqual(payload["simple_model_dropdown"], "acestep-v15-xl-sft")
+        self.assertEqual(payload["config_path"], DEFAULT_PREMIUM_DIT_MODEL)
+        self.assertEqual(payload["simple_model_dropdown"], DEFAULT_PREMIUM_DIT_MODEL)
         self.assertEqual(payload["inference_steps"], 50)
         self.assertEqual(payload["guidance_scale"], 7.0)
         self.assertFalse(payload["use_adg"])

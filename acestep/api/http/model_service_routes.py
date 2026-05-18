@@ -12,13 +12,16 @@ from pydantic import BaseModel, Field
 
 from acestep.api.http.model_init_service import initialize_models_for_request
 from acestep.constants import TASK_TYPES_BASE, TASK_TYPES_TURBO
-from acestep.model_downloader import get_models_dir
+from acestep.model_downloader import DEFAULT_BASE_DIT_MODEL, get_models_dir
 
 
 class InitModelRequest(BaseModel):
     """Request payload for on-demand DiT/LM model initialization."""
 
-    model: Optional[str] = Field(default=None, description="DiT model name to initialize (e.g., 'acestep-v15-base')")
+    model: Optional[str] = Field(
+        default=None,
+        description=f"DiT model name to initialize (e.g., '{DEFAULT_BASE_DIT_MODEL}')",
+    )
     slot: Optional[int] = Field(
         default=None,
         ge=1,

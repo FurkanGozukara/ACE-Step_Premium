@@ -48,12 +48,13 @@ from acestep.inference import (
     format_sample,
 )
 from acestep.constants import TASK_INSTRUCTIONS
+from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 
 # =============================================================================
 # Constants
 # =============================================================================
 
-MODEL_ID = "acemusic/acestep-v15-turbo"
+MODEL_ID = f"acemusic/{DEFAULT_TURBO_DIT_MODEL}"
 MODEL_NAME = "ACE-Step"
 MODEL_CREATED = 1706688000  # Unix timestamp
 
@@ -534,7 +535,7 @@ def create_app() -> FastAPI:
         # =================================================================
         print("[OpenRouter API] Initializing models at startup...")
 
-        config_path = os.getenv("ACESTEP_CONFIG_PATH", "acestep-v15-turbo")
+        config_path = os.getenv("ACESTEP_CONFIG_PATH", DEFAULT_TURBO_DIT_MODEL)
         device = os.getenv("ACESTEP_DEVICE", "auto")
         use_flash_attention = _env_bool("ACESTEP_USE_FLASH_ATTENTION", True)
         offload_to_cpu = _env_bool("ACESTEP_OFFLOAD_TO_CPU", False)

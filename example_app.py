@@ -21,6 +21,7 @@ from acestep.handler import AceStepHandler
 from acestep.llm_inference import LLMHandler
 from acestep.dataset_handler import DatasetHandler
 from acestep.gradio_ui import create_gradio_interface
+from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 
 
 def get_gpu_memory_gb():
@@ -141,10 +142,10 @@ def main():
     # Service mode configuration from environment variables
     config_path = os.environ.get(
         "SERVICE_MODE_DIT_MODEL",
-        "acestep-v15-xl-turbo"
+        DEFAULT_TURBO_DIT_MODEL
     )
     # Second DiT model - default to turbo-shift3 for two-model setup
-    config_path_2 = os.environ.get("SERVICE_MODE_DIT_MODEL_2", "acestep-v15-turbo").strip()
+    config_path_2 = os.environ.get("SERVICE_MODE_DIT_MODEL_2", DEFAULT_TURBO_DIT_MODEL).strip()
     
     lm_model_path = os.environ.get(
         "SERVICE_MODE_LM_MODEL",

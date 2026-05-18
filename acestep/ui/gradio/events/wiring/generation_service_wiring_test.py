@@ -4,6 +4,11 @@ import ast
 from pathlib import Path
 import unittest
 
+from acestep.model_downloader import (
+    DEFAULT_BASE_DIT_MODEL,
+    DEFAULT_PREMIUM_DIT_MODEL,
+    DEFAULT_TURBO_DIT_MODEL,
+)
 from acestep.ui.gradio.events.wiring.generation_service_wiring import (
     _apply_config_path_change_with_simple_sync,
 )
@@ -76,7 +81,7 @@ class GenerationServiceWiringTests(unittest.TestCase):
         self.assertEqual(result[15].get("value"), "double")
         self.assertEqual(result[16].get("value"), 0.0)
         self.assertEqual(result[17].get("value"), 0.0)
-        self.assertEqual(result[18].get("value"), "acestep-v15-xl-sft")
+        self.assertEqual(result[18].get("value"), DEFAULT_PREMIUM_DIT_MODEL)
         self.assertEqual(result[19].get("value"), "ode")
         self.assertEqual(result[20].get("value"), "euler")
         self.assertEqual(result[21].get("value"), 0.0)
@@ -107,7 +112,7 @@ class GenerationServiceWiringTests(unittest.TestCase):
         self.assertEqual(result[15].get("value"), "double")
         self.assertEqual(result[16].get("value"), 0.0)
         self.assertEqual(result[17].get("value"), 0.0)
-        self.assertEqual(result[18].get("value"), "acestep-v15-xl-base")
+        self.assertEqual(result[18].get("value"), DEFAULT_BASE_DIT_MODEL)
         self.assertEqual(result[19].get("value"), "ode")
         self.assertEqual(result[20].get("value"), "euler")
         self.assertEqual(result[21].get("value"), 0.0)
@@ -135,7 +140,7 @@ class GenerationServiceWiringTests(unittest.TestCase):
         self.assertEqual(result[15].get("value"), "double")
         self.assertEqual(result[16].get("value"), 0.02)
         self.assertEqual(result[17].get("value"), 0.06)
-        self.assertEqual(result[18].get("value"), "acestep-v15-xl-turbo")
+        self.assertEqual(result[18].get("value"), DEFAULT_TURBO_DIT_MODEL)
         self.assertEqual(result[19].get("value"), "ode")
         self.assertEqual(result[20].get("value"), "euler")
         self.assertEqual(result[21].get("value"), 0.0)

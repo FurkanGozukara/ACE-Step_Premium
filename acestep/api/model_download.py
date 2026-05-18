@@ -8,6 +8,7 @@ from typing import Optional, Sequence
 from acestep.model_downloader import (
     DEFAULT_LM_MODEL,
     DEFAULT_PREMIUM_DIT_MODEL,
+    GENERATED_BF16_DIT_SOURCE_MODELS,
     MAIN_MODEL_REPO,
     SUBMODEL_REGISTRY,
 )
@@ -132,6 +133,13 @@ def ensure_model_downloaded(model_name: str, checkpoint_dir: str) -> str:
     if os.path.exists(model_path) and os.listdir(model_path):
         print(f"[Model Download] Model {model_name} already exists at {model_path}")
         return model_path
+
+    if model_name in GENERATED_BF16_DIT_SOURCE_MODELS:
+        source_model = GENERATED_BF16_DIT_SOURCE_MODELS[model_name]
+        raise FileNotFoundError(
+            f"Generated BF16 model '{model_name}' is not available at {model_path}. "
+            f"Create it from local source checkpoint '{source_model}' before using it as the default."
+        )
 
     repo_id = MODEL_REPO_MAPPING.get(model_name, DEFAULT_REPO_ID)
     print(f"[Model Download] Model {model_name} not found, checking network...")

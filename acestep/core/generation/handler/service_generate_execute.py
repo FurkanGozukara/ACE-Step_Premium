@@ -159,7 +159,8 @@ class ServiceGenerateExecuteMixin:
             "MLX (native)" if (self.use_mlx_dit and self.mlx_decoder is not None) else f"PyTorch ({self.device})"
         )
         logger.info(f"[service_generate] Generating audio... (DiT backend: {dit_backend})")
-        with torch.inference_mode():
+        inference_mode = getattr(self, "quantization", None) != "fp8_weight_only"
+        with torch.inference_mode(inference_mode):
             with self._load_model_context("model"):
                 encoder_hidden_states, encoder_attention_mask, context_latents = self.model.prepare_condition(
                     text_hidden_states=payload["text_hidden_states"],

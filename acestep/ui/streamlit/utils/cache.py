@@ -17,6 +17,8 @@ _project_root = Path(__file__).parent.parent.parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
+from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
+
 
 # ------------------------------------------------------------------
 # Lightweight handler singletons (no model weights loaded yet)
@@ -75,7 +77,7 @@ def is_llm_ready() -> bool:
 
 
 def initialize_dit(
-    config_path: str = "acestep-v15-turbo",
+    config_path: str = DEFAULT_TURBO_DIT_MODEL,
     device: str = "auto",
     offload_to_cpu: bool = False,
     compile_model: bool = False,

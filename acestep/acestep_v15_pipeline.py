@@ -75,6 +75,7 @@ try:
         VRAM_AUTO_OFFLOAD_THRESHOLD_GB,
     )
     from .model_downloader import (
+        DEFAULT_BASE_DIT_MODEL,
         DEFAULT_LM_MODEL,
         DEFAULT_PREMIUM_DIT_MODEL,
         DEFAULT_TURBO_DIT_MODEL,
@@ -102,6 +103,7 @@ except ImportError:
         VRAM_AUTO_OFFLOAD_THRESHOLD_GB,
     )
     from acestep.model_downloader import (
+        DEFAULT_BASE_DIT_MODEL,
         DEFAULT_LM_MODEL,
         DEFAULT_PREMIUM_DIT_MODEL,
         DEFAULT_TURBO_DIT_MODEL,
@@ -554,10 +556,10 @@ def main():
                             DEFAULT_PREMIUM_DIT_MODEL
                             if DEFAULT_PREMIUM_DIT_MODEL in available_models
                             else (
-                                "acestep-v15-xl-base"
-                                if "acestep-v15-xl-base" in available_models
-                                else available_models[0]
-                            )
+                            DEFAULT_BASE_DIT_MODEL
+                            if DEFAULT_BASE_DIT_MODEL in available_models
+                            else available_models[0]
+                        )
                         )
                     )
                     print(f"Auto-selected config_path: {args.config_path}")

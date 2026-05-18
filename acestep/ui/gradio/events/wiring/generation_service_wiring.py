@@ -11,8 +11,10 @@ import gradio as gr
 from .. import generation_handlers as gen_h
 from ..generation.quantization import default_quantization_value
 from ...premium_features import (
+    SIMPLE_MODEL_ALIASES,
     SIMPLE_MODEL_VALUES,
     model_quality_defaults,
+    normalize_simple_model_dropdown_value,
     open_outputs_folder,
 )
 from ...i18n import get_i18n, reset_language_context, set_language_context
@@ -359,8 +361,8 @@ def _apply_config_path_change_with_simple_sync(
     model_and_behavior_updates = _apply_config_path_change(config_path, current_mode)
     selected = str(config_path or "").strip()
     simple_model_update = (
-        gr.update(value=selected)
-        if selected in SIMPLE_MODEL_VALUES
+        gr.update(value=normalize_simple_model_dropdown_value(selected))
+        if selected in SIMPLE_MODEL_VALUES or selected in SIMPLE_MODEL_ALIASES
         else gr.update()
     )
     return (

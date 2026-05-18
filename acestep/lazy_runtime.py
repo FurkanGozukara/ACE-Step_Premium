@@ -29,7 +29,11 @@ from acestep.gpu_config import (
     get_global_gpu_config,
     get_gpu_tier,
 )
-from acestep.model_downloader import DEFAULT_LM_MODEL, get_models_dir
+from acestep.model_downloader import (
+    DEFAULT_LM_MODEL,
+    GENERATED_BF16_DIT_SOURCE_MODELS,
+    get_models_dir,
+)
 
 
 _TRUE_VALUES = {"1", "true", "yes", "y", "on"}
@@ -412,7 +416,20 @@ class LazyAceStepHandler:
     def get_available_acestep_v15_models(self) -> list[str]:
         """Return locally available ACE-Step 1.5 DiT models."""
 
-        return self._scan_model_dirs("acestep-v15-")
+        models_dir = self._models_dir()
+        if not models_dir.exists():
+            return []
+        names = [
+            child.name
+            for child in models_dir.iterdir()
+            if child.is_dir()
+            and (
+                child.name.startswith("acestep-v15-")
+                or child.name in GENERATED_BF16_DIT_SOURCE_MODELS
+            )
+        ]
+        names.sort()
+        return names
 
     def is_flash_attention_available(self, device: str | None = None) -> bool:
         """Estimate flash-attention support without importing torch."""

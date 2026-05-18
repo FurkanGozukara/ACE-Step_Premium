@@ -18,6 +18,7 @@ from loguru import logger
 from acestep.handler import AceStepHandler
 from acestep.llm_inference import LLMHandler
 from acestep.inference import GenerationParams, GenerationConfig, generate_music
+from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 
 PROJECT_ROOT = os.path.dirname(__file__)
 CHECKPOINT_DIR = os.path.join(PROJECT_ROOT, "checkpoints")
@@ -37,7 +38,7 @@ def main():
     dit_handler = AceStepHandler()
     status_msg, success = dit_handler.initialize_service(
         project_root=PROJECT_ROOT,
-        config_path="acestep-v15-turbo",
+        config_path=DEFAULT_TURBO_DIT_MODEL,
         device="auto",
         offload_to_cpu=False,
     )

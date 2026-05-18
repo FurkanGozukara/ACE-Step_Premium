@@ -124,7 +124,7 @@ OFFLOAD_CPU=1
 FLASHATTN=1
 
 # Model Configuration
-DIT_MODEL=acestep-v15-turbo
+DIT_MODEL=ACEStep_1_5_XL_Turbo_BF16
 LLM_MODEL=1.7B
 
 # UI Configuration

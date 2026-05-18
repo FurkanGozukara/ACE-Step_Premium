@@ -67,6 +67,7 @@ from acestep.llm_inference import LLMHandler
 from acestep.inference import GenerationParams, GenerationConfig, generate_music, create_sample, format_sample
 from acestep.constants import DEFAULT_DIT_INSTRUCTION, TASK_INSTRUCTIONS
 from acestep.gpu_config import get_gpu_config, set_global_gpu_config, is_mps_platform
+from acestep.model_downloader import DEFAULT_BASE_DIT_MODEL
 import torch
 
 
@@ -690,7 +691,7 @@ def run_wizard(args, configure_only: bool = False, default_config_path: Optional
             task_choice = task_default
         args.task_type = task_map.get(task_choice, "text2music")
         if args.task_type in {"lego", "extract", "complete"}:
-            print("Note: This task requires a base DiT model (acestep-v15-xl-base). It will be auto-downloaded if missing.")
+            print(f"Note: This task requires a base DiT model ({DEFAULT_BASE_DIT_MODEL}). It will be auto-downloaded if missing.")
 
         # Model selection (DiT)
         dit_handler = AceStepHandler()
@@ -711,7 +712,7 @@ def run_wizard(args, configure_only: bool = False, default_config_path: Optional
                 args.config_path = selected
                 print(f"\nNote: This task requires a base model. Using: {selected}")
             else:
-                print("\nNote: This task requires a base model (e.g., 'acestep-v15-xl-base'). It will be auto-downloaded if missing.")
+                print(f"\nNote: This task requires a base model (e.g., '{DEFAULT_BASE_DIT_MODEL}'). It will be auto-downloaded if missing.")
         elif available_dit_models:
             selected = _prompt_choice_from_list(
                 "--- Available DiT Models ---",
@@ -1249,7 +1250,7 @@ def main():
     base_only_tasks = {"lego", "extract", "complete"}
     if args.task_type in base_only_tasks and args.config_path:
         if "base" not in str(args.config_path).lower():
-            parser.error(f"task_type '{args.task_type}' requires a base model config (e.g., 'acestep-v15-xl-base').")
+            parser.error(f"task_type '{args.task_type}' requires a base model config (e.g., '{DEFAULT_BASE_DIT_MODEL}').")
 
     if args.task_type == "repaint":
         if args.repainting_end != -1 and args.repainting_end <= args.repainting_start:
@@ -1353,10 +1354,10 @@ def main():
             if args.task_type in base_only_tasks and available_models:
                 available_models = [m for m in available_models if "base" in m.lower()]
         if args.task_type in base_only_tasks and not available_models:
-            print("Base-only task selected. Downloading base DiT model (acestep-v15-xl-base)...")
+            print(f"Base-only task selected. Downloading base DiT model ({DEFAULT_BASE_DIT_MODEL})...")
             from acestep.model_downloader import ensure_dit_model, get_checkpoints_dir
             checkpoints_dir = get_checkpoints_dir()
-            success, msg = ensure_dit_model("acestep-v15-xl-base", checkpoints_dir)
+            success, msg = ensure_dit_model(DEFAULT_BASE_DIT_MODEL, checkpoints_dir)
             print(msg)
             if not success:
                 parser.error(f"Failed to download base DiT model: {msg}")
@@ -1366,7 +1367,7 @@ def main():
         if available_models:
             from acestep.model_downloader import DEFAULT_PREMIUM_DIT_MODEL
             if args.task_type in {"lego", "extract", "complete"}:
-                preferred = "acestep-v15-xl-base"
+                preferred = DEFAULT_BASE_DIT_MODEL
             else:
                 preferred = DEFAULT_PREMIUM_DIT_MODEL
             args.config_path = preferred if preferred in available_models else available_models[0]
@@ -1374,12 +1375,14 @@ def main():
         else:
             parser.error("No available DiT models found. Please specify --config_path.")
     if args.task_type in {"lego", "extract", "complete"} and "base" not in str(args.config_path).lower():
-        parser.error(f"task_type '{args.task_type}' requires a base model config (e.g., 'acestep-v15-xl-base').")
+        parser.error(f"task_type '{args.task_type}' requires a base model config (e.g., '{DEFAULT_BASE_DIT_MODEL}').")
 
     # Ensure required DiT/main models are present for the selected task/model.
     from acestep.model_downloader import (
         DEFAULT_LM_MODEL,
+        DEFAULT_BASE_DIT_MODEL,
         DEFAULT_PREMIUM_DIT_MODEL,
+        DEFAULT_TURBO_DIT_MODEL,
         ensure_main_model,
         ensure_dit_model,
         get_checkpoints_dir,
@@ -1396,7 +1399,11 @@ def main():
             parser.error(f"Failed to download main model: {msg}")
     if args.config_path:
         config_name = str(args.config_path)
-        known_models = {DEFAULT_PREMIUM_DIT_MODEL} | set(SUBMODEL_REGISTRY.keys())
+        known_models = {
+            DEFAULT_BASE_DIT_MODEL,
+            DEFAULT_PREMIUM_DIT_MODEL,
+            DEFAULT_TURBO_DIT_MODEL,
+        } | set(SUBMODEL_REGISTRY.keys())
         if check_model_exists(config_name, checkpoints_dir):
             pass
         elif config_name in known_models:

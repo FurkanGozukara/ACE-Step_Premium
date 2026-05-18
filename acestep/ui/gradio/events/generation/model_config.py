@@ -16,13 +16,23 @@ from acestep.constants import (
     GENERATION_MODES_TURBO,
     GENERATION_MODES_BASE,
 )
-from acestep.model_downloader import DEFAULT_PREMIUM_DIT_MODEL, DEFAULT_TURBO_DIT_MODEL
+from acestep.model_downloader import (
+    DEFAULT_BASE_DIT_MODEL,
+    DEFAULT_PREMIUM_DIT_MODEL,
+    DEFAULT_TURBO_DIT_MODEL,
+    SOURCE_BASE_DIT_MODEL,
+    SOURCE_PREMIUM_DIT_MODEL,
+    SOURCE_TURBO_DIT_MODEL,
+)
 
 
 PREFERRED_DIT_MODEL_ORDER = (
     DEFAULT_TURBO_DIT_MODEL,
     DEFAULT_PREMIUM_DIT_MODEL,
-    "acestep-v15-xl-base",
+    DEFAULT_BASE_DIT_MODEL,
+    SOURCE_TURBO_DIT_MODEL,
+    SOURCE_PREMIUM_DIT_MODEL,
+    SOURCE_BASE_DIT_MODEL,
     "acestep-v15-sft",
     "acestep-v15-base",
     "acestep-v15-turbo",

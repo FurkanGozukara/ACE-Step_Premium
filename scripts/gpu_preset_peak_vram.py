@@ -22,18 +22,25 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PYTHON = Path(sys.executable)
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+from acestep.model_downloader import (  # noqa: E402
+    DEFAULT_BASE_DIT_MODEL,
+    DEFAULT_PREMIUM_DIT_MODEL,
+    DEFAULT_TURBO_DIT_MODEL,
+)
+
 MODEL_DEFAULTS = {
-    "acestep-v15-xl-base": {
+    DEFAULT_BASE_DIT_MODEL: {
         "inference_steps": 50,
         "guidance_scale": 7.0,
         "use_adg": False,
     },
-    "acestep-v15-xl-sft": {
+    DEFAULT_PREMIUM_DIT_MODEL: {
         "inference_steps": 50,
         "guidance_scale": 7.0,
         "use_adg": False,
     },
-    "acestep-v15-xl-turbo": {
+    DEFAULT_TURBO_DIT_MODEL: {
         "inference_steps": 8,
         "guidance_scale": 1.0,
         "use_adg": False,

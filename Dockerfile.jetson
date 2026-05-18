@@ -267,7 +267,7 @@ ENV ACESTEP_MODE=gradio
 ENV ACESTEP_INIT_SERVICE=true
 
 # Default DiT model to load at startup (must exist in /app/checkpoints).
-ENV ACESTEP_CONFIG_PATH=acestep-v15-turbo
+ENV ACESTEP_CONFIG_PATH=ACEStep_1_5_XL_Turbo_BF16
 
 # Default LM model — 4B gives best quality on ≥24GB GPUs (see README).
 # Use "acestep-5Hz-lm-0.6B" or "acestep-5Hz-lm-1.7B" for lower VRAM.

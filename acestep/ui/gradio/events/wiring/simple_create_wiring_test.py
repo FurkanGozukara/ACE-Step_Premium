@@ -3,6 +3,11 @@
 import unittest
 from unittest.mock import patch
 
+from acestep.model_downloader import (
+    DEFAULT_BASE_DIT_MODEL,
+    DEFAULT_PREMIUM_DIT_MODEL,
+    DEFAULT_TURBO_DIT_MODEL,
+)
 from acestep.ui.gradio.events.wiring.simple_create_wiring import (
     _apply_simple_model_change,
     _apply_simple_tier_change,
@@ -65,7 +70,7 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
 
         result = _apply_simple_model_change("acestep-v15-xl-turbo", "Custom")
 
-        self.assertEqual(result[0].get("value"), "acestep-v15-xl-turbo")
+        self.assertEqual(result[0].get("value"), DEFAULT_TURBO_DIT_MODEL)
         self.assertEqual(result[1].get("value"), 8)
         self.assertEqual(result[2].get("value"), 1.0)
         self.assertFalse(result[2].get("visible"))
@@ -89,7 +94,7 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
 
         result = _apply_simple_model_change("acestep-v15-xl-sft", "Custom")
 
-        self.assertEqual(result[0].get("value"), "acestep-v15-xl-sft")
+        self.assertEqual(result[0].get("value"), DEFAULT_PREMIUM_DIT_MODEL)
         self.assertEqual(result[1].get("value"), 50)
         self.assertEqual(result[2].get("value"), 7.0)
         self.assertTrue(result[2].get("visible"))
@@ -120,7 +125,7 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
 
         result = _apply_simple_model_change("acestep-v15-xl-base", "Custom")
 
-        self.assertEqual(result[0].get("value"), "acestep-v15-xl-base")
+        self.assertEqual(result[0].get("value"), DEFAULT_BASE_DIT_MODEL)
         self.assertEqual(result[1].get("value"), 64)
         self.assertEqual(result[2].get("value"), 7.0)
         self.assertTrue(result[2].get("visible"))

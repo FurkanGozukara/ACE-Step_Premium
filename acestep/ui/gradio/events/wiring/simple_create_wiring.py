@@ -436,12 +436,13 @@ def _apply_simple_model_change(
         gr.update(value=quality_defaults["dcw_high_scaler"]),
     )
     label = _SIMPLE_MODEL_LABELS.get(selected_model, selected_model)
-    if "turbo" in selected_model:
+    selected_model_lower = selected_model.lower()
+    if "turbo" in selected_model_lower:
         status = (
             f"Selected model: {label}. Next generation uses XL Turbo "
             "8-step LM-conditioned defaults. GPU presets remain the XL 4B profile."
         )
-    elif "base" in selected_model:
+    elif "base" in selected_model_lower:
         status = (
             f"Selected model: {label}. Next generation uses XL Base "
             "64-step direct DiT APG/CFG quality defaults with shift 1.0 "

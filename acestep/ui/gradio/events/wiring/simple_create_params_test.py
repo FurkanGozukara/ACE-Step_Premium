@@ -3,6 +3,11 @@
 import unittest
 import re
 
+from acestep.model_downloader import (
+    DEFAULT_BASE_DIT_MODEL,
+    DEFAULT_PREMIUM_DIT_MODEL,
+    DEFAULT_TURBO_DIT_MODEL,
+)
 from acestep.ui.gradio.events.wiring.simple_create_params import (
     prepare_simple_generation,
 )
@@ -59,7 +64,7 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertIn("Auto duration", result[26])
         self.assertEqual(result[INFERENCE_STEPS_INDEX], 8)
         self.assertEqual(result[GUIDANCE_SCALE_INDEX], 1.0)
-        self.assertEqual(result[CONFIG_PATH_INDEX], "acestep-v15-xl-turbo")
+        self.assertEqual(result[CONFIG_PATH_INDEX], DEFAULT_TURBO_DIT_MODEL)
         self.assertTrue(result[DCW_ENABLED_INDEX])
         self.assertEqual(result[DCW_MODE_INDEX], "double")
         self.assertEqual(result[DCW_SCALER_INDEX], 0.02)
@@ -92,7 +97,7 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertEqual(result[GUIDANCE_SCALE_INDEX], 7.0)
         self.assertFalse(result[USE_ADG_INDEX])
         self.assertEqual(result[SHIFT_INDEX], 1.0)
-        self.assertEqual(result[CONFIG_PATH_INDEX], "acestep-v15-xl-base")
+        self.assertEqual(result[CONFIG_PATH_INDEX], DEFAULT_BASE_DIT_MODEL)
         self.assertFalse(result[8])
         self.assertFalse(result[9])
         self.assertFalse(result[10])
@@ -131,7 +136,7 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertEqual(result[GUIDANCE_SCALE_INDEX], 7.0)
         self.assertFalse(result[USE_ADG_INDEX])
         self.assertEqual(result[SHIFT_INDEX], 1.0)
-        self.assertEqual(result[CONFIG_PATH_INDEX], "acestep-v15-xl-sft")
+        self.assertEqual(result[CONFIG_PATH_INDEX], DEFAULT_PREMIUM_DIT_MODEL)
         self.assertTrue(result[8])
         self.assertTrue(result[9])
         self.assertFalse(result[10])

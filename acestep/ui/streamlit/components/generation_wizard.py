@@ -11,6 +11,7 @@ from typing import Optional
 import streamlit as st
 from loguru import logger
 
+from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 from utils import (
     get_dit_handler,
     get_llm_handler,
@@ -35,7 +36,7 @@ def _quick_init_dit() -> None:
 
     with st.spinner("Loading DiT model..."):
         _status, _ok = initialize_dit(
-            config_path="acestep-v15-turbo",
+            config_path=DEFAULT_TURBO_DIT_MODEL,
             device="auto",
             offload_to_cpu=(_sys.platform != "darwin"),
         )

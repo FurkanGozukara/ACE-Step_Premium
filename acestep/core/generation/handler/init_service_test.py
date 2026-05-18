@@ -194,20 +194,27 @@ class InitServiceMixinTests(unittest.TestCase):
         )
 
     def test_get_available_acestep_v15_models_filters_and_sorts(self):
-        """It filters to acestep-v15 directories and returns sorted model names."""
+        """It filters to ACE-Step DiT directories and returns sorted model names."""
         host = _Host(project_root="K:/fake_root")
         with patch("os.path.exists", return_value=True), patch(
             "os.listdir",
-            return_value=["acestep-v15-zeta", "acestep-v15-alpha", "not-a-model", "acestep-v15-file"],
+            return_value=[
+                "acestep-v15-zeta",
+                "acestep-v15-alpha",
+                "not-a-model",
+                "acestep-v15-file",
+                "ACEStep_1_5_XL_Turbo_BF16",
+            ],
         ), patch(
             "os.path.isdir",
             side_effect=lambda p: p.endswith("acestep-v15-zeta")
             or p.endswith("acestep-v15-alpha")
+            or p.endswith("ACEStep_1_5_XL_Turbo_BF16")
             or p.endswith("not-a-model"),
         ):
             self.assertEqual(
                 host.get_available_acestep_v15_models(),
-                ["acestep-v15-alpha", "acestep-v15-zeta"],
+                ["ACEStep_1_5_XL_Turbo_BF16", "acestep-v15-alpha", "acestep-v15-zeta"],
             )
 
     def test_is_turbo_model_uses_config_flag(self):

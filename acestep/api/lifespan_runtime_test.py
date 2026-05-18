@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from acestep.api.lifespan_runtime import initialize_lifespan_runtime
+from acestep.model_downloader import DEFAULT_PREMIUM_DIT_MODEL
 
 
 class LifespanRuntimeTests(unittest.TestCase):
@@ -45,7 +46,7 @@ class LifespanRuntimeTests(unittest.TestCase):
 
         self.assertEqual(200, app.state.job_queue.maxsize)
         self.assertEqual(5.0, app.state.avg_job_seconds)
-        self.assertEqual("acestep-v15-turbo", app.state._config_path)
+        self.assertEqual(DEFAULT_PREMIUM_DIT_MODEL, app.state._config_path)
         self.assertIs(app.state.handler, handler)
         self.assertIs(app.state.llm_handler, llm_handler)
         self.assertIsNone(runtime.handler2)

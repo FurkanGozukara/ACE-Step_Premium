@@ -102,7 +102,7 @@ BATCH_SIZE="${BATCH_SIZE:-}"
 # BATCH_SIZE="--batch_size 4"
 
 # ==================== Model Configuration ====================
-: "${CONFIG_PATH:=--config_path acestep-v15-turbo}"
+: "${CONFIG_PATH:=--config_path ACEStep_1_5_XL_Turbo_BF16}"
 : "${LM_MODEL_PATH:=--lm_model_path acestep-5Hz-lm-0.6B}"
 
 # CPU offload (recommended for models larger than 0.6B on devices with limited memory)

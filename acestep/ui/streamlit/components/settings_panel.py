@@ -7,6 +7,7 @@ from pathlib import Path
 import streamlit as st
 from loguru import logger
 
+from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 from config import PROJECTS_DIR, CACHE_DIR, CHECKPOINTS_DIR
 from utils import (
     get_dit_handler,
@@ -60,8 +61,8 @@ def _show_model_settings() -> None:
             "DiT Model",
             options=dit_models,
             index=(
-                dit_models.index("acestep-v15-turbo")
-                if "acestep-v15-turbo" in dit_models
+                dit_models.index(DEFAULT_TURBO_DIT_MODEL)
+                if DEFAULT_TURBO_DIT_MODEL in dit_models
                 else 0
             ),
             key="dit_model_select",
@@ -274,7 +275,7 @@ def _list_dit_models() -> list:
         for p in CHECKPOINTS_DIR.glob(pattern)
         if p.is_dir()
     )
-    return found if found else ["acestep-v15-turbo"]
+    return found if found else [DEFAULT_TURBO_DIT_MODEL]
 
 
 def _list_lm_models() -> list:
