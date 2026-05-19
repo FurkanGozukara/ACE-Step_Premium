@@ -11,6 +11,8 @@ from acestep.ui.gradio.events.local_path_dialogs import (
 )
 
 from .. import training_handlers as train_h
+from ..training.subprocess_dataset import run_preprocess_subprocess
+from ..training.subprocess_init import build_dit_init_payload
 from .context import TrainingWiringContext
 
 
@@ -140,19 +142,41 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
         inputs=[training_section["preprocess_output_dir"]],
         outputs=[training_section["preprocess_output_dir"]],
     )
-    training_section["preprocess_btn"].click(
-        fn=lambda output_dir, mode, state, model: train_h.preprocess_dataset(
+    def run_preprocess(
+        output_dir,
+        mode,
+        state,
+        model,
+        subprocess_mode,
+        progress=gr.Progress(track_tqdm=True),
+    ):
+        """Run preprocessing in-process or in an isolated worker."""
+
+        if subprocess_mode:
+            return run_preprocess_subprocess(
+                output_dir=output_dir,
+                preprocess_mode=mode,
+                builder_state=state,
+                model_config=model,
+                dit_init_params=build_dit_init_payload(dit_handler, model),
+                progress=progress,
+            )
+        return train_h.preprocess_dataset(
             output_dir,
             mode,
             dit_handler,
             state,
             model_config=model,
-        ),
+        )
+
+    training_section["preprocess_btn"].click(
+        fn=run_preprocess,
         inputs=[
             training_section["preprocess_output_dir"],
             training_section["preprocess_mode"],
             training_section["dataset_builder_state"],
             training_section["dataset_model_config"],
+            training_section["preprocess_subprocess"],
         ],
         outputs=[training_section["preprocess_progress"]],
     )

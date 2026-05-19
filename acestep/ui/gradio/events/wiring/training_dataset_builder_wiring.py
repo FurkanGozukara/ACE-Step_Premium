@@ -12,6 +12,8 @@ from acestep.ui.gradio.events.local_path_dialogs import (
 
 from .. import training_handlers as train_h
 from ..training.dataset_ops import select_sample_from_table
+from ..training.subprocess_dataset import run_auto_label_subprocess
+from ..training.subprocess_init import build_dit_init_payload, build_llm_init_payload
 from .context import TrainingWiringContext
 from .training_dataset_status import append_preview_refresh_status
 
@@ -73,9 +75,28 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
         model,
         save_path,
         dataset_name,
+        subprocess_mode,
         progress=gr.Progress(track_tqdm=True),
     ):
         """Run automatic dataset labeling with the selected model and save path."""
+
+        if subprocess_mode:
+            return run_auto_label_subprocess(
+                builder_state=state,
+                settings={
+                    "skip_metas": skip,
+                    "format_lyrics": fmt_lyrics,
+                    "transcribe_lyrics": trans_lyrics,
+                    "lm_lyrics_language": lm_lyrics_language,
+                    "only_unlabeled": only_unlab,
+                    "model_config": model,
+                    "save_path": save_path,
+                    "dataset_name": dataset_name,
+                },
+                dit_init_params=build_dit_init_payload(dit_handler, model),
+                llm_init_params=build_llm_init_payload(llm_handler),
+                progress=progress,
+            )
 
         return train_h.auto_label_all(
             dit_handler,
@@ -130,6 +151,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             training_section["dataset_model_config"],
             training_section["save_path"],
             training_section["dataset_name"],
+            training_section["auto_label_subprocess"],
         ],
         outputs=[
             training_section["audio_files_table"],

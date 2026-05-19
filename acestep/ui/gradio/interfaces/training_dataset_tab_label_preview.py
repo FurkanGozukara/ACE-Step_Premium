@@ -28,6 +28,12 @@ def build_dataset_label_and_preview_controls() -> dict[str, object]:
                 elem_classes=["has-info-container"],
             )
         with gr.Column(scale=1):
+            auto_label_subprocess = gr.Checkbox(
+                label="Run in isolated subprocess",
+                value=True,
+                info="Frees VRAM/RAM when the auto-label worker exits.",
+                elem_classes=["has-info-container"],
+            )
             auto_label_btn = gr.Button(
                 t("training.auto_label_btn"),
                 variant="primary",
@@ -153,6 +159,7 @@ def build_dataset_label_and_preview_controls() -> dict[str, object]:
     return {
         "skip_metas": skip_metas,
         "only_unlabeled": only_unlabeled,
+        "auto_label_subprocess": auto_label_subprocess,
         "auto_label_btn": auto_label_btn,
         "label_progress": label_progress,
         "sample_selector": sample_selector,

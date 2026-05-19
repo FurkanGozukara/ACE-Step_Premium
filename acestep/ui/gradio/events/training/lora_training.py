@@ -18,6 +18,8 @@ from acestep.training.path_inputs import normalize_user_path
 from acestep.training.path_safety import safe_path
 from acestep.ui.gradio.i18n import t
 from .service_auto_init import ensure_dit_ready
+from .subprocess_control import request_training_subprocess_stop
+from .training_progress_stats import build_training_progress_text
 from .training_utils import (
     _format_duration,
     _training_loss_figure,
@@ -329,16 +331,12 @@ def start_training(
                 failure_message = status_text
 
             elapsed_seconds = time.time() - start_time
-            time_info = f"⏱️ Elapsed: {_format_duration(elapsed_seconds)}"
-
-            match = re.search(r"Epoch\s+(\d+)/(\d+)", str(status))
-            if match:
-                current_ep, total_ep = int(match.group(1)), int(match.group(2))
-                if current_ep > 0:
-                    eta_seconds = (elapsed_seconds / current_ep) * (total_ep - current_ep)
-                    time_info += f" | ETA: ~{_format_duration(eta_seconds)}"
-
-            display_status = f"{status}\n{time_info}"
+            display_status = build_training_progress_text(
+                status,
+                step=step,
+                total_epochs=int(train_epochs or 0),
+                elapsed_seconds=elapsed_seconds,
+            )
             log_msg = f"[{_format_duration(elapsed_seconds)}] Step {step}: {status}"
             logger.info(log_msg)
 
@@ -357,7 +355,7 @@ def start_training(
             if training_state.get("should_stop", False):
                 logger.info("ℹ️ Training stopped by user")
                 log_lines.append("ℹ️ Training stopped by user")
-                yield f"ℹ️ Stopped ({time_info})", "\n".join(log_lines[-15:]), plot_figure, training_state
+                yield display_status, "\n".join(log_lines[-15:]), plot_figure, training_state
                 break
 
         total_time = time.time() - start_time
@@ -386,10 +384,16 @@ def stop_training(training_state: Dict) -> Tuple[str, Dict]:
     Returns:
         Tuple of (status, training_state).
     """
+    stopped_subprocess = request_training_subprocess_stop()
     if not training_state.get("is_training", False):
+        if stopped_subprocess:
+            training_state["should_stop"] = True
+            return "Stopping isolated training subprocess...", training_state
         return t("training.stop_no_training"), training_state
 
     training_state["should_stop"] = True
+    if stopped_subprocess:
+        return "Stopping isolated training subprocess...", training_state
     return t("training.stop_stopping"), training_state
 
 

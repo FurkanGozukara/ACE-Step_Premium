@@ -64,12 +64,68 @@ class TrainingRunWiringTests(unittest.TestCase):
                     "samples",
                     True,
                     True,
+                    False,
                     "model-b",
                     {},
                 )
             )
 
         self.assertEqual("started", outputs[0][0])
+
+    def test_training_wrapper_streams_subprocess_when_enabled(self) -> None:
+        """The subprocess checkbox should route LoRA training through the worker stream."""
+
+        wrapper = _build_training_wrapper(dit_handler=object())
+
+        with patch(
+            "acestep.ui.gradio.events.wiring.training_run_wiring.build_dit_init_payload",
+            return_value={"project_root": "."},
+        ) as build_init, patch(
+            "acestep.ui.gradio.events.wiring.training_run_wiring.stream_lora_training_subprocess",
+            return_value=iter([("subprocess", "log", None, {"is_training": False})]),
+        ) as stream:
+            outputs = list(
+                wrapper(
+                    "tensors",
+                    "my-awesome-song",
+                    64,
+                    128,
+                    0.1,
+                    0.0003,
+                    10,
+                    1,
+                    1,
+                    10,
+                    3.0,
+                    42,
+                    "out",
+                    "",
+                    True,
+                    False,
+                    True,
+                    True,
+                    True,
+                    "Disabled",
+                    10,
+                    False,
+                    10,
+                    "prompt",
+                    "lyrics",
+                    30,
+                    8,
+                    42,
+                    "samples",
+                    True,
+                    True,
+                    True,
+                    "model-b",
+                    {},
+                )
+            )
+
+        self.assertEqual("subprocess", outputs[0][0])
+        build_init.assert_called_once()
+        self.assertTrue(stream.call_args.kwargs["training_args"]["gradient_checkpointing"])
 
 
 if __name__ == "__main__":

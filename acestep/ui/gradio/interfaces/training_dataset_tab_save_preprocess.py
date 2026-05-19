@@ -91,6 +91,12 @@ def build_dataset_save_and_preprocess_controls() -> dict[str, object]:
                 "Browse Tensor Folder",
                 variant="secondary",
             )
+            preprocess_subprocess = gr.Checkbox(
+                label="Run in isolated subprocess",
+                value=True,
+                info="Frees VRAM/RAM when the preprocess worker exits.",
+                elem_classes=["has-info-container"],
+            )
             preprocess_btn = gr.Button(
                 t("training.preprocess_btn"),
                 variant="primary",
@@ -115,6 +121,7 @@ def build_dataset_save_and_preprocess_controls() -> dict[str, object]:
         "preprocess_mode": preprocess_mode,
         "preprocess_output_dir": preprocess_output_dir,
         "preprocess_output_dir_browse_btn": preprocess_output_dir_browse_btn,
+        "preprocess_subprocess": preprocess_subprocess,
         "preprocess_btn": preprocess_btn,
         "preprocess_progress": preprocess_progress,
     }

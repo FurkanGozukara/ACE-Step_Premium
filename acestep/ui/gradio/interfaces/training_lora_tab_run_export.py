@@ -115,6 +115,12 @@ def build_lora_run_and_export_controls(
 
     with gr.Row():
         with gr.Column(scale=1):
+            training_subprocess = gr.Checkbox(
+                label="Run in isolated subprocess",
+                value=True,
+                info="Frees VRAM/RAM when the training worker exits.",
+                elem_classes=["has-info-container"],
+            )
             start_training_btn = gr.Button(
                 t("training.start_training_btn"),
                 variant="primary",
@@ -179,6 +185,7 @@ def build_lora_run_and_export_controls(
         "lora_output_dir_browse_btn": lora_output_dir_browse_btn,
         "resume_checkpoint_dir": resume_checkpoint_dir,
         "resume_checkpoint_dir_browse_btn": resume_checkpoint_dir_browse_btn,
+        "training_subprocess": training_subprocess,
         "start_training_btn": start_training_btn,
         "stop_training_btn": stop_training_btn,
         "training_progress": training_progress,
