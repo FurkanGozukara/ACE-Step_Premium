@@ -29,6 +29,10 @@ class AutoLabelRequest(BaseModel):
     skip_metas: bool = Field(default=False, description="Skip BPM/Key/TimeSig generation")
     format_lyrics: bool = Field(default=False, description="Format user lyrics via LLM")
     transcribe_lyrics: bool = Field(default=False, description="Transcribe lyrics from audio")
+    lm_lyrics_language: str = Field(
+        default="unknown",
+        description="Optional language hint for LM lyric formatting/transcription",
+    )
     only_unlabeled: bool = Field(default=True, description="Only label unlabeled samples")
 
     lm_model_path: Optional[str] = Field(

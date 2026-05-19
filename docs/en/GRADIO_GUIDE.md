@@ -444,7 +444,7 @@ Enter the path to preprocessed tensors directory and click **Load Dataset**.
 | Setting | Default | Description |
 |---------|---------|-------------|
 | **Learning Rate** | 1e-4 | Optimization learning rate |
-| **Max Epochs** | 500 | Maximum training epochs |
+| **Max Epochs** | Dataset-dependent | 1–10 songs: 200–500; 10–50 songs: 100–200; 50+ songs: 50–100 |
 | **Batch Size** | 1 | Training batch size |
 | **Gradient Accumulation** | 1 | Effective batch = batch_size × accumulation |
 | **Save Every N Epochs** | 200 | Checkpoint save frequency |

@@ -92,6 +92,8 @@ class ScanMixin:
                         sample.genre = genre
                     if json_meta.get("lyrics"):
                         sample.lyrics = json_meta["lyrics"]
+                        if str(sample.lyrics).strip() != "[Instrumental]":
+                            sample.is_instrumental = False
                     if json_meta.get("raw_lyrics"):
                         sample.raw_lyrics = json_meta["raw_lyrics"]
                     if json_meta.get("formatted_lyrics"):
@@ -102,12 +104,15 @@ class ScanMixin:
                         sample.keyscale = json_meta["keyscale"]
                     if json_meta.get("timesignature"):
                         sample.timesignature = json_meta["timesignature"]
-                    if json_meta.get("language"):
-                        sample.language = json_meta["language"]
-                        if sample.language != "instrumental":
+                    language = json_meta.get("language") or json_meta.get("vocal_language")
+                    if language:
+                        sample.language = language
+                        if sample.language not in {"instrumental", "unknown"}:
                             sample.is_instrumental = False
                     if "is_instrumental" in json_meta:
                         sample.is_instrumental = bool(json_meta["is_instrumental"])
+                    elif "instrumental" in json_meta:
+                        sample.is_instrumental = bool(json_meta["instrumental"])
                     if "prompt_override" in json_meta:
                         sample.prompt_override = json_meta["prompt_override"]
                     if json_meta.get("labeled"):

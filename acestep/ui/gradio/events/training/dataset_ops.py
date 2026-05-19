@@ -48,7 +48,8 @@ def scan_directory(
     if not samples:
         return [], status, _safe_slider(0, value=0, visible=False), builder
 
-    builder.set_all_instrumental(all_instrumental)
+    # scan_directory already applies all_instrumental as the fallback. Reapplying
+    # it here would overwrite per-file JSON sidecars that mark vocal samples.
     if custom_tag:
         builder.set_custom_tag(custom_tag, tag_position)
 
@@ -65,6 +66,7 @@ def auto_label_all(
     skip_metas: bool = False,
     format_lyrics: bool = False,
     transcribe_lyrics: bool = False,
+    lm_lyrics_language: str = "unknown",
     only_unlabeled: bool = True,
     progress=None,
     model_config: str | None = None,
@@ -80,6 +82,7 @@ def auto_label_all(
         skip_metas: Skip generating BPM/Key/TimeSig but still generate caption/genre.
         format_lyrics: Use LLM to format user-provided lyrics from .txt files.
         transcribe_lyrics: Use LLM to transcribe lyrics from audio.
+        lm_lyrics_language: Optional language hint for LM lyric generation.
         only_unlabeled: Only label samples without caption.
         progress: Progress callback.
         model_config: Optional DiT model name selected for dataset actions.
@@ -141,6 +144,7 @@ def auto_label_all(
         llm_handler=llm_handler,
         format_lyrics=format_lyrics,
         transcribe_lyrics=transcribe_lyrics,
+        lm_lyrics_language=lm_lyrics_language,
         skip_metas=skip_metas,
         only_unlabeled=only_unlabeled,
         progress_callback=progress_callback,

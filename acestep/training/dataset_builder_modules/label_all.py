@@ -30,6 +30,7 @@ class LabelAllMixin:
         llm_handler,
         format_lyrics: bool = False,
         transcribe_lyrics: bool = False,
+        lm_lyrics_language: str = "unknown",
         skip_metas: bool = False,
         only_unlabeled: bool = True,
         progress_callback: Optional[Callable[[str], None]] = None,
@@ -75,6 +76,7 @@ class LabelAllMixin:
                 llm_handler,
                 format_lyrics,
                 transcribe_lyrics,
+                lm_lyrics_language,
                 skip_metas,
                 progress_callback,
             )

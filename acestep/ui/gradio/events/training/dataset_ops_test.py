@@ -1,12 +1,17 @@
 """Unit tests for dataset_ops.py."""
 
 from types import SimpleNamespace
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from acestep.training.path_safety import get_safe_roots, set_safe_roots
 from acestep.ui.gradio.events.training.dataset_ops import (
     auto_label_all,
     get_sample_preview,
+    scan_directory,
     save_sample_edit,
     select_sample_from_table,
     update_settings,
@@ -87,6 +92,10 @@ class TestAutoLabelAll(unittest.TestCase):
         self.assertEqual(dit_handler.initialize_calls[0]["device"], "auto")
         ensure_lm_ready.assert_called_once()
         builder.label_all_samples.assert_called_once()
+        self.assertEqual(
+            "unknown",
+            builder.label_all_samples.call_args.kwargs["lm_lyrics_language"],
+        )
 
     @patch(
         "acestep.ui.gradio.events.training.service_auto_init.get_global_gpu_config",
@@ -198,14 +207,71 @@ class TestAutoLabelAll(unittest.TestCase):
             dit_handler,
             llm_handler,
             builder,
+            transcribe_lyrics=True,
+            lm_lyrics_language="en",
             progress=progress,
             save_path="labels/out",
             dataset_name="labels",
         )
 
         builder.save_dataset.assert_called_once_with("labels/out.json", "labels")
+        self.assertEqual("en", builder.label_all_samples.call_args.kwargs["lm_lyrics_language"])
         progress.assert_any_call((0, 1), desc="Labeling 1/1; labeled 0/1; left 1: sample.wav")
         self.assertIn("Labeled 1/1", status_update["value"])
+
+
+class TestScanDirectory(unittest.TestCase):
+    """Tests for scan-directory UI handler behavior."""
+
+    def setUp(self) -> None:
+        """Preserve safe-root configuration."""
+
+        self._safe_roots = get_safe_roots()
+
+    def tearDown(self) -> None:
+        """Restore safe-root configuration."""
+
+        set_safe_roots(self._safe_roots)
+
+    def test_scan_preserves_vocal_json_sidecar_with_global_instrumental_default(self):
+        """The UI scan should not overwrite ACE generation sidecar vocal metadata."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            audio_path = Path(tmpdir) / "generated.mp3"
+            audio_path.write_bytes(b"audio")
+            audio_path.with_suffix(".json").write_text(
+                json.dumps(
+                    {
+                        "caption": "known generated caption",
+                        "lyrics": "[Verse]\nknown lyric",
+                        "vocal_language": "en",
+                        "instrumental": False,
+                        "bpm": 81,
+                        "keyscale": "C major",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with patch(
+                "acestep.training.dataset_builder_modules.scan.get_audio_duration",
+                return_value=200,
+            ):
+                table_data, status, _slider, builder = scan_directory(
+                    tmpdir,
+                    "generated_dataset",
+                    "",
+                    "replace",
+                    True,
+                    None,
+                )
+
+        self.assertIn("Found 1 audio files", status)
+        self.assertEqual("yes", table_data[0][3])
+        self.assertEqual("en", builder.samples[0].language)
+        self.assertFalse(builder.samples[0].is_instrumental)
+        self.assertEqual("[Verse]\nknown lyric", builder.samples[0].lyrics)
 
 
 class TestGetSamplePreview(unittest.TestCase):

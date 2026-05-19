@@ -10,6 +10,7 @@ from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.interfaces.training_dataset_model_selector import (
     build_dataset_model_selector,
 )
+from acestep.ui.gradio.language_choices import language_dropdown_choices
 
 
 def build_dataset_scan_and_settings_controls(
@@ -100,18 +101,34 @@ def build_dataset_scan_and_settings_controls(
                 value=False,
                 info=(
                     "Use LM to format/structure user-provided lyrics from .txt "
-                    "files (coming soon)"
+                    "files during auto-labeling. Can be combined with "
+                    "Transcribe Lyrics to use file lyrics plus audio metadata."
                 ),
                 elem_classes=["has-info-container"],
-                interactive=False,
+                interactive=True,
             )
 
             transcribe_lyrics = gr.Checkbox(
                 label="Transcribe Lyrics (LM)",
                 value=False,
-                info="Use LM to transcribe lyrics from audio (coming soon)",
+                info=(
+                    "Use LM audio understanding during auto-labeling. When combined "
+                    "with Format Lyrics and a matching lyrics file, lyrics come from "
+                    "the file while metadata comes from audio."
+                ),
                 elem_classes=["has-info-container"],
-                interactive=False,
+                interactive=True,
+            )
+
+            lm_lyrics_language = gr.Dropdown(
+                choices=language_dropdown_choices(),
+                value="unknown",
+                label="LM Lyrics Language",
+                info=(
+                    "Optional language hint for LM lyric formatting/transcription. "
+                    "Use Instrumental / auto when the language is unknown."
+                ),
+                elem_classes=["has-info-container"],
             )
 
             custom_tag = gr.Textbox(
@@ -158,6 +175,7 @@ def build_dataset_scan_and_settings_controls(
         "all_instrumental": all_instrumental,
         "format_lyrics": format_lyrics,
         "transcribe_lyrics": transcribe_lyrics,
+        "lm_lyrics_language": lm_lyrics_language,
         "custom_tag": custom_tag,
         "tag_position": tag_position,
         "genre_ratio": genre_ratio,

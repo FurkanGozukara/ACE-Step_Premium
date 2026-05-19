@@ -62,6 +62,41 @@ class ScanMixinTests(unittest.TestCase):
             self.assertEqual("synth pop", samples[0].genre)
             self.assertFalse(samples[0].is_instrumental)
 
+    def test_scan_directory_loads_ace_generation_sidecar_aliases(self) -> None:
+        """ACE generation JSON sidecars should hydrate vocal language and instrumental fields."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            audio_path = Path(tmpdir) / "generated.mp3"
+            audio_path.write_bytes(b"audio")
+            audio_path.with_suffix(".json").write_text(
+                json.dumps(
+                    {
+                        "caption": "known generated caption",
+                        "lyrics": "[Verse]\nknown lyric",
+                        "vocal_language": "en",
+                        "instrumental": False,
+                        "bpm": 81,
+                        "keyscale": "C major",
+                        "timesignature": "4",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            builder = DatasetBuilder()
+
+            with patch(
+                "acestep.training.dataset_builder_modules.scan.get_audio_duration",
+                return_value=200,
+            ):
+                samples, _status = builder.scan_directory(tmpdir)
+
+            self.assertEqual(1, len(samples))
+            self.assertEqual("en", samples[0].language)
+            self.assertFalse(samples[0].is_instrumental)
+            self.assertEqual("[Verse]\nknown lyric", samples[0].lyrics)
+            self.assertEqual(81, samples[0].bpm)
+
 
 if __name__ == "__main__":
     unittest.main()

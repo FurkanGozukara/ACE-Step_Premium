@@ -10,6 +10,10 @@ class DataframeMixin:
         for i, sample in enumerate(self.samples):
             if sample.has_raw_lyrics():
                 lyrics_status = "📝"
+            elif sample.has_formatted_lyrics() or (
+                sample.lyrics and sample.lyrics.strip() != "[Instrumental]"
+            ):
+                lyrics_status = "yes"
             elif sample.is_instrumental:
                 lyrics_status = "🎵"
             else:

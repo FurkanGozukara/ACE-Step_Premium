@@ -177,7 +177,12 @@ class TrainApiDatasetServiceHttpTests(unittest.TestCase):
         client, builder = self._build_client()
         response = client.post(
             "/v1/dataset/auto_label",
-            json={"hunk_size": 7, "batchsize": 3, "only_unlabeled": False},
+            json={
+                "hunk_size": 7,
+                "batchsize": 3,
+                "only_unlabeled": False,
+                "lm_lyrics_language": "en",
+            },
             headers={"Authorization": "Bearer test-token"},
         )
 
@@ -185,6 +190,7 @@ class TrainApiDatasetServiceHttpTests(unittest.TestCase):
         self.assertIsNotNone(builder.last_label_call)
         self.assertEqual(7, builder.last_label_call["chunk_size"])
         self.assertEqual(3, builder.last_label_call["batch_size"])
+        self.assertEqual("en", builder.last_label_call["lm_lyrics_language"])
 
     def test_get_samples_returns_wrapped_serialized_payload(self) -> None:
         """GET /v1/dataset/samples should return serialized sample data in wrapped response."""

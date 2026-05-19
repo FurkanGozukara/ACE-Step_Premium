@@ -31,6 +31,8 @@ def build_lora_run_and_export_controls(
             step=epoch_step,
             value=epoch_default,
             label=t("training.max_epochs"),
+            info=t("training.max_epochs_info"),
+            elem_classes=["has-info-container"],
         )
 
         train_batch_size = gr.Slider(
@@ -60,6 +62,8 @@ def build_lora_run_and_export_controls(
             step=1,
             value=10,
             label=t("training.save_every_n_epochs"),
+            info=t("training.save_every_n_epochs_info"),
+            elem_classes=["has-info-container"],
         )
 
         training_shift = gr.Slider(

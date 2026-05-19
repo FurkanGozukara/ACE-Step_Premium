@@ -265,7 +265,7 @@ Enter the save path for tensor files, click to start preprocessing, and wait for
 
 | Parameter | Description | Suggested Value |
 |-----------|-------------|-----------------|
-| **Max Epochs** | Adjust based on dataset size | ~100 songs → 500 epochs; 10–20 songs → 800 epochs (for reference only) |
+| **Max Epochs** | Adjust based on dataset size | 1–10 songs → 200–500 epochs; 10–50 songs → 100–200 epochs; 50+ songs → 50–100 epochs |
 | **Batch Size** | Can be increased if VRAM is sufficient | 1 (default); try 2 or 4 if VRAM allows |
 | **Save Every N Epochs** | Checkpoint save interval | Set smaller for fewer Max Epochs, larger for more |
 

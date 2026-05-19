@@ -1858,6 +1858,7 @@ class LLMHandler:
         top_k: Optional[int] = None,
         top_p: Optional[float] = None,
         repetition_penalty: float = 1.0,
+        user_metadata: Optional[Dict[str, Any]] = None,
         use_constrained_decoding: bool = True,
         constrained_decoding_debug: bool = False,
     ) -> Tuple[Dict[str, Any], str]:
@@ -1876,6 +1877,7 @@ class LLMHandler:
             top_k: Top-K sampling (None = disabled)
             top_p: Top-P (nucleus) sampling (None = disabled)
             repetition_penalty: Repetition penalty (1.0 = no penalty)
+            user_metadata: Optional metadata constraints such as language.
             use_constrained_decoding: Whether to use FSM-based constrained decoding for metadata
             constrained_decoding_debug: Whether to enable debug logging for constrained decoding
 
@@ -1905,6 +1907,13 @@ class LLMHandler:
         logger.info(f"Understanding audio codes (length: {len(audio_codes)} chars)")
 
         # Build formatted prompt for understanding
+        constrained_metadata = None
+        if user_metadata:
+            language = str(user_metadata.get("language") or "").strip()
+            if language and language.lower() not in {"unknown", "instrumental", "auto"}:
+                constrained_metadata = {"language": language}
+                logger.info(f"Using user-provided understand constraints: {constrained_metadata}")
+
         formatted_prompt = self.build_formatted_prompt_for_understanding(audio_codes)
         print(f"formatted_prompt: {formatted_prompt}")
         # Generate using constrained decoding (understand phase)
@@ -1918,9 +1927,9 @@ class LLMHandler:
                 "top_p": top_p,
                 "repetition_penalty": repetition_penalty,
                 "target_duration": None,  # No duration constraint for understanding
-                "user_metadata": None,  # No user metadata injection
+                "user_metadata": constrained_metadata,
                 "skip_caption": False,  # Generate caption
-                "skip_language": False,  # Generate language
+                "skip_language": constrained_metadata is not None,
                 "skip_genres": False,  # Generate genres
                 "generation_phase": "understand",  # Understanding phase: generate CoT metadata, then free-form lyrics
                 # Context for building unconditional prompt

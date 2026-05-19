@@ -67,6 +67,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
         skip,
         fmt_lyrics,
         trans_lyrics,
+        lm_lyrics_language,
         only_unlab,
         model,
         save_path,
@@ -80,6 +81,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             skip,
             fmt_lyrics,
             trans_lyrics,
+            lm_lyrics_language,
             only_unlab,
             progress=progress,
             model_config=model,
@@ -120,6 +122,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             training_section["skip_metas"],
             training_section["format_lyrics"],
             training_section["transcribe_lyrics"],
+            training_section["lm_lyrics_language"],
             training_section["only_unlabeled"],
             training_section["dataset_model_config"],
             training_section["save_path"],
@@ -145,18 +148,6 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
         fn=lambda has_raw: gr.update(visible=bool(has_raw)),
         inputs=[training_section["has_raw_lyrics_state"]],
         outputs=[training_section["raw_lyrics_display"]],
-    )
-
-    training_section["format_lyrics"].change(
-        fn=lambda fmt: gr.update(value=False) if fmt else gr.update(),
-        inputs=[training_section["format_lyrics"]],
-        outputs=[training_section["transcribe_lyrics"]],
-    )
-
-    training_section["transcribe_lyrics"].change(
-        fn=lambda trans: gr.update(value=False) if trans else gr.update(),
-        inputs=[training_section["transcribe_lyrics"]],
-        outputs=[training_section["format_lyrics"]],
     )
 
     training_section["sample_selector"].change(
