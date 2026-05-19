@@ -88,9 +88,9 @@ def update_model_type_settings(config_path: str | None, current_mode: str | None
         current_mode: Current generation mode value to preserve across choices update.
 
     Returns:
-        Nine-element tuple of ``gr.update()`` dicts for inference_steps,
+        Ten-element tuple of ``gr.update()`` dicts for inference_steps,
         guidance_scale, use_adg, shift, cfg_interval_start, cfg_interval_end,
-        task_type, generation_mode, and init_llm_checkbox.
+        task_type, generation_mode, init_llm_checkbox, and dcw_enabled.
     """
     cfg = get_ui_control_config_for_path(config_path)
     return get_model_type_ui_settings_from_config(cfg, current_mode=current_mode)
@@ -174,6 +174,7 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
             "shift_value": 3.0,
             "shift_visible": True,
             "cfg_interval_start_value": 0.0,
+            "dcw_enabled_value": True,
             "cfg_interval_start_visible": False,
             "cfg_interval_end_value": 1.0,
             "cfg_interval_end_visible": False,
@@ -195,6 +196,7 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
             "shift_value": 3.0,
             "shift_visible": True,
             "cfg_interval_start_value": 0.0,
+            "dcw_enabled_value": False,
             "cfg_interval_start_visible": True,
             "cfg_interval_end_value": 1.0,
             "cfg_interval_end_visible": True,
@@ -216,6 +218,7 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
         "shift_value": 3.0,
         "shift_visible": True,
         "cfg_interval_start_value": 0.0,
+        "dcw_enabled_value": False,
         "cfg_interval_start_visible": True,
         "cfg_interval_end_value": 1.0,
         "cfg_interval_end_visible": True,
@@ -286,7 +289,7 @@ def get_model_type_ui_settings(is_turbo: bool, current_mode: str | None = None, 
     Returns:
         Tuple of updates for inference_steps, guidance_scale, use_adg,
         shift, cfg_interval_start, cfg_interval_end, task_type,
-        generation_mode, init_llm_checkbox.
+        generation_mode, and init_llm_checkbox.
     """
     cfg = get_ui_control_config(is_turbo, is_pure_base=is_pure_base, is_sft=is_sft)
     return get_model_type_ui_settings_from_config(cfg, current_mode=current_mode)

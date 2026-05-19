@@ -132,6 +132,7 @@ class GetUiControlConfigTests(unittest.TestCase):
         self.assertFalse(cfg["use_adg_value"])
         self.assertEqual(cfg["shift_value"], 3.0)
         self.assertEqual(cfg["guidance_scale_maximum"], 15.0)
+        self.assertTrue(cfg["dcw_enabled_value"])
 
     def test_turbo_takes_precedence_over_sft(self):
         """When both turbo and SFT flags are set, turbo should win."""

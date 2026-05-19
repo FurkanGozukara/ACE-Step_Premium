@@ -14,7 +14,7 @@ from .mode_ui_helpers import (
 
 
 def compute_mode_ui_updates(mode: str, llm_handler=None, previous_mode: str = "Custom"):
-    """Return the 44-output mode-switch update tuple for generation UI."""
+    """Return the 46-output mode-switch update tuple for generation UI."""
     task_type = MODE_TO_TASK_TYPE.get(mode, "text2music")
 
     is_simple = (mode == "Simple")
@@ -148,7 +148,7 @@ def compute_mode_ui_updates(mode: str, llm_handler=None, previous_mode: str = "C
         generate_btn_update,                               # 2: generate_btn
         False,                                             # 3: simple_sample_created
         gr.update(visible=show_optional, open=True),        # 4: optional_params_accordion
-        gr.update(value=task_type, elem_classes=["has-info-container"]),  # 5: task_type
+        task_type,                                         # 5: task_type (gr.State — raw value)
         gr.update(visible=show_src_audio),                 # 6: src_audio_row
         gr.update(visible=show_repainting),                # 7: repainting_group
         gr.update(visible=show_audio_codes),               # 8: text2music_audio_codes_group
@@ -210,15 +210,19 @@ def handle_extract_track_name_change(track_name_value: str, mode: str):
 
 
 def handle_extract_src_audio_change(src_audio_path, mode: str):
-    """Auto-fill audio duration from source audio in Extract/Lego mode."""
+    """Auto-fill audio duration from source audio in Extract/Lego mode.
+
+    Reads duration directly via soundfile to avoid the training-module
+    safe_path guard, which rejects Gradio-uploaded files stored under the
+    system temp directory (e.g. AppData\\Local\\Temp\\gradio\\... on Windows).
+    """
     if mode not in ("Extract", "Lego") or not src_audio_path:
         return gr.update()
     try:
-        # Late import avoids loading training audio helpers unless this path is used.
-        from acestep.training.dataset_builder_modules.audio_io import get_audio_duration
-        duration = get_audio_duration(src_audio_path)
-        if duration and duration > 0:
-            return gr.update(value=float(duration))
+        import soundfile as sf
+        duration = float(sf.info(src_audio_path).duration)
+        if duration > 0:
+            return gr.update(value=duration)
     except Exception as e:
         logger.warning(f"Failed to get audio duration for {mode} mode: {e}")
     return gr.update()
