@@ -97,6 +97,64 @@ class ScanMixinTests(unittest.TestCase):
             self.assertEqual("[Verse]\nknown lyric", samples[0].lyrics)
             self.assertEqual(81, samples[0].bpm)
 
+    def test_scan_directory_parses_codex_formatted_lyrics_subdir(self) -> None:
+        """Formatted lyric files in a sibling subfolder should hydrate lyrics only."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            audio_path = Path(tmpdir) / "01 - Song.flac"
+            audio_path.write_bytes(b"audio")
+            lyrics_dir = Path(tmpdir) / "codex_formatted_lyrics"
+            lyrics_dir.mkdir()
+            (lyrics_dir / "01 - Song.txt").write_text(
+                "\n".join(
+                    [
+                        "# Caption",
+                        "Bright funk hip-hop with a talkbox hook.",
+                        "",
+                        "# Lyrics",
+                        "[Intro - talkbox hook]",
+                        "California love",
+                        "",
+                        "[Verse 1]",
+                        "Now let me welcome everybody to the wild, wild west",
+                        "",
+                        "# Metadata",
+                        "bpm: 92",
+                        "keyscale: G minor",
+                        "timesignature: 4",
+                        "vocal_language: en",
+                        "instrumental: false",
+                        "",
+                        "# Revision Notes",
+                        "- This should not become training lyrics.",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            builder = DatasetBuilder()
+
+            with patch(
+                "acestep.training.dataset_builder_modules.scan.get_audio_duration",
+                return_value=238,
+            ):
+                samples, status = builder.scan_directory(tmpdir)
+
+            self.assertIn("Detected 1 lyrics", status)
+            self.assertEqual(1, len(samples))
+            sample = samples[0]
+            self.assertEqual("Bright funk hip-hop with a talkbox hook.", sample.caption)
+            self.assertIn("[Intro - talkbox hook]", sample.raw_lyrics)
+            self.assertIn("Now let me welcome everybody", sample.lyrics)
+            self.assertNotIn("# Caption", sample.lyrics)
+            self.assertNotIn("# Metadata", sample.lyrics)
+            self.assertNotIn("Revision Notes", sample.lyrics)
+            self.assertEqual(92, sample.bpm)
+            self.assertEqual("G minor", sample.keyscale)
+            self.assertEqual("4", sample.timesignature)
+            self.assertEqual("en", sample.language)
+            self.assertFalse(sample.is_instrumental)
+
 
 if __name__ == "__main__":
     unittest.main()

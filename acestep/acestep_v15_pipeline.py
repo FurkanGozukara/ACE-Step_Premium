@@ -172,6 +172,21 @@ def _import_generation_cancel_route():
     return register_generation_cancel_route
 
 
+def _launch_accepts_kwarg(launch_fn, keyword: str) -> bool:
+    """Return whether a Gradio launch callable accepts a keyword argument."""
+
+    import inspect
+
+    try:
+        parameters = inspect.signature(launch_fn).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return any(
+        parameter.name == keyword or parameter.kind == inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters
+    )
+
+
 def create_demo(init_params=None, language="en"):
     """
     Create Gradio demo interface
@@ -808,8 +823,9 @@ def main():
             "theme": getattr(demo, "_ace_launch_theme", None),
             "css": getattr(demo, "_ace_launch_css", None),
             "head": getattr(demo, "_ace_launch_head", None),
-            "_app": demo.app,
         }
+        if _launch_accepts_kwarg(demo.launch, "_app"):
+            launch_kwargs["_app"] = demo.app
         if args.server_name:
             launch_kwargs["server_name"] = args.server_name
         if args.port is not None:

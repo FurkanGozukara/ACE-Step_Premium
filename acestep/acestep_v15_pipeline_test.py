@@ -15,6 +15,26 @@ from acestep import acestep_v15_pipeline
 class PipelineStartupBackendTests(unittest.TestCase):
     """Verify startup backend resolution respects legacy CUDA restrictions."""
 
+    def test_launch_accepts_kwarg_detects_real_signature_support(self) -> None:
+        """Launch helper should only enable private kwargs supported by Gradio."""
+
+        def launch_without_app(*, share=False):
+            """Mimic Gradio 6.2 launch without private ``_app`` support."""
+
+            return share
+
+        def launch_with_kwargs(**kwargs):
+            """Mimic mocks and future launch callables that accept passthrough kwargs."""
+
+            return kwargs
+
+        self.assertFalse(
+            acestep_v15_pipeline._launch_accepts_kwarg(launch_without_app, "_app")
+        )
+        self.assertTrue(
+            acestep_v15_pipeline._launch_accepts_kwarg(launch_with_kwargs, "_app")
+        )
+
     def _legacy_gpu_config(self) -> SimpleNamespace:
         """Return a representative legacy-CUDA GPU configuration."""
         return SimpleNamespace(

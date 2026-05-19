@@ -227,34 +227,43 @@ class LabelSingleMixin:
                     sample.formatted_lyrics = ""
                     status_suffix = "(instrumental)"
                 elif transcribe_lyrics:
-                    lyrics_selection = select_training_lyrics(sample.raw_lyrics, llm_lyrics)
-                    sample.formatted_lyrics = lyrics_selection.formatted_lyrics
-                    if sample.formatted_lyrics:
-                        sample.lyrics = sample.formatted_lyrics
+                    if has_preloaded_lyrics:
+                        sample.lyrics = sample.raw_lyrics
+                        sample.formatted_lyrics = ""
                         language_hint = _normalize_language_hint(lm_lyrics_language)
                         if language_hint:
                             sample.language = language_hint
                         sample.is_instrumental = False
-                        status_suffix = "(lyrics transcribed by LM)"
-                    elif lyrics_selection.lyrics:
-                        sample.lyrics = lyrics_selection.lyrics
-                        sample.formatted_lyrics = ""
-                        sample.is_instrumental = False
-                        status_suffix = (
-                            "(using cleaned raw lyrics; "
-                            f"LM transcription rejected: {lyrics_selection.rejection_reason})"
-                        )
+                        status_suffix = "(using raw lyrics; metadata inferred from audio)"
                     else:
-                        sample.lyrics = "[Instrumental]"
-                        sample.language = "unknown"
-                        sample.formatted_lyrics = ""
-                        sample.is_instrumental = True
-                        status_suffix = (
-                            "(LM transcription rejected: "
-                            f"{lyrics_selection.rejection_reason})"
-                            if lyrics_selection.rejection_reason
-                            else "(no lyrics transcribed)"
-                        )
+                        lyrics_selection = select_training_lyrics(sample.raw_lyrics, llm_lyrics)
+                        sample.formatted_lyrics = lyrics_selection.formatted_lyrics
+                        if sample.formatted_lyrics:
+                            sample.lyrics = sample.formatted_lyrics
+                            language_hint = _normalize_language_hint(lm_lyrics_language)
+                            if language_hint:
+                                sample.language = language_hint
+                            sample.is_instrumental = False
+                            status_suffix = "(lyrics transcribed by LM)"
+                        elif lyrics_selection.lyrics:
+                            sample.lyrics = lyrics_selection.lyrics
+                            sample.formatted_lyrics = ""
+                            sample.is_instrumental = False
+                            status_suffix = (
+                                "(using cleaned raw lyrics; "
+                                f"LM transcription rejected: {lyrics_selection.rejection_reason})"
+                            )
+                        else:
+                            sample.lyrics = "[Instrumental]"
+                            sample.language = "unknown"
+                            sample.formatted_lyrics = ""
+                            sample.is_instrumental = True
+                            status_suffix = (
+                                "(LM transcription rejected: "
+                                f"{lyrics_selection.rejection_reason})"
+                                if lyrics_selection.rejection_reason
+                                else "(no lyrics transcribed)"
+                            )
                 elif has_preloaded_lyrics:
                     sample.lyrics = sample.raw_lyrics
                     sample.formatted_lyrics = ""

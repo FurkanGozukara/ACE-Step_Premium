@@ -6,9 +6,45 @@ from typing import List, Tuple
 from loguru import logger
 
 from acestep.training.path_safety import safe_path
-from .audio_io import get_audio_duration, load_caption_file, load_json_metadata, load_lyrics_file
+from .audio_io import (
+    get_audio_duration,
+    load_caption_file,
+    load_json_metadata,
+    load_lyrics_file_data,
+)
 from .csv_metadata import load_csv_metadata
 from .models import AudioSample, SUPPORTED_AUDIO_FORMATS
+
+
+def _apply_lyrics_file_metadata(sample: AudioSample, metadata: dict) -> None:
+    """Hydrate sample fields parsed from a formatted lyric text file."""
+
+    if not metadata:
+        return
+
+    genre = metadata.get("genre") or metadata.get("genres")
+    if genre:
+        sample.genre = str(genre)
+    if metadata.get("bpm"):
+        sample.bpm = metadata["bpm"]
+    if metadata.get("keyscale"):
+        sample.keyscale = str(metadata["keyscale"])
+    if metadata.get("timesignature"):
+        sample.timesignature = str(metadata["timesignature"])
+
+    language = metadata.get("language") or metadata.get("vocal_language")
+    if language:
+        sample.language = str(language)
+        if sample.language not in {"instrumental", "unknown"}:
+            sample.is_instrumental = False
+
+    if "is_instrumental" in metadata:
+        sample.is_instrumental = bool(metadata["is_instrumental"])
+    elif "instrumental" in metadata:
+        sample.is_instrumental = bool(metadata["instrumental"])
+
+    if sample.has_raw_lyrics():
+        sample.is_instrumental = False
 
 
 class ScanMixin:
@@ -55,7 +91,8 @@ class ScanMixin:
             try:
                 duration = get_audio_duration(audio_path)
                 caption_content, has_caption_file = load_caption_file(audio_path)
-                lyrics_content, has_lyrics_file = load_lyrics_file(audio_path)
+                lyrics_data, has_lyrics_file = load_lyrics_file_data(audio_path)
+                lyrics_content = lyrics_data.lyrics
                 json_meta, has_json = load_json_metadata(audio_path)
 
                 if has_caption_file:
@@ -69,18 +106,20 @@ class ScanMixin:
                 if has_lyrics_file:
                     is_instrumental = False
 
+                caption_from_lyrics = lyrics_data.caption if has_lyrics_file else ""
                 sample = AudioSample(
                     audio_path=audio_path,
                     filename=os.path.basename(audio_path),
                     duration=duration,
                     is_instrumental=is_instrumental,
                     custom_tag=self.metadata.custom_tag,
-                    caption=caption_content if has_caption_file else "",
+                    caption=caption_content if has_caption_file else caption_from_lyrics,
                     lyrics=lyrics_content if has_lyrics_file else "[Instrumental]",
                     raw_lyrics=lyrics_content if has_lyrics_file else "",
                 )
                 if has_caption_file:
                     sample.labeled = True
+                _apply_lyrics_file_metadata(sample, lyrics_data.metadata)
 
                 # Apply JSON metadata (overrides caption file if present)
                 if has_json:

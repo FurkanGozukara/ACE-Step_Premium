@@ -8,6 +8,18 @@ from typing import Any, Dict, Tuple
 from loguru import logger
 
 from acestep.training.path_safety import safe_path
+from .lyrics_file_parser import ParsedLyricsFile, parse_lyrics_text_file
+
+
+_LYRICS_SUBDIRS = (
+    "codex_formatted_lyrics",
+    "formatted_lyrics",
+    "lyrics",
+    "fixed_org_lyrics",
+    "raw_lyrics",
+    "org_lyrics",
+    "lyrics_by_Whisper_App",
+)
 
 
 def _read_text_file(path: str) -> Tuple[str, bool]:
@@ -73,19 +85,50 @@ def load_json_metadata(audio_path: str) -> Tuple[Dict[str, Any], bool]:
 
 
 def load_lyrics_file(audio_path: str) -> Tuple[str, bool]:
-    """Load lyrics from explicit and legacy sidecar text files."""
+    """Load parsed lyrics from explicit and legacy sidecar text files."""
+    parsed, ok = load_lyrics_file_data(audio_path)
+    return parsed.lyrics, ok
+
+
+def load_lyrics_file_data(audio_path: str) -> Tuple[ParsedLyricsFile, bool]:
+    """Load and parse a lyric sidecar for an audio file."""
+
     validated = safe_path(audio_path)
-    base_path = os.path.splitext(validated)[0]
-    for suffix in (".lyrics.txt", ".txt"):
-        path = base_path + suffix
+    for path in _lyrics_file_candidates(validated):
         content, ok = _read_text_file(path)
         if ok:
-            if suffix == ".lyrics.txt":
+            parsed = parse_lyrics_text_file(content)
+            if not parsed.lyrics:
+                continue
+            if path.endswith(".lyrics.txt"):
                 logger.debug(f"Loaded lyrics from {path}")
             else:
                 logger.debug(f"Loaded lyrics from {path} (legacy .txt)")
-            return content, True
-    return "", False
+            return parsed, True
+    return ParsedLyricsFile(), False
+
+
+def _lyrics_file_candidates(audio_path: str) -> list[str]:
+    """Return lyric sidecar candidates in compatibility order."""
+
+    base_path = os.path.splitext(audio_path)[0]
+    audio_dir = os.path.dirname(audio_path)
+    stem = os.path.splitext(os.path.basename(audio_path))[0]
+    candidates = [base_path + ".lyrics.txt", base_path + ".txt"]
+
+    for subdir in _LYRICS_SUBDIRS:
+        folder = os.path.join(audio_dir, subdir)
+        candidates.append(os.path.join(folder, stem + ".lyrics.txt"))
+        candidates.append(os.path.join(folder, stem + ".txt"))
+
+    deduped = []
+    seen = set()
+    for candidate in candidates:
+        key = os.path.normcase(os.path.normpath(candidate))
+        if key not in seen:
+            seen.add(key)
+            deduped.append(candidate)
+    return deduped
 
 
 def get_audio_duration(audio_path: str) -> int:

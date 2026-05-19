@@ -65,6 +65,53 @@ class LabelSingleMixinTests(unittest.TestCase):
             use_constrained_decoding=True,
         )
 
+    def test_transcribe_lyrics_preserves_preloaded_file_when_format_disabled(self) -> None:
+        """User-provided lyrics should win over LM transcription output."""
+
+        raw_lyrics = "[Verse 1]\nsource lyric from the formatted file"
+        builder = _Builder(
+            [
+                AudioSample(
+                    audio_path="song.wav",
+                    filename="song.wav",
+                    raw_lyrics=raw_lyrics,
+                    lyrics=raw_lyrics,
+                    is_instrumental=False,
+                )
+            ]
+        )
+        llm_handler = MagicMock()
+        llm_handler.understand_audio_from_codes.return_value = (
+            {
+                "caption": "audio-inferred caption",
+                "genres": "west coast hip hop",
+                "lyrics": "[Verse]\nhallucinated transcript",
+                "language": "en",
+            },
+            "ok",
+        )
+
+        with patch(
+            "acestep.training.dataset_builder_modules.label_single.get_audio_codes",
+            return_value="<|audio_code_1|>",
+        ):
+            sample, status = builder.label_sample(
+                0,
+                dit_handler=MagicMock(),
+                llm_handler=llm_handler,
+                format_lyrics=False,
+                transcribe_lyrics=True,
+                lm_lyrics_language="en",
+            )
+
+        self.assertEqual("audio-inferred caption", sample.caption)
+        self.assertEqual("west coast hip hop", sample.genre)
+        self.assertFalse(sample.is_instrumental)
+        self.assertEqual(raw_lyrics, sample.lyrics)
+        self.assertEqual("", sample.formatted_lyrics)
+        self.assertNotIn("hallucinated", sample.lyrics)
+        self.assertIn("using raw lyrics", status)
+
     def test_instrumental_default_still_applies_without_transcription(self) -> None:
         """Existing instrumental behavior should remain unchanged by default."""
 
