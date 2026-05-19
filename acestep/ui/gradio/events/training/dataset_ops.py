@@ -10,6 +10,7 @@ from typing import Any, List, Optional, Tuple
 import gradio as gr
 
 from acestep.training.dataset_builder import DatasetBuilder
+from .service_auto_init import ensure_training_services_ready
 from .training_utils import _safe_slider
 
 
@@ -60,6 +61,7 @@ def auto_label_all(
     transcribe_lyrics: bool = False,
     only_unlabeled: bool = False,
     progress=None,
+    model_config: str | None = None,
 ) -> Tuple[List[List[Any]], str, DatasetBuilder]:
     """Auto-label all samples in the dataset.
 
@@ -72,6 +74,7 @@ def auto_label_all(
         transcribe_lyrics: Use LLM to transcribe lyrics from audio.
         only_unlabeled: Only label samples without caption.
         progress: Progress callback.
+        model_config: Optional DiT model name selected for dataset actions.
 
     Returns:
         Tuple of (table_data, status, builder_state).
@@ -82,17 +85,19 @@ def auto_label_all(
     if not builder_state.samples:
         return [], "❌ No samples to label. Please scan a directory first.", builder_state
 
-    if dit_handler is None or dit_handler.model is None:
-        return (
-            builder_state.get_samples_dataframe_data(),
-            "❌ Model not initialized. Please initialize the service first.",
-            builder_state,
+    services_ready, auto_init_status = ensure_training_services_ready(
+        dit_handler,
+        llm_handler,
+        require_llm=True,
+        config_path=model_config,
+    )
+    if not services_ready:
+        status = auto_init_status or (
+            "Model not initialized. Please initialize the service first."
         )
-
-    if llm_handler is None or not llm_handler.llm_initialized:
         return (
             builder_state.get_samples_dataframe_data(),
-            "❌ LLM not initialized. Please initialize the service with LLM enabled.",
+            status if status.startswith("❌") else f"❌ {status}",
             builder_state,
         )
 
@@ -112,6 +117,8 @@ def auto_label_all(
         only_unlabeled=only_unlabeled,
         progress_callback=progress_callback,
     )
+    if auto_init_status:
+        status = f"{auto_init_status}\n{status}" if status else auto_init_status
 
     table_data = builder_state.get_samples_dataframe_data()
     return gr.update(value=table_data), gr.update(value=status), builder_state

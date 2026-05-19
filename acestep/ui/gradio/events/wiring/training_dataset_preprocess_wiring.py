@@ -75,13 +75,18 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
     training_section = context.training_section
     dit_handler = context.dit_handler
     training_section["preprocess_btn"].click(
-        fn=lambda output_dir, mode, state: train_h.preprocess_dataset(
-            output_dir, mode, dit_handler, state
+        fn=lambda output_dir, mode, state, model: train_h.preprocess_dataset(
+            output_dir,
+            mode,
+            dit_handler,
+            state,
+            model_config=model,
         ),
         inputs=[
             training_section["preprocess_output_dir"],
             training_section["preprocess_mode"],
             training_section["dataset_builder_state"],
+            training_section["dataset_model_config"],
         ],
         outputs=[training_section["preprocess_progress"]],
     )

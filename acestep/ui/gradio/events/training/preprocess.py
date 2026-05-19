@@ -14,6 +14,7 @@ from loguru import logger
 from acestep.training.dataset_builder import DatasetBuilder
 from acestep.training.path_safety import safe_path
 from acestep.debug_utils import debug_log_for, debug_start_for, debug_end_for
+from .service_auto_init import ensure_training_services_ready
 from .training_utils import _safe_slider
 
 
@@ -147,10 +148,19 @@ def preprocess_dataset(
     dit_handler,
     builder_state: Optional[DatasetBuilder],
     progress=None,
+    model_config: str | None = None,
 ) -> str:
     """Preprocess dataset to tensor files for fast training.
 
     Converts audio files to VAE latents and text to embeddings.
+
+    Args:
+        output_dir: Directory where tensor files should be written.
+        preprocess_mode: Target adapter mode, ``"lora"`` or ``"lokr"``.
+        dit_handler: DiT handler used for tensor preprocessing.
+        builder_state: Dataset builder state containing labeled samples.
+        progress: Optional progress callback.
+        model_config: Optional DiT model name selected for dataset actions.
 
     Returns:
         Status message.
@@ -168,8 +178,17 @@ def preprocess_dataset(
     if not output_dir or not output_dir.strip():
         return "❌ Please enter an output directory."
 
-    if dit_handler is None or dit_handler.model is None:
-        return "❌ Model not initialized. Please initialize the service first."
+    services_ready, auto_init_status = ensure_training_services_ready(
+        dit_handler,
+        None,
+        require_llm=False,
+        config_path=model_config,
+    )
+    if not services_ready:
+        status = auto_init_status or (
+            "Model not initialized. Please initialize the service first."
+        )
+        return f"❌ {status}"
 
     def progress_callback(msg):
         if progress:
@@ -191,6 +210,8 @@ def preprocess_dataset(
     )
     debug_end_for("dataset", "preprocess_to_tensors", t0)
 
+    if auto_init_status:
+        return f"{auto_init_status}\n{status}" if status else auto_init_status
     return status
 
 

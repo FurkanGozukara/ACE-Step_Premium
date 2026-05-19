@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import gradio as gr
 
 from acestep.ui.gradio.help_content import create_help_button
@@ -17,13 +19,26 @@ from acestep.ui.gradio.interfaces.training_dataset_tab_scan_settings import (
 )
 
 
-def create_dataset_builder_tab() -> dict[str, object]:
-    """Create the Dataset Builder tab and return all exposed component handles."""
+def create_dataset_builder_tab(
+    dit_handler: Any = None,
+    init_params: dict[str, Any] | None = None,
+) -> dict[str, object]:
+    """Create the Dataset Builder tab and return all exposed component handles.
+
+    Args:
+        dit_handler: DiT handler used to populate dataset model choices.
+        init_params: Optional startup params used to seed model selection.
+    """
 
     with gr.Tab(t("training.tab_dataset_builder")):
         create_help_button("training_dataset")
         tab_controls: dict[str, object] = {}
-        tab_controls.update(build_dataset_scan_and_settings_controls())
+        tab_controls.update(
+            build_dataset_scan_and_settings_controls(
+                dit_handler=dit_handler,
+                init_params=init_params,
+            )
+        )
         tab_controls.update(build_dataset_label_and_preview_controls())
         tab_controls.update(build_dataset_save_and_preprocess_controls())
     return tab_controls

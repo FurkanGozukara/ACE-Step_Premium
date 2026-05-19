@@ -1,14 +1,168 @@
 """Unit tests for dataset_ops.py."""
 
+from types import SimpleNamespace
 import unittest
 from unittest.mock import MagicMock, patch
 
 from acestep.ui.gradio.events.training.dataset_ops import (
+    auto_label_all,
     get_sample_preview,
     save_sample_edit,
     update_settings,
     save_dataset,
 )
+
+
+class _FakeDitHandler:
+    """Test double for dataset auto-initialization paths."""
+
+    def __init__(self, *, model=None, init_ok=True):
+        self.model = model
+        self.init_ok = init_ok
+        self.initialize_calls = []
+        self.last_init_params = None
+
+    def initialize_service(self, **kwargs):
+        """Record service-init calls and optionally mark the model ready."""
+
+        self.initialize_calls.append(kwargs)
+        if self.init_ok:
+            self.model = object()
+            self.last_init_params = dict(kwargs)
+        return "DiT ready", self.init_ok
+
+
+def _gpu_defaults():
+    """Return GPU defaults used by dataset auto-init tests."""
+
+    return SimpleNamespace(
+        compile_model_default=False,
+        offload_to_cpu_default=True,
+        offload_dit_to_cpu_default=True,
+        quantization_default=False,
+    )
+
+
+def _builder_with_samples():
+    """Return a builder mock with one sample and table data."""
+
+    builder = MagicMock()
+    builder.samples = [object()]
+    builder.get_samples_dataframe_data.return_value = [["audio.wav"]]
+    builder.label_all_samples.return_value = (builder.samples, "Labeled")
+    return builder
+
+
+class TestAutoLabelAll(unittest.TestCase):
+    """Tests for dataset auto-label service readiness."""
+
+    @patch(
+        "acestep.ui.gradio.events.training.service_auto_init.get_global_gpu_config",
+        return_value=_gpu_defaults(),
+    )
+    @patch(
+        "acestep.ui.gradio.events.training.service_auto_init.ensure_llm_ready",
+        return_value=(True, "LM ready"),
+    )
+    def test_auto_initializes_missing_services(self, ensure_lm_ready, _gpu_config):
+        """Auto-label should initialize DiT and LM before labeling samples."""
+
+        builder = _builder_with_samples()
+        dit_handler = _FakeDitHandler()
+        llm_handler = SimpleNamespace(llm_initialized=False, last_init_params=None)
+
+        table_update, status_update, returned_builder = auto_label_all(
+            dit_handler,
+            llm_handler,
+            builder,
+        )
+
+        self.assertIs(returned_builder, builder)
+        self.assertEqual(table_update["value"], [["audio.wav"]])
+        self.assertIn("DiT service initialized automatically.", status_update["value"])
+        self.assertIn("LM ready", status_update["value"])
+        self.assertIn("Labeled", status_update["value"])
+        self.assertEqual(len(dit_handler.initialize_calls), 1)
+        self.assertEqual(dit_handler.initialize_calls[0]["device"], "auto")
+        ensure_lm_ready.assert_called_once()
+        builder.label_all_samples.assert_called_once()
+
+    @patch(
+        "acestep.ui.gradio.events.training.service_auto_init.get_global_gpu_config",
+        return_value=_gpu_defaults(),
+    )
+    @patch("acestep.ui.gradio.events.training.service_auto_init.ensure_llm_ready")
+    def test_auto_init_failure_stops_before_labeling(self, ensure_lm_ready, _gpu_config):
+        """Auto-label should not run when DiT auto-initialization fails."""
+
+        builder = _builder_with_samples()
+        dit_handler = _FakeDitHandler(init_ok=False)
+        llm_handler = SimpleNamespace(llm_initialized=False, last_init_params=None)
+
+        table_data, status, returned_builder = auto_label_all(
+            dit_handler,
+            llm_handler,
+            builder,
+        )
+
+        self.assertIs(returned_builder, builder)
+        self.assertEqual(table_data, [["audio.wav"]])
+        self.assertIn("DiT ready", status)
+        self.assertEqual(len(dit_handler.initialize_calls), 1)
+        ensure_lm_ready.assert_not_called()
+        builder.label_all_samples.assert_not_called()
+
+    @patch(
+        "acestep.ui.gradio.events.training.service_auto_init.get_global_gpu_config",
+        return_value=_gpu_defaults(),
+    )
+    @patch(
+        "acestep.ui.gradio.events.training.service_auto_init.ensure_llm_ready",
+        return_value=(True, ""),
+    )
+    def test_reuses_initialized_dit_service(self, _ensure_lm_ready, _gpu_config):
+        """Auto-label should not reinitialize an already loaded DiT model."""
+
+        builder = _builder_with_samples()
+        dit_handler = _FakeDitHandler(model=object())
+        dit_handler.last_init_params = {"config_path": "model-a"}
+        llm_handler = SimpleNamespace(llm_initialized=True, last_init_params={})
+
+        _table_update, status_update, _returned_builder = auto_label_all(
+            dit_handler,
+            llm_handler,
+            builder,
+            model_config="model-a",
+        )
+
+        self.assertEqual(dit_handler.initialize_calls, [])
+        self.assertEqual(status_update["value"], "Labeled")
+
+    @patch(
+        "acestep.ui.gradio.events.training.service_auto_init.get_global_gpu_config",
+        return_value=_gpu_defaults(),
+    )
+    @patch(
+        "acestep.ui.gradio.events.training.service_auto_init.ensure_llm_ready",
+        return_value=(True, ""),
+    )
+    def test_selected_model_reinitializes_loaded_dit(self, _ensure_lm_ready, _gpu_config):
+        """Auto-label should reinitialize DiT when the dataset model changes."""
+
+        builder = _builder_with_samples()
+        dit_handler = _FakeDitHandler(model=object())
+        dit_handler.last_init_params = {"config_path": "model-a"}
+        llm_handler = SimpleNamespace(llm_initialized=True, last_init_params={})
+
+        _table_update, _status_update, _returned_builder = auto_label_all(
+            dit_handler,
+            llm_handler,
+            builder,
+            model_config="model-b",
+        )
+
+        self.assertEqual(len(dit_handler.initialize_calls), 1)
+        self.assertEqual(dit_handler.initialize_calls[0]["config_path"], "model-b")
 
 
 class TestGetSamplePreview(unittest.TestCase):

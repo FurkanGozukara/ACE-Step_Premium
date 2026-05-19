@@ -6,6 +6,7 @@ import gradio as gr
 
 from .. import training_handlers as train_h
 from .context import TrainingWiringContext
+from .training_dataset_status import append_preview_refresh_status
 
 
 _SAMPLE_PREVIEW_OUTPUT_KEYS = (
@@ -31,9 +32,6 @@ _SETTINGS_TRIGGER_KEYS = (
     "all_instrumental",
     "genre_ratio",
 )
-
-_CHECKMARK = "\u2705"
-
 
 def _build_sample_preview_outputs(training_section: Mapping[str, Any]) -> list[Any]:
     """Return ordered sample-preview outputs shared by preview refresh handlers."""
@@ -70,8 +68,15 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
     )
 
     training_section["auto_label_btn"].click(
-        fn=lambda state, skip, fmt_lyrics, trans_lyrics, only_unlab: train_h.auto_label_all(
-            dit_handler, llm_handler, state, skip, fmt_lyrics, trans_lyrics, only_unlab
+        fn=lambda state, skip, fmt_lyrics, trans_lyrics, only_unlab, model: train_h.auto_label_all(
+            dit_handler,
+            llm_handler,
+            state,
+            skip,
+            fmt_lyrics,
+            trans_lyrics,
+            only_unlab,
+            model_config=model,
         ),
         inputs=[
             training_section["dataset_builder_state"],
@@ -79,6 +84,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             training_section["format_lyrics"],
             training_section["transcribe_lyrics"],
             training_section["only_unlabeled"],
+            training_section["dataset_model_config"],
         ],
         outputs=[
             training_section["audio_files_table"],
@@ -93,7 +99,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
         ],
         outputs=sample_preview_outputs,
     ).then(
-        fn=lambda status: f"{status or (_CHECKMARK + ' Auto-label complete.')}\n{_CHECKMARK} Preview refreshed.",
+        fn=append_preview_refresh_status,
         inputs=[training_section["label_progress"]],
         outputs=[training_section["label_progress"]],
     ).then(

@@ -2,13 +2,26 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import gradio as gr
 
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.interfaces.training_dataset_model_selector import (
+    build_dataset_model_selector,
+)
 
 
-def build_dataset_scan_and_settings_controls() -> dict[str, object]:
-    """Render scan/load controls and dataset settings for the dataset-builder tab."""
+def build_dataset_scan_and_settings_controls(
+    dit_handler: Any = None,
+    init_params: dict[str, Any] | None = None,
+) -> dict[str, object]:
+    """Render scan/load controls and dataset settings for the dataset-builder tab.
+
+    Args:
+        dit_handler: DiT handler used to discover selectable dataset models.
+        init_params: Optional startup params used to seed the selected model.
+    """
 
     gr.Markdown(
         f"### {t('training.quick_start_title')}\n"
@@ -62,6 +75,8 @@ def build_dataset_scan_and_settings_controls() -> dict[str, object]:
 
         with gr.Column(scale=1):
             gr.HTML(f"<h3>⚙️ {t('training.dataset_settings_header')}</h3>")
+
+            model_controls = build_dataset_model_selector(dit_handler, init_params)
 
             dataset_name = gr.Textbox(
                 label=t("training.dataset_name"),
@@ -129,6 +144,7 @@ def build_dataset_scan_and_settings_controls() -> dict[str, object]:
         "scan_btn": scan_btn,
         "scan_status": scan_status,
         "audio_files_table": audio_files_table,
+        "dataset_model_config": model_controls["dataset_model_config"],
         "dataset_name": dataset_name,
         "all_instrumental": all_instrumental,
         "format_lyrics": format_lyrics,

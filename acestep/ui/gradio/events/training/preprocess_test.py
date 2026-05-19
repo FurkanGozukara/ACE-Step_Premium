@@ -3,14 +3,43 @@
 import os
 import json
 import tempfile
+from types import SimpleNamespace
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from acestep.training.path_safety import get_safe_root, set_safe_root
 from acestep.ui.gradio.events.training.preprocess import (
     load_training_dataset,
     preprocess_dataset,
 )
+
+
+class _FakeDitHandler:
+    """Test double for preprocess auto-initialization."""
+
+    def __init__(self):
+        self.model = None
+        self.initialize_calls = []
+        self.last_init_params = None
+
+    def initialize_service(self, **kwargs):
+        """Record init arguments and mark the model as ready."""
+
+        self.initialize_calls.append(kwargs)
+        self.model = object()
+        self.last_init_params = dict(kwargs)
+        return "DiT ready", True
+
+
+def _gpu_defaults():
+    """Return GPU defaults used by preprocess auto-init tests."""
+
+    return SimpleNamespace(
+        compile_model_default=False,
+        offload_to_cpu_default=True,
+        offload_dit_to_cpu_default=True,
+        quantization_default=False,
+    )
 
 
 class TestLoadTrainingDataset(unittest.TestCase):
@@ -101,6 +130,29 @@ class TestPreprocessDataset(unittest.TestCase):
         builder.get_labeled_count.return_value = 5
         result = preprocess_dataset("/out", "lora", None, builder)
         self.assertIn("❌", result)
+
+    @patch(
+        "acestep.ui.gradio.events.training.service_auto_init.get_global_gpu_config",
+        return_value=_gpu_defaults(),
+    )
+    def test_auto_initializes_selected_model(self, _gpu_config):
+        builder = MagicMock()
+        builder.samples = [MagicMock()]
+        builder.get_labeled_count.return_value = 5
+        builder.preprocess_to_tensors.return_value = (["sample.pt"], "Preprocessed")
+        dit_handler = _FakeDitHandler()
+
+        result = preprocess_dataset(
+            "/out",
+            "lora",
+            dit_handler,
+            builder,
+            model_config="model-b",
+        )
+
+        self.assertIn("DiT service initialized automatically.", result)
+        self.assertIn("Preprocessed", result)
+        self.assertEqual(dit_handler.initialize_calls[0]["config_path"], "model-b")
 
 
 if __name__ == "__main__":

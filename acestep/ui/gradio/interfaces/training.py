@@ -33,7 +33,7 @@ def create_training_section(dit_handler, llm_handler, init_params=None) -> dict:
         Mapping of component keys to Gradio components for training-event wiring.
     """
 
-    del dit_handler, llm_handler, init_params
+    del llm_handler
 
     epoch_min, epoch_step, epoch_default = _resolve_epoch_slider_defaults()
 
@@ -48,7 +48,12 @@ def create_training_section(dit_handler, llm_handler, init_params=None) -> dict:
 
     training_section: dict[str, object] = {}
     with gr.Tabs():
-        training_section.update(create_dataset_builder_tab())
+        training_section.update(
+            create_dataset_builder_tab(
+                dit_handler=dit_handler,
+                init_params=init_params,
+            )
+        )
         training_section.update(
             create_training_lora_tab(
                 epoch_min=epoch_min,
