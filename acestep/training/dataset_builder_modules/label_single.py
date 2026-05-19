@@ -5,9 +5,13 @@ from typing import Optional, Tuple
 from loguru import logger
 
 from .label_utils import get_audio_codes, parse_int
+from .lyrics_quality import select_training_lyrics
 from .models import AudioSample
 
 
+_FORMAT_LYRICS_REPETITION_PENALTY = 1.18
+_FORMAT_LYRICS_TEMPERATURE = 0.20
+_FORMAT_LYRICS_TOP_P = 0.75
 _TRANSCRIBE_TEMPERATURE = 0.1
 _TRANSCRIBE_TOP_P = 0.3
 
@@ -36,6 +40,23 @@ def _language_metadata(language: str) -> dict[str, str] | None:
     """Return constrained-decoding metadata for a selected lyrics language."""
 
     language = _normalize_language_hint(language)
+    return {"language": language} if language else None
+
+
+def _format_language_metadata(
+    requested_language: str,
+    sample: AudioSample,
+    metadata: dict | None,
+) -> dict[str, str] | None:
+    """Return the best language constraint for formatting existing lyrics."""
+
+    language = _normalize_language_hint(requested_language)
+    if not language and metadata:
+        language = _normalize_language_hint(
+            metadata.get("language") or metadata.get("vocal_language")
+        )
+    if not language:
+        language = _normalize_language_hint(sample.language)
     return {"language": language} if language else None
 
 
@@ -125,10 +146,16 @@ class LabelSingleMixin:
 
                 result = format_sample(
                     llm_handler=llm_handler,
-                    caption="",
+                    caption=metadata.get("caption", "") if metadata else "",
                     lyrics=sample.raw_lyrics,
-                    user_metadata=_language_metadata(lm_lyrics_language),
-                    temperature=0.85,
+                    user_metadata=_format_language_metadata(
+                        lm_lyrics_language,
+                        sample,
+                        metadata,
+                    ),
+                    temperature=_FORMAT_LYRICS_TEMPERATURE,
+                    top_p=_FORMAT_LYRICS_TOP_P,
+                    repetition_penalty=_FORMAT_LYRICS_REPETITION_PENALTY,
                     use_constrained_decoding=True,
                 )
 
@@ -156,20 +183,32 @@ class LabelSingleMixin:
                 language_hint = _normalize_language_hint(lm_lyrics_language)
                 if language_hint:
                     sample.language = language_hint
-                sample.formatted_lyrics = _clean_llm_lyrics(result.lyrics)
-                sample.lyrics = (
-                    sample.formatted_lyrics if sample.formatted_lyrics else sample.raw_lyrics
+                lyrics_selection = select_training_lyrics(
+                    sample.raw_lyrics,
+                    _clean_llm_lyrics(result.lyrics),
                 )
+                sample.formatted_lyrics = lyrics_selection.formatted_lyrics
+                sample.lyrics = lyrics_selection.lyrics
                 sample.is_instrumental = False
 
                 if metadata is not None:
                     status_suffix = "(lyrics from file; metadata inferred from audio)"
+                    if lyrics_selection.rejection_reason:
+                        status_suffix = (
+                            "(lyrics from file; metadata inferred from audio; "
+                            f"LM format rejected: {lyrics_selection.rejection_reason})"
+                        )
                 else:
                     status_suffix = (
                         "(lyrics formatted by LM)"
                         if sample.formatted_lyrics
                         else "(using raw lyrics; LM returned no lyrics)"
                     )
+                    if lyrics_selection.rejection_reason:
+                        status_suffix = (
+                            "(using raw lyrics; "
+                            f"LM format rejected: {lyrics_selection.rejection_reason})"
+                        )
 
             else:
                 _apply_audio_metadata(
@@ -188,20 +227,34 @@ class LabelSingleMixin:
                     sample.formatted_lyrics = ""
                     status_suffix = "(instrumental)"
                 elif transcribe_lyrics:
-                    sample.formatted_lyrics = llm_lyrics
-                    if llm_lyrics:
-                        sample.lyrics = llm_lyrics
+                    lyrics_selection = select_training_lyrics(sample.raw_lyrics, llm_lyrics)
+                    sample.formatted_lyrics = lyrics_selection.formatted_lyrics
+                    if sample.formatted_lyrics:
+                        sample.lyrics = sample.formatted_lyrics
                         language_hint = _normalize_language_hint(lm_lyrics_language)
                         if language_hint:
                             sample.language = language_hint
                         sample.is_instrumental = False
                         status_suffix = "(lyrics transcribed by LM)"
+                    elif lyrics_selection.lyrics:
+                        sample.lyrics = lyrics_selection.lyrics
+                        sample.formatted_lyrics = ""
+                        sample.is_instrumental = False
+                        status_suffix = (
+                            "(using cleaned raw lyrics; "
+                            f"LM transcription rejected: {lyrics_selection.rejection_reason})"
+                        )
                     else:
                         sample.lyrics = "[Instrumental]"
                         sample.language = "unknown"
                         sample.formatted_lyrics = ""
                         sample.is_instrumental = True
-                        status_suffix = "(no lyrics transcribed)"
+                        status_suffix = (
+                            "(LM transcription rejected: "
+                            f"{lyrics_selection.rejection_reason})"
+                            if lyrics_selection.rejection_reason
+                            else "(no lyrics transcribed)"
+                        )
                 elif has_preloaded_lyrics:
                     sample.lyrics = sample.raw_lyrics
                     sample.formatted_lyrics = ""

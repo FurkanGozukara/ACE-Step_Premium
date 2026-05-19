@@ -105,11 +105,11 @@ def build_dataset_scan_and_settings_controls(
 
             format_lyrics = gr.Checkbox(
                 label="Format Lyrics (LM)",
-                value=True,
+                value=False,
                 info=(
-                    "Use LM to format/structure user-provided lyrics from .txt "
-                    "files during auto-labeling. Can be combined with "
-                    "Transcribe Lyrics to use file lyrics plus audio metadata."
+                    "Optional: use LM to format/structure user-provided lyrics "
+                    "from .txt files during auto-labeling. Leave off for safest "
+                    "dataset quality unless the lyric text is already reliable."
                 ),
                 elem_classes=["has-info-container"],
                 interactive=True,
@@ -117,11 +117,11 @@ def build_dataset_scan_and_settings_controls(
 
             transcribe_lyrics = gr.Checkbox(
                 label="Transcribe Lyrics (LM)",
-                value=True,
+                value=False,
                 info=(
-                    "Use LM audio understanding during auto-labeling. When combined "
-                    "with Format Lyrics and a matching lyrics file, lyrics come from "
-                    "the file while metadata comes from audio."
+                    "Optional: generate lyrics from audio during auto-labeling. "
+                    "Leave off for safest dataset quality; enable only when you "
+                    "need approximate lyrics and will review them."
                 ),
                 elem_classes=["has-info-container"],
                 interactive=True,

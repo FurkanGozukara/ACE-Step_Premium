@@ -97,6 +97,40 @@ class LabelSingleMixinTests(unittest.TestCase):
         self.assertEqual("", sample.formatted_lyrics)
         self.assertIn("instrumental", status)
 
+    def test_transcribe_lyrics_rejects_repetitive_output_without_raw_lyrics(self) -> None:
+        """Repetitive transcription output should not be accepted as training lyrics."""
+
+        builder = _Builder(
+            [AudioSample(audio_path="song.wav", filename="song.wav", is_instrumental=True)]
+        )
+        llm_handler = MagicMock()
+        llm_handler.understand_audio_from_codes.return_value = (
+            {
+                "caption": "hip hop beat with vocals",
+                "genres": "hip hop",
+                "lyrics": "[Verse]\n" + " ".join(["yeah"] * 40),
+                "language": "en",
+            },
+            "ok",
+        )
+
+        with patch(
+            "acestep.training.dataset_builder_modules.label_single.get_audio_codes",
+            return_value="<|audio_code_1|>",
+        ):
+            sample, status = builder.label_sample(
+                0,
+                dit_handler=MagicMock(),
+                llm_handler=llm_handler,
+                transcribe_lyrics=True,
+                lm_lyrics_language="en",
+            )
+
+        self.assertTrue(sample.is_instrumental)
+        self.assertEqual("[Instrumental]", sample.lyrics)
+        self.assertEqual("", sample.formatted_lyrics)
+        self.assertIn("LM transcription rejected", status)
+
     @patch("acestep.inference.format_sample")
     def test_format_lyrics_uses_raw_lyrics_file_content(self, format_sample) -> None:
         """Raw lyric files should be formatted and preserved in formatted_lyrics."""
@@ -137,6 +171,9 @@ class LabelSingleMixinTests(unittest.TestCase):
 
         format_sample.assert_called_once()
         self.assertEqual({"language": "en"}, format_sample.call_args.kwargs["user_metadata"])
+        self.assertEqual(0.20, format_sample.call_args.kwargs["temperature"])
+        self.assertEqual(0.75, format_sample.call_args.kwargs["top_p"])
+        self.assertEqual(1.18, format_sample.call_args.kwargs["repetition_penalty"])
         self.assertFalse(sample.is_instrumental)
         self.assertEqual("[Verse]\nhello world\nsing it loud", sample.lyrics)
         self.assertEqual(sample.lyrics, sample.formatted_lyrics)
@@ -194,7 +231,7 @@ class LabelSingleMixinTests(unittest.TestCase):
                 llm_handler=llm_handler,
                 format_lyrics=True,
                 transcribe_lyrics=True,
-                lm_lyrics_language="en",
+                lm_lyrics_language="unknown",
             )
 
         self.assertEqual("audio-inferred caption", sample.caption)
@@ -209,11 +246,16 @@ class LabelSingleMixinTests(unittest.TestCase):
         self.assertNotIn("hallucinated", sample.lyrics)
         self.assertIn("lyrics from file", status)
         self.assertIn("metadata inferred from audio", status)
+        self.assertEqual("audio-inferred caption", format_sample.call_args.kwargs["caption"])
+        self.assertEqual({"language": "en"}, format_sample.call_args.kwargs["user_metadata"])
+        self.assertEqual(0.20, format_sample.call_args.kwargs["temperature"])
+        self.assertEqual(0.75, format_sample.call_args.kwargs["top_p"])
+        self.assertEqual(1.18, format_sample.call_args.kwargs["repetition_penalty"])
         llm_handler.understand_audio_from_codes.assert_called_once_with(
             audio_codes="<|audio_code_1|>",
             temperature=0.1,
             top_p=0.3,
-            user_metadata={"language": "en"},
+            user_metadata=None,
             use_constrained_decoding=True,
         )
 
@@ -261,6 +303,84 @@ class LabelSingleMixinTests(unittest.TestCase):
         self.assertEqual("hello world\nsing it loud", sample.lyrics)
         self.assertEqual("", sample.formatted_lyrics)
         self.assertIn("using raw lyrics", status)
+
+    @patch("acestep.inference.format_sample")
+    def test_format_lyrics_preserves_raw_when_lm_returns_repetitive_text(
+        self,
+        format_sample,
+    ) -> None:
+        """Formatting should reject repetitive hallucinations and keep raw lyrics."""
+
+        raw_lyrics = "\n".join(
+            [
+                "first real line from the source",
+                "second real line from the source",
+                "third real line from the source",
+                "fourth real line from the source",
+                "fifth real line from the source",
+                "sixth real line from the source",
+                "seventh real line from the source",
+                "eighth real line from the source",
+            ]
+        )
+        repeated_lyrics = "\n".join(
+            [
+                "[Intro]",
+                "same generic hook",
+                "same generic hook",
+                "same generic hook",
+                "same generic hook",
+                "[Verse 1]",
+                "same generic hook",
+                "same generic hook",
+                "same generic hook",
+                "same generic hook",
+                "[Chorus]",
+                "same generic hook",
+                "same generic hook",
+                "same generic hook",
+                "same generic hook",
+            ]
+        )
+        builder = _Builder(
+            [
+                AudioSample(
+                    audio_path="song.wav",
+                    filename="song.wav",
+                    raw_lyrics=raw_lyrics,
+                    lyrics=raw_lyrics,
+                    is_instrumental=False,
+                )
+            ]
+        )
+        format_sample.return_value = SimpleNamespace(
+            success=True,
+            error="",
+            caption="formatted caption",
+            lyrics=repeated_lyrics,
+            bpm=120,
+            keyscale="C major",
+            timesignature="4",
+            language="en",
+        )
+
+        with patch(
+            "acestep.training.dataset_builder_modules.label_single.get_audio_codes",
+            return_value="<|audio_code_1|>",
+        ):
+            sample, status = builder.label_sample(
+                0,
+                dit_handler=MagicMock(),
+                llm_handler=MagicMock(),
+                format_lyrics=True,
+                lm_lyrics_language="en",
+            )
+
+        self.assertIn("[Intro]", sample.lyrics)
+        self.assertIn("first real line from the source", sample.lyrics)
+        self.assertEqual("", sample.formatted_lyrics)
+        self.assertIn("LM format rejected", status)
+        self.assertIn("repetitive formatted lyrics", status)
 
 
 if __name__ == "__main__":
