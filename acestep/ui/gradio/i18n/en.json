@@ -445,6 +445,8 @@
     "preprocessed_tensors_dir": "Preprocessed Tensors Directory",
     "preprocessed_tensors_info": "Directory containing preprocessed .pt tensor files.",
     "dataset_info": "Dataset Info.",
+    "lora_name": "LoRA Training Name",
+    "lora_name_info": "Required. Used for checkpoint folders and single-file LoRA names. Letters, numbers, spaces, hyphens, and underscores are allowed.",
     "lora_rank": "LoRA Rank (r)",
     "lora_rank_info": "Higher capacity but more VRAM.",
     "lora_alpha": "LoRA Alpha",

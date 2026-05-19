@@ -13,6 +13,7 @@ from typing import Dict, Tuple
 from loguru import logger
 
 from acestep.gpu_config import get_global_gpu_config
+from acestep.training.lora_naming import validate_lora_name
 from acestep.training.path_inputs import normalize_user_path
 from acestep.training.path_safety import safe_path
 from acestep.ui.gradio.i18n import t
@@ -87,6 +88,7 @@ def start_training(
     lora_output_dir: str,
     resume_checkpoint_dir: str,
     training_state: Dict,
+    lora_name: str = "",
     gradient_checkpointing: bool = True,
     activation_cpu_offload: bool = False,
     offload_non_decoder: bool = True,
@@ -124,6 +126,11 @@ def start_training(
         return
     if not os.path.isdir(tensor_dir):
         yield f"❌ Tensor directory not found: {tensor_dir}", "", None, training_state
+        return
+
+    normalized_lora_name, name_error = validate_lora_name(lora_name)
+    if name_error is not None:
+        yield f"\u274c Invalid LoRA training name: {name_error}", "", None, training_state
         return
 
     lora_output_dir = normalize_user_path(lora_output_dir)
@@ -250,6 +257,7 @@ def start_training(
             batch_size=train_batch_size, gradient_accumulation_steps=gradient_accumulation,
             max_epochs=train_epochs, save_every_n_epochs=save_every_n_epochs,
             seed=training_seed, output_dir=lora_output_dir,
+            lora_name=normalized_lora_name,
             use_fp8=_uses_fp8_scaled(base_quantization),
             gradient_checkpointing=_as_bool(gradient_checkpointing),
             activation_cpu_offload=_as_bool(activation_cpu_offload),
@@ -385,6 +393,19 @@ def stop_training(training_state: Dict) -> Tuple[str, Dict]:
     return t("training.stop_stopping"), training_state
 
 
+def _checkpoint_epoch_from_name(name: str) -> int | None:
+    """Return an epoch number from old or named LoRA checkpoint folders."""
+
+    old_match = re.match(r"^epoch_(\d+)(?:_|$)", name)
+    if old_match:
+        return int(old_match.group(1))
+
+    named_match = re.search(r"-(\d+)(?:$|-sample$)", name)
+    if named_match:
+        return int(named_match.group(1))
+    return None
+
+
 def export_lora(export_path: str, lora_output_dir: str) -> str:
     """Export the trained LoRA weights.
 
@@ -410,10 +431,15 @@ def export_lora(export_path: str, lora_output_dir: str) -> str:
     if os.path.exists(final_dir):
         source_path = final_dir
     elif os.path.exists(checkpoint_dir):
-        checkpoints = [d for d in os.listdir(checkpoint_dir) if d.startswith("epoch_")]
+        checkpoints = [
+            d
+            for d in os.listdir(checkpoint_dir)
+            if os.path.isdir(os.path.join(checkpoint_dir, d))
+            and _checkpoint_epoch_from_name(d) is not None
+        ]
         if not checkpoints:
             return t("training.no_checkpoints_found")
-        checkpoints.sort(key=lambda x: int(x.split("_")[1]))
+        checkpoints.sort(key=lambda x: _checkpoint_epoch_from_name(x) or 0)
         latest = checkpoints[-1]
         source_path = os.path.join(checkpoint_dir, latest)
     else:

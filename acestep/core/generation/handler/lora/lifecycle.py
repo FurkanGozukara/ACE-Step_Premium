@@ -2,6 +2,7 @@
 
 import json
 import os
+from contextlib import nullcontext
 from typing import Any
 
 from loguru import logger
@@ -10,6 +11,10 @@ from acestep.constants import DEBUG_MODEL_LOADING
 from acestep.core.generation.handler.lora.path_resolution import resolve_lora_input_path
 from acestep.debug_utils import debug_log
 from acestep.training.configs import LoKRConfig
+from acestep.training.lora_single_file import (
+    is_peft_lora_single_file,
+    materialize_peft_lora_single_file,
+)
 
 LOKR_WEIGHTS_FILENAME = "lokr_weights.safetensors"
 REQUIRED_PEFT_CONFIG_KEYS = ("peft_type",)
@@ -186,6 +191,8 @@ def _load_lokr_adapter(decoder: Any, weights_path: str) -> Any:
 def _default_adapter_name_from_path(lora_path: str) -> str:
     """Derive a default adapter name from path (e.g. 'final' from './lora/final')."""
     name = os.path.basename(lora_path.rstrip(os.sep))
+    if name.lower().endswith(".safetensors"):
+        name = os.path.splitext(name)[0]
     return name if name else "default"
 
 
@@ -216,7 +223,8 @@ def add_lora(self, lora_path: str, adapter_name: str | None = None) -> str:
         return f"❌ LoRA path not found: {resolution.display_path}.{suffix}"
 
     lokr_weights_path = _resolve_lokr_weights_path(lora_path)
-    if lokr_weights_path is None:
+    single_file_lora = lokr_weights_path is None and is_peft_lora_single_file(lora_path)
+    if lokr_weights_path is None and not single_file_lora:
         config_file = os.path.join(lora_path, "adapter_config.json")
         if not os.path.exists(config_file):
             return (
@@ -269,17 +277,39 @@ def add_lora(self, lora_path: str, adapter_name: str | None = None) -> str:
                 self.model.decoder = decoder
                 self._adapter_type = "lokr"
             else:
-                logger.info(f"Loading LoRA adapter from {lora_path} as '{effective_name}'")
-                self.model.decoder = PeftModel.from_pretrained(
-                    decoder, lora_path, adapter_name=effective_name, is_trainable=False
+                adapter_context = (
+                    materialize_peft_lora_single_file(lora_path)
+                    if single_file_lora
+                    else nullcontext(lora_path)
                 )
+                with adapter_context as peft_lora_path:
+                    logger.info(
+                        f"Loading LoRA adapter from {lora_path} as '{effective_name}'"
+                    )
+                    self.model.decoder = PeftModel.from_pretrained(
+                        decoder,
+                        peft_lora_path,
+                        adapter_name=effective_name,
+                        is_trainable=False,
+                    )
                 self._adapter_type = "lora"
         else:
             # Already PEFT: load additional adapter (no base restore). LoKr not supported as second adapter.
             if lokr_weights_path is not None:
                 return "❌ LoKr cannot be added as a second adapter when PEFT is already loaded."
-            logger.info(f"Loading additional LoRA from {lora_path} as '{effective_name}'")
-            self.model.decoder.load_adapter(lora_path, adapter_name=effective_name)
+            adapter_context = (
+                materialize_peft_lora_single_file(lora_path)
+                if single_file_lora
+                else nullcontext(lora_path)
+            )
+            with adapter_context as peft_lora_path:
+                logger.info(
+                    f"Loading additional LoRA from {lora_path} as '{effective_name}'"
+                )
+                self.model.decoder.load_adapter(
+                    peft_lora_path,
+                    adapter_name=effective_name,
+                )
             self._adapter_type = "lora"
 
         self.model.decoder = self.model.decoder.to(self.device).to(self.dtype)

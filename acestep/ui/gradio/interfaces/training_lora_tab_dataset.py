@@ -49,6 +49,13 @@ def build_lora_dataset_and_adapter_controls(
         with gr.Column(scale=1):
             gr.HTML(f"<h3>⚙️ {t('training.train_section_lora')}</h3>")
 
+            lora_name = gr.Textbox(
+                label=t("training.lora_name"),
+                placeholder="my-awesome-song",
+                info=t("training.lora_name_info"),
+                elem_classes=["has-info-container"],
+            )
+
             lora_rank = gr.Slider(
                 minimum=4,
                 maximum=256,
@@ -83,6 +90,7 @@ def build_lora_dataset_and_adapter_controls(
         "load_dataset_btn": load_dataset_btn,
         "training_dataset_info": training_dataset_info,
         "lora_model_config": model_controls["lora_model_config"],
+        "lora_name": lora_name,
         "lora_rank": lora_rank,
         "lora_alpha": lora_alpha,
         "lora_dropout": lora_dropout,

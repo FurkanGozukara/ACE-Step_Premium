@@ -41,6 +41,7 @@ except ImportError:
 
 from acestep.training.configs import LoRAConfig, LoKRConfig, TrainingConfig
 from acestep.training.lora_injection import inject_lora_into_dit
+from acestep.training.lora_naming import lora_epoch_name
 from acestep.training.lora_utils import check_peft_available
 from acestep.training.lora_checkpoint import (
     save_lora_weights,
@@ -68,6 +69,24 @@ from acestep.training.vram_optimizations import (
 
 
 # Turbo model shift=3.0 discrete timesteps (8 steps, same as inference)
+
+
+def _named_lora_epoch(training_config: TrainingConfig, epoch: int) -> str:
+    """Return the configured LoRA artifact basename for an epoch."""
+
+    return lora_epoch_name(getattr(training_config, "lora_name", "lora"), epoch)
+
+
+def _named_lora_checkpoint_dir(training_config: TrainingConfig, epoch: int) -> str:
+    """Return the configured LoRA checkpoint directory for an epoch."""
+
+    return os.path.join(
+        training_config.output_dir,
+        "checkpoints",
+        _named_lora_epoch(training_config, epoch),
+    )
+
+
 TURBO_SHIFT3_TIMESTEPS = [
     1.0,
     0.9545454545454546,
@@ -1205,6 +1224,7 @@ class LoRATrainer:
                     best_dir = os.path.join(
                         self.training_config.output_dir, "checkpoints", "best"
                     )
+                    artifact_name = _named_lora_epoch(self.training_config, epoch + 1)
                     save_training_checkpoint(
                         self.module.model,
                         optimizer,
@@ -1212,13 +1232,16 @@ class LoRATrainer:
                         epoch + 1,
                         global_step,
                         best_dir,
+                        artifact_name=artifact_name,
                     )
 
             sample_checkpoint_dir = None
             # Save checkpoint
             if (epoch + 1) % self.training_config.save_every_n_epochs == 0:
-                checkpoint_dir = os.path.join(
-                    self.training_config.output_dir, "checkpoints", f"epoch_{epoch + 1}_loss_{avg_epoch_loss:.4f}"
+                artifact_name = _named_lora_epoch(self.training_config, epoch + 1)
+                checkpoint_dir = _named_lora_checkpoint_dir(
+                    self.training_config,
+                    epoch + 1,
                 )
                 save_training_checkpoint(
                     self.module.model,
@@ -1227,6 +1250,7 @@ class LoRATrainer:
                     epoch + 1,
                     global_step,
                     checkpoint_dir,
+                    artifact_name=artifact_name,
                 )
                 yield (
                     global_step,
@@ -1239,17 +1263,17 @@ class LoRATrainer:
             )
             if sample_every > 0 and (epoch + 1) % sample_every == 0:
                 if (epoch + 1) % self.training_config.save_every_n_epochs == 0:
-                    sample_checkpoint_dir = os.path.join(
-                        self.training_config.output_dir,
-                        "checkpoints",
-                        f"epoch_{epoch + 1}_loss_{avg_epoch_loss:.4f}",
+                    sample_checkpoint_dir = _named_lora_checkpoint_dir(
+                        self.training_config,
+                        epoch + 1,
                     )
                 else:
                     sample_checkpoint_dir = os.path.join(
                         self.training_config.output_dir,
                         "checkpoints",
-                        f"epoch_{epoch + 1}_sample",
+                        f"{_named_lora_epoch(self.training_config, epoch + 1)}-sample",
                     )
+                    artifact_name = _named_lora_epoch(self.training_config, epoch + 1)
                     save_training_checkpoint(
                         self.module.model,
                         optimizer,
@@ -1257,6 +1281,7 @@ class LoRATrainer:
                         epoch + 1,
                         global_step,
                         sample_checkpoint_dir,
+                        artifact_name=artifact_name,
                     )
                 yield (
                     global_step,
@@ -1272,7 +1297,15 @@ class LoRATrainer:
 
         # Save final model
         final_path = os.path.join(self.training_config.output_dir, "final")
-        save_lora_weights(self.module.model, final_path)
+        final_artifact_name = _named_lora_epoch(
+            self.training_config,
+            self.training_config.max_epochs,
+        )
+        save_lora_weights(
+            self.module.model,
+            final_path,
+            artifact_name=final_artifact_name,
+        )
 
         final_loss = (
             self.module.training_losses[-1] if self.module.training_losses else 0.0
@@ -1514,10 +1547,16 @@ class LoRATrainer:
             )
 
             if (epoch + 1) % self.training_config.save_every_n_epochs == 0:
-                checkpoint_dir = os.path.join(
-                    self.training_config.output_dir, "checkpoints", f"epoch_{epoch + 1}_loss_{avg_epoch_loss:.4f}"
+                artifact_name = _named_lora_epoch(self.training_config, epoch + 1)
+                checkpoint_dir = _named_lora_checkpoint_dir(
+                    self.training_config,
+                    epoch + 1,
                 )
-                save_lora_weights(self.module.model, checkpoint_dir)
+                save_lora_weights(
+                    self.module.model,
+                    checkpoint_dir,
+                    artifact_name=artifact_name,
+                )
                 yield global_step, avg_epoch_loss, "💾 Checkpoint saved"
 
             sample_every = int(
@@ -1525,18 +1564,22 @@ class LoRATrainer:
             )
             if sample_every > 0 and (epoch + 1) % sample_every == 0:
                 if (epoch + 1) % self.training_config.save_every_n_epochs == 0:
-                    sample_checkpoint_dir = os.path.join(
-                        self.training_config.output_dir,
-                        "checkpoints",
-                        f"epoch_{epoch + 1}_loss_{avg_epoch_loss:.4f}",
+                    sample_checkpoint_dir = _named_lora_checkpoint_dir(
+                        self.training_config,
+                        epoch + 1,
                     )
                 else:
                     sample_checkpoint_dir = os.path.join(
                         self.training_config.output_dir,
                         "checkpoints",
-                        f"epoch_{epoch + 1}_sample",
+                        f"{_named_lora_epoch(self.training_config, epoch + 1)}-sample",
                     )
-                    save_lora_weights(self.module.model, sample_checkpoint_dir)
+                    artifact_name = _named_lora_epoch(self.training_config, epoch + 1)
+                    save_lora_weights(
+                        self.module.model,
+                        sample_checkpoint_dir,
+                        artifact_name=artifact_name,
+                    )
                 yield (
                     global_step,
                     avg_epoch_loss,
@@ -1550,7 +1593,15 @@ class LoRATrainer:
                     yield global_step, avg_epoch_loss, sample_msg
 
         final_path = os.path.join(self.training_config.output_dir, "final")
-        save_lora_weights(self.module.model, final_path)
+        final_artifact_name = _named_lora_epoch(
+            self.training_config,
+            self.training_config.max_epochs,
+        )
+        save_lora_weights(
+            self.module.model,
+            final_path,
+            artifact_name=final_artifact_name,
+        )
         final_loss = (
             self.module.training_losses[-1] if self.module.training_losses else 0.0
         )

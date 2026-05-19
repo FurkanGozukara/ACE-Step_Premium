@@ -123,6 +123,7 @@ class TrainingConfig:
     empty_cache_every_n_steps: int = 10
     seed: int = 42
     output_dir: str = "./lora_output"
+    lora_name: str = "lora"
     
     # Data loading
     num_workers: int = 4
@@ -175,6 +176,7 @@ class TrainingConfig:
             "empty_cache_every_n_steps": self.empty_cache_every_n_steps,
             "seed": self.seed,
             "output_dir": self.output_dir,
+            "lora_name": self.lora_name,
             "num_workers": self.num_workers,
             "pin_memory": self.pin_memory,
             "prefetch_factor": self.prefetch_factor,

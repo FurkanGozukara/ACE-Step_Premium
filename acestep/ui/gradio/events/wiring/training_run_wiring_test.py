@@ -17,6 +17,7 @@ class TrainingRunWiringTests(unittest.TestCase):
         def fake_start_training(*_args, **kwargs):
             """Yield one result while exposing call kwargs through the patch mock."""
 
+            self.assertEqual("my-awesome-song", kwargs["lora_name"])
             self.assertEqual("model-b", kwargs["model_config"])
             self.assertTrue(kwargs["gradient_checkpointing"])
             self.assertEqual("Disabled", kwargs["base_quantization"])
@@ -33,6 +34,7 @@ class TrainingRunWiringTests(unittest.TestCase):
             outputs = list(
                 wrapper(
                     "tensors",
+                    "my-awesome-song",
                     64,
                     128,
                     0.1,

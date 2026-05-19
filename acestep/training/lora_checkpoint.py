@@ -5,14 +5,21 @@ Provides functions for saving and loading LoRA checkpoints.
 """
 
 import os
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from loguru import logger
 
 import torch
 from torch.nn import Module
 
-from acestep.training.path_safety import safe_path
 from acestep.training.configs import LoRAConfig
+from acestep.training.lora_naming import lora_safetensors_filename
+from acestep.training.lora_single_file import (
+    is_peft_lora_single_file,
+    materialize_peft_lora_single_file,
+    save_peft_lora_single_file,
+)
+from acestep.training.path_safety import safe_path
 
 try:
     from peft import PeftModel
@@ -26,6 +33,7 @@ def save_lora_weights(
     model: Module,
     output_dir: str,
     save_full_model: bool = False,
+    artifact_name: Optional[str] = None,
 ) -> str:
     """Save LoRA adapter weights.
 
@@ -33,6 +41,7 @@ def save_lora_weights(
         model: Model with LoRA adapters
         output_dir: Directory to save weights
         save_full_model: Whether to save the full model state dict
+        artifact_name: Optional basename for a combined safetensors artifact
 
     Returns:
         Path to saved weights
@@ -44,6 +53,13 @@ def save_lora_weights(
         adapter_path = os.path.join(output_dir, "adapter")
         model.decoder.save_pretrained(adapter_path)
         logger.info(f"LoRA adapter saved to {adapter_path}")
+        if artifact_name:
+            single_file_path = os.path.join(
+                output_dir,
+                lora_safetensors_filename(artifact_name),
+            )
+            save_peft_lora_single_file(adapter_path, single_file_path)
+            logger.info(f"Combined LoRA safetensors saved to {single_file_path}")
         return adapter_path
     elif save_full_model:
         model_path = os.path.join(output_dir, "model.pt")
@@ -94,6 +110,16 @@ def load_lora_weights(
         model.decoder = PeftModel.from_pretrained(model.decoder, validated)
         logger.info(f"LoRA adapter loaded from {validated}")
 
+    elif is_peft_lora_single_file(validated):
+        if not PEFT_AVAILABLE:
+            raise ImportError(
+                "PEFT library is required to load adapter. Install with: pip install peft"
+            )
+
+        with materialize_peft_lora_single_file(validated) as adapter_dir:
+            model.decoder = PeftModel.from_pretrained(model.decoder, adapter_dir)
+        logger.info(f"LoRA single-file adapter loaded from {validated}")
+
     elif validated.endswith(".pt"):
         raise ValueError(
             "Loading LoRA weights from .pt files is disabled for security. "
@@ -113,6 +139,7 @@ def save_training_checkpoint(
     epoch: int,
     global_step: int,
     output_dir: str,
+    artifact_name: Optional[str] = None,
 ) -> str:
     """Save a training checkpoint including LoRA weights and training state.
 
@@ -123,6 +150,7 @@ def save_training_checkpoint(
         epoch: Current epoch number
         global_step: Current global step
         output_dir: Directory to save checkpoint
+        artifact_name: Optional basename for a combined safetensors artifact
 
     Returns:
         Path to saved checkpoint directory
@@ -130,7 +158,7 @@ def save_training_checkpoint(
     output_dir = safe_path(output_dir)
     os.makedirs(output_dir, exist_ok=True)
 
-    save_lora_weights(model, output_dir)
+    save_lora_weights(model, output_dir, artifact_name=artifact_name)
 
     training_state = {
         "epoch": epoch,

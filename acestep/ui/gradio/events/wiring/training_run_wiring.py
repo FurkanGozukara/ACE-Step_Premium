@@ -28,6 +28,7 @@ def _build_training_wrapper(dit_handler: Any):
 
     def training_wrapper(
         tensor_dir: Any,
+        lora_name: Any,
         lora_rank: Any,
         lora_alpha: Any,
         lora_dropout: Any,
@@ -80,6 +81,7 @@ def _build_training_wrapper(dit_handler: Any):
                 lora_output_dir,
                 resume_checkpoint_dir,
                 state,
+                lora_name=str(lora_name or ""),
                 gradient_checkpointing=gradient_checkpointing,
                 activation_cpu_offload=activation_cpu_offload,
                 offload_non_decoder=offload_non_decoder,
@@ -159,6 +161,7 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
         fn=training_wrapper,
         inputs=[
             training_section["training_tensor_dir"],
+            training_section["lora_name"],
             training_section["lora_rank"],
             training_section["lora_alpha"],
             training_section["lora_dropout"],
