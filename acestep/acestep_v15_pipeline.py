@@ -753,10 +753,35 @@ def main():
             auth = (args.auth_username, args.auth_password)
             print("Authentication enabled")
 
-        allowed_paths = [output_dir]
+        from acestep.training.scan_permissions import configure_scan_permissions
+
+        scan_allowed_paths = configure_scan_permissions([output_dir, *args.allowed_path])
+        print(
+            "Dataset scan roots allowed for Gradio file serving: "
+            f"{', '.join(scan_allowed_paths) if scan_allowed_paths else '(none)'}"
+        )
+
+        allowed_paths = []
+        allowed_path_keys = set()
+
+        def add_allowed_path(path: str) -> None:
+            """Add a Gradio allowed path after canonicalising it."""
+            if not path:
+                return
+            try:
+                normalised = os.path.normpath(os.path.realpath(os.path.abspath(path)))
+            except (OSError, ValueError):
+                normalised = path
+            key = os.path.normcase(normalised)
+            if key not in allowed_path_keys:
+                allowed_path_keys.add(key)
+                allowed_paths.append(normalised)
+
+        add_allowed_path(output_dir)
+        for p in scan_allowed_paths:
+            add_allowed_path(p)
         for p in args.allowed_path:
-            if p and p not in allowed_paths:
-                allowed_paths.append(p)
+            add_allowed_path(p)
 
         # Enable API endpoints if requested
         launch_kwargs = {

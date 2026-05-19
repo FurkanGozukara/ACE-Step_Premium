@@ -10,15 +10,29 @@ import json
 import tempfile
 import unittest
 
-from acestep.training.path_safety import safe_path, set_safe_root
 from acestep.training.data_module import (
     PreprocessedTensorDataset,
     load_dataset_from_json,
+)
+from acestep.training.path_safety import (
+    add_safe_roots,
+    get_safe_roots,
+    safe_path,
+    set_safe_root,
+    set_safe_roots,
 )
 
 
 class SafePathTests(unittest.TestCase):
     """Tests for safe_path from path_safety module."""
+
+    def setUp(self):
+        """Remember global path safety state."""
+        self._safe_roots = get_safe_roots()
+
+    def tearDown(self):
+        """Restore global path safety state."""
+        set_safe_roots(self._safe_roots)
 
     def test_valid_directory(self):
         with tempfile.TemporaryDirectory() as d:
@@ -51,6 +65,28 @@ class SafePathTests(unittest.TestCase):
             child = os.path.join(base, "sub", "file.pt")
             result = safe_path(child, base=base)
             self.assertEqual(result, child)
+
+    def test_filesystem_root_allows_child(self):
+        with tempfile.TemporaryDirectory() as d:
+            drive, _ = os.path.splitdrive(os.path.realpath(d))
+            root = drive + os.sep if drive else os.sep
+            set_safe_root(root)
+            result = safe_path(d)
+            self.assertEqual(result, os.path.realpath(d))
+
+    def test_extra_safe_root_allows_second_directory(self):
+        with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
+            set_safe_root(first)
+            add_safe_roots([second])
+            result = safe_path(os.path.join(second, "sample.wav"))
+            self.assertEqual(result, os.path.realpath(os.path.join(second, "sample.wav")))
+
+    def test_explicit_base_still_rejects_other_safe_roots(self):
+        with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
+            set_safe_root(first)
+            add_safe_roots([second])
+            with self.assertRaises(ValueError):
+                safe_path(os.path.join(second, "sample.wav"), base=first)
 
 
 class PreprocessedTensorDatasetPathSafetyTests(unittest.TestCase):

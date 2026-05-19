@@ -41,6 +41,7 @@ class PipelineStartupBackendTests(unittest.TestCase):
         gpu_config: SimpleNamespace | None = None,
         available_dit_models: list[str] | None = None,
         available_lm_models: list[str] | None = None,
+        scan_roots: list[str] | None = None,
     ) -> tuple[MagicMock, dict[str, object]]:
         """Run ``main`` with heavy dependencies stubbed and capture startup state."""
         gpu_config = gpu_config or self._legacy_gpu_config()
@@ -84,6 +85,11 @@ class PipelineStartupBackendTests(unittest.TestCase):
             captured["cancel_route_registered_after_queue"] = demo.queue.called
             captured["cancel_route_registered_app"] = route_demo.app
 
+        if scan_roots is None:
+            scan_roots = [os.path.abspath(os.path.sep)]
+        configure_scan_permissions = MagicMock(return_value=scan_roots)
+        captured["configure_scan_permissions"] = configure_scan_permissions
+
         with patch.object(sys, "argv", argv), patch.dict(os.environ, env or {}, clear=True), patch(
             "acestep.acestep_v15_pipeline.build_startup_gpu_state",
             return_value=startup_gpu_state,
@@ -107,6 +113,9 @@ class PipelineStartupBackendTests(unittest.TestCase):
             "acestep.acestep_v15_pipeline.ensure_lm_model",
             return_value=(True, "ok"),
         ), patch(
+            "acestep.training.scan_permissions.configure_scan_permissions",
+            configure_scan_permissions,
+        ), patch(
             "acestep.acestep_v15_pipeline.os.makedirs"
         ):
             acestep_v15_pipeline.main()
@@ -125,6 +134,17 @@ class PipelineStartupBackendTests(unittest.TestCase):
             demo.launch.call_args.kwargs["_app"],
             captured["cancel_route_registered_app"],
         )
+
+    def test_main_adds_scan_roots_to_gradio_allowed_paths(self) -> None:
+        """Discovered scan roots should be passed to Gradio allowed_paths."""
+        scan_root = os.path.abspath(os.path.sep)
+        _llm_handler, captured = self._run_main(["acestep"], scan_roots=[scan_root])
+
+        launch_kwargs = captured["demo"].launch.call_args.kwargs
+        allowed_paths = launch_kwargs["allowed_paths"]
+
+        self.assertIn(os.path.normpath(os.path.realpath(scan_root)), allowed_paths)
+        captured["configure_scan_permissions"].assert_called_once()
 
     def test_main_forces_pt_backend_for_explicit_vllm_argument(self) -> None:
         """Legacy CUDA startup should override an explicit CLI vLLM request."""

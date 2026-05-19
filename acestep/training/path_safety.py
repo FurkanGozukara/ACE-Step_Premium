@@ -15,7 +15,7 @@ All training modules that accept user-supplied paths should call
 """
 
 import os
-from typing import Optional
+from typing import Iterable, Optional
 
 from loguru import logger
 
@@ -29,10 +29,34 @@ def _resolve(path: str) -> str:
     return os.path.normpath(os.path.realpath(path))
 
 
-# Root directory that all user-provided paths must resolve under.
-# Defaults to the working directory at import time.  Override via
-# ``set_safe_root`` if needed (e.g. in tests).
-_SAFE_ROOT: str = _resolve(os.getcwd())
+# Root directories that user-provided paths must resolve under.
+# Defaults to the working directory at import time. Override via
+# ``set_safe_root`` / ``set_safe_roots`` if needed (e.g. in tests).
+_SAFE_ROOTS: list[str] = [_resolve(os.getcwd())]
+
+
+def _dedupe_roots(roots: Iterable[str]) -> list[str]:
+    """Resolve and deduplicate safe roots while preserving order."""
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for root in roots:
+        if not root:
+            continue
+        resolved = _resolve(root)
+        key = os.path.normcase(resolved)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(resolved)
+    return deduped
+
+
+def _safe_prefix(root: str) -> str:
+    """Return the boundary-safe prefix for child paths under *root*."""
+    normalised_root = os.path.normcase(root)
+    if normalised_root.endswith(os.sep):
+        return normalised_root
+    return normalised_root + os.sep
 
 
 def set_safe_root(root: str) -> None:
@@ -41,20 +65,53 @@ def set_safe_root(root: str) -> None:
     Args:
         root: New safe root (will be normalised and symlink-resolved).
     """
-    global _SAFE_ROOT  # noqa: PLW0603
-    _SAFE_ROOT = _resolve(root)
+    set_safe_roots([root])
+
+
+def set_safe_roots(roots: Iterable[str]) -> None:
+    """Override the safe root directories.
+
+    Args:
+        roots: New safe roots (will be normalised and symlink-resolved).
+
+    Raises:
+        ValueError: If no usable roots are provided.
+    """
+    resolved_roots = _dedupe_roots(roots)
+    if not resolved_roots:
+        raise ValueError("At least one safe root is required")
+    global _SAFE_ROOTS  # noqa: PLW0603
+    _SAFE_ROOTS = resolved_roots
+
+
+def add_safe_roots(roots: Iterable[str]) -> list[str]:
+    """Add extra safe root directories.
+
+    Args:
+        roots: Extra safe roots to allow.
+
+    Returns:
+        The full list of configured safe roots.
+    """
+    set_safe_roots([*_SAFE_ROOTS, *roots])
+    return get_safe_roots()
 
 
 def get_safe_root() -> str:
     """Return the current safe root directory."""
-    return _SAFE_ROOT
+    return _SAFE_ROOTS[0]
+
+
+def get_safe_roots() -> list[str]:
+    """Return all current safe root directories."""
+    return list(_SAFE_ROOTS)
 
 
 def safe_path(user_path: str, *, base: Optional[str] = None) -> str:
     """Validate and normalise a user-provided path.
 
-    The returned path is guaranteed to live under *base* (or the
-    global ``_SAFE_ROOT`` when *base* is ``None``).  Symlinks in both
+    The returned path is guaranteed to live under *base* (or one of the
+    global safe roots when *base* is ``None``).  Symlinks in both
     the root and user path are resolved so that paths through symlinks
     compare correctly.
 
@@ -62,7 +119,7 @@ def safe_path(user_path: str, *, base: Optional[str] = None) -> str:
         user_path: Untrusted path string from user input.
         base: Optional explicit base directory.  When provided it is
               resolved (symlinks included) and used instead of
-              ``_SAFE_ROOT``.
+              the global safe roots.
 
     Returns:
         Normalised, symlink-resolved absolute path within the safe root.
@@ -70,24 +127,26 @@ def safe_path(user_path: str, *, base: Optional[str] = None) -> str:
     Raises:
         ValueError: If the resolved path escapes the safe root.
     """
-    if base is not None:
-        root = _resolve(base)
-    else:
-        root = _SAFE_ROOT
+    roots = [_resolve(base)] if base is not None else _SAFE_ROOTS
 
     # Resolve the user path.  If relative, join against *root* first.
     if os.path.isabs(user_path):
         normalised = _resolve(user_path)
     else:
-        normalised = _resolve(os.path.join(root, user_path))
+        normalised = _resolve(os.path.join(roots[0], user_path))
 
     # ── CodeQL-recognised sanitiser barrier ──
     # ``normpath(…).startswith(safe_prefix)`` is the pattern that
     # CodeQL's ``py/path-injection`` query treats as a sanitiser.
-    if not normalised.startswith(root + os.sep) and normalised != root:
+    normalised_for_check = os.path.normcase(normalised)
+    if not any(
+        normalised_for_check == os.path.normcase(root)
+        or normalised_for_check.startswith(_safe_prefix(root))
+        for root in roots
+    ):
         raise ValueError(
             f"Path escapes safe root: {user_path!r} "
-            f"(resolved to {normalised!r}, root={root!r})"
+            f"(resolved to {normalised!r}, roots={roots!r})"
         )
 
     return normalised
