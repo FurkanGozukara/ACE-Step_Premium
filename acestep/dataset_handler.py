@@ -9,6 +9,7 @@ from typing import Any, Tuple
 
 from acestep.training.dataset_builder import DatasetBuilder
 from acestep.training.dataset_builder_modules.models import AudioSample
+from acestep.training.path_inputs import normalize_user_path
 
 
 _EMPTY_PREVIEW = ("", "{}", None, None, None)
@@ -35,7 +36,7 @@ class DatasetHandler:
             Status message describing the imported dataset.
         """
 
-        raw_path = str(dataset_path or "").strip()
+        raw_path = normalize_user_path(dataset_path)
         if not raw_path:
             self.dataset_imported = False
             return "Select a saved dataset JSON file or an audio folder to import."

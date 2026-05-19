@@ -10,6 +10,7 @@ import argparse
 from pathlib import Path
 from typing import Any, Callable
 
+from acestep.training.path_inputs import normalize_user_path
 from acestep.training_v2.ui import console, is_rich_active
 from acestep.training_v2.ui.prompt_helpers import (
     DEFAULT_NUM_WORKERS,
@@ -123,7 +124,7 @@ def _ask_dataset_json(default: str | None) -> str | None:
 
 def _resolve_dataset_json(raw_path: str) -> Path | None:
     """Try to find the dataset JSON, searching nearby if needed."""
-    candidate = Path(raw_path).expanduser()
+    candidate = Path(normalize_user_path(raw_path)).expanduser()
 
     # 1. Exact path (absolute or relative to CWD)
     resolved = candidate.resolve()

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from acestep.ui.gradio.events.batch_folder_files import (
     discover_batch_folder_items,
+    resolve_existing_input_folder,
     resolve_output_folder,
 )
 from acestep.ui.gradio.events.results.output_manager import use_results_dir
@@ -52,6 +53,28 @@ class BatchFolderFilesTests(unittest.TestCase):
 
             self.assertEqual(target.resolve(), output)
             self.assertTrue(output.is_dir())
+
+    def test_quoted_input_folder_with_spaces_resolves(self):
+        """Batch folder paths pasted with quotes and spaces should resolve."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "batch inputs"
+            root.mkdir()
+
+            resolved = resolve_existing_input_folder(f'"{root}"')
+
+        self.assertEqual(root.resolve(), resolved)
+
+    def test_quoted_output_folder_with_spaces_resolves(self):
+        """Output folder paths pasted with quotes and spaces should resolve."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "batch outputs"
+
+            resolved = resolve_output_folder(f'"{root}"')
+
+            self.assertEqual(root.resolve(), resolved)
+            self.assertTrue(resolved.is_dir())
 
 
 if __name__ == "__main__":

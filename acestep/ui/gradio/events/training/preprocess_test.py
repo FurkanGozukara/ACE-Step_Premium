@@ -79,6 +79,27 @@ class TestLoadTrainingDataset(unittest.TestCase):
             self.assertIn("TestDataset", result)
             self.assertIn("10", result)
 
+    def test_with_manifest_quoted_path_with_spaces(self):
+        """Tensor directories pasted with quotes and spaces should load."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tensor_dir = os.path.join(tmpdir, "tensor data")
+            os.makedirs(tensor_dir)
+            set_safe_root(tmpdir)
+            manifest = {
+                "num_samples": 2,
+                "metadata": {"name": "SpaceDataset", "custom_tag": "test"},
+            }
+            with open(os.path.join(tensor_dir, "manifest.json"), "w") as f:
+                json.dump(manifest, f)
+            open(os.path.join(tensor_dir, "sample_0.pt"), "w").close()
+
+            pasted_path = f'"{tensor_dir.replace(os.sep, "/")}"'
+            result = load_training_dataset(pasted_path)
+
+        self.assertIn("SpaceDataset", result)
+        self.assertIn("2", result)
+
     def test_without_manifest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             set_safe_root(tmpdir)
@@ -136,19 +157,25 @@ class TestPreprocessDataset(unittest.TestCase):
         return_value=_gpu_defaults(),
     )
     def test_auto_initializes_selected_model(self, _gpu_config):
-        builder = MagicMock()
-        builder.samples = [MagicMock()]
-        builder.get_labeled_count.return_value = 5
-        builder.preprocess_to_tensors.return_value = (["sample.pt"], "Preprocessed")
-        dit_handler = _FakeDitHandler()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_safe_root = get_safe_root()
+            set_safe_root(tmpdir)
+            builder = MagicMock()
+            builder.samples = [MagicMock()]
+            builder.get_labeled_count.return_value = 5
+            builder.preprocess_to_tensors.return_value = (["sample.pt"], "Preprocessed")
+            dit_handler = _FakeDitHandler()
 
-        result = preprocess_dataset(
-            "/out",
-            "lora",
-            dit_handler,
-            builder,
-            model_config="model-b",
-        )
+            try:
+                result = preprocess_dataset(
+                    os.path.join(tmpdir, "out"),
+                    "lora",
+                    dit_handler,
+                    builder,
+                    model_config="model-b",
+                )
+            finally:
+                set_safe_root(original_safe_root)
 
         self.assertIn("DiT service initialized automatically.", result)
         self.assertIn("Preprocessed", result)

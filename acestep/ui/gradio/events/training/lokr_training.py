@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import gradio as gr
 from loguru import logger
 
+from acestep.training.path_inputs import normalize_user_path
 from acestep.training.path_safety import safe_path
 from acestep.ui.gradio.i18n import t
 from .training_utils import _format_duration, _training_loss_figure
@@ -43,17 +44,33 @@ def start_lokr_training(
     This is a generator function that yields progress updates as
     (status, log_text, plot_figure, training_state) tuples.
     """
-    if not tensor_dir or not tensor_dir.strip():
+    tensor_dir = normalize_user_path(tensor_dir)
+    if not tensor_dir:
         yield "❌ Please enter a tensor directory path", "", None, training_state
         return
 
     try:
-        tensor_dir = safe_path(tensor_dir.strip())
+        tensor_dir = safe_path(tensor_dir)
     except ValueError:
         yield f"❌ Rejected unsafe tensor directory path: {tensor_dir}", "", None, training_state
         return
     if not os.path.isdir(tensor_dir):
         yield f"❌ Tensor directory not found: {tensor_dir}", "", None, training_state
+        return
+
+    lokr_output_dir = normalize_user_path(lokr_output_dir)
+    if not lokr_output_dir:
+        yield "❌ Please enter a LoKr output directory path", "", None, training_state
+        return
+    try:
+        lokr_output_dir = safe_path(lokr_output_dir)
+    except ValueError:
+        yield (
+            f"❌ Rejected unsafe LoKr output directory path: {lokr_output_dir}",
+            "",
+            None,
+            training_state,
+        )
         return
 
     if dit_handler is None or dit_handler.model is None:
@@ -206,14 +223,15 @@ def list_lokr_export_epochs(lokr_output_dir: str) -> Tuple[Any, str]:
         Tuple of (dropdown_update, status_message).
     """
     default_choice = t("training.latest_auto")
-    if not lokr_output_dir or not lokr_output_dir.strip():
+    lokr_output_dir = normalize_user_path(lokr_output_dir)
+    if not lokr_output_dir:
         return (
             gr.update(choices=[default_choice], value=default_choice),
             t("training.lokr_output_dir_required"),
         )
 
     try:
-        lokr_output_dir = safe_path(lokr_output_dir.strip())
+        lokr_output_dir = safe_path(lokr_output_dir)
     except ValueError:
         return (
             gr.update(choices=[default_choice], value=default_choice),
@@ -264,12 +282,17 @@ def export_lokr(
     Returns:
         Status message.
     """
-    if not export_path or not export_path.strip():
+    export_path = normalize_user_path(export_path)
+    if not export_path:
         return t("training.export_path_required")
+
+    lokr_output_dir = normalize_user_path(lokr_output_dir)
+    if not lokr_output_dir:
+        return "❌ Rejected unsafe path"
 
     try:
         lokr_output_dir = safe_path(lokr_output_dir)
-        export_path = safe_path(export_path.strip())
+        export_path = safe_path(export_path)
     except ValueError:
         return "❌ Rejected unsafe path"
 

@@ -12,6 +12,7 @@ import gradio as gr
 from loguru import logger
 
 from acestep.training.dataset_builder import DatasetBuilder
+from acestep.training.path_inputs import normalize_user_path
 from .service_auto_init import ensure_training_services_ready
 from .training_utils import _safe_slider
 
@@ -33,8 +34,14 @@ def scan_directory(
     Returns:
         Tuple of (table_data, status, slider_update, builder_state).
     """
-    if not audio_dir or not audio_dir.strip():
-        return [], "❌ Please enter a directory path", _safe_slider(0, value=0, visible=False), builder_state
+    audio_dir = normalize_user_path(audio_dir)
+    if not audio_dir:
+        return (
+            [],
+            "❌ Please enter a directory path",
+            _safe_slider(0, value=0, visible=False),
+            builder_state,
+        )
 
     builder = builder_state if builder_state else DatasetBuilder()
 
@@ -43,7 +50,7 @@ def scan_directory(
     builder.metadata.tag_position = tag_position
     builder.metadata.all_instrumental = all_instrumental
 
-    samples, status = builder.scan_directory(audio_dir.strip())
+    samples, status = builder.scan_directory(audio_dir)
 
     if not samples:
         return [], status, _safe_slider(0, value=0, visible=False), builder
@@ -128,7 +135,7 @@ def auto_label_all(
             except Exception:
                 pass
 
-    resolved_save_path = (save_path or "").strip()
+    resolved_save_path = normalize_user_path(save_path)
     if resolved_save_path and not resolved_save_path.lower().endswith(".json"):
         resolved_save_path = f"{resolved_save_path}.json"
 
@@ -339,10 +346,10 @@ def save_dataset(
     if not builder_state.samples:
         return "❌ No samples in dataset.", gr.update()
 
-    if not save_path or not save_path.strip():
+    save_path = normalize_user_path(save_path)
+    if not save_path:
         return "❌ Please enter a save path.", gr.update()
 
-    save_path = save_path.strip()
     if not save_path.lower().endswith(".json"):
         save_path = save_path + ".json"
 

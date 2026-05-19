@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from acestep.training.path_safety import get_safe_roots, set_safe_roots
 from acestep.training.configs import LoRAConfig, TrainingConfig
+from acestep.training.path_safety import get_safe_roots, set_safe_roots
 from acestep.ui.gradio.events.training.lora_training import (
     _save_training_config_snapshot,
     _uses_fp8_scaled,
@@ -87,6 +88,22 @@ class LoRATrainingHandlerTests(unittest.TestCase):
         self.assertTrue(loaded.use_fp8)
         self.assertEqual(10, loaded.sample_every_n_epochs)
         self.assertEqual("style", loaded.sample_prompt)
+
+    def test_training_config_snapshot_accepts_quoted_output_path_with_spaces(self) -> None:
+        """Quoted output paths with spaces should write to the intended directory."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            output_dir = os.path.join(tmpdir, "lora output")
+            training_config = TrainingConfig(
+                output_dir=f'"{output_dir.replace(os.sep, "/")}"',
+            )
+
+            _save_training_config_snapshot(LoRAConfig(r=16), training_config)
+
+            config_path = os.path.join(output_dir, "training_config.json")
+            self.assertTrue(os.path.isfile(config_path))
+            self.assertEqual(os.path.realpath(output_dir), training_config.output_dir)
 
 
 if __name__ == "__main__":

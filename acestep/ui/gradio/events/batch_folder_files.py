@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from acestep.training.path_inputs import normalize_user_path
 from acestep.ui.gradio.events.results.output_manager import get_results_dir
 
 
@@ -26,7 +27,7 @@ def resolve_existing_input_folder(input_folder: str | Path) -> Path:
         ValueError: If the supplied path is empty or not an existing directory.
     """
 
-    raw_value = str(input_folder or "").strip()
+    raw_value = normalize_user_path(input_folder)
     if not raw_value:
         raise ValueError("Enter an input folder before starting batch processing.")
     folder = Path(raw_value).expanduser().resolve()
@@ -38,7 +39,7 @@ def resolve_existing_input_folder(input_folder: str | Path) -> Path:
 def resolve_output_folder(output_folder: str | Path) -> Path:
     """Return a writable output folder path, creating it when needed."""
 
-    raw_value = str(output_folder or "").strip()
+    raw_value = normalize_user_path(output_folder)
     if not raw_value:
         folder = get_results_dir()
     else:

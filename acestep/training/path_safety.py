@@ -19,6 +19,8 @@ from typing import Iterable, Optional
 
 from loguru import logger
 
+from acestep.training.path_inputs import normalize_user_path
+
 
 def _resolve(path: str) -> str:
     """Normalise and resolve symlinks in *path*.
@@ -26,7 +28,7 @@ def _resolve(path: str) -> str:
     Uses ``os.path.realpath`` so that symlinked prefixes are resolved
     to their canonical form before comparison.
     """
-    return os.path.normpath(os.path.realpath(path))
+    return os.path.normpath(os.path.realpath(normalize_user_path(path)))
 
 
 # Root directories that user-provided paths must resolve under.
@@ -116,7 +118,9 @@ def safe_path(user_path: str, *, base: Optional[str] = None) -> str:
     compare correctly.
 
     Args:
-        user_path: Untrusted path string from user input.
+        user_path: Untrusted path string from user input. Wrapping quotes,
+                   environment variables, ``~``, and native separators are
+                   normalized before validation.
         base: Optional explicit base directory.  When provided it is
               resolved (symlinks included) and used instead of
               the global safe roots.
@@ -127,6 +131,7 @@ def safe_path(user_path: str, *, base: Optional[str] = None) -> str:
     Raises:
         ValueError: If the resolved path escapes the safe root.
     """
+    user_path = normalize_user_path(user_path)
     roots = [_resolve(base)] if base is not None else _SAFE_ROOTS
 
     # Resolve the user path.  If relative, join against *root* first.

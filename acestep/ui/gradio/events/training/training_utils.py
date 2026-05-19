@@ -15,8 +15,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-from acestep.ui.gradio.i18n import t
+from acestep.training.path_inputs import normalize_user_path
 from acestep.training.path_safety import get_safe_root
+from acestep.ui.gradio.i18n import t
 
 SAFE_TRAINING_ROOT = get_safe_root()
 
@@ -52,10 +53,11 @@ def _safe_join(base_root: str, user_path: str) -> Optional[str]:
     Uses ``os.path.normpath`` + ``startswith`` — the pattern CodeQL
     recognises as a path-injection sanitiser.
     """
-    if not user_path or not user_path.strip():
+    raw_candidate = str(user_path or "").strip().strip("'\"").strip()
+    if not raw_candidate:
         return None
-    candidate = user_path.strip()
     if base_root.startswith("/") and not re.match(r"^/[A-Za-z]:", base_root):
+        candidate = raw_candidate.replace("\\", "/")
         if posixpath.isabs(candidate):
             return None
         abs_root = posixpath.normpath(base_root)
@@ -63,6 +65,7 @@ def _safe_join(base_root: str, user_path: str) -> Optional[str]:
         if not joined.startswith(abs_root.rstrip("/") + "/") and joined != abs_root:
             return None
         return joined
+    candidate = normalize_user_path(raw_candidate)
     if os.path.isabs(candidate):
         return None
     abs_root = os.path.normpath(os.path.abspath(base_root))

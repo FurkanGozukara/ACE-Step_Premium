@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import unittest
 from unittest.mock import patch
 
@@ -34,6 +35,24 @@ class DatasetHandlerTests(unittest.TestCase):
             status = handler.import_dataset("train", "C:\\temp\\dataset.json")
 
         builder.load_dataset.assert_called_once_with("C:\\temp\\dataset.json")
+        builder.scan_directory.assert_not_called()
+        self.assertTrue(handler.dataset_imported)
+        self.assertIn("Samples: 1 (1 labeled)", status)
+
+    def test_import_dataset_loads_quoted_json_path_with_spaces(self) -> None:
+        """Quoted Dataset page paths should be classified after normalization."""
+
+        with patch("acestep.dataset_handler.DatasetBuilder") as builder_cls:
+            builder = builder_cls.return_value
+            builder.load_dataset.return_value = ([object()], "Loaded")
+            builder.get_labeled_count.return_value = 1
+
+            handler = DatasetHandler()
+            status = handler.import_dataset("train", '"./datasets/my data.json"')
+
+        builder.load_dataset.assert_called_once_with(
+            os.path.normpath("./datasets/my data.json")
+        )
         builder.scan_directory.assert_not_called()
         self.assertTrue(handler.dataset_imported)
         self.assertIn("Samples: 1 (1 labeled)", status)

@@ -6,6 +6,8 @@ import os
 import sys
 from pathlib import Path
 
+from acestep.training.path_inputs import normalize_user_path
+
 try:
     from tkinter import Tk, filedialog
 except ImportError:  # pragma: no cover - depends on Python build
@@ -18,10 +20,7 @@ _ENV_EXCLUSION = ("COLAB_GPU", "RUNPOD_POD_ID")
 
 def normalize_dialog_path(path: str) -> str:
     """Return a normalized filesystem path selected from a local dialog."""
-    value = str(path or "").strip().strip("'\"").strip()
-    if not value:
-        return ""
-    value = os.path.expandvars(os.path.expanduser(value))
+    value = normalize_user_path(path)
     if not value:
         return ""
     try:

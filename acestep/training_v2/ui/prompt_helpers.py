@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any, Optional
 
+from acestep.training.path_inputs import normalize_user_path
 from acestep.training_v2.ui import console, is_rich_active
 
 # Windows uses spawn-based multiprocessing which breaks DataLoader workers
@@ -258,7 +259,9 @@ def ask_path(
         GoBack: When ``allow_back`` is True and user types 'b'/'back'.
     """
     while True:
-        val = ask(label, default=default, required=True, allow_back=allow_back)
+        val = normalize_user_path(
+            ask(label, default=default, required=True, allow_back=allow_back)
+        )
         if must_exist and not Path(val).exists():
             if is_rich_active() and console is not None:
                 console.print(f"  [red]Path not found: {_esc(val)}[/]")

@@ -13,6 +13,7 @@ from typing import Dict, Tuple
 from loguru import logger
 
 from acestep.gpu_config import get_global_gpu_config
+from acestep.training.path_inputs import normalize_user_path
 from acestep.training.path_safety import safe_path
 from acestep.ui.gradio.i18n import t
 from .service_auto_init import ensure_dit_ready
@@ -58,6 +59,7 @@ def _save_training_config_snapshot(lora_config, training_config) -> None:
     """Persist the LoRA and training config used for the run."""
 
     output_dir = safe_path(training_config.output_dir)
+    training_config.output_dir = output_dir
     os.makedirs(output_dir, exist_ok=True)
     payload = {
         "lora": lora_config.to_dict(),
@@ -110,18 +112,47 @@ def start_training(
     This is a generator function that yields progress updates as
     (status, log_text, plot_figure, training_state) tuples.
     """
-    if not tensor_dir or not tensor_dir.strip():
+    tensor_dir = normalize_user_path(tensor_dir)
+    if not tensor_dir:
         yield "❌ Please enter a tensor directory path", "", None, training_state
         return
 
     try:
-        tensor_dir = safe_path(tensor_dir.strip())
+        tensor_dir = safe_path(tensor_dir)
     except ValueError:
         yield f"❌ Rejected unsafe tensor directory path: {tensor_dir}", "", None, training_state
         return
     if not os.path.isdir(tensor_dir):
         yield f"❌ Tensor directory not found: {tensor_dir}", "", None, training_state
         return
+
+    lora_output_dir = normalize_user_path(lora_output_dir)
+    if not lora_output_dir:
+        yield "❌ Please enter a LoRA output directory path", "", None, training_state
+        return
+    try:
+        lora_output_dir = safe_path(lora_output_dir)
+    except ValueError:
+        yield (
+            f"❌ Rejected unsafe LoRA output directory path: {lora_output_dir}",
+            "",
+            None,
+            training_state,
+        )
+        return
+
+    sample_output_dir = normalize_user_path(sample_output_dir)
+    if sample_output_dir:
+        try:
+            sample_output_dir = safe_path(sample_output_dir)
+        except ValueError:
+            yield (
+                f"❌ Rejected unsafe sample output directory path: {sample_output_dir}",
+                "",
+                None,
+                training_state,
+            )
+            return
 
     dit_ready, dit_status = ensure_dit_ready(dit_handler, config_path=model_config)
     if not dit_ready:
@@ -263,10 +294,13 @@ def start_training(
         failure_message = ""
 
         resume_from = None
-        if resume_checkpoint_dir and resume_checkpoint_dir.strip():
+        resume_checkpoint_dir = normalize_user_path(resume_checkpoint_dir)
+        if resume_checkpoint_dir:
             try:
-                normalized_resume = safe_path(resume_checkpoint_dir.strip())
+                normalized_resume = safe_path(resume_checkpoint_dir)
                 if os.path.exists(normalized_resume):
+                    if os.path.isfile(normalized_resume):
+                        normalized_resume = os.path.dirname(normalized_resume)
                     resume_from = normalized_resume
             except ValueError:
                 logger.warning(f"Rejected unsafe resume path: {resume_checkpoint_dir}")
@@ -357,8 +391,13 @@ def export_lora(export_path: str, lora_output_dir: str) -> str:
     Returns:
         Status message.
     """
-    if not export_path or not export_path.strip():
+    export_path = normalize_user_path(export_path)
+    if not export_path:
         return t("training.export_path_required")
+
+    lora_output_dir = normalize_user_path(lora_output_dir)
+    if not lora_output_dir:
+        return t("training.invalid_lora_output_dir")
 
     try:
         safe_lora_dir = safe_path(lora_output_dir)
@@ -381,7 +420,7 @@ def export_lora(export_path: str, lora_output_dir: str) -> str:
         return t("training.no_trained_model_found", path=lora_output_dir)
 
     try:
-        safe_export = safe_path(export_path.strip())
+        safe_export = safe_path(export_path)
     except ValueError:
         return t("training.invalid_export_path")
 

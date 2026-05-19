@@ -37,6 +37,11 @@ class TestSafeJoin(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertTrue(result.startswith("/base"))
 
+    def test_quoted_relative_path_with_spaces(self):
+        result = _safe_join("/base", '"sub dir/file.txt"')
+
+        self.assertEqual("/base/sub dir/file.txt", result)
+
     def test_absolute_path_rejected(self):
         result = _safe_join("/base", "/etc/passwd")
         self.assertIsNone(result)

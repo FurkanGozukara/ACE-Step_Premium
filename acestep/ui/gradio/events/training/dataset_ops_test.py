@@ -1,10 +1,11 @@
 """Unit tests for dataset_ops.py."""
 
-from types import SimpleNamespace
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from acestep.training.path_safety import get_safe_roots, set_safe_roots
@@ -214,7 +215,7 @@ class TestAutoLabelAll(unittest.TestCase):
             dataset_name="labels",
         )
 
-        builder.save_dataset.assert_called_once_with("labels/out.json", "labels")
+        builder.save_dataset.assert_called_once_with(os.path.normpath("labels/out.json"), "labels")
         self.assertEqual("en", builder.label_all_samples.call_args.kwargs["lm_lyrics_language"])
         progress.assert_any_call((0, 1), desc="Labeling 1/1; labeled 0/1; left 1: sample.wav")
         self.assertIn("Labeled 1/1", status_update["value"])
@@ -413,6 +414,21 @@ class TestSaveDataset(unittest.TestCase):
         builder.samples = [MagicMock()]
         status, _ = save_dataset("", "name", builder)
         self.assertIn("❌", status)
+
+    def test_quoted_save_path_appends_json_after_normalizing(self):
+        """Quoted save paths with spaces should not keep quotes in the filename."""
+
+        builder = MagicMock()
+        builder.samples = [MagicMock()]
+        builder.get_labeled_count.return_value = 1
+        builder.save_dataset.return_value = "saved"
+
+        status, update = save_dataset('"./datasets/my data"', "name", builder)
+
+        expected_path = os.path.normpath("./datasets/my data.json")
+        self.assertEqual("saved", status)
+        builder.save_dataset.assert_called_once_with(expected_path, "name")
+        self.assertEqual(expected_path, update["value"])
 
 
 if __name__ == "__main__":

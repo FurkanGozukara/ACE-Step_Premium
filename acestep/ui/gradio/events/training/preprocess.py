@@ -4,16 +4,17 @@ Contains handlers for loading existing datasets, preprocessing
 audio to tensor files, and loading preprocessed tensor datasets.
 """
 
-import os
 import json
+import os
 from typing import Any, Optional
 
 import gradio as gr
 from loguru import logger
 
+from acestep.debug_utils import debug_end_for, debug_log_for, debug_start_for
 from acestep.training.dataset_builder import DatasetBuilder
+from acestep.training.path_inputs import normalize_user_path
 from acestep.training.path_safety import safe_path
-from acestep.debug_utils import debug_log_for, debug_start_for, debug_end_for
 from .service_auto_init import ensure_training_services_ready
 from .training_utils import _safe_slider
 
@@ -40,7 +41,8 @@ def load_existing_dataset_for_preprocess(
         None, "", "", 0.0, "instrumental", True, "", False,
     )
 
-    if not dataset_path or not dataset_path.strip():
+    dataset_path = normalize_user_path(dataset_path)
+    if not dataset_path:
         updates = (gr.update(), gr.update(), gr.update(), gr.update(), gr.update())
         return (
             "❌ Please enter a dataset path",
@@ -50,7 +52,7 @@ def load_existing_dataset_for_preprocess(
         ) + empty_preview + updates
 
     try:
-        dataset_path = safe_path(dataset_path.strip())
+        dataset_path = safe_path(dataset_path)
     except ValueError:
         updates = (gr.update(), gr.update(), gr.update(), gr.update(), gr.update())
         return (
@@ -175,8 +177,14 @@ def preprocess_dataset(
     if labeled_count == 0:
         return "❌ No labeled samples. Please auto-label or manually label samples first."
 
-    if not output_dir or not output_dir.strip():
+    output_dir = normalize_user_path(output_dir)
+    if not output_dir:
         return "❌ Please enter an output directory."
+
+    try:
+        output_dir = safe_path(output_dir)
+    except ValueError:
+        return f"❌ Rejected unsafe output directory path: {normalize_user_path(output_dir)}"
 
     services_ready, auto_init_status = ensure_training_services_ready(
         dit_handler,
@@ -204,7 +212,7 @@ def preprocess_dataset(
     t0 = debug_start_for("dataset", "preprocess_to_tensors")
     output_paths, status = builder_state.preprocess_to_tensors(
         dit_handler=dit_handler,
-        output_dir=output_dir.strip(),
+        output_dir=output_dir,
         preprocess_mode=mode,
         progress_callback=progress_callback,
     )
@@ -221,11 +229,12 @@ def load_training_dataset(tensor_dir: str) -> str:
     Returns:
         Info text about the dataset.
     """
-    if not tensor_dir or not tensor_dir.strip():
+    tensor_dir = normalize_user_path(tensor_dir)
+    if not tensor_dir:
         return "❌ Please enter a tensor directory path"
 
     try:
-        tensor_dir = safe_path(tensor_dir.strip())
+        tensor_dir = safe_path(tensor_dir)
     except ValueError:
         return f"❌ Rejected unsafe tensor directory path: {tensor_dir}"
 

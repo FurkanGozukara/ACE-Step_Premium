@@ -6,6 +6,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from acestep.training.path_inputs import normalize_user_path
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[5]
 PEFT_CONFIG_FILENAME = "adapter_config.json"
@@ -23,21 +25,10 @@ class LoraPathResolution:
     searched_paths: tuple[str, ...]
 
 
-def _strip_wrapping_quotes(value: str) -> str:
-    """Remove one or more matching quote pairs around a path."""
-
-    result = value.strip()
-    while len(result) >= 2 and result[0] == result[-1] and result[0] in {"'", '"'}:
-        result = result[1:-1].strip()
-    return result
-
-
 def _clean_user_path(raw_path: str | os.PathLike[str]) -> str:
     """Return a normalized text path from user input."""
 
-    value = os.fspath(raw_path)
-    value = _strip_wrapping_quotes(value)
-    return os.path.expanduser(os.path.expandvars(value))
+    return normalize_user_path(raw_path)
 
 
 def _separator_variants(path_text: str) -> list[str]:
