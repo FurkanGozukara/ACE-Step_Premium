@@ -57,6 +57,58 @@ class Fp8ScaledQuantizationTests(unittest.TestCase):
                 else:
                     os.environ["ACESTEP_FP8_CACHE_DIR"] = old_cache
 
+    @unittest.skipUnless(hasattr(torch, "float8_e4m3fn"), "PyTorch float8 required")
+    def test_skip_trainable_leaves_adapter_linears_unquantized(self) -> None:
+        """LoRA training can skip trainable Linear layers during FP8 quantization."""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            old_cache = os.environ.get("ACESTEP_FP8_CACHE_DIR")
+            os.environ["ACESTEP_FP8_CACHE_DIR"] = tmp
+            try:
+                model = _TinyDit()
+                model.decoder.block.weight.requires_grad = False
+                model.decoder.adapter = nn.Linear(64, 4, bias=False)
+                model.decoder.adapter.weight.requires_grad = True
+
+                apply_fp8_scaled_quantization(
+                    model,
+                    checkpoint_path=tmp,
+                    device="cpu",
+                    skip_trainable=True,
+                )
+
+                self.assertEqual(model.decoder.block.weight.dtype, torch.float8_e4m3fn)
+                self.assertNotEqual(model.decoder.adapter.weight.dtype, torch.float8_e4m3fn)
+            finally:
+                if old_cache is None:
+                    os.environ.pop("ACESTEP_FP8_CACHE_DIR", None)
+                else:
+                    os.environ["ACESTEP_FP8_CACHE_DIR"] = old_cache
+
+    @unittest.skipUnless(hasattr(torch, "float8_e4m3fn"), "PyTorch float8 required")
+    def test_skip_trainable_uses_separate_cache_variant(self) -> None:
+        """Training FP8 caches are separate from inference FP8 caches."""
+
+        with tempfile.TemporaryDirectory() as cache_dir, tempfile.TemporaryDirectory() as model_dir:
+            old_cache = os.environ.get("ACESTEP_FP8_CACHE_DIR")
+            os.environ["ACESTEP_FP8_CACHE_DIR"] = cache_dir
+            try:
+                apply_fp8_scaled_quantization(_TinyDit(), checkpoint_path=model_dir, device="cpu")
+                apply_fp8_scaled_quantization(
+                    _TinyDit(),
+                    checkpoint_path=model_dir,
+                    device="cpu",
+                    skip_trainable=True,
+                )
+
+                cache_files = [entry.name for entry in os.scandir(cache_dir) if entry.name.endswith(".pt")]
+                self.assertEqual(len(cache_files), 2)
+            finally:
+                if old_cache is None:
+                    os.environ.pop("ACESTEP_FP8_CACHE_DIR", None)
+                else:
+                    os.environ["ACESTEP_FP8_CACHE_DIR"] = old_cache
+
 
 if __name__ == "__main__":
     unittest.main()

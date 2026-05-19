@@ -79,6 +79,9 @@ try:
         DEFAULT_LM_MODEL,
         DEFAULT_PREMIUM_DIT_MODEL,
         DEFAULT_TURBO_DIT_MODEL,
+        SOURCE_BASE_DIT_MODEL,
+        SOURCE_PREMIUM_DIT_MODEL,
+        SOURCE_TURBO_DIT_MODEL,
         ensure_lm_model,
         get_models_dir,
     )
@@ -107,6 +110,9 @@ except ImportError:
         DEFAULT_LM_MODEL,
         DEFAULT_PREMIUM_DIT_MODEL,
         DEFAULT_TURBO_DIT_MODEL,
+        SOURCE_BASE_DIT_MODEL,
+        SOURCE_PREMIUM_DIT_MODEL,
+        SOURCE_TURBO_DIT_MODEL,
         ensure_lm_model,
         get_models_dir,
     )
@@ -122,6 +128,26 @@ def _import_real_handlers():
         from acestep.handler import AceStepHandler
         from acestep.llm_inference import LLMHandler
     return AceStepHandler, LLMHandler
+
+
+def _select_preferred_dit_model(available_models: list[str]) -> str:
+    """Return the preferred startup DiT model from discovered models."""
+
+    preferred_order = (
+        DEFAULT_TURBO_DIT_MODEL,
+        DEFAULT_PREMIUM_DIT_MODEL,
+        DEFAULT_BASE_DIT_MODEL,
+        SOURCE_TURBO_DIT_MODEL,
+        SOURCE_PREMIUM_DIT_MODEL,
+        SOURCE_BASE_DIT_MODEL,
+        "acestep-v15-turbo",
+        "acestep-v15-sft",
+        "acestep-v15-base",
+    )
+    for preferred in preferred_order:
+        if preferred in available_models:
+            return preferred
+    return available_models[0]
 
 
 def _import_gradio_factory():
@@ -561,19 +587,7 @@ def main():
             if args.config_path is None:
                 available_models = dit_handler.get_available_acestep_v15_models()
                 if available_models:
-                    args.config_path = (
-                        DEFAULT_TURBO_DIT_MODEL
-                        if DEFAULT_TURBO_DIT_MODEL in available_models
-                        else (
-                            DEFAULT_PREMIUM_DIT_MODEL
-                            if DEFAULT_PREMIUM_DIT_MODEL in available_models
-                            else (
-                            DEFAULT_BASE_DIT_MODEL
-                            if DEFAULT_BASE_DIT_MODEL in available_models
-                            else available_models[0]
-                        )
-                        )
-                    )
+                    args.config_path = _select_preferred_dit_model(available_models)
                     print(f"Auto-selected config_path: {args.config_path}")
                 else:
                     print(

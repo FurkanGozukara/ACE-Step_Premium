@@ -44,10 +44,17 @@ def save_cached_entries(
     logger.info("[fp8_scaled] Wrote cache {}", cache_file)
 
 
-def cache_file_for_checkpoint(checkpoint_path: str | os.PathLike[str] | None) -> Path:
+def cache_file_for_checkpoint(
+    checkpoint_path: str | os.PathLike[str] | None,
+    *,
+    variant: str = "",
+) -> Path:
     """Return the cache file path for a checkpoint fingerprint."""
 
-    digest = hashlib.sha256(_checkpoint_fingerprint(checkpoint_path).encode("utf-8")).hexdigest()
+    fingerprint = _checkpoint_fingerprint(checkpoint_path)
+    if variant:
+        fingerprint = f"{fingerprint}|variant:{variant}"
+    digest = hashlib.sha256(fingerprint.encode("utf-8")).hexdigest()
     default_root = Path.cwd() / ".cache" / "acestep" / "fp8_scaled"
     cache_root = Path(os.environ.get("ACESTEP_FP8_CACHE_DIR", "") or default_root)
     return cache_root / f"{digest[:24]}.pt"

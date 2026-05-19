@@ -18,6 +18,10 @@ class TrainingRunWiringTests(unittest.TestCase):
             """Yield one result while exposing call kwargs through the patch mock."""
 
             self.assertEqual("model-b", kwargs["model_config"])
+            self.assertTrue(kwargs["gradient_checkpointing"])
+            self.assertEqual("Disabled", kwargs["base_quantization"])
+            self.assertFalse(kwargs["sample_generation_enabled"])
+            self.assertEqual("prompt", kwargs["sample_prompt"])
             yield "started", "", None, {"is_training": True}
 
         wrapper = _build_training_wrapper(dit_handler=object())
@@ -41,6 +45,23 @@ class TrainingRunWiringTests(unittest.TestCase):
                     42,
                     "out",
                     "",
+                    True,
+                    False,
+                    True,
+                    True,
+                    True,
+                    "Disabled",
+                    10,
+                    False,
+                    10,
+                    "prompt",
+                    "lyrics",
+                    30,
+                    8,
+                    42,
+                    "samples",
+                    True,
+                    True,
                     "model-b",
                     {},
                 )

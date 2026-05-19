@@ -15,6 +15,12 @@ from acestep.ui.gradio.interfaces.training_lora_tab_guide import (
 from acestep.ui.gradio.interfaces.training_lora_tab_run_export import (
     build_lora_run_and_export_controls,
 )
+from acestep.ui.gradio.interfaces.training_lora_tab_samples import (
+    build_lora_sample_generation_controls,
+)
+from acestep.ui.gradio.interfaces.training_lora_tab_vram import (
+    build_lora_vram_controls,
+)
 
 
 def create_training_lora_tab(
@@ -37,6 +43,7 @@ def create_training_lora_tab(
                 init_params=init_params,
             )
         )
+        tab_controls.update(build_lora_vram_controls())
         tab_controls.update(
             build_lora_run_and_export_controls(
                 epoch_min=epoch_min,
@@ -44,4 +51,5 @@ def create_training_lora_tab(
                 epoch_default=epoch_default,
             )
         )
+        tab_controls.update(build_lora_sample_generation_controls())
     return tab_controls

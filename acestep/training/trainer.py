@@ -55,6 +55,16 @@ from acestep.training.lokr_utils import (
 )
 from acestep.training.data_module import PreprocessedDataModule
 from acestep.training.path_safety import safe_path
+from acestep.training.sample_generation import run_sample_subprocess
+from acestep.training.vram_optimizations import (
+    apply_training_fp8_scaled,
+    cast_training_parameter_dtypes,
+    cuda_peak_gb,
+    offload_handler_training_modules,
+    offload_non_decoder_modules,
+    reset_cuda_peak,
+    sample_generation_vram_guard,
+)
 
 
 # Turbo model shift=3.0 discrete timesteps (8 steps, same as inference)
@@ -480,7 +490,19 @@ class PreprocessedLoRAModule(nn.Module):
             )
         else:
             autocast_ctx = nullcontext()
-        with autocast_ctx:
+
+        if (
+            getattr(self.training_config, "activation_cpu_offload", False)
+            and self.device_type == "cuda"
+            and hasattr(torch.autograd.graph, "save_on_cpu")
+        ):
+            saved_tensor_ctx = torch.autograd.graph.save_on_cpu(
+                pin_memory=bool(getattr(self.training_config, "pin_memory", True))
+            )
+        else:
+            saved_tensor_ctx = nullcontext()
+
+        with saved_tensor_ctx, autocast_ctx:
             # Get tensors from batch (already on device from Fabric dataloader)
             target_latents = batch["target_latents"].to(
                 self.device, dtype=self.dtype, non_blocking=self.transfer_non_blocking
@@ -632,17 +654,52 @@ class LoRATrainer:
                 device=self.dit_handler.device,
                 dtype=self.dit_handler.dtype,
             )
-            ckpt_enabled, cache_disabled, input_grads_enabled = (
-                _configure_training_memory_features(self.module.model.decoder)
-            )
-            # DiT decoder does not expose token embeddings like causal LMs.
-            # Force grad-carrying inputs for checkpointed segments to avoid
-            # detached losses regardless of wrapper hook availability.
-            self.module.force_input_grads_for_checkpointing = ckpt_enabled
-            logger.info(
-                f"Training memory features: gradient_checkpointing={ckpt_enabled}, "
-                f"use_cache_disabled={cache_disabled}, input_grads_enabled={input_grads_enabled}"
-            )
+            if getattr(self.training_config, "offload_non_decoder", True):
+                moved = (
+                    offload_non_decoder_modules(self.module.model)
+                    + offload_handler_training_modules(self.dit_handler)
+                )
+                if moved:
+                    yield 0, 0.0, f"Offloaded unused modules to CPU: {', '.join(moved)}"
+
+            if getattr(self.training_config, "use_fp8", False):
+                try:
+                    checkpoint_path = None
+                    last_init = getattr(self.dit_handler, "last_init_params", None) or {}
+                    if last_init.get("project_root") and last_init.get("resolved_config_path"):
+                        checkpoint_path = os.path.join(
+                            str(last_init["project_root"]),
+                            "models",
+                            str(last_init["resolved_config_path"]),
+                        )
+                    msg = apply_training_fp8_scaled(
+                        self.module.model,
+                        checkpoint_path=checkpoint_path,
+                        device=self.module.device,
+                    )
+                    yield 0, 0.0, f"FP8 scaled base weights enabled: {msg}"
+                except Exception as exc:
+                    logger.exception("Failed to apply FP8 scaled training quantization")
+                    yield 0, 0.0, f"FP8 scaled base weights unavailable: {exc}"
+
+            if getattr(self.training_config, "gradient_checkpointing", True):
+                ckpt_enabled, cache_disabled, input_grads_enabled = (
+                    _configure_training_memory_features(self.module.model.decoder)
+                )
+                # DiT decoder does not expose token embeddings like causal LMs.
+                # Force grad-carrying inputs for checkpointed segments to avoid
+                # detached losses regardless of wrapper hook availability.
+                self.module.force_input_grads_for_checkpointing = ckpt_enabled
+                logger.info(
+                    f"Training memory features: gradient_checkpointing={ckpt_enabled}, "
+                    f"use_cache_disabled={cache_disabled}, "
+                    f"input_grads_enabled={input_grads_enabled}"
+                )
+            else:
+                ckpt_enabled = False
+                input_grads_enabled = True
+                self.module.force_input_grads_for_checkpointing = False
+                yield 0, 0.0, "Gradient checkpointing disabled by user"
 
             # Create data module
             data_module = PreprocessedDataModule(
@@ -670,7 +727,7 @@ class LoRATrainer:
             )
             if ckpt_enabled:
                 yield 0, 0.0, "🧠 Gradient checkpointing enabled for decoder"
-            else:
+            elif getattr(self.training_config, "gradient_checkpointing", True):
                 yield (
                     0,
                     0.0,
@@ -683,6 +740,7 @@ class LoRATrainer:
                     "ℹ️ Input-grad hook not available on this DiT; using explicit checkpointing fallback",
                 )
 
+            reset_cuda_peak()
             if LIGHTNING_AVAILABLE:
                 yield from self._train_with_fabric(
                     data_module, training_state, resume_from
@@ -740,23 +798,38 @@ class LoRATrainer:
             f"🚀 Starting training (device: {device_type}, precision: {precision})...",
         )
 
-        # Keep decoder weights in a stable dtype before optimizer/Fabric setup.
-        # MPS stays in fp32 weights for stability; computation still uses fp16
-        # autocast inside training_step.
-        if device_type == "mps" or precision.endswith("-mixed"):
-            self.module.model.decoder = self.module.model.decoder.to(
-                dtype=torch.float32
+        # Keep trainable adapter tensors in fp32, but avoid promoting the
+        # frozen base decoder to fp32 unless the user disables the VRAM saver.
+        if (
+            getattr(self.training_config, "keep_frozen_base_in_compute_dtype", True)
+            or getattr(self.training_config, "use_fp8", False)
+        ):
+            casted_trainable, casted_frozen = cast_training_parameter_dtypes(
+                self.module.model.decoder,
+                frozen_dtype=self.module.dtype,
+                keep_frozen_in_compute_dtype=True,
+            )
+            logger.info(
+                "Training dtype fixup: trainable_fp32={}, frozen_compute_dtype={}",
+                casted_trainable,
+                casted_frozen,
             )
         else:
-            self.module.model.decoder = self.module.model.decoder.to(
-                dtype=self.module.dtype
+            if device_type == "mps" or precision.endswith("-mixed"):
+                self.module.model.decoder = self.module.model.decoder.to(
+                    dtype=torch.float32
+                )
+            else:
+                self.module.model.decoder = self.module.model.decoder.to(
+                    dtype=self.module.dtype
+                )
+            casted_trainable, total_trainable_tensors = _ensure_trainable_params_fp32(
+                self.module.model.decoder
             )
-        casted_trainable, total_trainable_tensors = _ensure_trainable_params_fp32(
-            self.module.model.decoder
-        )
-        logger.info(
-            f"Trainable tensor dtype fixup: casted {casted_trainable}/{total_trainable_tensors} to fp32"
-        )
+            logger.info(
+                f"Trainable tensor dtype fixup: "
+                f"casted {casted_trainable}/{total_trainable_tensors} to fp32"
+            )
 
         # Get dataloader
         train_loader = data_module.train_dataloader()
@@ -799,7 +872,11 @@ class LoRATrainer:
         }
 
         # Optimizer selection: AdamW 8-bit vs Standard AdamW
-        if HAS_BNB and device_type == "cuda":
+        if (
+            getattr(self.training_config, "use_8bit_adam", True)
+            and HAS_BNB
+            and device_type == "cuda"
+        ):
             logger.info("train_with_fabric using bitsandbytes 8-bit AdamW optimizer")
             optimizer = bnb.optim.AdamW8bit(trainable_params, **optimizer_kwargs)
         else:
@@ -994,6 +1071,12 @@ class LoRATrainer:
                     optimizer.zero_grad(set_to_none=True)
 
                     global_step += 1
+                    cache_every = getattr(
+                        self.training_config, "empty_cache_every_n_steps", 0
+                    )
+                    if torch.cuda.is_available() and cache_every > 0:
+                        if global_step % cache_every == 0:
+                            torch.cuda.empty_cache()
 
                     # Log
                     avg_loss = accumulated_loss / accumulation_step
@@ -1052,6 +1135,12 @@ class LoRATrainer:
                     optimizer.zero_grad(set_to_none=True)
 
                 global_step += 1
+                cache_every = getattr(
+                    self.training_config, "empty_cache_every_n_steps", 0
+                )
+                if torch.cuda.is_available() and cache_every > 0:
+                    if global_step % cache_every == 0:
+                        torch.cuda.empty_cache()
                 avg_loss = accumulated_loss / accumulation_step
                 if global_step % self.training_config.log_every_n_steps == 0:
                     if training_state is not None:
@@ -1125,6 +1214,7 @@ class LoRATrainer:
                         best_dir,
                     )
 
+            sample_checkpoint_dir = None
             # Save checkpoint
             if (epoch + 1) % self.training_config.save_every_n_epochs == 0:
                 checkpoint_dir = os.path.join(
@@ -1144,6 +1234,42 @@ class LoRATrainer:
                     f"💾 Checkpoint saved at epoch {epoch + 1}",
                 )
 
+            sample_every = int(
+                getattr(self.training_config, "sample_every_n_epochs", 0) or 0
+            )
+            if sample_every > 0 and (epoch + 1) % sample_every == 0:
+                if (epoch + 1) % self.training_config.save_every_n_epochs == 0:
+                    sample_checkpoint_dir = os.path.join(
+                        self.training_config.output_dir,
+                        "checkpoints",
+                        f"epoch_{epoch + 1}_loss_{avg_epoch_loss:.4f}",
+                    )
+                else:
+                    sample_checkpoint_dir = os.path.join(
+                        self.training_config.output_dir,
+                        "checkpoints",
+                        f"epoch_{epoch + 1}_sample",
+                    )
+                    save_training_checkpoint(
+                        self.module.model,
+                        optimizer,
+                        scheduler,
+                        epoch + 1,
+                        global_step,
+                        sample_checkpoint_dir,
+                    )
+                yield (
+                    global_step,
+                    avg_epoch_loss,
+                    f"Generating LoRA sample for epoch {epoch + 1}...",
+                )
+                sample_msg = self._generate_checkpoint_sample(
+                    sample_checkpoint_dir,
+                    epoch + 1,
+                )
+                if sample_msg:
+                    yield global_step, avg_epoch_loss, sample_msg
+
         # Save final model
         final_path = os.path.join(self.training_config.output_dir, "final")
         save_lora_weights(self.module.model, final_path)
@@ -1151,11 +1277,77 @@ class LoRATrainer:
         final_loss = (
             self.module.training_losses[-1] if self.module.training_losses else 0.0
         )
+        peak_vram = cuda_peak_gb()
+        peak_suffix = (
+            f"\nPeak training VRAM: {peak_vram:.2f} GiB" if peak_vram > 0 else ""
+        )
         yield (
             global_step,
             final_loss,
-            f"✅ Training complete! LoRA saved to {final_path}",
+            f"✅ Training complete! LoRA saved to {final_path}{peak_suffix}",
         )
+
+    def _generate_checkpoint_sample(
+        self,
+        checkpoint_dir: str,
+        epoch: int,
+    ) -> str:
+        """Generate a low-spike audio sample for a saved LoRA checkpoint."""
+
+        sample_every = int(getattr(self.training_config, "sample_every_n_epochs", 0) or 0)
+        if sample_every <= 0:
+            return ""
+
+        prompt = str(getattr(self.training_config, "sample_prompt", "") or "").strip()
+        lyrics = str(getattr(self.training_config, "sample_lyrics", "") or "").strip()
+        if not prompt or not lyrics:
+            return "Sample generation skipped: prompt or lyrics is empty"
+
+        last_init = getattr(self.dit_handler, "last_init_params", None) or {}
+        project_root = str(last_init.get("project_root") or os.getcwd())
+        config_path = str(
+            last_init.get("config_path") or last_init.get("resolved_config_path") or ""
+        )
+        if not config_path:
+            return "Sample generation skipped: missing base model config path"
+
+        sample_root = str(getattr(self.training_config, "sample_output_dir", "") or "")
+        if not sample_root.strip():
+            sample_root = os.path.join(self.training_config.output_dir, "samples")
+        output_dir = os.path.join(sample_root, f"epoch_{epoch:04d}")
+
+        with sample_generation_vram_guard(
+            self.module,
+            enabled=bool(getattr(
+                self.training_config, "sample_offload_training_model", True
+            )),
+            target_device=self.module.device,
+        ):
+            result = run_sample_subprocess(
+                project_root=project_root,
+                config_path=config_path,
+                device=str(self.module.device),
+                checkpoint_dir=checkpoint_dir,
+                output_dir=output_dir,
+                prompt=prompt,
+                lyrics=lyrics,
+                duration=float(getattr(self.training_config, "sample_duration", 30.0)),
+                inference_steps=int(getattr(
+                    self.training_config, "sample_inference_steps", 8
+                )),
+                seed=int(getattr(self.training_config, "sample_seed", 42)),
+                offload_generation=bool(getattr(
+                    self.training_config, "sample_offload_generation", True
+                )),
+            )
+
+        peak = float(result.get("peak_vram_gb") or 0.0)
+        if result.get("success"):
+            audios = result.get("audios") or []
+            first_path = audios[0].get("path") if audios else output_dir
+            return f"Sample generated for epoch {epoch}: {first_path} (peak {peak:.2f} GiB)"
+        error = result.get("error") or result.get("stderr_tail") or "unknown error"
+        return f"Sample generation failed for epoch {epoch}: {error} (peak {peak:.2f} GiB)"
 
     def _train_basic(
         self,
@@ -1177,7 +1369,19 @@ class LoRATrainer:
             yield 0, 0.0, "❌ No trainable parameters found!"
             return
 
-        if HAS_BNB and self.module.device_type == "cuda":
+        cast_training_parameter_dtypes(
+            self.module.model.decoder,
+            frozen_dtype=self.module.dtype,
+            keep_frozen_in_compute_dtype=bool(getattr(
+                self.training_config, "keep_frozen_base_in_compute_dtype", True
+            )),
+        )
+
+        if (
+            getattr(self.training_config, "use_8bit_adam", True)
+            and HAS_BNB
+            and self.module.device_type == "cuda"
+        ):
             optimizer = bnb.optim.AdamW8bit(
                 trainable_params,
                 lr=self.training_config.learning_rate,
@@ -1253,6 +1457,12 @@ class LoRATrainer:
                     scheduler.step()
                     optimizer.zero_grad(set_to_none=True)
                     global_step += 1
+                    cache_every = getattr(
+                        self.training_config, "empty_cache_every_n_steps", 0
+                    )
+                    if torch.cuda.is_available() and cache_every > 0:
+                        if global_step % cache_every == 0:
+                            torch.cuda.empty_cache()
 
                     avg_loss = accumulated_loss / accumulation_step
                     if global_step % self.training_config.log_every_n_steps == 0:
@@ -1275,6 +1485,12 @@ class LoRATrainer:
                 scheduler.step()
                 optimizer.zero_grad(set_to_none=True)
                 global_step += 1
+                cache_every = getattr(
+                    self.training_config, "empty_cache_every_n_steps", 0
+                )
+                if torch.cuda.is_available() and cache_every > 0:
+                    if global_step % cache_every == 0:
+                        torch.cuda.empty_cache()
 
                 avg_loss = accumulated_loss / accumulation_step
                 if global_step % self.training_config.log_every_n_steps == 0:
@@ -1304,15 +1520,48 @@ class LoRATrainer:
                 save_lora_weights(self.module.model, checkpoint_dir)
                 yield global_step, avg_epoch_loss, "💾 Checkpoint saved"
 
+            sample_every = int(
+                getattr(self.training_config, "sample_every_n_epochs", 0) or 0
+            )
+            if sample_every > 0 and (epoch + 1) % sample_every == 0:
+                if (epoch + 1) % self.training_config.save_every_n_epochs == 0:
+                    sample_checkpoint_dir = os.path.join(
+                        self.training_config.output_dir,
+                        "checkpoints",
+                        f"epoch_{epoch + 1}_loss_{avg_epoch_loss:.4f}",
+                    )
+                else:
+                    sample_checkpoint_dir = os.path.join(
+                        self.training_config.output_dir,
+                        "checkpoints",
+                        f"epoch_{epoch + 1}_sample",
+                    )
+                    save_lora_weights(self.module.model, sample_checkpoint_dir)
+                yield (
+                    global_step,
+                    avg_epoch_loss,
+                    f"Generating LoRA sample for epoch {epoch + 1}...",
+                )
+                sample_msg = self._generate_checkpoint_sample(
+                    sample_checkpoint_dir,
+                    epoch + 1,
+                )
+                if sample_msg:
+                    yield global_step, avg_epoch_loss, sample_msg
+
         final_path = os.path.join(self.training_config.output_dir, "final")
         save_lora_weights(self.module.model, final_path)
         final_loss = (
             self.module.training_losses[-1] if self.module.training_losses else 0.0
         )
+        peak_vram = cuda_peak_gb()
+        peak_suffix = (
+            f"\nPeak training VRAM: {peak_vram:.2f} GiB" if peak_vram > 0 else ""
+        )
         yield (
             global_step,
             final_loss,
-            f"✅ Training complete! LoRA saved to {final_path}",
+            f"✅ Training complete! LoRA saved to {final_path}{peak_suffix}",
         )
 
     def stop(self):

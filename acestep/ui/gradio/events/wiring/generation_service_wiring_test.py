@@ -68,7 +68,7 @@ class GenerationServiceWiringTests(unittest.TestCase):
         )
 
         self.assertEqual(result[0].get("value"), 50)
-        self.assertEqual(result[3].get("value"), 1.0)
+        self.assertEqual(result[3].get("value"), 3.0)
         self.assertEqual(result[3].get("minimum"), 1.0)
         self.assertEqual(result[3].get("maximum"), 5.0)
         self.assertEqual(result[8].get("value"), True)
@@ -99,7 +99,7 @@ class GenerationServiceWiringTests(unittest.TestCase):
 
         self.assertEqual(result[0].get("value"), 64)
         self.assertEqual(result[2].get("value"), False)
-        self.assertEqual(result[3].get("value"), 1.0)
+        self.assertEqual(result[3].get("value"), 3.0)
         self.assertEqual(result[3].get("minimum"), 1.0)
         self.assertEqual(result[3].get("maximum"), 5.0)
         self.assertEqual(result[8].get("value"), False)

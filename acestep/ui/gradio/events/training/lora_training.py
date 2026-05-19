@@ -4,6 +4,7 @@ Contains functions for starting LoRA training, stopping training,
 and exporting trained LoRA weights.
 """
 
+import json
 import os
 import re
 import time
@@ -19,6 +20,53 @@ from .training_utils import (
     _format_duration,
     _training_loss_figure,
 )
+
+
+def _as_bool(value) -> bool:
+    """Coerce Gradio checkbox values to bool."""
+
+    return bool(value)
+
+
+def _as_positive_int(value, default: int) -> int:
+    """Coerce a Gradio numeric value to a positive int."""
+
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(1, parsed)
+
+
+def _as_nonnegative_int(value, default: int) -> int:
+    """Coerce a Gradio numeric value to a non-negative int."""
+
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(0, parsed)
+
+
+def _uses_fp8_scaled(base_quantization: str) -> bool:
+    """Return whether the selected frozen-base quantization is scaled FP8."""
+
+    return str(base_quantization or "").strip().casefold() == "fp8 scaled"
+
+
+def _save_training_config_snapshot(lora_config, training_config) -> None:
+    """Persist the LoRA and training config used for the run."""
+
+    output_dir = safe_path(training_config.output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    payload = {
+        "lora": lora_config.to_dict(),
+        "training": training_config.to_dict(),
+    }
+    path = os.path.join(output_dir, "training_run_config.json")
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+    training_config.save_json(os.path.join(output_dir, "training_config.json"))
 
 
 def start_training(
@@ -37,6 +85,23 @@ def start_training(
     lora_output_dir: str,
     resume_checkpoint_dir: str,
     training_state: Dict,
+    gradient_checkpointing: bool = True,
+    activation_cpu_offload: bool = False,
+    offload_non_decoder: bool = True,
+    keep_frozen_base_in_compute_dtype: bool = True,
+    use_8bit_adam: bool = True,
+    base_quantization: str = "Disabled",
+    empty_cache_every_n_steps: int = 10,
+    sample_generation_enabled: bool = False,
+    sample_every_n_epochs: int = 10,
+    sample_prompt: str = "",
+    sample_lyrics: str = "",
+    sample_duration: float = 30.0,
+    sample_inference_steps: int = 8,
+    sample_seed: int = 42,
+    sample_output_dir: str = "",
+    sample_offload_training_model: bool = True,
+    sample_offload_generation: bool = True,
     model_config: str | None = None,
     progress=None,
 ):
@@ -154,10 +219,33 @@ def start_training(
             batch_size=train_batch_size, gradient_accumulation_steps=gradient_accumulation,
             max_epochs=train_epochs, save_every_n_epochs=save_every_n_epochs,
             seed=training_seed, output_dir=lora_output_dir,
+            use_fp8=_uses_fp8_scaled(base_quantization),
+            gradient_checkpointing=_as_bool(gradient_checkpointing),
+            activation_cpu_offload=_as_bool(activation_cpu_offload),
+            offload_non_decoder=_as_bool(offload_non_decoder),
+            keep_frozen_base_in_compute_dtype=_as_bool(keep_frozen_base_in_compute_dtype),
+            use_8bit_adam=_as_bool(use_8bit_adam),
+            empty_cache_every_n_steps=_as_nonnegative_int(
+                empty_cache_every_n_steps, 10
+            ),
             num_workers=num_workers, pin_memory=pin_memory,
             prefetch_factor=prefetch_factor, persistent_workers=persistent_workers,
             pin_memory_device=pin_memory_device, mixed_precision=mixed_precision,
+            sample_every_n_epochs=(
+                _as_positive_int(sample_every_n_epochs, 10)
+                if _as_bool(sample_generation_enabled)
+                else 0
+            ),
+            sample_prompt=str(sample_prompt or ""),
+            sample_lyrics=str(sample_lyrics or ""),
+            sample_duration=float(sample_duration or 30.0),
+            sample_inference_steps=_as_positive_int(sample_inference_steps, 8),
+            sample_seed=int(sample_seed or 42),
+            sample_output_dir=str(sample_output_dir or ""),
+            sample_offload_training_model=_as_bool(sample_offload_training_model),
+            sample_offload_generation=_as_bool(sample_offload_generation),
         )
+        _save_training_config_snapshot(lora_config, training_config)
 
         log_lines: list = []
         step_list: list = []

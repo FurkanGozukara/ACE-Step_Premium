@@ -5,6 +5,9 @@ from __future__ import annotations
 import ast
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+from acestep.ui.gradio.interfaces import training as training_interface
 
 try:
     from .training_contract_ast_utils import (
@@ -61,6 +64,14 @@ class TrainingDecompositionContractTests(unittest.TestCase):
         self.assertIn("create_training_lokr_tab", call_names)
         self.assertGreaterEqual(update_calls, 4)
 
+    def test_epoch_slider_allows_short_validation_runs(self) -> None:
+        """Production LoRA training UI should permit one-epoch smoke tests."""
+
+        with patch.object(training_interface, "DEBUG_TRAINING", "OFF"):
+            self.assertEqual(training_interface._resolve_epoch_slider_defaults(), (1, 1, 1000))
+        with patch.object(training_interface, "DEBUG_TRAINING", "ON"):
+            self.assertEqual(training_interface._resolve_epoch_slider_defaults(), (1, 1, 1))
+
     def test_dataset_builder_tab_delegates_to_section_builders(self) -> None:
         """Dataset-builder facade should delegate to scan/label/preprocess builders."""
 
@@ -89,7 +100,9 @@ class TrainingDecompositionContractTests(unittest.TestCase):
 
         self.assertIn("build_lora_training_guide", call_names)
         self.assertIn("build_lora_dataset_and_adapter_controls", call_names)
+        self.assertIn("build_lora_vram_controls", call_names)
         self.assertIn("build_lora_run_and_export_controls", call_names)
+        self.assertIn("build_lora_sample_generation_controls", call_names)
 
     def test_training_keys_cover_wiring_requirements(self) -> None:
         """Returned training keys should cover all keys consumed by wiring modules."""
@@ -107,7 +120,9 @@ class TrainingDecompositionContractTests(unittest.TestCase):
                 "build_dataset_save_and_preprocess_controls",
             ),
             ("training_lora_tab_dataset.py", "build_lora_dataset_and_adapter_controls"),
+            ("training_lora_tab_vram.py", "build_lora_vram_controls"),
             ("training_lora_tab_run_export.py", "build_lora_run_and_export_controls"),
+            ("training_lora_tab_samples.py", "build_lora_sample_generation_controls"),
             ("training_lokr_tab_dataset.py", "build_lokr_dataset_and_adapter_controls"),
             ("training_lokr_tab_run_export.py", "build_lokr_run_and_export_controls"),
         ]

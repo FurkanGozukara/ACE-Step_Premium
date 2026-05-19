@@ -40,6 +40,7 @@ _SETTINGS_TRIGGER_KEYS = (
     "genre_ratio",
 )
 
+
 def _build_sample_preview_outputs(training_section: Mapping[str, Any]) -> list[Any]:
     """Return ordered sample-preview outputs shared by preview refresh handlers."""
 
@@ -74,6 +75,8 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
         dataset_name,
         progress=gr.Progress(track_tqdm=True),
     ):
+        """Run automatic dataset labeling with the selected model and save path."""
+
         return train_h.auto_label_all(
             dit_handler,
             llm_handler,

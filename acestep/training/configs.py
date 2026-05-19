@@ -4,7 +4,9 @@ Training Configuration Classes
 Contains dataclasses for LoRA and training configurations.
 """
 
+import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import List
 
 
@@ -113,7 +115,12 @@ class TrainingConfig:
     max_grad_norm: float = 1.0
     mixed_precision: str = "bf16"
     use_fp8: bool = False
-    gradient_checkpointing: bool = False
+    gradient_checkpointing: bool = True
+    activation_cpu_offload: bool = False
+    offload_non_decoder: bool = True
+    keep_frozen_base_in_compute_dtype: bool = True
+    use_8bit_adam: bool = True
+    empty_cache_every_n_steps: int = 10
     seed: int = 42
     output_dir: str = "./lora_output"
     
@@ -129,6 +136,17 @@ class TrainingConfig:
 
     # Validation (for loss curve and best-checkpoint tracking)
     val_split: float = 0.0
+
+    # Optional checkpoint sample generation
+    sample_every_n_epochs: int = 0
+    sample_prompt: str = ""
+    sample_lyrics: str = ""
+    sample_duration: float = 30.0
+    sample_inference_steps: int = 8
+    sample_seed: int = 42
+    sample_output_dir: str = ""
+    sample_offload_training_model: bool = True
+    sample_offload_generation: bool = True
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.val_split < 1.0:
@@ -150,6 +168,11 @@ class TrainingConfig:
             "mixed_precision": self.mixed_precision,
             "use_fp8": self.use_fp8,
             "gradient_checkpointing": self.gradient_checkpointing,
+            "activation_cpu_offload": self.activation_cpu_offload,
+            "offload_non_decoder": self.offload_non_decoder,
+            "keep_frozen_base_in_compute_dtype": self.keep_frozen_base_in_compute_dtype,
+            "use_8bit_adam": self.use_8bit_adam,
+            "empty_cache_every_n_steps": self.empty_cache_every_n_steps,
             "seed": self.seed,
             "output_dir": self.output_dir,
             "num_workers": self.num_workers,
@@ -159,4 +182,28 @@ class TrainingConfig:
             "pin_memory_device": self.pin_memory_device,
             "log_every_n_steps": self.log_every_n_steps,
             "val_split": self.val_split,
+            "sample_every_n_epochs": self.sample_every_n_epochs,
+            "sample_prompt": self.sample_prompt,
+            "sample_lyrics": self.sample_lyrics,
+            "sample_duration": self.sample_duration,
+            "sample_inference_steps": self.sample_inference_steps,
+            "sample_seed": self.sample_seed,
+            "sample_output_dir": self.sample_output_dir,
+            "sample_offload_training_model": self.sample_offload_training_model,
+            "sample_offload_generation": self.sample_offload_generation,
         }
+
+    def save_json(self, path: str | Path) -> None:
+        """Save this training config as JSON."""
+
+        output_path = Path(path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
+
+    @classmethod
+    def from_json(cls, path: str | Path) -> "TrainingConfig":
+        """Load a training config JSON file."""
+
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        fields = cls.__dataclass_fields__
+        return cls(**{key: value for key, value in payload.items() if key in fields})

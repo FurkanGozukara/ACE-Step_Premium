@@ -18,7 +18,7 @@ def _resolve_epoch_slider_defaults() -> tuple[int, int, int]:
     debug_training_enabled = str(DEBUG_TRAINING).strip().upper() != "OFF"
     if debug_training_enabled:
         return 1, 1, 1
-    return 100, 100, 1000
+    return 1, 1, 1000
 
 
 def create_training_section(dit_handler, llm_handler, init_params=None) -> dict:
