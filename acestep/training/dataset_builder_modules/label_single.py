@@ -89,7 +89,7 @@ class LabelSingleMixin:
                         sample.keyscale = metadata.get("keyscale", "")
                     sample.timesignature = metadata.get("timesignature", "")
 
-                sample.language = metadata.get("vocal_language", "unknown")
+                sample.language = metadata.get("language", metadata.get("vocal_language", "unknown"))
 
                 llm_lyrics = metadata.get("lyrics", "")
 

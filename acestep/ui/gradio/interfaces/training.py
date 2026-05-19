@@ -59,6 +59,8 @@ def create_training_section(dit_handler, llm_handler, init_params=None) -> dict:
                 epoch_min=epoch_min,
                 epoch_step=epoch_step,
                 epoch_default=epoch_default,
+                dit_handler=dit_handler,
+                init_params=init_params,
             )
         )
         training_section.update(create_training_lokr_tab())

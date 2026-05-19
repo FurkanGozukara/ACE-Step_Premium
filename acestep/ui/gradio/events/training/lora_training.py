@@ -14,6 +14,7 @@ from loguru import logger
 from acestep.gpu_config import get_global_gpu_config
 from acestep.training.path_safety import safe_path
 from acestep.ui.gradio.i18n import t
+from .service_auto_init import ensure_dit_ready
 from .training_utils import (
     _format_duration,
     _training_loss_figure,
@@ -36,6 +37,7 @@ def start_training(
     lora_output_dir: str,
     resume_checkpoint_dir: str,
     training_state: Dict,
+    model_config: str | None = None,
     progress=None,
 ):
     """Start LoRA training from preprocessed tensors.
@@ -55,6 +57,14 @@ def start_training(
     if not os.path.isdir(tensor_dir):
         yield f"❌ Tensor directory not found: {tensor_dir}", "", None, training_state
         return
+
+    dit_ready, dit_status = ensure_dit_ready(dit_handler, config_path=model_config)
+    if not dit_ready:
+        status = dit_status or "Model not initialized. Please initialize the service first."
+        yield f"\u274c {status}", "", None, training_state
+        return
+    if dit_status:
+        yield dit_status, "", None, training_state
 
     if dit_handler is None or dit_handler.model is None:
         yield "❌ Model not initialized. Please initialize the service first.", "", None, training_state

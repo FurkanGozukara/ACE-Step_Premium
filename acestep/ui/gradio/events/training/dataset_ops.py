@@ -5,13 +5,19 @@ previewing/editing individual samples, updating settings, and saving
 datasets to JSON.
 """
 
+import re
 from typing import Any, List, Optional, Tuple
 
 import gradio as gr
+from loguru import logger
 
 from acestep.training.dataset_builder import DatasetBuilder
 from .service_auto_init import ensure_training_services_ready
 from .training_utils import _safe_slider
+
+
+_SUCCESS = "\u2705"
+_LABEL_POSITION_RE = re.compile(r"^Labeling (\d+)/(\d+)")
 
 
 def scan_directory(
@@ -59,9 +65,11 @@ def auto_label_all(
     skip_metas: bool = False,
     format_lyrics: bool = False,
     transcribe_lyrics: bool = False,
-    only_unlabeled: bool = False,
+    only_unlabeled: bool = True,
     progress=None,
     model_config: str | None = None,
+    save_path: str | None = None,
+    dataset_name: str | None = None,
 ) -> Tuple[List[List[Any]], str, DatasetBuilder]:
     """Auto-label all samples in the dataset.
 
@@ -75,6 +83,8 @@ def auto_label_all(
         only_unlabeled: Only label samples without caption.
         progress: Progress callback.
         model_config: Optional DiT model name selected for dataset actions.
+        save_path: Optional dataset JSON path for per-sample checkpoint saves.
+        dataset_name: Optional dataset name to persist with checkpoint saves.
 
     Returns:
         Tuple of (table_data, status, builder_state).
@@ -104,11 +114,29 @@ def auto_label_all(
     def progress_callback(msg):
         if progress:
             try:
-                progress(msg)
+                match = _LABEL_POSITION_RE.match(str(msg))
+                if match:
+                    position = int(match.group(1))
+                    total = int(match.group(2))
+                    current = position if "complete" in str(msg) else max(position - 1, 0)
+                    progress((current, total), desc=msg)
+                else:
+                    progress(None, desc=msg)
             except Exception:
                 pass
 
-    samples, status = builder_state.label_all_samples(
+    resolved_save_path = (save_path or "").strip()
+    if resolved_save_path and not resolved_save_path.lower().endswith(".json"):
+        resolved_save_path = f"{resolved_save_path}.json"
+
+    def sample_labeled_callback(_sample_idx: int, _sample: Any, _status: str) -> None:
+        if not resolved_save_path:
+            return
+        save_status = builder_state.save_dataset(resolved_save_path, dataset_name)
+        if not save_status.startswith(_SUCCESS):
+            logger.warning(f"Auto-label dataset checkpoint save failed: {save_status}")
+
+    _samples, status = builder_state.label_all_samples(
         dit_handler=dit_handler,
         llm_handler=llm_handler,
         format_lyrics=format_lyrics,
@@ -116,9 +144,15 @@ def auto_label_all(
         skip_metas=skip_metas,
         only_unlabeled=only_unlabeled,
         progress_callback=progress_callback,
+        sample_labeled_callback=sample_labeled_callback,
     )
     if auto_init_status:
         status = f"{auto_init_status}\n{status}" if status else auto_init_status
+    if progress:
+        try:
+            progress(1.0, desc=status)
+        except Exception:
+            pass
 
     table_data = builder_state.get_samples_dataframe_data()
     return gr.update(value=table_data), gr.update(value=status), builder_state

@@ -47,6 +47,31 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
     llm_handler = context.llm_handler
     sample_preview_outputs = _build_sample_preview_outputs(training_section)
 
+    def run_auto_label(
+        state,
+        skip,
+        fmt_lyrics,
+        trans_lyrics,
+        only_unlab,
+        model,
+        save_path,
+        dataset_name,
+        progress=gr.Progress(track_tqdm=True),
+    ):
+        return train_h.auto_label_all(
+            dit_handler,
+            llm_handler,
+            state,
+            skip,
+            fmt_lyrics,
+            trans_lyrics,
+            only_unlab,
+            progress=progress,
+            model_config=model,
+            save_path=save_path,
+            dataset_name=dataset_name,
+        )
+
     training_section["scan_btn"].click(
         fn=lambda directory, name, tag, pos, instr, state: train_h.scan_directory(
             directory, name, tag, pos, instr, state
@@ -68,16 +93,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
     )
 
     training_section["auto_label_btn"].click(
-        fn=lambda state, skip, fmt_lyrics, trans_lyrics, only_unlab, model: train_h.auto_label_all(
-            dit_handler,
-            llm_handler,
-            state,
-            skip,
-            fmt_lyrics,
-            trans_lyrics,
-            only_unlab,
-            model_config=model,
-        ),
+        fn=run_auto_label,
         inputs=[
             training_section["dataset_builder_state"],
             training_section["skip_metas"],
@@ -85,6 +101,8 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             training_section["transcribe_lyrics"],
             training_section["only_unlabeled"],
             training_section["dataset_model_config"],
+            training_section["save_path"],
+            training_section["dataset_name"],
         ],
         outputs=[
             training_section["audio_files_table"],

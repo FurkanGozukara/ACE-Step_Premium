@@ -164,6 +164,48 @@ class TestAutoLabelAll(unittest.TestCase):
         self.assertEqual(len(dit_handler.initialize_calls), 1)
         self.assertEqual(dit_handler.initialize_calls[0]["config_path"], "model-b")
 
+    @patch(
+        "acestep.ui.gradio.events.training.service_auto_init.get_global_gpu_config",
+        return_value=_gpu_defaults(),
+    )
+    @patch(
+        "acestep.ui.gradio.events.training.service_auto_init.ensure_llm_ready",
+        return_value=(True, ""),
+    )
+    def test_progress_and_checkpoint_save_are_wired(self, _ensure_lm_ready, _gpu_config):
+        """Auto-label should report count progress and save dataset checkpoints."""
+
+        sample = SimpleNamespace(filename="sample.wav", caption="caption", labeled=True)
+        builder = _builder_with_samples()
+        builder.samples = [sample]
+        builder.get_samples_dataframe_data.return_value = [["sample.wav"]]
+        builder.save_dataset.return_value = "\u2705 Dataset saved"
+
+        def label_all_samples(**kwargs):
+            """Exercise progress and sample callbacks without model work."""
+
+            kwargs["progress_callback"]("Labeling 1/1; labeled 0/1; left 1: sample.wav")
+            kwargs["sample_labeled_callback"](0, sample, "\u2705 Labeled: sample.wav")
+            return builder.samples, "\u2705 Labeled 1/1 samples; left 0"
+
+        builder.label_all_samples.side_effect = label_all_samples
+        progress = MagicMock()
+        dit_handler = _FakeDitHandler(model=object())
+        llm_handler = SimpleNamespace(llm_initialized=True, last_init_params={})
+
+        _table_update, status_update, _returned_builder = auto_label_all(
+            dit_handler,
+            llm_handler,
+            builder,
+            progress=progress,
+            save_path="labels/out",
+            dataset_name="labels",
+        )
+
+        builder.save_dataset.assert_called_once_with("labels/out.json", "labels")
+        progress.assert_any_call((0, 1), desc="Labeling 1/1; labeled 0/1; left 1: sample.wav")
+        self.assertIn("Labeled 1/1", status_update["value"])
+
 
 class TestGetSamplePreview(unittest.TestCase):
     """Tests for get_sample_preview."""

@@ -34,6 +34,7 @@ def _build_training_wrapper(dit_handler: Any):
         training_seed: Any,
         lora_output_dir: Any,
         resume_checkpoint_dir: Any,
+        model_config: Any,
         training_state: Any,
     ) -> Iterator[tuple[Any, Any, Any, dict[str, bool]]]:
         """Stream LoRA training progress and normalize failure outputs for UI."""
@@ -56,6 +57,7 @@ def _build_training_wrapper(dit_handler: Any):
                 lora_output_dir,
                 resume_checkpoint_dir,
                 state,
+                model_config=model_config,
             ):
                 yield progress, log_msg, plot, next_state
         except Exception as exc:  # pragma: no cover - defensive UI wrapper
@@ -94,6 +96,7 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
             training_section["training_seed"],
             training_section["lora_output_dir"],
             training_section["resume_checkpoint_dir"],
+            training_section["lora_model_config"],
             training_section["training_state"],
         ],
         outputs=[

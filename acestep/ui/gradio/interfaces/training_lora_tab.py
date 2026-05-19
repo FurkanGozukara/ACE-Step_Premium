@@ -22,6 +22,8 @@ def create_training_lora_tab(
     epoch_min: int,
     epoch_step: int,
     epoch_default: int,
+    dit_handler=None,
+    init_params: dict | None = None,
 ) -> dict[str, object]:
     """Create the LoRA training tab and return component handles for wiring."""
 
@@ -29,7 +31,12 @@ def create_training_lora_tab(
         create_help_button("training_train")
         build_lora_training_guide()
         tab_controls: dict[str, object] = {}
-        tab_controls.update(build_lora_dataset_and_adapter_controls())
+        tab_controls.update(
+            build_lora_dataset_and_adapter_controls(
+                dit_handler=dit_handler,
+                init_params=init_params,
+            )
+        )
         tab_controls.update(
             build_lora_run_and_export_controls(
                 epoch_min=epoch_min,

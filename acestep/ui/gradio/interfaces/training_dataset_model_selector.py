@@ -43,19 +43,53 @@ def _selected_dataset_model(
     return select_preferred_model_path(available_models)
 
 
+def _build_model_selector(
+    *,
+    control_key: str,
+    label: str,
+    info: str,
+    dit_handler: Any,
+    init_params: dict[str, Any] | None = None,
+) -> dict[str, object]:
+    """Render a DiT model selector for training workflows."""
+
+    available_models = _available_dit_models(dit_handler)
+    model_config = gr.Dropdown(
+        label=label,
+        choices=available_models,
+        value=_selected_dataset_model(available_models, init_params, dit_handler),
+        allow_custom_value=True,
+        info=info,
+        elem_classes=["has-info-container"],
+    )
+    return {control_key: model_config}
+
+
 def build_dataset_model_selector(
     dit_handler: Any,
     init_params: dict[str, Any] | None = None,
 ) -> dict[str, object]:
     """Render the DiT model selector used by dataset auto-label/preprocess."""
 
-    available_models = _available_dit_models(dit_handler)
-    dataset_model_config = gr.Dropdown(
+    return _build_model_selector(
+        control_key="dataset_model_config",
         label="Dataset Model",
-        choices=available_models,
-        value=_selected_dataset_model(available_models, init_params, dit_handler),
-        allow_custom_value=True,
+        dit_handler=dit_handler,
+        init_params=init_params,
         info="DiT model used when dataset actions need to initialize the service.",
-        elem_classes=["has-info-container"],
     )
-    return {"dataset_model_config": dataset_model_config}
+
+
+def build_lora_training_model_selector(
+    dit_handler: Any,
+    init_params: dict[str, Any] | None = None,
+) -> dict[str, object]:
+    """Render the DiT model selector used by LoRA training."""
+
+    return _build_model_selector(
+        control_key="lora_model_config",
+        label="LoRA Base Model",
+        dit_handler=dit_handler,
+        init_params=init_params,
+        info="DiT base model to load before LoRA training starts.",
+    )

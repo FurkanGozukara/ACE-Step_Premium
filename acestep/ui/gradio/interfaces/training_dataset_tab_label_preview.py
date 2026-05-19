@@ -23,7 +23,7 @@ def build_dataset_label_and_preview_controls() -> dict[str, object]:
             )
             only_unlabeled = gr.Checkbox(
                 label=t("training.only_unlabeled"),
-                value=False,
+                value=True,
                 info=t("training.only_unlabeled_info"),
                 elem_classes=["has-info-container"],
             )

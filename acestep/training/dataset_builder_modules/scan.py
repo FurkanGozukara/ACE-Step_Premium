@@ -1,3 +1,5 @@
+"""Scan audio directories and hydrate existing sidecar metadata."""
+
 import os
 from typing import List, Tuple
 
@@ -85,6 +87,15 @@ class ScanMixin:
                     if json_meta.get("caption"):
                         sample.caption = json_meta["caption"]
                         sample.labeled = True
+                    genre = json_meta.get("genre") or json_meta.get("genres")
+                    if genre:
+                        sample.genre = genre
+                    if json_meta.get("lyrics"):
+                        sample.lyrics = json_meta["lyrics"]
+                    if json_meta.get("raw_lyrics"):
+                        sample.raw_lyrics = json_meta["raw_lyrics"]
+                    if json_meta.get("formatted_lyrics"):
+                        sample.formatted_lyrics = json_meta["formatted_lyrics"]
                     if json_meta.get("bpm"):
                         sample.bpm = json_meta["bpm"]
                     if json_meta.get("keyscale"):
@@ -95,6 +106,12 @@ class ScanMixin:
                         sample.language = json_meta["language"]
                         if sample.language != "instrumental":
                             sample.is_instrumental = False
+                    if "is_instrumental" in json_meta:
+                        sample.is_instrumental = bool(json_meta["is_instrumental"])
+                    if "prompt_override" in json_meta:
+                        sample.prompt_override = json_meta["prompt_override"]
+                    if json_meta.get("labeled"):
+                        sample.labeled = True
 
                 if csv_metadata and sample.filename in csv_metadata:
                     meta = csv_metadata[sample.filename]

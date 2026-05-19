@@ -6,6 +6,7 @@ import gradio as gr
 
 from acestep.ui.gradio.interfaces.training_dataset_model_selector import (
     build_dataset_model_selector,
+    build_lora_training_model_selector,
 )
 
 
@@ -55,6 +56,19 @@ class TrainingDatasetModelSelectorTests(unittest.TestCase):
         dropdown = controls["dataset_model_config"]
         self.assertEqual(dropdown.value, "ACEStep_1_5_XL_Turbo_BF16")
         self.assertEqual(dropdown.choices, [])
+
+    def test_lora_selector_uses_distinct_control_key(self):
+        """LoRA training should expose its own base-model dropdown."""
+
+        with gr.Blocks():
+            controls = build_lora_training_model_selector(
+                _FakeDitHandler(),
+                init_params={"config_path": "model-a"},
+            )
+
+        dropdown = controls["lora_model_config"]
+        self.assertEqual(dropdown.value, "model-a")
+        self.assertEqual(dropdown.label, "LoRA Base Model")
 
 
 if __name__ == "__main__":

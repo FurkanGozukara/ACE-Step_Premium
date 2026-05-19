@@ -1,6 +1,9 @@
+"""Audio metadata file and duration helpers for dataset scanning."""
+
 import json
 import os
-from typing import Dict, Any, Tuple
+import subprocess
+from typing import Any, Dict, Tuple
 
 from loguru import logger
 
@@ -70,7 +73,7 @@ def load_json_metadata(audio_path: str) -> Tuple[Dict[str, Any], bool]:
 
 
 def load_lyrics_file(audio_path: str) -> Tuple[str, bool]:
-    """Load lyrics from <basename>.lyrics.txt, then fallback to <basename>.txt for backward compat."""
+    """Load lyrics from explicit and legacy sidecar text files."""
     validated = safe_path(audio_path)
     base_path = os.path.splitext(validated)[0]
     for suffix in (".lyrics.txt", ".txt"):
@@ -88,21 +91,57 @@ def load_lyrics_file(audio_path: str) -> Tuple[str, bool]:
 def get_audio_duration(audio_path: str) -> int:
     """Get the duration of an audio file in seconds."""
     validated = safe_path(audio_path)
-    # Primary: torchcodec (ships with torchaudio >=2.9, supports all ffmpeg formats)
-    # Note: torchcodec is optional on ROCM/Intel platforms due to CUDA dependencies
-    try:
-        from torchcodec.decoders import AudioDecoder
-        decoder = AudioDecoder(validated)
-        return int(decoder.metadata.duration_seconds)
-    except ImportError:
-        logger.debug("torchcodec not available (expected on ROCM/Intel platforms), using soundfile fallback")
-    except Exception as e:
-        logger.debug(f"torchcodec failed for {validated}: {e}, trying soundfile")
-    # Fallback: soundfile (fast for wav/flac/ogg, works on all platforms)
+    duration = _duration_from_soundfile(validated)
+    if duration is not None:
+        return duration
+
+    duration = _duration_from_ffprobe(validated)
+    if duration is not None:
+        return duration
+
+    logger.warning(f"Failed to get duration for {validated}")
+    return 0
+
+
+def _duration_from_soundfile(audio_path: str) -> int | None:
+    """Return duration using libsndfile when it supports the format."""
+
     try:
         import soundfile as sf
-        info = sf.info(validated)
+        info = sf.info(audio_path)
         return int(info.duration)
-    except Exception as e:
-        logger.warning(f"Failed to get duration for {validated}: {e}")
-        return 0
+    except Exception as exc:
+        logger.debug(f"soundfile duration probe failed for {audio_path}: {exc}")
+        return None
+
+
+def _duration_from_ffprobe(audio_path: str) -> int | None:
+    """Return duration using the standard FFmpeg CLI tools."""
+
+    command = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        audio_path,
+    ]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=10, check=False)
+    except (FileNotFoundError, subprocess.SubprocessError, OSError) as exc:
+        logger.debug(f"ffprobe duration probe failed for {audio_path}: {exc}")
+        return None
+
+    if result.returncode != 0:
+        stderr = result.stderr.strip().splitlines()
+        detail = stderr[0] if stderr else f"exit code {result.returncode}"
+        logger.debug(f"ffprobe duration probe failed for {audio_path}: {detail}")
+        return None
+
+    try:
+        return int(float(result.stdout.strip()))
+    except ValueError:
+        logger.debug(f"ffprobe returned invalid duration for {audio_path}: {result.stdout!r}")
+        return None

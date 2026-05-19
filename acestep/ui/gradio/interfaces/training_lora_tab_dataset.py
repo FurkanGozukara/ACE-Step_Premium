@@ -5,9 +5,15 @@ from __future__ import annotations
 import gradio as gr
 
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.interfaces.training_dataset_model_selector import (
+    build_lora_training_model_selector,
+)
 
 
-def build_lora_dataset_and_adapter_controls() -> dict[str, object]:
+def build_lora_dataset_and_adapter_controls(
+    dit_handler=None,
+    init_params: dict | None = None,
+) -> dict[str, object]:
     """Render LoRA dataset selector and adapter-parameter controls."""
 
     with gr.Row():
@@ -29,6 +35,11 @@ def build_lora_dataset_and_adapter_controls() -> dict[str, object]:
                 label=t("training.dataset_info"),
                 interactive=False,
                 lines=3,
+            )
+
+            model_controls = build_lora_training_model_selector(
+                dit_handler=dit_handler,
+                init_params=init_params,
             )
 
         with gr.Column(scale=1):
@@ -66,6 +77,7 @@ def build_lora_dataset_and_adapter_controls() -> dict[str, object]:
         "training_tensor_dir": training_tensor_dir,
         "load_dataset_btn": load_dataset_btn,
         "training_dataset_info": training_dataset_info,
+        "lora_model_config": model_controls["lora_model_config"],
         "lora_rank": lora_rank,
         "lora_alpha": lora_alpha,
         "lora_dropout": lora_dropout,
