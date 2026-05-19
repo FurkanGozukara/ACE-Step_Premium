@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 from acestep.training.path_safety import get_safe_root, set_safe_root
 from acestep.ui.gradio.events.training.preprocess import (
+    load_existing_dataset_for_preprocess,
     load_training_dataset,
     preprocess_dataset,
 )
@@ -116,6 +117,40 @@ class TestLoadTrainingDataset(unittest.TestCase):
             set_safe_root(tmpdir)
             result = load_training_dataset(tmpdir)
             self.assertIn("❌", result)
+
+    def test_load_existing_dataset_accepts_processed_label_folder(self):
+        """Preprocess loader should use audio_path from processed-label JSON files."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            audio_dir = os.path.join(tmpdir, "audio")
+            label_dir = os.path.join(tmpdir, "auto_label")
+            os.makedirs(audio_dir)
+            os.makedirs(label_dir)
+            audio_path = os.path.join(audio_dir, "song.flac")
+            with open(audio_path, "wb") as file_obj:
+                file_obj.write(b"audio")
+            label_path = os.path.join(label_dir, "song.json")
+            with open(label_path, "w", encoding="utf-8") as file_obj:
+                json.dump(
+                    {
+                        "audio_path": audio_path,
+                        "filename": "song.flac",
+                        "caption": "loaded caption",
+                        "lyrics": "[Verse]\nwords",
+                        "language": "en",
+                        "is_instrumental": False,
+                        "labeled": True,
+                    },
+                    file_obj,
+                )
+
+            set_safe_root(tmpdir)
+            result = load_existing_dataset_for_preprocess(label_dir, None)
+
+        self.assertIn("Ready for preprocessing", result[0])
+        self.assertEqual(audio_path, result[4])
+        self.assertEqual("song.flac", result[5])
+        self.assertEqual("loaded caption", result[6])
 
 
 class TestPreprocessDataset(unittest.TestCase):

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import os
 from typing import Callable, List, Optional, Tuple
 
 from loguru import logger
+
+from acestep.training.path_safety import safe_path
 
 from .label_persistence import save_sample_label_metadata
 from .models import AudioSample
@@ -38,6 +41,8 @@ class LabelAllMixin:
         batch_size: Optional[int] = None,
         sample_labeled_callback: Optional[Callable[[int, AudioSample, str], None]] = None,
         persist_labels: bool = True,
+        label_output_dir: str | None = None,
+        label_source_root: str | None = None,
     ) -> Tuple[List[AudioSample], str]:
         """Label samples and persist each successful label immediately."""
 
@@ -62,6 +67,11 @@ class LabelAllMixin:
         sidecar_fail_count = 0
         total = len(samples_to_label)
         skipped_count = len(self.samples) - total if only_unlabeled else 0
+        resolved_label_source_root = (
+            label_source_root
+            or getattr(self, "_current_dir", None)
+            or _common_audio_source_root(self.samples)
+        )
 
         for idx, (sample_idx, sample) in enumerate(samples_to_label):
             left_before = total - idx
@@ -87,7 +97,11 @@ class LabelAllMixin:
                 success_count += 1
                 if persist_labels:
                     try:
-                        save_sample_label_metadata(sample)
+                        save_sample_label_metadata(
+                            sample,
+                            output_dir=label_output_dir,
+                            source_root=resolved_label_source_root,
+                        )
                     except Exception as exc:
                         sidecar_fail_count += 1
                         logger.exception("Auto-label sidecar save failed")
@@ -113,3 +127,20 @@ class LabelAllMixin:
             status_msg += f" ({skipped_count} already labeled, {len(self.samples)} total)"
 
         return self.samples, status_msg
+
+
+def _common_audio_source_root(samples: list[AudioSample]) -> str | None:
+    """Return the common source-audio directory for processed-label naming."""
+
+    directories: list[str] = []
+    for sample in samples:
+        try:
+            directories.append(os.path.dirname(safe_path(sample.audio_path)))
+        except (OSError, ValueError):
+            continue
+    if not directories:
+        return None
+    try:
+        return os.path.commonpath(directories)
+    except ValueError:
+        return None

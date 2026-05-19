@@ -12,8 +12,8 @@ def build_dataset_label_and_preview_controls() -> dict[str, object]:
 
     gr.HTML(f"<hr><h3>🤖 {t('training.step2_title')}</h3>")
 
-    with gr.Row():
-        with gr.Column(scale=3):
+    with gr.Row(equal_height=True):
+        with gr.Column(scale=1):
             gr.Markdown(t("training.step2_instruction"))
             skip_metas = gr.Checkbox(
                 label=t("training.skip_metas"),
@@ -28,17 +28,29 @@ def build_dataset_label_and_preview_controls() -> dict[str, object]:
                 elem_classes=["has-info-container"],
             )
         with gr.Column(scale=1):
+            auto_label_output_dir = gr.Textbox(
+                label=t("training.auto_label_output_dir"),
+                placeholder="./datasets/processed_labels",
+                info=t("training.auto_label_output_dir_info"),
+                elem_classes=["has-info-container"],
+            )
             auto_label_subprocess = gr.Checkbox(
                 label="Run in isolated subprocess",
                 value=True,
                 info="Frees VRAM/RAM when the auto-label worker exits.",
                 elem_classes=["has-info-container"],
             )
-            auto_label_btn = gr.Button(
-                t("training.auto_label_btn"),
-                variant="primary",
-                size="lg",
-            )
+            with gr.Row(equal_height=True):
+                auto_label_output_dir_browse_btn = gr.Button(
+                    t("training.browse_label_folder_btn"),
+                    variant="secondary",
+                    size="lg",
+                )
+                auto_label_btn = gr.Button(
+                    t("training.auto_label_btn"),
+                    variant="primary",
+                    size="lg",
+                )
 
     label_progress = gr.Textbox(
         label=t("training.label_progress"),
@@ -159,6 +171,8 @@ def build_dataset_label_and_preview_controls() -> dict[str, object]:
     return {
         "skip_metas": skip_metas,
         "only_unlabeled": only_unlabeled,
+        "auto_label_output_dir": auto_label_output_dir,
+        "auto_label_output_dir_browse_btn": auto_label_output_dir_browse_btn,
         "auto_label_subprocess": auto_label_subprocess,
         "auto_label_btn": auto_label_btn,
         "label_progress": label_progress,

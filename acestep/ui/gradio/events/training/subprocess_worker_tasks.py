@@ -40,6 +40,8 @@ def run_auto_label_task(payload: dict[str, Any], emit: Emit) -> dict[str, Any]:
         model_config=settings.get("model_config"),
         save_path=settings.get("save_path"),
         dataset_name=settings.get("dataset_name"),
+        label_output_dir=settings.get("label_output_dir"),
+        label_source_root=settings.get("label_source_root"),
     )
     _ = table
     dataset_path = payload["result_dataset_path"]

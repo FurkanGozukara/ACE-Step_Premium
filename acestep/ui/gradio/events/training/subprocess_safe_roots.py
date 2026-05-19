@@ -43,6 +43,8 @@ def apply_worker_safe_roots(payload: dict[str, Any]) -> None:
         payload.get("result_dataset_path"),
         payload.get("output_dir"),
         settings.get("save_path"),
+        settings.get("label_output_dir"),
+        settings.get("label_source_root"),
     ]
     roots = _dedupe_existing_roots(candidates)
     if not roots:

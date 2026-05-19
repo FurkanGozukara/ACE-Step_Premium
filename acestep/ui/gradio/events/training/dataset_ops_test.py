@@ -83,6 +83,7 @@ class TestAutoLabelAll(unittest.TestCase):
             dit_handler,
             llm_handler,
             builder,
+            label_output_dir="labels",
         )
 
         self.assertIs(returned_builder, builder)
@@ -115,6 +116,7 @@ class TestAutoLabelAll(unittest.TestCase):
             dit_handler,
             llm_handler,
             builder,
+            label_output_dir="labels",
         )
 
         self.assertIs(returned_builder, builder)
@@ -145,6 +147,7 @@ class TestAutoLabelAll(unittest.TestCase):
             llm_handler,
             builder,
             model_config="model-a",
+            label_output_dir="labels",
         )
 
         self.assertEqual(dit_handler.initialize_calls, [])
@@ -171,6 +174,7 @@ class TestAutoLabelAll(unittest.TestCase):
             llm_handler,
             builder,
             model_config="model-b",
+            label_output_dir="labels",
         )
 
         self.assertEqual(len(dit_handler.initialize_calls), 1)
@@ -214,12 +218,36 @@ class TestAutoLabelAll(unittest.TestCase):
             progress=progress,
             save_path="labels/out",
             dataset_name="labels",
+            label_output_dir="labels/processed",
         )
 
         builder.save_dataset.assert_called_once_with(os.path.normpath("labels/out.json"), "labels")
         self.assertEqual("en", builder.label_all_samples.call_args.kwargs["lm_lyrics_language"])
+        expected_label_dir = os.path.normpath(os.path.realpath(os.path.abspath("labels/processed")))
+        self.assertEqual(
+            expected_label_dir,
+            builder.label_all_samples.call_args.kwargs["label_output_dir"],
+        )
         progress.assert_any_call((0, 1), desc="Labeling 1/1; labeled 0/1; left 1: sample.wav")
         self.assertIn("Labeled 1/1", status_update["value"])
+
+    def test_requires_processed_label_folder_before_initializing_models(self):
+        """Auto-label should reject blank processed-label output folders early."""
+
+        builder = _builder_with_samples()
+        dit_handler = _FakeDitHandler()
+        llm_handler = SimpleNamespace(llm_initialized=False, last_init_params=None)
+
+        _table_data, status, _returned_builder = auto_label_all(
+            dit_handler,
+            llm_handler,
+            builder,
+            label_output_dir="",
+        )
+
+        self.assertIn("processed labels folder", status)
+        self.assertEqual([], dit_handler.initialize_calls)
+        builder.label_all_samples.assert_not_called()
 
 
 class TestScanDirectory(unittest.TestCase):

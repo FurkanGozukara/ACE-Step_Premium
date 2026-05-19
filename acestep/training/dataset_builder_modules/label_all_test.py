@@ -120,6 +120,24 @@ class LabelAllMixinTests(unittest.TestCase):
 
         self.assertIn("Labeled 1/1", status)
 
+    @patch("acestep.training.dataset_builder_modules.label_all.save_sample_label_metadata")
+    def test_passes_processed_label_folder_to_persistence(self, save_sidecar) -> None:
+        """Batch labeling should persist labels to the selected processed folder."""
+
+        builder = _Builder([AudioSample(audio_path="todo.wav", filename="todo.wav")])
+
+        _samples, status = builder.label_all_samples(
+            dit_handler=None,
+            llm_handler=None,
+            label_output_dir="labels",
+            label_source_root="source",
+        )
+
+        self.assertIn("Labeled 1/1", status)
+        save_sidecar.assert_called_once()
+        self.assertEqual("labels", save_sidecar.call_args.kwargs["output_dir"])
+        self.assertEqual("source", save_sidecar.call_args.kwargs["source_root"])
+
     @patch(
         "acestep.training.dataset_builder_modules.label_all.save_sample_label_metadata",
         side_effect=OSError("read-only dataset directory"),

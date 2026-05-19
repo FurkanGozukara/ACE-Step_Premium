@@ -82,6 +82,8 @@ class SubprocessDatasetTests(unittest.TestCase):
             tempfile.TemporaryDirectory() as audio_dir,
         ):
             set_safe_roots([project_dir, audio_dir])
+            label_dir = Path(project_dir) / "processed_labels"
+            label_dir.mkdir()
             audio_paths = [Path(audio_dir) / "one.wav", Path(audio_dir) / "two.wav"]
             for path in audio_paths:
                 path.write_bytes(b"audio")
@@ -119,7 +121,10 @@ class SubprocessDatasetTests(unittest.TestCase):
             ) as stream_worker:
                 _table_update, status_update, returned = run_auto_label_subprocess(
                     builder_state=_builder_for_paths("old caption", audio_paths),
-                    settings={"dataset_name": "worker-test"},
+                    settings={
+                        "dataset_name": "worker-test",
+                        "label_output_dir": str(label_dir),
+                    },
                     dit_init_params={"project_root": project_dir},
                     llm_init_params={},
                 )
@@ -132,6 +137,11 @@ class SubprocessDatasetTests(unittest.TestCase):
             str(Path(root).resolve()) for root in captured_payloads[0]["safe_roots"]
         }
         self.assertIn(str(Path(audio_dir).resolve()), safe_roots)
+        self.assertIn(str(label_dir.resolve()), safe_roots)
+        self.assertEqual(
+            str(Path(audio_dir).resolve()),
+            str(Path(captured_payloads[0]["settings"]["label_source_root"]).resolve()),
+        )
 
     def test_preprocess_subprocess_sends_safe_roots_and_uses_one_worker(self) -> None:
         """A full preprocess batch should use one worker with source-audio roots."""
@@ -204,6 +214,8 @@ def _builder_for_paths(caption: str, audio_paths: list[Path]) -> DatasetBuilder:
     """Build a labeled dataset builder for the given audio paths."""
 
     builder = DatasetBuilder()
+    if audio_paths:
+        builder._current_dir = str(audio_paths[0].parent)
     builder.samples = [
         AudioSample(
             audio_path=str(audio_path),

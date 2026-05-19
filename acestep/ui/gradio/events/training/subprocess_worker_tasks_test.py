@@ -9,7 +9,6 @@ from unittest.mock import patch
 
 from acestep.training.dataset_builder import AudioSample, DatasetBuilder
 from acestep.training.dataset_builder_modules.label_persistence import (
-    sample_label_metadata_path,
     save_sample_label_metadata,
 )
 from acestep.training.path_safety import get_safe_roots, safe_path, set_safe_roots
@@ -46,6 +45,7 @@ class SubprocessWorkerTaskTests(unittest.TestCase):
             def fake_auto_label(dit, llm, builder, *args, **kwargs):
                 self.assertEqual("model-a", dit.last_init_params["config_path"])
                 self.assertEqual("lm-a", llm.last_init_params["lm_model_path"])
+                self.assertEqual(str(Path(tmpdir) / "labels"), kwargs["label_output_dir"])
                 return [], {"value": "labeled"}, builder
 
             payload = {
@@ -53,7 +53,10 @@ class SubprocessWorkerTaskTests(unittest.TestCase):
                 "result_dataset_path": str(result_path),
                 "dit_init_params": {"config_path": "model-a"},
                 "llm_init_params": {"lm_model_path": "lm-a"},
-                "settings": {"dataset_name": "worker-test"},
+                "settings": {
+                    "dataset_name": "worker-test",
+                    "label_output_dir": str(Path(tmpdir) / "labels"),
+                },
             }
             with patch(
                 "acestep.ui.gradio.events.training.subprocess_worker_tasks.auto_label_all",
@@ -65,8 +68,8 @@ class SubprocessWorkerTaskTests(unittest.TestCase):
         self.assertEqual("labeled", result["status"])
         self.assertTrue(events)
 
-    def test_auto_label_task_applies_payload_safe_roots_for_sidecars(self) -> None:
-        """Auto-label worker should write sidecars beside external source audio."""
+    def test_auto_label_task_applies_payload_safe_roots_for_processed_labels(self) -> None:
+        """Auto-label worker should write labels outside the source audio folder."""
 
         with (
             tempfile.TemporaryDirectory() as project_dir,
@@ -74,6 +77,7 @@ class SubprocessWorkerTaskTests(unittest.TestCase):
         ):
             dataset_path = Path(project_dir) / "dataset.json"
             result_path = Path(project_dir) / "result.json"
+            label_dir = Path(project_dir) / "processed_labels"
             audio_path = Path(audio_dir) / "sample.wav"
             audio_path.write_bytes(b"audio")
             set_safe_roots([project_dir])
@@ -84,7 +88,11 @@ class SubprocessWorkerTaskTests(unittest.TestCase):
                 sample = builder.samples[0]
                 sample.caption = "caption"
                 sample.labeled = True
-                save_sample_label_metadata(sample)
+                save_sample_label_metadata(
+                    sample,
+                    output_dir=kwargs["label_output_dir"],
+                    source_root=kwargs["label_source_root"],
+                )
                 return [], {"value": "labeled"}, builder
 
             payload = {
@@ -92,8 +100,12 @@ class SubprocessWorkerTaskTests(unittest.TestCase):
                 "result_dataset_path": str(result_path),
                 "dit_init_params": {},
                 "llm_init_params": {},
-                "safe_roots": [project_dir, audio_dir],
-                "settings": {"dataset_name": "worker-test"},
+                "safe_roots": [project_dir, audio_dir, str(label_dir)],
+                "settings": {
+                    "dataset_name": "worker-test",
+                    "label_output_dir": str(label_dir),
+                    "label_source_root": audio_dir,
+                },
             }
             with patch(
                 "acestep.ui.gradio.events.training.subprocess_worker_tasks.auto_label_all",
@@ -101,11 +113,12 @@ class SubprocessWorkerTaskTests(unittest.TestCase):
             ):
                 result = run_auto_label_task(payload, events.append)
 
-            sidecar_path = sample_label_metadata_path(str(audio_path))
-            sidecar_exists = Path(sidecar_path).exists()
+            label_exists = (label_dir / "sample.json").exists()
+            source_sidecar_exists = audio_path.with_suffix(".json").exists()
 
         self.assertTrue(result["success"])
-        self.assertTrue(sidecar_exists)
+        self.assertTrue(label_exists)
+        self.assertFalse(source_sidecar_exists)
 
     def test_preprocess_task_applies_payload_safe_roots(self) -> None:
         """Preprocess worker should validate output and source-audio roots."""

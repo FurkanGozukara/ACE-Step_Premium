@@ -13,6 +13,7 @@ from loguru import logger
 
 from acestep.training.dataset_builder import DatasetBuilder
 from acestep.training.path_inputs import normalize_user_path
+from acestep.training.path_safety import safe_path
 from .service_auto_init import ensure_training_services_ready
 from .training_utils import _safe_slider
 
@@ -73,6 +74,8 @@ def auto_label_all(
     model_config: str | None = None,
     save_path: str | None = None,
     dataset_name: str | None = None,
+    label_output_dir: str | None = None,
+    label_source_root: str | None = None,
 ) -> Tuple[List[List[Any]], str, DatasetBuilder]:
     """Auto-label all samples in the dataset.
 
@@ -89,6 +92,8 @@ def auto_label_all(
         model_config: Optional DiT model name selected for dataset actions.
         save_path: Optional dataset JSON path for per-sample checkpoint saves.
         dataset_name: Optional dataset name to persist with checkpoint saves.
+        label_output_dir: Folder for processed per-song label JSON files.
+        label_source_root: Optional source root for mirroring nested audio folders.
 
     Returns:
         Tuple of (table_data, status, builder_state).
@@ -98,6 +103,22 @@ def auto_label_all(
 
     if not builder_state.samples:
         return [], "❌ No samples to label. Please scan a directory first.", builder_state
+
+    resolved_label_output_dir = normalize_user_path(label_output_dir)
+    if not resolved_label_output_dir:
+        return (
+            builder_state.get_samples_dataframe_data(),
+            "\u274c Please choose a processed labels folder before auto-labeling.",
+            builder_state,
+        )
+    try:
+        resolved_label_output_dir = safe_path(resolved_label_output_dir)
+    except ValueError:
+        return (
+            builder_state.get_samples_dataframe_data(),
+            f"\u274c Rejected unsafe processed labels folder: {resolved_label_output_dir}",
+            builder_state,
+        )
 
     services_ready, auto_init_status = ensure_training_services_ready(
         dit_handler,
@@ -150,6 +171,8 @@ def auto_label_all(
         only_unlabeled=only_unlabeled,
         progress_callback=progress_callback,
         sample_labeled_callback=sample_labeled_callback,
+        label_output_dir=resolved_label_output_dir,
+        label_source_root=label_source_root,
     )
     if auto_init_status:
         status = f"{auto_init_status}\n{status}" if status else auto_init_status

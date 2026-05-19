@@ -117,11 +117,10 @@ def build_dataset_scan_and_settings_controls(
 
             transcribe_lyrics = gr.Checkbox(
                 label="Transcribe Lyrics (LM)",
-                value=False,
+                value=True,
                 info=(
-                    "Optional: generate lyrics from audio during auto-labeling. "
-                    "Leave off for safest dataset quality; enable only when you "
-                    "need approximate lyrics and will review them."
+                    "Enabled by default: generate approximate lyrics from audio "
+                    "during auto-labeling. Review transcribed lyrics before training."
                 ),
                 elem_classes=["has-info-container"],
                 interactive=True,

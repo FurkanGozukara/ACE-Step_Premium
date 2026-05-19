@@ -1,3 +1,5 @@
+"""Serialize full datasets and processed auto-label JSON files."""
+
 import json
 import os
 from datetime import datetime
@@ -6,6 +8,7 @@ from typing import List, Tuple
 from loguru import logger
 
 from acestep.training.path_safety import safe_path
+
 from .models import AudioSample, DatasetMetadata
 
 
@@ -36,7 +39,10 @@ class SerializationMixin:
             with open(validated_output, "w", encoding="utf-8") as f:
                 json.dump(dataset, f, indent=2, ensure_ascii=False)
 
-            return f"✅ Dataset saved to {validated_output}\n{len(self.samples)} samples, tag: '{self.metadata.custom_tag}'"
+            return (
+                f"✅ Dataset saved to {validated_output}\n"
+                f"{len(self.samples)} samples, tag: '{self.metadata.custom_tag}'"
+            )
         except Exception as e:
             logger.exception("Error saving dataset")
             return f"❌ Failed to save dataset: {str(e)}"
@@ -52,8 +58,14 @@ class SerializationMixin:
             return [], f"❌ Dataset not found: {dataset_path}"
 
         try:
+            if os.path.isdir(validated_path):
+                return self._load_processed_label_directory(validated_path)
+
             with open(validated_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
+
+            if "samples" not in data and _is_processed_label(data):
+                return self._load_processed_label_file(validated_path, data)
 
             if "metadata" in data:
                 meta_dict = data["metadata"]
@@ -76,3 +88,94 @@ class SerializationMixin:
         except Exception as e:
             logger.exception("Error loading dataset")
             return [], f"❌ Failed to load dataset: {str(e)}"
+
+    def _load_processed_label_file(
+        self,
+        label_path: str,
+        data: dict,
+    ) -> Tuple[List[AudioSample], str]:
+        """Load one processed-label JSON file as a single-sample dataset."""
+
+        sample = _sample_from_processed_label(data)
+        if sample is None:
+            return [], f"❌ Processed label has no usable audio_path: {label_path}"
+
+        self.samples = [sample]
+        self.metadata = _metadata_for_processed_labels(
+            os.path.dirname(label_path),
+            self.samples,
+        )
+        return self.samples, f"✅ Loaded 1 processed label from {label_path}"
+
+    def _load_processed_label_directory(
+        self,
+        label_dir: str,
+    ) -> Tuple[List[AudioSample], str]:
+        """Load all processed-label JSON files in a folder as a dataset."""
+
+        samples: list[AudioSample] = []
+        skipped = 0
+        for filename in sorted(os.listdir(label_dir)):
+            if not filename.lower().endswith(".json"):
+                continue
+            label_path = os.path.join(label_dir, filename)
+            try:
+                with open(label_path, "r", encoding="utf-8") as file_obj:
+                    data = json.load(file_obj)
+            except Exception as exc:
+                logger.warning(f"Failed to read processed label {label_path}: {exc}")
+                skipped += 1
+                continue
+            sample = _sample_from_processed_label(data)
+            if sample is None:
+                skipped += 1
+                continue
+            samples.append(sample)
+
+        if not samples:
+            return [], f"❌ No processed labels with usable audio_path found in {label_dir}"
+
+        self.samples = samples
+        self.metadata = _metadata_for_processed_labels(label_dir, self.samples)
+        status = f"✅ Loaded {len(samples)} processed labels from {label_dir}"
+        if skipped:
+            status += f" ({skipped} skipped)"
+        return self.samples, status
+
+
+def _is_processed_label(data: object) -> bool:
+    """Return whether a JSON object looks like one processed label."""
+
+    return isinstance(data, dict) and bool(data.get("audio_path"))
+
+
+def _sample_from_processed_label(data: object) -> AudioSample | None:
+    """Build an ``AudioSample`` from processed-label JSON data."""
+
+    if not _is_processed_label(data):
+        return None
+
+    sample = AudioSample.from_dict(data)
+    try:
+        sample.audio_path = safe_path(sample.audio_path)
+    except ValueError as exc:
+        logger.warning(f"Rejected processed-label audio path {sample.audio_path!r}: {exc}")
+        return None
+    if not sample.filename:
+        sample.filename = os.path.basename(sample.audio_path)
+    if not sample.labeled and sample.caption:
+        sample.labeled = True
+    return sample
+
+
+def _metadata_for_processed_labels(
+    label_dir: str,
+    samples: list[AudioSample],
+) -> DatasetMetadata:
+    """Return dataset metadata for a processed-label load."""
+
+    return DatasetMetadata(
+        name=os.path.basename(os.path.normpath(label_dir)) or "processed_labels",
+        num_samples=len(samples),
+        all_instrumental=all(sample.is_instrumental for sample in samples),
+    )

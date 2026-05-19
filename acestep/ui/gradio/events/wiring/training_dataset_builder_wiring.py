@@ -79,6 +79,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
         vram_preset,
         save_path,
         dataset_name,
+        label_output_dir,
         subprocess_mode,
         progress=gr.Progress(track_tqdm=True),
     ):
@@ -103,6 +104,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
                     "vram_preset": vram_preset,
                     "save_path": save_path,
                     "dataset_name": dataset_name,
+                    "label_output_dir": label_output_dir,
                 },
                 dit_init_params=dit_init_params,
                 llm_init_params=llm_init_params,
@@ -122,6 +124,8 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             model_config=model,
             save_path=save_path,
             dataset_name=dataset_name,
+            label_output_dir=label_output_dir,
+            label_source_root=getattr(state, "_current_dir", None),
         )
 
     training_section["scan_directory_browse_btn"].click(
@@ -163,6 +167,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             training_section["dataset_vram_preset"],
             training_section["save_path"],
             training_section["dataset_name"],
+            training_section["auto_label_output_dir"],
             training_section["auto_label_subprocess"],
         ],
         outputs=[
@@ -185,6 +190,12 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
         fn=lambda has_raw: gr.update(visible=bool(has_raw)),
         inputs=[training_section["has_raw_lyrics_state"]],
         outputs=[training_section["raw_lyrics_display"]],
+    )
+
+    training_section["auto_label_output_dir_browse_btn"].click(
+        fn=select_folder_path,
+        inputs=[training_section["auto_label_output_dir"]],
+        outputs=[training_section["auto_label_output_dir"]],
     )
 
     training_section["sample_selector"].change(

@@ -34,6 +34,8 @@ def run_auto_label_subprocess(
         return [], "No samples to label. Please scan a directory first.", builder_state
 
     job = create_training_subprocess_job(dit_init_params["project_root"])
+    settings = dict(settings)
+    settings["label_source_root"] = getattr(builder_state, "_current_dir", None)
     dataset_path = _save_request_dataset(builder_state, settings.get("dataset_name"), job)
     result_dataset_path = job.work_dir / "auto_label_result.json"
     safe_roots = build_worker_safe_roots(
@@ -41,6 +43,8 @@ def run_auto_label_subprocess(
         dataset_path,
         result_dataset_path,
         settings.get("save_path"),
+        settings.get("label_output_dir"),
+        settings.get("label_source_root"),
         samples=builder_state.samples,
     )
     payload = {
