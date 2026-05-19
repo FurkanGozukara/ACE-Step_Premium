@@ -22,8 +22,14 @@ class TrainingDatasetScanSettingsTests(unittest.TestCase):
 
         self.assertTrue(controls["format_lyrics"].interactive)
         self.assertTrue(controls["transcribe_lyrics"].interactive)
-        self.assertEqual("unknown", controls["lm_lyrics_language"].value)
+        self.assertFalse(controls["all_instrumental"].value)
+        self.assertTrue(controls["format_lyrics"].value)
+        self.assertTrue(controls["transcribe_lyrics"].value)
+        self.assertEqual("en", controls["lm_lyrics_language"].value)
         self.assertIn(("English", "en"), controls["lm_lyrics_language"].choices)
+        self.assertEqual("prepend", controls["tag_position"].value)
+        self.assertIn("Genre text instead of the full Caption", controls["genre_ratio"].info)
+        self.assertIn("Custom Trigger Tag is filled", controls["tag_position"].info)
         self.assertNotIn("coming soon", controls["format_lyrics"].info.lower())
         self.assertNotIn("coming soon", controls["transcribe_lyrics"].info.lower())
 

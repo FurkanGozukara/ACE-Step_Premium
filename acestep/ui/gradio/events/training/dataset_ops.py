@@ -46,19 +46,13 @@ def scan_directory(
     builder = builder_state if builder_state else DatasetBuilder()
 
     builder.metadata.name = dataset_name
-    builder.metadata.custom_tag = custom_tag
-    builder.metadata.tag_position = tag_position
     builder.metadata.all_instrumental = all_instrumental
+    builder.set_custom_tag(custom_tag, tag_position)
 
     samples, status = builder.scan_directory(audio_dir)
 
     if not samples:
         return [], status, _safe_slider(0, value=0, visible=False), builder
-
-    # scan_directory already applies all_instrumental as the fallback. Reapplying
-    # it here would overwrite per-file JSON sidecars that mark vocal samples.
-    if custom_tag:
-        builder.set_custom_tag(custom_tag, tag_position)
 
     table_data = builder.get_samples_dataframe_data()
     slider_max = max(0, len(samples) - 1)
@@ -321,8 +315,7 @@ def update_settings(
     if builder_state is None:
         return builder_state
 
-    if custom_tag:
-        builder_state.set_custom_tag(custom_tag, tag_position)
+    builder_state.set_custom_tag(custom_tag, tag_position)
 
     builder_state.set_all_instrumental(all_instrumental)
     builder_state.metadata.genre_ratio = int(genre_ratio)

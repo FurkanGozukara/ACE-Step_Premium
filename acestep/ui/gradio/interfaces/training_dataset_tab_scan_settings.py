@@ -98,14 +98,14 @@ def build_dataset_scan_and_settings_controls(
 
             all_instrumental = gr.Checkbox(
                 label=t("training.all_instrumental"),
-                value=True,
+                value=False,
                 info=t("training.all_instrumental_info"),
                 elem_classes=["has-info-container"],
             )
 
             format_lyrics = gr.Checkbox(
                 label="Format Lyrics (LM)",
-                value=False,
+                value=True,
                 info=(
                     "Use LM to format/structure user-provided lyrics from .txt "
                     "files during auto-labeling. Can be combined with "
@@ -117,7 +117,7 @@ def build_dataset_scan_and_settings_controls(
 
             transcribe_lyrics = gr.Checkbox(
                 label="Transcribe Lyrics (LM)",
-                value=False,
+                value=True,
                 info=(
                     "Use LM audio understanding during auto-labeling. When combined "
                     "with Format Lyrics and a matching lyrics file, lyrics come from "
@@ -129,7 +129,7 @@ def build_dataset_scan_and_settings_controls(
 
             lm_lyrics_language = gr.Dropdown(
                 choices=language_dropdown_choices(),
-                value="unknown",
+                value="en",
                 label="LM Lyrics Language",
                 info=(
                     "Optional language hint for LM lyric formatting/transcription. "
@@ -151,7 +151,7 @@ def build_dataset_scan_and_settings_controls(
                     (t("training.tag_append"), "append"),
                     (t("training.tag_replace"), "replace"),
                 ],
-                value="replace",
+                value="prepend",
                 label=t("training.tag_position"),
                 info=t("training.tag_position_info"),
                 elem_classes=["has-info-container"],

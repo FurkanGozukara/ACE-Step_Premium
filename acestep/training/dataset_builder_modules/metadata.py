@@ -5,12 +5,14 @@ class MetadataMixin:
     """Dataset-level metadata helpers."""
 
     def set_custom_tag(self, custom_tag: str, tag_position: str = "prepend"):
-        """Set the custom tag for all samples."""
-        self.metadata.custom_tag = custom_tag
-        self.metadata.tag_position = tag_position
+        """Set or clear the custom tag for all samples."""
+
+        normalized_tag = str(custom_tag or "").strip()
+        self.metadata.custom_tag = normalized_tag
+        self.metadata.tag_position = tag_position if normalized_tag else "prepend"
 
         for sample in self.samples:
-            sample.custom_tag = custom_tag
+            sample.custom_tag = normalized_tag
 
     def set_all_instrumental(self, is_instrumental: bool):
         """Set instrumental flag for all samples."""

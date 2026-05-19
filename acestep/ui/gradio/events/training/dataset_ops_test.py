@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from acestep.training.dataset_builder import AudioSample, DatasetBuilder
 from acestep.training.path_safety import get_safe_roots, set_safe_roots
 from acestep.ui.gradio.events.training.dataset_ops import (
     auto_label_all,
@@ -394,6 +395,23 @@ class TestUpdateSettings(unittest.TestCase):
         builder.metadata = MagicMock()
         result = update_settings("", "prefix", False, 75, builder)
         self.assertEqual(result.metadata.genre_ratio, 75)
+
+    def test_blank_custom_tag_clears_sample_tags(self):
+        """Clearing the custom tag should disable tag-position behavior."""
+
+        builder = DatasetBuilder()
+        builder.samples = [
+            AudioSample(caption="bright pop", genre="pop", custom_tag="oldtag")
+        ]
+        builder.metadata.custom_tag = "oldtag"
+        builder.metadata.tag_position = "replace"
+
+        result = update_settings("", "replace", False, 0, builder)
+
+        self.assertEqual("", result.metadata.custom_tag)
+        self.assertEqual("prepend", result.metadata.tag_position)
+        self.assertEqual("", result.samples[0].custom_tag)
+        self.assertEqual("bright pop", result.samples[0].get_training_prompt("replace"))
 
 
 class TestSaveDataset(unittest.TestCase):
