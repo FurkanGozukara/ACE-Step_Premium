@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from acestep.training.dataset_builder_modules.label_all import LabelAllMixin
@@ -17,6 +18,7 @@ class _Builder(LabelAllMixin):
 
         self.samples = samples
         self.labeled_indexes: list[int] = []
+        self.post_load_messages: list[str] = []
 
     def get_labeled_count(self) -> int:
         """Return the number of samples already marked labeled."""
@@ -26,6 +28,10 @@ class _Builder(LabelAllMixin):
     def label_sample(self, sample_idx: int, *_args, **_kwargs):
         """Mark a sample labeled without invoking model dependencies."""
 
+        if len(_args) >= 2:
+            message = getattr(_args[1], "_post_load_status_message", None)
+            if message:
+                self.post_load_messages.append(message)
         sample = self.samples[sample_idx]
         sample.caption = sample.caption or f"caption {sample_idx}"
         sample.labeled = True
@@ -63,6 +69,7 @@ class LabelAllMixinTests(unittest.TestCase):
         self.assertIn("Labeled 2/2 samples; left 0", status)
         self.assertTrue(any("left 2" in message for message in progress_messages))
         self.assertTrue(any("left 0" in message for message in progress_messages))
+        self.assertTrue(any("ETA" in message for message in progress_messages))
 
     @patch("acestep.training.dataset_builder_modules.label_all.save_sample_label_metadata")
     def test_skips_already_labeled_samples_by_default(self, save_sidecar) -> None:
@@ -79,12 +86,29 @@ class LabelAllMixinTests(unittest.TestCase):
                 AudioSample(audio_path="todo.wav", filename="todo.wav"),
             ]
         )
+        progress_messages: list[str] = []
 
-        _samples, status = builder.label_all_samples(dit_handler=None, llm_handler=None)
+        _samples, status = builder.label_all_samples(
+            dit_handler=None,
+            llm_handler=None,
+            progress_callback=progress_messages.append,
+        )
 
         self.assertEqual([1], builder.labeled_indexes)
         self.assertEqual(1, save_sidecar.call_count)
         self.assertIn("1 already labeled", status)
+        self.assertTrue(
+            any(
+                message.startswith("Labeling 2/2; labeled 1/2; left 1:")
+                for message in progress_messages
+            )
+        )
+        self.assertTrue(
+            any(
+                message.startswith("Labeling 2/2 complete; labeled 2/2; left 0:")
+                for message in progress_messages
+            )
+        )
 
     def test_returns_complete_status_when_all_samples_are_labeled(self) -> None:
         """All-labeled datasets should finish without invoking label_sample."""
@@ -119,6 +143,29 @@ class LabelAllMixinTests(unittest.TestCase):
             )
 
         self.assertIn("Labeled 1/1", status)
+
+    @patch("acestep.training.dataset_builder_modules.label_all.save_sample_label_metadata")
+    def test_replays_current_progress_after_llm_load(self, _save_sidecar) -> None:
+        """The LLM load hook should re-emit the current file progress line."""
+
+        builder = _Builder([AudioSample(audio_path="todo.wav", filename="todo.wav")])
+        previous_message = "previous message"
+        llm_handler = SimpleNamespace(_post_load_status_message=previous_message)
+        progress_messages: list[str] = []
+
+        builder.label_all_samples(
+            dit_handler=None,
+            llm_handler=llm_handler,
+            progress_callback=progress_messages.append,
+        )
+
+        current_lines = [
+            message
+            for message in builder.post_load_messages
+            if message.startswith("Labeling 1/1; labeled 0/1; left 1:")
+        ]
+        self.assertEqual(1, len(current_lines))
+        self.assertEqual(previous_message, llm_handler._post_load_status_message)
 
     @patch("acestep.training.dataset_builder_modules.label_all.save_sample_label_metadata")
     def test_passes_processed_label_folder_to_persistence(self, save_sidecar) -> None:

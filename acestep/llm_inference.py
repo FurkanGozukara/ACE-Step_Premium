@@ -89,6 +89,7 @@ class LLMHandler:
         # before codes). Intended for manual comparison against the training-aligned
         # format only.
         self.use_legacy_cfg_prompt = False
+        self._post_load_status_message: Optional[str] = None
 
     def _clear_accelerator_cache(self) -> None:
         """Release freed accelerator memory back to the driver.
@@ -1915,7 +1916,8 @@ class LLMHandler:
                 logger.info(f"Using user-provided understand constraints: {constrained_metadata}")
 
         formatted_prompt = self.build_formatted_prompt_for_understanding(audio_codes)
-        print(f"formatted_prompt: {formatted_prompt}")
+        if constrained_decoding_debug:
+            logger.debug(f"Formatted understand prompt length: {len(formatted_prompt)}")
         # Generate using constrained decoding (understand phase)
         # We want to generate metadata first (CoT), then lyrics (natural text)
         # Note: cfg_scale and negative_prompt are not used in understand mode
@@ -4159,6 +4161,9 @@ class LLMHandler:
             model.to(self.device).to(self.dtype)
         load_time = time.time() - start_time
         logger.info(f"Loaded LLM to {self.device} in {load_time:.4f}s")
+        post_load_status_message = getattr(self, "_post_load_status_message", None)
+        if post_load_status_message:
+            print(post_load_status_message, file=sys.stderr, flush=True)
 
         try:
             yield

@@ -10,6 +10,7 @@ from loguru import logger
 from acestep.training.path_safety import safe_path
 
 from .label_persistence import save_sample_label_metadata
+from .label_progress import LabelProgressTracker, replay_progress_after_llm_load
 from .models import AudioSample
 
 
@@ -62,35 +63,44 @@ class LabelAllMixin:
             status = f"{_SUCCESS} All samples already labeled ({labeled_count} labeled, 0 left)"
             return self.samples, status
 
+        initial_labeled_count = self.get_labeled_count() if only_unlabeled else 0
         success_count = 0
         fail_count = 0
         sidecar_fail_count = 0
-        total = len(samples_to_label)
-        skipped_count = len(self.samples) - total if only_unlabeled else 0
+        total_to_label = len(samples_to_label)
+        display_total = len(self.samples)
+        skipped_count = len(self.samples) - total_to_label if only_unlabeled else 0
         resolved_label_source_root = (
             label_source_root
             or getattr(self, "_current_dir", None)
             or _common_audio_source_root(self.samples)
         )
+        progress_tracker = LabelProgressTracker(display_total)
 
         for idx, (sample_idx, sample) in enumerate(samples_to_label):
-            left_before = total - idx
-            if progress_callback:
-                progress_callback(
-                    f"Labeling {idx + 1}/{total}; labeled {success_count}/{total}; "
-                    f"left {left_before}: {sample.filename}"
-                )
-
-            _, status = self.label_sample(
-                sample_idx,
-                dit_handler,
-                llm_handler,
-                format_lyrics,
-                transcribe_lyrics,
-                lm_lyrics_language,
-                skip_metas,
-                progress_callback,
+            labeled_before = initial_labeled_count + success_count
+            left_before = total_to_label - idx
+            progress_tracker.begin_item()
+            start_msg = progress_tracker.start_message(
+                sample_idx + 1,
+                labeled_before,
+                left_before,
+                sample.filename,
             )
+            if progress_callback:
+                progress_callback(start_msg)
+
+            with replay_progress_after_llm_load(llm_handler, progress_callback, start_msg):
+                _, status = self.label_sample(
+                    sample_idx,
+                    dit_handler,
+                    llm_handler,
+                    format_lyrics,
+                    transcribe_lyrics,
+                    lm_lyrics_language,
+                    skip_metas,
+                    progress_callback,
+                )
 
             sample = self.samples[sample_idx]
             if sample.labeled and sample.caption:
@@ -111,14 +121,20 @@ class LabelAllMixin:
             else:
                 fail_count += 1
 
+            left_after = total_to_label - idx - 1
+            progress_tracker.complete_item()
             if progress_callback:
-                left_after = total - idx - 1
+                labeled_after = initial_labeled_count + success_count
                 progress_callback(
-                    f"Labeling {idx + 1}/{total} complete; labeled {success_count}/{total}; "
-                    f"left {left_after}: {sample.filename}"
+                    progress_tracker.complete_message(
+                        sample_idx + 1,
+                        labeled_after,
+                        left_after,
+                        sample.filename,
+                    )
                 )
 
-        status_msg = f"{_SUCCESS} Labeled {success_count}/{total} samples; left 0"
+        status_msg = f"{_SUCCESS} Labeled {success_count}/{total_to_label} samples; left 0"
         if fail_count > 0:
             status_msg += f" ({fail_count} failed)"
         if sidecar_fail_count > 0:

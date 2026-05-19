@@ -12,6 +12,10 @@ import gradio as gr
 from loguru import logger
 
 from acestep.training.dataset_builder import DatasetBuilder
+from acestep.training.dataset_builder_modules.label_hydration import (
+    has_unlabeled_samples,
+    hydrate_samples_from_label_dir,
+)
 from acestep.training.path_inputs import normalize_user_path
 from acestep.training.path_safety import safe_path
 from .service_auto_init import ensure_training_services_ready
@@ -120,6 +124,40 @@ def auto_label_all(
             builder_state,
         )
 
+    status_prefixes: list[str] = []
+    if only_unlabeled:
+        hydrated_count = hydrate_samples_from_label_dir(
+            builder_state.samples,
+            resolved_label_output_dir,
+        )
+        if hydrated_count:
+            hydration_status = (
+                f"{_SUCCESS} Loaded {hydrated_count} existing labels from processed label folder."
+            )
+            status_prefixes.append(hydration_status)
+            if progress:
+                try:
+                    progress(None, desc=hydration_status)
+                except Exception:
+                    pass
+
+        if not has_unlabeled_samples(builder_state.samples):
+            _samples, status = builder_state.label_all_samples(
+                dit_handler=dit_handler,
+                llm_handler=llm_handler,
+                format_lyrics=format_lyrics,
+                transcribe_lyrics=transcribe_lyrics,
+                lm_lyrics_language=lm_lyrics_language,
+                skip_metas=skip_metas,
+                only_unlabeled=only_unlabeled,
+                label_output_dir=resolved_label_output_dir,
+                label_source_root=label_source_root,
+            )
+            if status_prefixes:
+                status = "\n".join([*status_prefixes, status])
+            table_data = builder_state.get_samples_dataframe_data()
+            return gr.update(value=table_data), gr.update(value=status), builder_state
+
     services_ready, auto_init_status = ensure_training_services_ready(
         dit_handler,
         llm_handler,
@@ -130,9 +168,12 @@ def auto_label_all(
         status = auto_init_status or (
             "Model not initialized. Please initialize the service first."
         )
+        error_status = status if status.startswith("❌") else f"❌ {status}"
+        if status_prefixes:
+            error_status = "\n".join([*status_prefixes, error_status])
         return (
             builder_state.get_samples_dataframe_data(),
-            status if status.startswith("❌") else f"❌ {status}",
+            error_status,
             builder_state,
         )
 
@@ -176,6 +217,8 @@ def auto_label_all(
     )
     if auto_init_status:
         status = f"{auto_init_status}\n{status}" if status else auto_init_status
+    if status_prefixes:
+        status = "\n".join([*status_prefixes, status])
     if progress:
         try:
             progress(1.0, desc=status)

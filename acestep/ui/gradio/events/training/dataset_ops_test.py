@@ -191,7 +191,7 @@ class TestAutoLabelAll(unittest.TestCase):
     def test_progress_and_checkpoint_save_are_wired(self, _ensure_lm_ready, _gpu_config):
         """Auto-label should report count progress and save dataset checkpoints."""
 
-        sample = SimpleNamespace(filename="sample.wav", caption="caption", labeled=True)
+        sample = SimpleNamespace(filename="sample.wav", caption="caption", labeled=False)
         builder = _builder_with_samples()
         builder.samples = [sample]
         builder.get_samples_dataframe_data.return_value = [["sample.wav"]]
@@ -248,6 +248,47 @@ class TestAutoLabelAll(unittest.TestCase):
         self.assertIn("processed labels folder", status)
         self.assertEqual([], dit_handler.initialize_calls)
         builder.label_all_samples.assert_not_called()
+
+    def test_only_unlabeled_reuses_processed_labels_before_model_init(self):
+        """Existing processed labels should be applied before loading DiT/LM services."""
+
+        old_safe_roots = get_safe_roots()
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                set_safe_roots([tmpdir])
+                root = Path(tmpdir)
+                audio_dir = root / "audio"
+                label_dir = root / "auto_label"
+                audio_dir.mkdir()
+                label_dir.mkdir()
+                audio_path = audio_dir / "song.flac"
+                audio_path.write_bytes(b"audio")
+                _write_processed_label(label_dir / "song.json", audio_path, "cached caption")
+                builder = DatasetBuilder()
+                builder.samples = [
+                    AudioSample(audio_path=str(audio_path), filename=audio_path.name)
+                ]
+                dit_handler = _FakeDitHandler()
+                llm_handler = SimpleNamespace(llm_initialized=False, last_init_params=None)
+
+                table_update, status_update, returned_builder = auto_label_all(
+                    dit_handler,
+                    llm_handler,
+                    builder,
+                    only_unlabeled=True,
+                    label_output_dir=str(label_dir),
+                )
+        finally:
+            set_safe_roots(old_safe_roots)
+
+        self.assertIs(returned_builder, builder)
+        self.assertEqual([], dit_handler.initialize_calls)
+        self.assertTrue(builder.samples[0].labeled)
+        self.assertEqual("cached caption", builder.samples[0].caption)
+        self.assertIn("Loaded 1 existing labels", status_update["value"])
+        self.assertIn("All samples already labeled", status_update["value"])
+        self.assertEqual("\u2705", table_update["value"][0][4])
+        self.assertEqual("cached caption", table_update["value"][0][7])
 
 
 class TestScanDirectory(unittest.TestCase):
@@ -409,6 +450,26 @@ def _sample(filename: str, caption: str = "") -> MagicMock:
     sample.raw_lyrics = ""
     sample.has_raw_lyrics.return_value = False
     return sample
+
+
+def _write_processed_label(label_path: Path, audio_path: Path, caption: str) -> None:
+    """Write a minimal processed auto-label JSON file."""
+
+    label_path.write_text(
+        json.dumps(
+            {
+                "audio_path": str(audio_path),
+                "filename": audio_path.name,
+                "caption": caption,
+                "genre": "hip hop",
+                "lyrics": "[Verse]\nwords",
+                "language": "en",
+                "is_instrumental": False,
+                "labeled": True,
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 class TestUpdateSettings(unittest.TestCase):
