@@ -14,6 +14,7 @@ from .subprocess_runner import (
     create_training_subprocess_job,
     stream_training_subprocess_job,
 )
+from .subprocess_safe_roots import build_worker_safe_roots
 
 
 _SUCCESS = "\u2705"
@@ -35,6 +36,13 @@ def run_auto_label_subprocess(
     job = create_training_subprocess_job(dit_init_params["project_root"])
     dataset_path = _save_request_dataset(builder_state, settings.get("dataset_name"), job)
     result_dataset_path = job.work_dir / "auto_label_result.json"
+    safe_roots = build_worker_safe_roots(
+        dit_init_params["project_root"],
+        dataset_path,
+        result_dataset_path,
+        settings.get("save_path"),
+        samples=builder_state.samples,
+    )
     payload = {
         "operation": "auto_label",
         "project_root": dit_init_params["project_root"],
@@ -42,6 +50,7 @@ def run_auto_label_subprocess(
         "llm_init_params": llm_init_params,
         "dataset_path": str(dataset_path),
         "result_dataset_path": str(result_dataset_path),
+        "safe_roots": safe_roots,
         "settings": settings,
     }
     status = "Starting isolated auto-label worker..."
@@ -83,6 +92,12 @@ def run_preprocess_subprocess(
 
     job = create_training_subprocess_job(dit_init_params["project_root"])
     dataset_path = _save_request_dataset(builder_state, None, job)
+    safe_roots = build_worker_safe_roots(
+        dit_init_params["project_root"],
+        dataset_path,
+        output_dir,
+        samples=builder_state.samples,
+    )
     payload = {
         "operation": "preprocess",
         "project_root": dit_init_params["project_root"],
@@ -91,6 +106,7 @@ def run_preprocess_subprocess(
         "output_dir": output_dir,
         "preprocess_mode": preprocess_mode,
         "model_config": model_config,
+        "safe_roots": safe_roots,
     }
     status = "Starting isolated preprocess worker..."
     try:

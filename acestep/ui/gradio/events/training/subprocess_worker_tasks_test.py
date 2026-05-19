@@ -8,10 +8,15 @@ from pathlib import Path
 from unittest.mock import patch
 
 from acestep.training.dataset_builder import AudioSample, DatasetBuilder
-from acestep.training.path_safety import get_safe_roots, set_safe_roots
+from acestep.training.dataset_builder_modules.label_persistence import (
+    sample_label_metadata_path,
+    save_sample_label_metadata,
+)
+from acestep.training.path_safety import get_safe_roots, safe_path, set_safe_roots
 from acestep.ui.gradio.events.training.subprocess_worker_tasks import (
     run_auto_label_task,
     run_lora_training_task,
+    run_preprocess_task,
 )
 
 
@@ -60,6 +65,86 @@ class SubprocessWorkerTaskTests(unittest.TestCase):
         self.assertEqual("labeled", result["status"])
         self.assertTrue(events)
 
+    def test_auto_label_task_applies_payload_safe_roots_for_sidecars(self) -> None:
+        """Auto-label worker should write sidecars beside external source audio."""
+
+        with (
+            tempfile.TemporaryDirectory() as project_dir,
+            tempfile.TemporaryDirectory() as audio_dir,
+        ):
+            dataset_path = Path(project_dir) / "dataset.json"
+            result_path = Path(project_dir) / "result.json"
+            audio_path = Path(audio_dir) / "sample.wav"
+            audio_path.write_bytes(b"audio")
+            set_safe_roots([project_dir])
+            _save_dataset(dataset_path, audio_path=audio_path)
+            events: list[dict] = []
+
+            def fake_auto_label(_dit, _llm, builder, *args, **kwargs):
+                sample = builder.samples[0]
+                sample.caption = "caption"
+                sample.labeled = True
+                save_sample_label_metadata(sample)
+                return [], {"value": "labeled"}, builder
+
+            payload = {
+                "dataset_path": str(dataset_path),
+                "result_dataset_path": str(result_path),
+                "dit_init_params": {},
+                "llm_init_params": {},
+                "safe_roots": [project_dir, audio_dir],
+                "settings": {"dataset_name": "worker-test"},
+            }
+            with patch(
+                "acestep.ui.gradio.events.training.subprocess_worker_tasks.auto_label_all",
+                side_effect=fake_auto_label,
+            ):
+                result = run_auto_label_task(payload, events.append)
+
+            sidecar_path = sample_label_metadata_path(str(audio_path))
+            sidecar_exists = Path(sidecar_path).exists()
+
+        self.assertTrue(result["success"])
+        self.assertTrue(sidecar_exists)
+
+    def test_preprocess_task_applies_payload_safe_roots(self) -> None:
+        """Preprocess worker should validate output and source-audio roots."""
+
+        with (
+            tempfile.TemporaryDirectory() as project_dir,
+            tempfile.TemporaryDirectory() as audio_dir,
+        ):
+            dataset_path = Path(project_dir) / "dataset.json"
+            output_dir = Path(audio_dir) / "tensors"
+            audio_path = Path(audio_dir) / "sample.wav"
+            audio_path.write_bytes(b"audio")
+            set_safe_roots([project_dir])
+            _save_dataset(dataset_path, audio_path=audio_path)
+            events: list[dict] = []
+
+            def fake_preprocess(output_dir_arg, _mode, _dit, builder, **_kwargs):
+                self.assertEqual(str(output_dir.resolve()), safe_path(output_dir_arg))
+                self.assertEqual(
+                    str(audio_path.resolve()),
+                    safe_path(builder.samples[0].audio_path),
+                )
+                return "preprocessed"
+
+            payload = {
+                "dataset_path": str(dataset_path),
+                "output_dir": str(output_dir),
+                "dit_init_params": {},
+                "safe_roots": [project_dir, audio_dir],
+            }
+            with patch(
+                "acestep.ui.gradio.events.training.subprocess_worker_tasks.preprocess_dataset",
+                side_effect=fake_preprocess,
+            ):
+                result = run_preprocess_task(payload, events.append)
+
+        self.assertTrue(result["success"])
+        self.assertEqual("preprocessed", result["status"])
+
     def test_lora_training_task_emits_training_events(self) -> None:
         """LoRA worker should stream each training handler yield."""
 
@@ -85,14 +170,14 @@ class SubprocessWorkerTaskTests(unittest.TestCase):
         self.assertIn("Loss", events[0]["status"])
 
 
-def _save_dataset(path: Path) -> None:
+def _save_dataset(path: Path, audio_path: Path | None = None) -> None:
     """Write a one-sample dataset for worker tests."""
 
     builder = DatasetBuilder()
     builder.samples = [
         AudioSample(
-            audio_path=str(path.with_suffix(".wav")),
-            filename="sample.wav",
+            audio_path=str(audio_path or path.with_suffix(".wav")),
+            filename=(audio_path.name if audio_path else "sample.wav"),
             caption="caption",
             labeled=True,
         )

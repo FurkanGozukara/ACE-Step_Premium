@@ -11,6 +11,7 @@ from acestep.training.dataset_builder import DatasetBuilder
 from acestep.ui.gradio.events.training.dataset_ops import auto_label_all
 from acestep.ui.gradio.events.training.lora_training import start_training
 from acestep.ui.gradio.events.training.preprocess import preprocess_dataset
+from acestep.ui.gradio.events.training.subprocess_safe_roots import apply_worker_safe_roots
 
 
 Emit = Callable[[dict[str, Any]], None]
@@ -20,6 +21,7 @@ _SUCCESS = "\u2705"
 def run_auto_label_task(payload: dict[str, Any], emit: Emit) -> dict[str, Any]:
     """Run dataset auto-labeling inside the worker process."""
 
+    apply_worker_safe_roots(payload)
     builder = _load_builder(payload["dataset_path"])
     dit_handler = _new_dit_handler(payload.get("dit_init_params"))
     llm_handler = _new_llm_handler(payload.get("llm_init_params"))
@@ -52,6 +54,7 @@ def run_auto_label_task(payload: dict[str, Any], emit: Emit) -> dict[str, Any]:
 def run_preprocess_task(payload: dict[str, Any], emit: Emit) -> dict[str, Any]:
     """Run tensor preprocessing inside the worker process."""
 
+    apply_worker_safe_roots(payload)
     builder = _load_builder(payload["dataset_path"])
     dit_handler = _new_dit_handler(payload.get("dit_init_params"))
     progress = _worker_progress(emit)

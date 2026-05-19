@@ -59,6 +59,7 @@ class LabelAllMixin:
 
         success_count = 0
         fail_count = 0
+        sidecar_fail_count = 0
         total = len(samples_to_label)
         skipped_count = len(self.samples) - total if only_unlabeled else 0
 
@@ -88,6 +89,7 @@ class LabelAllMixin:
                     try:
                         save_sample_label_metadata(sample)
                     except Exception as exc:
+                        sidecar_fail_count += 1
                         logger.exception("Auto-label sidecar save failed")
                         status = f"{status}\n{_WARNING} Sidecar save failed: {exc}"
                 if sample_labeled_callback:
@@ -105,6 +107,8 @@ class LabelAllMixin:
         status_msg = f"{_SUCCESS} Labeled {success_count}/{total} samples; left 0"
         if fail_count > 0:
             status_msg += f" ({fail_count} failed)"
+        if sidecar_fail_count > 0:
+            status_msg += f" ({sidecar_fail_count} sidecar save failed)"
         if only_unlabeled:
             status_msg += f" ({skipped_count} already labeled, {len(self.samples)} total)"
 

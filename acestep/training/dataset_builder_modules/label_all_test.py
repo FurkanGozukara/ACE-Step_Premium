@@ -120,6 +120,25 @@ class LabelAllMixinTests(unittest.TestCase):
 
         self.assertIn("Labeled 1/1", status)
 
+    @patch(
+        "acestep.training.dataset_builder_modules.label_all.save_sample_label_metadata",
+        side_effect=OSError("read-only dataset directory"),
+    )
+    @patch("acestep.training.dataset_builder_modules.label_all.logger.exception")
+    def test_reports_sidecar_save_failures_in_final_status(
+        self,
+        _logger_exception,
+        _save_sidecar,
+    ) -> None:
+        """Sidecar write failures should not be hidden in logs only."""
+
+        builder = _Builder([AudioSample(audio_path="todo.wav", filename="todo.wav")])
+
+        _samples, status = builder.label_all_samples(dit_handler=None, llm_handler=None)
+
+        self.assertIn("Labeled 1/1", status)
+        self.assertIn("1 sidecar save failed", status)
+
 
 if __name__ == "__main__":
     unittest.main()
