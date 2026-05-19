@@ -1,76 +1,103 @@
-"""
-Dataset Handler Module
+"""Dataset import and exploration helpers for the ACE-Step Gradio UI."""
 
-Handles dataset import and exploration functionality for ACE-Step training.
-This module provides a placeholder implementation for dataset operations
-when the full training dataset dependencies are not available.
+from __future__ import annotations
 
-Note: Full dataset functionality requires Text2MusicDataset which may not be
-included in the basic installation to reduce dependencies.
-"""
-from typing import Optional, Tuple, Any, Dict
+import json
+import random
+from pathlib import Path
+from typing import Any, Tuple
+
+from acestep.training.dataset_builder import DatasetBuilder
+from acestep.training.dataset_builder_modules.models import AudioSample
+
+
+_EMPTY_PREVIEW = ("", "{}", None, None, None)
 
 
 class DatasetHandler:
-    """
-    Dataset Handler for Dataset Explorer functionality.
-    
-    Provides interface for dataset import and exploration features in the Gradio UI.
-    When training dependencies are not available, returns appropriate fallback responses.
-    """
-    
+    """Dataset Handler for Dataset Explorer functionality."""
+
     def __init__(self):
-        """Initialize dataset handler with empty state"""
+        """Initialize dataset handler with empty state."""
+
         self.dataset = None
+        self.builder: DatasetBuilder | None = None
         self.dataset_imported = False
-    
-    def import_dataset(self, dataset_type: str) -> str:
-        """
-        Import dataset (currently disabled in base installation)
-        
+
+    def import_dataset(self, dataset_type: str, dataset_path: str = "") -> str:
+        """Import a saved dataset JSON or scan an audio folder.
+
         Args:
-            dataset_type: Type of dataset to import (e.g., "train", "test", "validation")
-            
+            dataset_type: Type of dataset to import, such as ``"train"`` or ``"test"``.
+            dataset_path: Saved dataset JSON path or audio folder to scan.
+
         Returns:
-            Status message indicating dataset import is disabled
-            
-        Note:
-            This is a placeholder implementation. Full dataset support requires:
-            - Text2MusicDataset dependency
-            - Training data files  
-            - Additional configuration
+            Status message describing the imported dataset.
         """
-        self.dataset_imported = False
-        return f"⚠️ Dataset import is currently disabled. Text2MusicDataset dependency not available."
-    
+
+        raw_path = str(dataset_path or "").strip()
+        if not raw_path:
+            self.dataset_imported = False
+            return "Select a saved dataset JSON file or an audio folder to import."
+
+        builder = DatasetBuilder()
+        if Path(raw_path).suffix.lower() == ".json":
+            samples, status = builder.load_dataset(raw_path)
+        else:
+            builder.metadata.name = f"{dataset_type or 'train'}_dataset"
+            samples, status = builder.scan_directory(raw_path)
+
+        if not samples:
+            self.dataset = None
+            self.builder = None
+            self.dataset_imported = False
+            return status
+
+        self.dataset = samples
+        self.builder = builder
+        self.dataset_imported = True
+        labeled_count = builder.get_labeled_count()
+        return (
+            f"{status}\n"
+            f"Imported as {dataset_type or 'train'} dataset.\n"
+            f"Samples: {len(samples)} ({labeled_count} labeled)."
+        )
+
+    def import_dataset_for_ui(self, dataset_type: str, dataset_path: str = "") -> tuple[Any, ...]:
+        """Import a dataset and return first-item preview values for the Dataset page."""
+
+        status = self.import_dataset(dataset_type, dataset_path)
+        if not self.dataset_imported:
+            return (status, *_EMPTY_PREVIEW)
+        return (status, *self._preview_sample(self.dataset[0], 0))
+
+    def get_item_for_ui(self, search_type: str, search_value: str = "") -> tuple[Any, ...]:
+        """Return a selected dataset item preview for the Dataset page."""
+
+        if not self.dataset:
+            return ("No dataset imported.", *_EMPTY_PREVIEW)
+
+        index = self._resolve_sample_index(search_type, search_value)
+        if index is None:
+            return (f"No item found for {search_type}: {search_value}", *_EMPTY_PREVIEW)
+
+        sample = self.dataset[index]
+        status = f"Loaded item {index + 1}/{len(self.dataset)}: {sample.filename}"
+        return (status, *self._preview_sample(sample, index))
+
     def get_item_data(self, *args, **kwargs) -> Tuple:
-        """
-        Get dataset item data (placeholder implementation)
-        
-        Args:
-            *args: Variable arguments (ignored in placeholder)
-            **kwargs: Keyword arguments (ignored in placeholder)
-            
-        Returns:
-            Tuple of placeholder values matching the expected return format:
-            (caption, lyrics, language, bpm, keyscale, ref_audio, src_audio, codes,
-             status_msg, instruction, duration, timesig, audio1, audio2, audio3, 
-             metadata, task_type)
-             
-        Note:
-            Returns empty/default values since dataset is not available.
-            Real implementation would return actual dataset samples.
-        """
+        """Return placeholder dataset item data for the explorer UI."""
+
         return (
             "",           # caption: empty string
-            "",           # lyrics: empty string  
+            "",           # lyrics: empty string
             "",           # language: empty string
             "",           # bpm: empty string
             "",           # keyscale: empty string
             None,         # ref_audio: no audio file
             None,         # src_audio: no audio file
             None,         # codes: no audio codes
-            "❌ Dataset not available",  # status_msg: error indicator
+            "Dataset item browsing is not wired yet.",
             "",           # instruction: empty string
             0,            # duration: zero
             "",           # timesig: empty string
@@ -78,6 +105,48 @@ class DatasetHandler:
             None,         # audio2: no audio
             None,         # audio3: no audio
             {},           # metadata: empty dict
-            "text2music"  # task_type: default task
+            "text2music",  # task_type: default task
         )
 
+    def _resolve_sample_index(self, search_type: str, search_value: str) -> int | None:
+        """Resolve a Dataset page search request to a sample index."""
+
+        mode = str(search_type or "random").strip().lower()
+        value = str(search_value or "").strip()
+        if mode == "random":
+            return random.randrange(len(self.dataset))
+        if mode == "idx":
+            try:
+                index = int(value)
+            except ValueError:
+                return None
+            return index if 0 <= index < len(self.dataset) else None
+        if mode == "keys":
+            return self._find_sample_by_key(value)
+        return None
+
+    def _find_sample_by_key(self, value: str) -> int | None:
+        """Return the index of a sample matching id, filename, or audio path."""
+
+        if not value:
+            return None
+        needle = value.lower()
+        for index, sample in enumerate(self.dataset):
+            fields = (sample.id, sample.filename, sample.audio_path)
+            if any(needle == str(field or "").lower() for field in fields):
+                return index
+        return None
+
+    def _preview_sample(self, sample: AudioSample, index: int) -> tuple[str, str, str, None, None]:
+        """Return instruction, JSON metadata, and audio preview values for a sample."""
+
+        payload = sample.to_dict()
+        payload["index"] = index
+        instruction = sample.caption or sample.genre or sample.filename
+        return (
+            instruction,
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            sample.audio_path,
+            None,
+            None,
+        )

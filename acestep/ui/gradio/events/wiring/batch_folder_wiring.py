@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from acestep.ui.gradio.events.local_path_dialogs import select_folder_path
 from acestep.ui.gradio.events.generation.cancel_actions import (
     BATCH_CANCEL_CONFIRM_JS,
     request_generation_cancel_from_ui,
@@ -34,6 +35,17 @@ def register_batch_folder_handlers(
             auto_improve_style,
             args,
         )
+
+    batch_section["batch_input_folder_browse_btn"].click(
+        fn=select_folder_path,
+        inputs=[batch_section["batch_input_folder"]],
+        outputs=[batch_section["batch_input_folder"]],
+    )
+    batch_section["batch_output_folder_browse_btn"].click(
+        fn=select_folder_path,
+        inputs=[batch_section["batch_output_folder"]],
+        outputs=[batch_section["batch_output_folder"]],
+    )
 
     batch_section["batch_process_btn"].click(
         fn=batch_wrapper,

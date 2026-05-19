@@ -4,7 +4,14 @@ from typing import Any, Mapping
 
 import gradio as gr
 
+from acestep.ui.gradio.events.local_path_dialogs import (
+    normalize_dialog_path,
+    select_folder_path,
+    select_json_save_path,
+)
+
 from .. import training_handlers as train_h
+from ..training.dataset_ops import select_sample_from_table
 from .context import TrainingWiringContext
 from .training_dataset_status import append_preview_refresh_status
 
@@ -47,6 +54,14 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
     llm_handler = context.llm_handler
     sample_preview_outputs = _build_sample_preview_outputs(training_section)
 
+    def browse_and_save_dataset(save_path, dataset_name, state):
+        """Pick a dataset JSON path and immediately save the current dataset."""
+
+        selected = select_json_save_path(save_path)
+        if not selected or selected == normalize_dialog_path(save_path):
+            return "No save path selected.", gr.update()
+        return train_h.save_dataset(selected, dataset_name, state)
+
     def run_auto_label(
         state,
         skip,
@@ -71,6 +86,12 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             save_path=save_path,
             dataset_name=dataset_name,
         )
+
+    training_section["scan_directory_browse_btn"].click(
+        fn=select_folder_path,
+        inputs=[training_section["audio_directory"]],
+        outputs=[training_section["audio_directory"]],
+    )
 
     training_section["scan_btn"].click(
         fn=lambda directory, name, tag, pos, instr, state: train_h.scan_directory(
@@ -151,6 +172,19 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
         outputs=[training_section["raw_lyrics_display"]],
     )
 
+    training_section["audio_files_table"].select(
+        fn=select_sample_from_table,
+        inputs=[training_section["dataset_builder_state"]],
+        outputs=[
+            training_section["sample_selector"],
+            *sample_preview_outputs,
+        ],
+    ).then(
+        fn=lambda has_raw: gr.update(visible=has_raw),
+        inputs=[training_section["has_raw_lyrics_state"]],
+        outputs=[training_section["raw_lyrics_display"]],
+    )
+
     training_section["save_edit_btn"].click(
         fn=train_h.save_sample_edit,
         inputs=[
@@ -188,6 +222,19 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
 
     training_section["save_dataset_btn"].click(
         fn=train_h.save_dataset,
+        inputs=[
+            training_section["save_path"],
+            training_section["dataset_name"],
+            training_section["dataset_builder_state"],
+        ],
+        outputs=[
+            training_section["save_status"],
+            training_section["save_path"],
+        ],
+    )
+
+    training_section["save_path_browse_btn"].click(
+        fn=browse_and_save_dataset,
         inputs=[
             training_section["save_path"],
             training_section["dataset_name"],

@@ -34,16 +34,32 @@ def create_batch_folder_page() -> dict[str, Any]:
         )
         with gr.Group(elem_classes=["ace-panel", "ace-stack"]):
             with gr.Row():
-                input_folder = gr.Textbox(
-                    label="Input Folder",
-                    placeholder=r"G:\songs\batch_inputs",
-                    info="Folder containing song.txt files and optional song_style.txt companions.",
-                )
-                output_folder = gr.Textbox(
-                    label="Output Folder",
-                    placeholder=r"G:\songs\batch_outputs",
-                    info="Optional. Generated audio is saved here, or in the default outputs folder.",
-                )
+                with gr.Column(scale=3):
+                    input_folder = gr.Textbox(
+                        label="Input Folder",
+                        placeholder=r"G:\songs\batch_inputs",
+                        info=(
+                            "Folder containing song.txt files and optional "
+                            "song_style.txt companions."
+                        ),
+                    )
+                    input_folder_browse_btn = gr.Button(
+                        "Browse Input Folder",
+                        variant="secondary",
+                    )
+                with gr.Column(scale=3):
+                    output_folder = gr.Textbox(
+                        label="Output Folder",
+                        placeholder=r"G:\songs\batch_outputs",
+                        info=(
+                            "Optional. Generated audio is saved here, or in the "
+                            "default outputs folder."
+                        ),
+                    )
+                    output_folder_browse_btn = gr.Button(
+                        "Browse Output Folder",
+                        variant="secondary",
+                    )
             with gr.Row():
                 auto_improve_lyrics = gr.Checkbox(
                     label="Auto improve lyrics",
@@ -87,7 +103,9 @@ def create_batch_folder_page() -> dict[str, Any]:
 
     return {
         "batch_input_folder": input_folder,
+        "batch_input_folder_browse_btn": input_folder_browse_btn,
         "batch_output_folder": output_folder,
+        "batch_output_folder_browse_btn": output_folder_browse_btn,
         "batch_auto_improve_lyrics": auto_improve_lyrics,
         "batch_auto_improve_style": auto_improve_style,
         "batch_process_btn": process_btn,

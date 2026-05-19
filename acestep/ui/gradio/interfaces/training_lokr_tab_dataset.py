@@ -23,6 +23,10 @@ def build_lokr_dataset_and_adapter_controls() -> dict[str, object]:
                 elem_classes=["has-info-container"],
             )
 
+            lokr_training_tensor_dir_browse_btn = gr.Button(
+                "Browse Tensor Folder",
+                variant="secondary",
+            )
             lokr_load_dataset_btn = gr.Button(t("training.load_dataset_btn"), variant="secondary")
 
             lokr_training_dataset_info = gr.Textbox(
@@ -86,6 +90,7 @@ def build_lokr_dataset_and_adapter_controls() -> dict[str, object]:
 
     return {
         "lokr_training_tensor_dir": lokr_training_tensor_dir,
+        "lokr_training_tensor_dir_browse_btn": lokr_training_tensor_dir_browse_btn,
         "lokr_load_dataset_btn": lokr_load_dataset_btn,
         "lokr_training_dataset_info": lokr_training_dataset_info,
         "lokr_linear_dim": lokr_linear_dim,

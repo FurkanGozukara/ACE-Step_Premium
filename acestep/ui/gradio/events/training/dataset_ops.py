@@ -211,6 +211,39 @@ def get_sample_preview(
     )
 
 
+def select_sample_from_table(
+    builder_state: Optional[DatasetBuilder],
+    evt: gr.SelectData,
+) -> Tuple[Any, ...]:
+    """Load Step 3 preview fields for the selected Found Audio Files row."""
+
+    if builder_state is None or not builder_state.samples:
+        return (gr.update(), *get_sample_preview(None, builder_state))
+
+    sample_idx = _selected_table_row_index(evt)
+    if sample_idx is None or sample_idx < 0 or sample_idx >= len(builder_state.samples):
+        return (gr.update(), *get_sample_preview(None, builder_state))
+
+    slider_update = gr.update(
+        value=sample_idx,
+        maximum=max(1, len(builder_state.samples) - 1),
+        visible=len(builder_state.samples) > 1,
+    )
+    return (slider_update, *get_sample_preview(sample_idx, builder_state))
+
+
+def _selected_table_row_index(evt: gr.SelectData) -> int | None:
+    """Return the dataframe row index from a Gradio select event."""
+
+    index = getattr(evt, "index", None)
+    if isinstance(index, (list, tuple)) and index:
+        index = index[0]
+    try:
+        return int(index)
+    except (TypeError, ValueError):
+        return None
+
+
 def save_sample_edit(
     sample_idx: int,
     caption: str,

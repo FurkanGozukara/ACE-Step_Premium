@@ -23,6 +23,7 @@ from .context import (
     build_auto_checkbox_inputs,
     build_auto_checkbox_outputs,
 )
+from .dataset_import_wiring import register_dataset_import_handlers
 from .model_default_updates import build_advanced_model_reset_updates
 
 
@@ -31,19 +32,13 @@ def register_generation_service_handlers(
 ) -> tuple[list[Any], list[Any]]:
     """Register generation service/init handlers and return auto-checkbox lists."""
 
-    dataset_section = context.dataset_section
     generation_section = context.generation_section
     results_section = context.results_section
     dit_handler = context.dit_handler
     llm_handler = context.llm_handler
-    dataset_handler = context.dataset_handler
 
     # ========== Dataset Handlers ==========
-    dataset_section["import_dataset_btn"].click(
-        fn=dataset_handler.import_dataset,
-        inputs=[dataset_section["dataset_type"]],
-        outputs=[dataset_section["data_status"]],
-    )
+    register_dataset_import_handlers(context)
 
     # ========== Service Initialization ==========
     generation_section["refresh_btn"].click(

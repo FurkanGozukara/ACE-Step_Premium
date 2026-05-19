@@ -22,6 +22,10 @@ def build_dataset_save_and_preprocess_controls() -> dict[str, object]:
                 elem_classes=["has-info-container"],
             )
         with gr.Column(scale=1):
+            save_path_browse_btn = gr.Button(
+                "Browse Save JSON",
+                variant="secondary",
+            )
             save_dataset_btn = gr.Button(
                 t("training.save_dataset_btn"),
                 variant="primary",
@@ -47,6 +51,10 @@ def build_dataset_save_and_preprocess_controls() -> dict[str, object]:
                 elem_classes=["has-info-container"],
             )
         with gr.Column(scale=1):
+            load_existing_dataset_browse_btn = gr.Button(
+                "Browse Dataset JSON",
+                variant="secondary",
+            )
             load_existing_dataset_btn = gr.Button(
                 t("training.load_dataset_btn"),
                 variant="secondary",
@@ -79,6 +87,10 @@ def build_dataset_save_and_preprocess_controls() -> dict[str, object]:
                 elem_classes=["has-info-container"],
             )
         with gr.Column(scale=1):
+            preprocess_output_dir_browse_btn = gr.Button(
+                "Browse Tensor Folder",
+                variant="secondary",
+            )
             preprocess_btn = gr.Button(
                 t("training.preprocess_btn"),
                 variant="primary",
@@ -93,13 +105,16 @@ def build_dataset_save_and_preprocess_controls() -> dict[str, object]:
 
     return {
         "save_path": save_path,
+        "save_path_browse_btn": save_path_browse_btn,
         "save_dataset_btn": save_dataset_btn,
         "save_status": save_status,
         "load_existing_dataset_path": load_existing_dataset_path,
+        "load_existing_dataset_browse_btn": load_existing_dataset_browse_btn,
         "load_existing_dataset_btn": load_existing_dataset_btn,
         "load_existing_status": load_existing_status,
         "preprocess_mode": preprocess_mode,
         "preprocess_output_dir": preprocess_output_dir,
+        "preprocess_output_dir_browse_btn": preprocess_output_dir_browse_btn,
         "preprocess_btn": preprocess_btn,
         "preprocess_progress": preprocess_progress,
     }

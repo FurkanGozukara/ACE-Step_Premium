@@ -2,7 +2,14 @@
 
 from typing import Any, Callable, Iterator
 
+import gradio as gr
 from loguru import logger
+
+from acestep.ui.gradio.events.local_path_dialogs import (
+    normalize_dialog_path,
+    select_folder_path,
+    select_safetensors_save_path,
+)
 
 from .. import training_handlers as train_h
 from .context import TrainingWiringContext
@@ -78,11 +85,46 @@ def register_lokr_training_handlers(
         normalize_training_state,
     )
 
+    def browse_and_load_training_dataset(current_path: str):
+        """Pick a tensor folder and immediately load its dataset summary."""
+
+        selected = select_folder_path(current_path)
+        if not selected or selected == normalize_dialog_path(current_path):
+            return gr.update(), "No tensor folder selected."
+        return gr.update(value=selected), train_h.load_training_dataset(selected)
+
     # ========== LoKr Training Tab Handlers ==========
+    training_section["lokr_training_tensor_dir_browse_btn"].click(
+        fn=browse_and_load_training_dataset,
+        inputs=[training_section["lokr_training_tensor_dir"]],
+        outputs=[
+            training_section["lokr_training_tensor_dir"],
+            training_section["lokr_training_dataset_info"],
+        ],
+    )
+
     training_section["lokr_load_dataset_btn"].click(
         fn=train_h.load_training_dataset,
         inputs=[training_section["lokr_training_tensor_dir"]],
         outputs=[training_section["lokr_training_dataset_info"]],
+    )
+
+    training_section["lokr_output_dir_browse_btn"].click(
+        fn=select_folder_path,
+        inputs=[training_section["lokr_output_dir"]],
+        outputs=[training_section["lokr_output_dir"]],
+    )
+
+    training_section["lokr_export_path_browse_btn"].click(
+        fn=select_folder_path,
+        inputs=[training_section["lokr_export_path"]],
+        outputs=[training_section["lokr_export_path"]],
+    )
+
+    training_section["lokr_export_file_browse_btn"].click(
+        fn=select_safetensors_save_path,
+        inputs=[training_section["lokr_export_path"]],
+        outputs=[training_section["lokr_export_path"]],
     )
 
     training_section["start_lokr_training_btn"].click(

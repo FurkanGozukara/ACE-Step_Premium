@@ -79,21 +79,33 @@ def build_lora_run_and_export_controls(
         )
 
     with gr.Row():
-        lora_output_dir = gr.Textbox(
-            label=t("training.output_dir"),
-            value="./lora_output",
-            placeholder="./lora_output",
-            info=t("training.output_dir_info"),
-            elem_classes=["has-info-container"],
-        )
+        with gr.Column(scale=3):
+            lora_output_dir = gr.Textbox(
+                label=t("training.output_dir"),
+                value="./lora_output",
+                placeholder="./lora_output",
+                info=t("training.output_dir_info"),
+                elem_classes=["has-info-container"],
+            )
+        with gr.Column(scale=1):
+            lora_output_dir_browse_btn = gr.Button(
+                "Browse Output Folder",
+                variant="secondary",
+            )
 
     with gr.Row():
-        resume_checkpoint_dir = gr.Textbox(
-            label="Resume Checkpoint",
-            placeholder="./lora_output/checkpoints/epoch_200",
-            info="Directory of a saved LoRA checkpoint to resume from",
-            elem_classes=["has-info-container"],
-        )
+        with gr.Column(scale=3):
+            resume_checkpoint_dir = gr.Textbox(
+                label="Resume Checkpoint",
+                placeholder="./lora_output/checkpoints/epoch_200",
+                info="Directory of a saved LoRA checkpoint to resume from",
+                elem_classes=["has-info-container"],
+            )
+        with gr.Column(scale=1):
+            resume_checkpoint_dir_browse_btn = gr.Button(
+                "Browse Checkpoint Folder",
+                variant="secondary",
+            )
 
     gr.HTML("<hr>")
 
@@ -133,12 +145,18 @@ def build_lora_run_and_export_controls(
     gr.HTML(f"<hr><h3>📦 {t('training.export_header')}</h3>")
 
     with gr.Row():
-        export_path = gr.Textbox(
-            label=t("training.export_path"),
-            value="./lora_output/final_lora",
-            placeholder="./lora_output/my_lora",
-        )
-        export_lora_btn = gr.Button(t("training.export_lora_btn"), variant="secondary")
+        with gr.Column(scale=3):
+            export_path = gr.Textbox(
+                label=t("training.export_path"),
+                value="./lora_output/final_lora",
+                placeholder="./lora_output/my_lora",
+            )
+        with gr.Column(scale=1):
+            export_path_browse_btn = gr.Button(
+                "Browse Export Folder",
+                variant="secondary",
+            )
+            export_lora_btn = gr.Button(t("training.export_lora_btn"), variant="secondary")
 
     export_status = gr.Textbox(
         label=t("training.export_status"),
@@ -154,13 +172,16 @@ def build_lora_run_and_export_controls(
         "training_shift": training_shift,
         "training_seed": training_seed,
         "lora_output_dir": lora_output_dir,
+        "lora_output_dir_browse_btn": lora_output_dir_browse_btn,
         "resume_checkpoint_dir": resume_checkpoint_dir,
+        "resume_checkpoint_dir_browse_btn": resume_checkpoint_dir_browse_btn,
         "start_training_btn": start_training_btn,
         "stop_training_btn": stop_training_btn,
         "training_progress": training_progress,
         "training_log": training_log,
         "training_loss_plot": training_loss_plot,
         "export_path": export_path,
+        "export_path_browse_btn": export_path_browse_btn,
         "export_lora_btn": export_lora_btn,
         "export_status": export_status,
     }

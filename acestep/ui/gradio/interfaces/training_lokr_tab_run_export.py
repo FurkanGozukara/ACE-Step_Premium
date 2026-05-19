@@ -70,13 +70,19 @@ def build_lokr_run_and_export_controls() -> dict[str, object]:
         )
 
     with gr.Row():
-        lokr_output_dir = gr.Textbox(
-            label=t("training.output_dir"),
-            value="./lokr_output",
-            placeholder="./lokr_output",
-            info=t("training.lokr_output_dir_info"),
-            elem_classes=["has-info-container"],
-        )
+        with gr.Column(scale=3):
+            lokr_output_dir = gr.Textbox(
+                label=t("training.output_dir"),
+                value="./lokr_output",
+                placeholder="./lokr_output",
+                info=t("training.lokr_output_dir_info"),
+                elem_classes=["has-info-container"],
+            )
+        with gr.Column(scale=1):
+            lokr_output_dir_browse_btn = gr.Button(
+                "Browse Output Folder",
+                variant="secondary",
+            )
 
     gr.HTML("<hr>")
 
@@ -116,12 +122,22 @@ def build_lokr_run_and_export_controls() -> dict[str, object]:
     gr.HTML(f"<hr><h3>📦 {t('training.lokr_export_header')}</h3>")
 
     with gr.Row():
-        lokr_export_path = gr.Textbox(
-            label=t("training.export_path"),
-            value="./lokr_output/final_lokr",
-            placeholder="./lokr_output/my_lokr",
-        )
-        export_lokr_btn = gr.Button(t("training.export_lokr_btn"), variant="secondary")
+        with gr.Column(scale=3):
+            lokr_export_path = gr.Textbox(
+                label=t("training.export_path"),
+                value="./lokr_output/final_lokr",
+                placeholder="./lokr_output/my_lokr",
+            )
+        with gr.Column(scale=1):
+            lokr_export_path_browse_btn = gr.Button(
+                "Browse Export Folder",
+                variant="secondary",
+            )
+            lokr_export_file_browse_btn = gr.Button(
+                "Browse Export File",
+                variant="secondary",
+            )
+            export_lokr_btn = gr.Button(t("training.export_lokr_btn"), variant="secondary")
 
     with gr.Row():
         lokr_export_epoch = gr.Dropdown(
@@ -149,12 +165,15 @@ def build_lokr_run_and_export_controls() -> dict[str, object]:
         "lokr_training_shift": lokr_training_shift,
         "lokr_training_seed": lokr_training_seed,
         "lokr_output_dir": lokr_output_dir,
+        "lokr_output_dir_browse_btn": lokr_output_dir_browse_btn,
         "start_lokr_training_btn": start_lokr_training_btn,
         "stop_lokr_training_btn": stop_lokr_training_btn,
         "lokr_training_progress": lokr_training_progress,
         "lokr_training_log": lokr_training_log,
         "lokr_training_loss_plot": lokr_training_loss_plot,
         "lokr_export_path": lokr_export_path,
+        "lokr_export_path_browse_btn": lokr_export_path_browse_btn,
+        "lokr_export_file_browse_btn": lokr_export_file_browse_btn,
         "lokr_export_epoch": lokr_export_epoch,
         "refresh_lokr_export_epochs_btn": refresh_lokr_export_epochs_btn,
         "export_lokr_btn": export_lokr_btn,

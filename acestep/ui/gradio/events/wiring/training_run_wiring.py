@@ -2,7 +2,13 @@
 
 from typing import Any, Iterator
 
+import gradio as gr
 from loguru import logger
+
+from acestep.ui.gradio.events.local_path_dialogs import (
+    normalize_dialog_path,
+    select_folder_path,
+)
 
 from .. import training_handlers as train_h
 from .context import TrainingWiringContext
@@ -73,11 +79,46 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
     training_section = context.training_section
     training_wrapper = _build_training_wrapper(context.dit_handler)
 
+    def browse_and_load_training_dataset(current_path: str):
+        """Pick a tensor folder and immediately load its dataset summary."""
+
+        selected = select_folder_path(current_path)
+        if not selected or selected == normalize_dialog_path(current_path):
+            return gr.update(), "No tensor folder selected."
+        return gr.update(value=selected), train_h.load_training_dataset(selected)
+
     # ========== Training Tab Handlers ==========
+    training_section["training_tensor_dir_browse_btn"].click(
+        fn=browse_and_load_training_dataset,
+        inputs=[training_section["training_tensor_dir"]],
+        outputs=[
+            training_section["training_tensor_dir"],
+            training_section["training_dataset_info"],
+        ],
+    )
+
     training_section["load_dataset_btn"].click(
         fn=train_h.load_training_dataset,
         inputs=[training_section["training_tensor_dir"]],
         outputs=[training_section["training_dataset_info"]],
+    )
+
+    training_section["lora_output_dir_browse_btn"].click(
+        fn=select_folder_path,
+        inputs=[training_section["lora_output_dir"]],
+        outputs=[training_section["lora_output_dir"]],
+    )
+
+    training_section["resume_checkpoint_dir_browse_btn"].click(
+        fn=select_folder_path,
+        inputs=[training_section["resume_checkpoint_dir"]],
+        outputs=[training_section["resume_checkpoint_dir"]],
+    )
+
+    training_section["export_path_browse_btn"].click(
+        fn=select_folder_path,
+        inputs=[training_section["export_path"]],
+        outputs=[training_section["export_path"]],
     )
 
     training_section["start_training_btn"].click(

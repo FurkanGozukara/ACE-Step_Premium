@@ -17,6 +17,7 @@ from .generation_metadata_file_wiring import register_generation_metadata_file_h
 from .generation_batch_navigation_wiring import register_generation_batch_navigation_handlers
 from .generation_mode_wiring import register_generation_mode_handlers
 from .generation_run_wiring import register_generation_run_handlers
+from .dataset_import_wiring import register_dataset_import_handlers
 from .library_wiring import register_library_handlers
 from .results_aux_wiring import register_results_aux_handlers
 from .results_display_wiring import (
@@ -40,6 +41,7 @@ __all__ = [
     "build_mode_ui_outputs",
     "register_batch_folder_handlers",
     "register_generation_batch_navigation_handlers",
+    "register_dataset_import_handlers",
     "register_generation_metadata_file_handlers",
     "register_generation_metadata_handlers",
     "register_generation_mode_handlers",

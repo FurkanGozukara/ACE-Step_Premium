@@ -8,6 +8,7 @@ from acestep.ui.gradio.events.training.dataset_ops import (
     auto_label_all,
     get_sample_preview,
     save_sample_edit,
+    select_sample_from_table,
     update_settings,
     save_dataset,
 )
@@ -259,6 +260,59 @@ class TestGetSamplePreview(unittest.TestCase):
         self.assertEqual(result[0], "/path/to/audio.wav")
         self.assertEqual(result[1], "audio.wav")
         self.assertEqual(result[4], "Genre")  # prompt_override converted
+
+
+class TestSelectSampleFromTable(unittest.TestCase):
+    """Tests for Found Audio Files row selection."""
+
+    def test_selects_clicked_row_and_loads_preview(self):
+        """Clicking a dataframe row should update Step 3 preview fields."""
+
+        first = _sample(filename="first.wav", caption="First")
+        second = _sample(filename="second.wav", caption="Second")
+        builder = MagicMock()
+        builder.samples = [first, second]
+        evt = SimpleNamespace(index=(1, 0))
+
+        result = select_sample_from_table(builder, evt)
+
+        self.assertEqual(result[0]["value"], 1)
+        self.assertEqual(result[2], "second.wav")
+        self.assertEqual(result[3], "Second")
+
+    def test_invalid_selection_returns_empty_preview(self):
+        """Out-of-range selections should not load a stale sample."""
+
+        builder = MagicMock()
+        builder.samples = [_sample(filename="first.wav")]
+        evt = SimpleNamespace(index=(5, 0))
+
+        result = select_sample_from_table(builder, evt)
+
+        self.assertIsNone(result[1])
+        self.assertEqual(result[2], "")
+
+
+def _sample(filename: str, caption: str = "") -> MagicMock:
+    """Build a sample mock with preview fields."""
+
+    sample = MagicMock()
+    sample.audio_path = f"/path/{filename}"
+    sample.filename = filename
+    sample.caption = caption
+    sample.genre = ""
+    sample.prompt_override = None
+    sample.lyrics = "[Instrumental]"
+    sample.formatted_lyrics = ""
+    sample.bpm = None
+    sample.keyscale = ""
+    sample.timesignature = ""
+    sample.duration = 1.0
+    sample.language = "instrumental"
+    sample.is_instrumental = True
+    sample.raw_lyrics = ""
+    sample.has_raw_lyrics.return_value = False
+    return sample
 
 
 class TestUpdateSettings(unittest.TestCase):

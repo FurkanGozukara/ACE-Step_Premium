@@ -112,6 +112,7 @@ def setup_training_event_handlers(demo, dit_handler, llm_handler, training_secti
         button_key="load_json_btn",
         path_key="load_json_path",
         status_key="load_json_status",
+        browse_key="load_json_browse_btn",
     )
     # ========== Dataset Builder Handlers ==========
     register_training_dataset_builder_handlers(training_context)
@@ -125,6 +126,7 @@ def setup_training_event_handlers(demo, dit_handler, llm_handler, training_secti
         button_key="load_existing_dataset_btn",
         path_key="load_existing_dataset_path",
         status_key="load_existing_status",
+        browse_key="load_existing_dataset_browse_btn",
     )
     
     # Preprocess dataset to tensor files

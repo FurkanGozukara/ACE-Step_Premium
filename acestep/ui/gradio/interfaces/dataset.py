@@ -26,6 +26,23 @@ def create_dataset_section(
                 elem_classes=["has-info-container"],
                 scale=2,
             )
+            dataset_import_path = gr.Textbox(
+                label="Dataset JSON or Audio Folder",
+                placeholder="./datasets/my_lora_dataset.json",
+                info="Select a saved dataset JSON or an audio folder to scan.",
+                elem_classes=["has-info-container"],
+                scale=4,
+            )
+            import_json_browse_btn = gr.Button(
+                "Browse JSON",
+                variant="secondary",
+                scale=1,
+            )
+            import_folder_browse_btn = gr.Button(
+                "Browse Folder",
+                variant="secondary",
+                scale=1,
+            )
             import_dataset_btn = gr.Button(
                 "Import Dataset",
                 variant="primary",
@@ -115,6 +132,9 @@ def create_dataset_section(
 
     return {
         "dataset_type": dataset_type,
+        "dataset_import_path": dataset_import_path,
+        "import_json_browse_btn": import_json_browse_btn,
+        "import_folder_browse_btn": import_folder_browse_btn,
         "import_dataset_btn": import_dataset_btn,
         "search_type": search_type,
         "search_value": search_value,

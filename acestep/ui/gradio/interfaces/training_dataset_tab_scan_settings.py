@@ -31,15 +31,17 @@ def build_dataset_scan_and_settings_controls(
     with gr.Row():
         with gr.Column(scale=1):
             gr.HTML("<h4>📂 Load Existing Dataset</h4>")
-            with gr.Row():
-                load_json_path = gr.Textbox(
-                    label=t("training.load_dataset_label"),
-                    placeholder="./datasets/my_lora_dataset.json",
-                    info=t("training.load_dataset_info"),
-                    elem_classes=["has-info-container"],
-                    scale=3,
-                )
-                load_json_btn = gr.Button(t("training.load_btn"), variant="primary", scale=1)
+            load_json_path = gr.Textbox(
+                label=t("training.load_dataset_label"),
+                placeholder="./datasets/my_lora_dataset.json",
+                info=t("training.load_dataset_info"),
+                elem_classes=["has-info-container"],
+            )
+            load_json_browse_btn = gr.Button(
+                "Browse Dataset JSON",
+                variant="secondary",
+            )
+            load_json_btn = gr.Button(t("training.load_btn"), variant="primary")
             load_json_status = gr.Textbox(
                 label=t("training.load_status"),
                 interactive=False,
@@ -47,15 +49,17 @@ def build_dataset_scan_and_settings_controls(
 
         with gr.Column(scale=1):
             gr.HTML("<h4>🔍 Scan New Directory</h4>")
-            with gr.Row():
-                audio_directory = gr.Textbox(
-                    label=t("training.scan_label"),
-                    placeholder="/path/to/your/audio/folder",
-                    info=t("training.scan_info"),
-                    elem_classes=["has-info-container"],
-                    scale=3,
-                )
-                scan_btn = gr.Button(t("training.scan_btn"), variant="secondary", scale=1)
+            audio_directory = gr.Textbox(
+                label=t("training.scan_label"),
+                placeholder="/path/to/your/audio/folder",
+                info=t("training.scan_info"),
+                elem_classes=["has-info-container"],
+            )
+            scan_directory_browse_btn = gr.Button(
+                "Browse Audio Folder",
+                variant="secondary",
+            )
+            scan_btn = gr.Button(t("training.scan_btn"), variant="secondary")
             scan_status = gr.Textbox(
                 label=t("training.scan_status"),
                 interactive=False,
@@ -94,7 +98,10 @@ def build_dataset_scan_and_settings_controls(
             format_lyrics = gr.Checkbox(
                 label="Format Lyrics (LM)",
                 value=False,
-                info="Use LM to format/structure user-provided lyrics from .txt files (coming soon)",
+                info=(
+                    "Use LM to format/structure user-provided lyrics from .txt "
+                    "files (coming soon)"
+                ),
                 elem_classes=["has-info-container"],
                 interactive=False,
             )
@@ -138,9 +145,11 @@ def build_dataset_scan_and_settings_controls(
 
     return {
         "load_json_path": load_json_path,
+        "load_json_browse_btn": load_json_browse_btn,
         "load_json_btn": load_json_btn,
         "load_json_status": load_json_status,
         "audio_directory": audio_directory,
+        "scan_directory_browse_btn": scan_directory_browse_btn,
         "scan_btn": scan_btn,
         "scan_status": scan_status,
         "audio_files_table": audio_files_table,

@@ -29,6 +29,10 @@ def build_lora_dataset_and_adapter_controls(
                 elem_classes=["has-info-container"],
             )
 
+            training_tensor_dir_browse_btn = gr.Button(
+                "Browse Tensor Folder",
+                variant="secondary",
+            )
             load_dataset_btn = gr.Button(t("training.load_dataset_btn"), variant="secondary")
 
             training_dataset_info = gr.Textbox(
@@ -75,6 +79,7 @@ def build_lora_dataset_and_adapter_controls(
 
     return {
         "training_tensor_dir": training_tensor_dir,
+        "training_tensor_dir_browse_btn": training_tensor_dir_browse_btn,
         "load_dataset_btn": load_dataset_btn,
         "training_dataset_info": training_dataset_info,
         "lora_model_config": model_controls["lora_model_config"],
