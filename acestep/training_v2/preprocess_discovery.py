@@ -15,10 +15,45 @@ import random
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
+from acestep.training.path_inputs import normalize_user_path
+
 logger = logging.getLogger(__name__)
 
 # Supported audio extensions (same as upstream)
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".ogg", ".opus", ".m4a"}
+
+
+def _portable_basename(path_text: str) -> str:
+    """Return the filename portion for either Windows or POSIX separators."""
+    return path_text.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+
+
+def _json_audio_candidates(audio_path: str, json_dir: Path) -> List[Path]:
+    """Return local path candidates for an audio path read from dataset JSON."""
+    value = normalize_user_path(audio_path)
+    variants = [value]
+    slash_variant = value.replace("\\", "/")
+    if slash_variant != value:
+        variants.append(slash_variant)
+
+    candidates: List[Path] = []
+    for variant in variants:
+        path = Path(variant)
+        candidates.append(path if path.is_absolute() else json_dir / path)
+
+    basename = _portable_basename(value)
+    if basename:
+        candidates.append(json_dir / basename)
+
+    return list(dict.fromkeys(candidates))
+
+
+def _resolve_json_audio_path(audio_path: str, json_dir: Path) -> Optional[Path]:
+    """Resolve a dataset JSON audio path against local filesystem candidates."""
+    for candidate in _json_audio_candidates(audio_path, json_dir):
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def discover_audio_files(
@@ -50,13 +85,11 @@ def discover_audio_files(
             ap = entry.get("audio_path") or entry.get("filename", "")
             if not ap:
                 continue
-            p = Path(ap)
-            if not p.is_absolute():
-                p = json_dir / p
-            if p.is_file():
+            p = _resolve_json_audio_path(ap, json_dir)
+            if p is not None:
                 audio_files.append(p)
             else:
-                logger.warning("[Side-Step] Audio file from JSON not found: %s", p)
+                logger.warning("[Side-Step] Audio file from JSON not found: %s", ap)
 
         if audio_files:
             logger.info(
@@ -112,15 +145,19 @@ def load_sample_metadata(
                 if fname:
                     meta[fname] = s
                     # Also index by basename if filename contains a path
-                    basename = Path(fname).name
+                    basename = _portable_basename(fname)
                     if basename != fname and basename not in meta:
                         meta[basename] = s
                 elif s.get("audio_path"):
                     # Fallback: derive key from audio_path basename
-                    basename = Path(s["audio_path"]).name
+                    basename = _portable_basename(s["audio_path"])
                     if basename and basename not in meta:
                         meta[basename] = s
-            logger.info("[Side-Step] Loaded metadata for %d samples from %s", len(meta), dataset_json)
+            logger.info(
+                "[Side-Step] Loaded metadata for %d samples from %s",
+                len(meta),
+                dataset_json,
+            )
         except (json.JSONDecodeError, OSError) as exc:
             logger.warning("[Side-Step] Failed to load dataset JSON: %s", exc)
 
