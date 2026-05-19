@@ -197,7 +197,7 @@ class SaveManifestTests(unittest.TestCase):
         )
         from types import SimpleNamespace
 
-        with tempfile.TemporaryDirectory() as d:
+        with tempfile.TemporaryDirectory(dir=os.getcwd()) as d:
             metadata = SimpleNamespace(to_dict=lambda: {"name": "test"})
             # Paths like "./subdir/a.pt" relative to CWD
             cwd_rel = os.path.relpath(os.path.join(d, "x.pt"))

@@ -74,6 +74,9 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
         self.assertEqual(LORA_VRAM_PRESET_16GB, dataset_controls["lora_vram_preset"].value)
         self.assertEqual(64, dataset_controls["lora_rank"].value)
         self.assertEqual(128, dataset_controls["lora_alpha"].value)
+        self.assertEqual("Do not change if you are not expert.", dataset_controls["lora_alpha"].info)
+        self.assertEqual(0.0, dataset_controls["lora_dropout"].value)
+        self.assertIn("overfitting", dataset_controls["lora_dropout"].info)
         self.assertTrue(vram_controls["lora_use_8bit_adam"].value)
         self.assertEqual(10, vram_controls["lora_empty_cache_every_n_steps"].value)
 
@@ -90,10 +93,10 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
         """Each measured preset should update every dependent LoRA control."""
 
         expected_values = {
-            LORA_VRAM_PRESET_10GB: [16, 32, True, True, True, True, True, "FP8 scaled", 5],
-            LORA_VRAM_PRESET_12GB: [32, 64, True, True, True, True, True, "FP8 scaled", 5],
+            LORA_VRAM_PRESET_10GB: [16, 128, True, True, True, True, True, "FP8 scaled", 5],
+            LORA_VRAM_PRESET_12GB: [32, 128, True, True, True, True, True, "FP8 scaled", 5],
             LORA_VRAM_PRESET_16GB: [64, 128, True, False, True, True, True, "Disabled", 10],
-            LORA_VRAM_PRESET_24GB: [128, 256, True, False, True, True, False, "Disabled", 0],
+            LORA_VRAM_PRESET_24GB: [128, 128, True, False, True, True, False, "Disabled", 0],
         }
 
         for preset_name, expected in expected_values.items():

@@ -89,7 +89,7 @@ def _step_lora(a: dict) -> None:
     section("LoRA Settings (press Enter for defaults)")
     a["rank"] = ask("Rank", default=a.get("rank", 64), type_fn=int, allow_back=True)
     a["alpha"] = ask("Alpha", default=a.get("alpha", 128), type_fn=int, allow_back=True)
-    a["dropout"] = ask("Dropout", default=a.get("dropout", 0.1), type_fn=float, allow_back=True)
+    a["dropout"] = ask("Dropout", default=a.get("dropout", 0.0), type_fn=float, allow_back=True)
 
 
 def _step_output(a: dict) -> None:
@@ -166,7 +166,7 @@ def wizard_estimate() -> argparse.Namespace:
         seed=42,
         rank=answers.get("rank", 64),
         alpha=answers.get("alpha", 128),
-        dropout=answers.get("dropout", 0.1),
+        dropout=answers.get("dropout", 0.0),
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
         attention_type="both",
         bias="none",

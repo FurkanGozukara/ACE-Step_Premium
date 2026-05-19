@@ -52,7 +52,7 @@ def build_train_namespace(a: dict, mode: str) -> argparse.Namespace:
         # LoRA args
         rank=a.get("rank", 64),
         alpha=a.get("alpha", 128),
-        dropout=a.get("dropout", 0.1),
+        dropout=a.get("dropout", 0.0),
         target_modules=target_modules,
         attention_type=a.get("attention_type", "both"),
         bias=a.get("bias", "none"),

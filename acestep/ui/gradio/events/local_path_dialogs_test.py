@@ -48,6 +48,32 @@ class LocalPathDialogsTests(unittest.TestCase):
 
         self.assertTrue(selected.lower().endswith("temp"))
 
+    def test_select_optional_folder_path_returns_none_on_cancel(self) -> None:
+        """Optional folder selection should distinguish cancel from selection."""
+
+        root = _FakeRoot()
+        dialog = SimpleNamespace(askdirectory=lambda **_kwargs: "")
+        with patch.object(local_path_dialogs, "is_dialog_available", return_value=True):
+            with patch.object(local_path_dialogs, "Tk", return_value=root):
+                with patch.object(local_path_dialogs, "filedialog", dialog):
+                    selected = local_path_dialogs.select_optional_folder_path("C:\\temp")
+
+        self.assertIsNone(selected)
+        self.assertTrue(root.destroyed)
+
+    def test_select_optional_folder_path_allows_selecting_current_path(self) -> None:
+        """Selecting the current folder should still count as a selection."""
+
+        root = _FakeRoot()
+        dialog = SimpleNamespace(askdirectory=lambda **_kwargs: "C:\\temp")
+        with patch.object(local_path_dialogs, "is_dialog_available", return_value=True):
+            with patch.object(local_path_dialogs, "Tk", return_value=root):
+                with patch.object(local_path_dialogs, "filedialog", dialog):
+                    selected = local_path_dialogs.select_optional_folder_path("C:\\temp")
+
+        self.assertTrue(selected.lower().endswith("temp"))
+        self.assertTrue(root.destroyed)
+
     def test_select_json_save_path_appends_json_extension(self) -> None:
         """Save dialogs should enforce the expected JSON extension."""
 

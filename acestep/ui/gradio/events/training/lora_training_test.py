@@ -9,7 +9,11 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from acestep.training.configs import LoRAConfig, TrainingConfig
-from acestep.training.path_safety import get_safe_roots, set_safe_roots
+from acestep.training.path_safety import (
+    discover_default_safe_roots,
+    get_safe_roots,
+    set_safe_roots,
+)
 from acestep.ui.gradio.events.training.lora_training import (
     _checkpoint_epoch_from_name,
     _save_training_config_snapshot,
@@ -93,6 +97,41 @@ class LoRATrainingHandlerTests(unittest.TestCase):
             )[0]
 
         self.assertIn("Invalid LoRA training name", first_status)
+
+    def test_start_training_accepts_default_absolute_tensor_dir(self) -> None:
+        """Training should accept absolute tensor folders under default roots."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots(discover_default_safe_roots())
+            output_dir = os.path.join(tmpdir, "lora")
+            handler = SimpleNamespace(model=None)
+            with patch(
+                "acestep.ui.gradio.events.training.lora_training.ensure_dit_ready",
+                return_value=(False, "cannot load"),
+            ):
+                first_status = next(
+                    start_training(
+                        tmpdir,
+                        handler,
+                        64,
+                        128,
+                        0.0,
+                        0.0003,
+                        10,
+                        1,
+                        1,
+                        10,
+                        3.0,
+                        42,
+                        output_dir,
+                        "",
+                        {},
+                        lora_name="test-lora",
+                    )
+                )[0]
+
+        self.assertNotIn("Rejected unsafe tensor directory path", first_status)
+        self.assertIn("cannot load", first_status)
 
     def test_checkpoint_epoch_parses_old_and_named_folders(self) -> None:
         """Export fallback should handle old and new checkpoint folder names."""

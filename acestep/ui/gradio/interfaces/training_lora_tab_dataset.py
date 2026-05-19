@@ -90,8 +90,10 @@ def build_lora_dataset_and_adapter_controls(
                 minimum=0.0,
                 maximum=0.5,
                 step=0.05,
-                value=0.1,
+                value=0.0,
                 label=t("training.lora_dropout"),
+                info=t("training.lora_dropout_info"),
+                elem_classes=["has-info-container"],
             )
 
     return {

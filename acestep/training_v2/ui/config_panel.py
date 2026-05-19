@@ -39,7 +39,7 @@ _DEFAULTS: Dict[str, Any] = {
     # LoRA
     "r": 64,
     "alpha": 128,
-    "dropout": 0.1,
+    "dropout": 0.0,
     "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj"],
     "bias": "none",
     # Checkpointing

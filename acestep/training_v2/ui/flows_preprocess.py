@@ -246,7 +246,7 @@ def wizard_preprocess() -> argparse.Namespace:
         seed=42,
         rank=64,
         alpha=128,
-        dropout=0.1,
+        dropout=0.0,
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
         attention_type="both",
         bias="none",

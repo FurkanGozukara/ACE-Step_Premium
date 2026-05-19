@@ -285,7 +285,7 @@ def _add_common_training_args(
     g_lora = parser.add_argument_group("LoRA (used when --adapter-type=lora)")
     g_lora.add_argument("--rank", "-r", type=int, default=64, help="LoRA rank (default: 64)")
     g_lora.add_argument("--alpha", type=int, default=128, help="LoRA alpha (default: 128)")
-    g_lora.add_argument("--dropout", type=float, default=0.1, help="LoRA dropout (default: 0.1)")
+    g_lora.add_argument("--dropout", type=float, default=0.0, help="LoRA dropout (default: 0.0)")
     g_lora.add_argument("--target-modules", nargs="+", default=["q_proj", "k_proj", "v_proj", "o_proj"], help="Modules to apply adapter to")
     g_lora.add_argument("--bias", type=str, default="none", choices=["none", "all", "lora_only"], help="Bias training mode (default: none)")
     g_lora.add_argument("--attention-type", type=str, default="both", choices=["self", "cross", "both"], help="Attention layers to target (default: both)")

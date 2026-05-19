@@ -16,7 +16,7 @@ class StartTrainingRequest(BaseModel):
     tensor_dir: str = Field(..., description="Directory with preprocessed tensors")
     lora_rank: int = Field(default=64, ge=1, le=256, description="LoRA rank")
     lora_alpha: int = Field(default=128, ge=1, le=512, description="LoRA alpha")
-    lora_dropout: float = Field(default=0.1, ge=0.0, le=1.0, description="LoRA dropout")
+    lora_dropout: float = Field(default=0.0, ge=0.0, le=1.0, description="LoRA dropout")
     learning_rate: float = Field(default=1e-4, gt=0.0, description="Learning rate")
     train_epochs: int = Field(default=10, ge=1, description="Training epochs")
     train_batch_size: int = Field(default=1, ge=1, description="Batch size")

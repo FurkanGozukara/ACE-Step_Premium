@@ -2,9 +2,18 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import gradio as gr
 
 from acestep.ui.gradio.i18n import t
+
+
+def default_lora_output_dir() -> str:
+    """Return the default LoRA output directory under the installation root."""
+
+    install_root = Path(__file__).resolve().parents[4]
+    return str(install_root / "Loras")
 
 
 def build_lora_run_and_export_controls(
@@ -15,6 +24,7 @@ def build_lora_run_and_export_controls(
 ) -> dict[str, object]:
     """Render LoRA training-run and export controls for the training tab."""
 
+    default_output_dir = default_lora_output_dir()
     gr.HTML(f"<hr><h3>🎛️ {t('training.train_section_params')}</h3>")
 
     with gr.Row():
@@ -55,6 +65,10 @@ def build_lora_run_and_export_controls(
             elem_classes=["has-info-container"],
         )
 
+    training_step_estimate = gr.Markdown(
+        "Load a tensor dataset to calculate total training steps."
+    )
+
     with gr.Row():
         save_every_n_epochs = gr.Slider(
             minimum=1,
@@ -86,8 +100,8 @@ def build_lora_run_and_export_controls(
         with gr.Column(scale=3):
             lora_output_dir = gr.Textbox(
                 label=t("training.output_dir"),
-                value="./lora_output",
-                placeholder="./lora_output",
+                value=default_output_dir,
+                placeholder=default_output_dir,
                 info=t("training.output_dir_info"),
                 elem_classes=["has-info-container"],
             )
@@ -178,6 +192,7 @@ def build_lora_run_and_export_controls(
         "train_epochs": train_epochs,
         "train_batch_size": train_batch_size,
         "gradient_accumulation": gradient_accumulation,
+        "training_step_estimate": training_step_estimate,
         "save_every_n_epochs": save_every_n_epochs,
         "training_shift": training_shift,
         "training_seed": training_seed,

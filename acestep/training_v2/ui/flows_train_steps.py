@@ -92,7 +92,7 @@ def step_lora(a: dict) -> None:
     section("LoRA Settings (press Enter for defaults)")
     a["rank"] = ask("Rank", default=a.get("rank", 64), type_fn=int, allow_back=True)
     a["alpha"] = ask("Alpha", default=a.get("alpha", 128), type_fn=int, allow_back=True)
-    a["dropout"] = ask("Dropout", default=a.get("dropout", 0.1), type_fn=float, allow_back=True)
+    a["dropout"] = ask("Dropout", default=a.get("dropout", 0.0), type_fn=float, allow_back=True)
 
     a["attention_type"] = menu(
         "Which attention layers to target?",

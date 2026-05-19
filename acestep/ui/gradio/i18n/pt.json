@@ -418,7 +418,7 @@
     "lora_rank": "Rank LoRA (r)",
     "lora_rank_info": "Maior capacidade, mas mais VRAM.",
     "lora_alpha": "Alpha LoRA",
-    "lora_alpha_info": "Fator de escalonamento (geralmente 2x o Rank).",
+    "lora_alpha_info": "Do not change if you are not expert.",
     "lora_dropout": "Dropout LoRA",
     "learning_rate": "Taxa de Aprendizado",
     "learning_rate_info": "Comece com 3e-4 e ajuste conforme necessário.",

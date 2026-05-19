@@ -22,8 +22,8 @@ class LoRAConfig:
         bias: Whether to train bias parameters ("none", "all", or "lora_only")
     """
     r: int = 8
-    alpha: int = 16
-    dropout: float = 0.1
+    alpha: int = 128
+    dropout: float = 0.0
     target_modules: List[str] = field(default_factory=lambda: [
         "q_proj", "k_proj", "v_proj", "o_proj"
     ])

@@ -392,7 +392,7 @@
     "lora_rank": "LoRA ランク (r)",
     "lora_rank_info": "高いほど容量は増えるがメモリ使用量も増加。",
     "lora_alpha": "LoRA Alpha",
-    "lora_alpha_info": "スケーリング係数（通常はランクの2倍）。",
+    "lora_alpha_info": "Do not change if you are not expert.",
     "lora_dropout": "LoRA Dropout",
     "learning_rate": "学習率",
     "learning_rate_info": "3e-4 から始め、必要に応じて調整。",

@@ -72,6 +72,7 @@ class TestBuildFixedStandaloneParser(unittest.TestCase):
         self.assertEqual(args.checkpoint_dir, "/tmp/ckpt")
         self.assertEqual(args.dataset_dir, "/tmp/data")
         self.assertEqual(args.output_dir, "/tmp/out")
+        self.assertEqual(0.0, args.dropout)
 
     def test_accepts_fixed_specific_cfg_ratio(self):
         """Parser accepts --cfg-ratio flag specific to the fixed subcommand."""

@@ -2,12 +2,7 @@
 
 from typing import Any
 
-import gradio as gr
-
-from acestep.ui.gradio.events.local_path_dialogs import (
-    normalize_dialog_path,
-    select_folder_path,
-)
+from acestep.ui.gradio.events.local_path_dialogs import select_folder_path
 
 from .. import training_handlers as train_h
 from .context import TrainingWiringContext
@@ -17,6 +12,11 @@ from .training_sample_generation_settings import (
     sample_generation_input_components,
     sample_generation_setting_keys,
 )
+from .training_step_estimate_wiring import (
+    attach_lora_step_estimate_update,
+    register_lora_step_estimate_handlers,
+)
+from .training_tensor_browse import browse_and_load_training_dataset
 from ...interfaces.training_lora_vram_presets import lora_vram_preset_updates
 
 
@@ -40,16 +40,8 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
         sample_setting_keys=sample_setting_keys,
     )
 
-    def browse_and_load_training_dataset(current_path: str):
-        """Pick a tensor folder and immediately load its dataset summary."""
-
-        selected = select_folder_path(current_path)
-        if not selected or selected == normalize_dialog_path(current_path):
-            return gr.update(), "No tensor folder selected."
-        return gr.update(value=selected), train_h.load_training_dataset(selected)
-
     # ========== Training Tab Handlers ==========
-    training_section["training_tensor_dir_browse_btn"].click(
+    browse_event = training_section["training_tensor_dir_browse_btn"].click(
         fn=browse_and_load_training_dataset,
         inputs=[training_section["training_tensor_dir"]],
         outputs=[
@@ -57,12 +49,15 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
             training_section["training_dataset_info"],
         ],
     )
+    attach_lora_step_estimate_update(browse_event, training_section)
 
-    training_section["load_dataset_btn"].click(
+    load_event = training_section["load_dataset_btn"].click(
         fn=train_h.load_training_dataset,
         inputs=[training_section["training_tensor_dir"]],
         outputs=[training_section["training_dataset_info"]],
     )
+    attach_lora_step_estimate_update(load_event, training_section)
+    register_lora_step_estimate_handlers(training_section)
 
     training_section["lora_vram_preset"].change(
         fn=lora_vram_preset_updates,

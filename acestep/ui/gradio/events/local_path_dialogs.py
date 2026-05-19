@@ -47,15 +47,21 @@ def is_dialog_available() -> bool:
 
 def select_folder_path(current_path: str = "") -> str:
     """Open a native folder picker and return the selected folder path."""
+    selected = select_optional_folder_path(current_path)
+    return selected if selected is not None else normalize_dialog_path(current_path)
+
+
+def select_optional_folder_path(current_path: str = "") -> str | None:
+    """Open a native folder picker and return ``None`` when it is canceled."""
     current = normalize_dialog_path(current_path)
     if not is_dialog_available():
-        return current
+        return current if current else None
     root = _create_dialog_root()
     try:
         selected = filedialog.askdirectory(initialdir=_initial_dir(current))
     finally:
         root.destroy()
-    return normalize_dialog_path(selected) if selected else current
+    return normalize_dialog_path(selected) if selected else None
 
 
 def select_json_file_path(current_path: str = "") -> str:

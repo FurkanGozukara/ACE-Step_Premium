@@ -68,7 +68,7 @@ class TrainingDecompositionContractTests(unittest.TestCase):
         """Production LoRA training UI should permit one-epoch smoke tests."""
 
         with patch.object(training_interface, "DEBUG_TRAINING", "OFF"):
-            self.assertEqual(training_interface._resolve_epoch_slider_defaults(), (1, 1, 1000))
+            self.assertEqual(training_interface._resolve_epoch_slider_defaults(), (1, 1, 100))
         with patch.object(training_interface, "DEBUG_TRAINING", "ON"):
             self.assertEqual(training_interface._resolve_epoch_slider_defaults(), (1, 1, 1))
 

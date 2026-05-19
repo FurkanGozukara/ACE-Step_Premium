@@ -43,9 +43,21 @@ class LoraVramPresetTests(unittest.TestCase):
         preset = get_lora_vram_preset(LORA_VRAM_PRESET_10GB)
 
         self.assertEqual(16, preset["lora_rank"])
-        self.assertEqual(32, preset["lora_alpha"])
+        self.assertEqual(128, preset["lora_alpha"])
         self.assertTrue(preset["activation_cpu_offload"])
         self.assertEqual("FP8 scaled", preset["base_quantization"])
+
+    def test_all_presets_keep_alpha_128(self) -> None:
+        """Every automatic preset should keep the expert-only alpha default."""
+
+        for preset_name in (
+            LORA_VRAM_PRESET_10GB,
+            LORA_VRAM_PRESET_12GB,
+            LORA_VRAM_PRESET_16GB,
+            LORA_VRAM_PRESET_24GB,
+        ):
+            with self.subTest(preset_name=preset_name):
+                self.assertEqual(128, get_lora_vram_preset(preset_name)["lora_alpha"])
 
     def test_faster_preset_raises_rank_without_cpu_activation_offload(self) -> None:
         """The 24 GB preset should prefer speed and higher rank."""

@@ -28,7 +28,7 @@ LORA_VRAM_PRESET_CHOICES = [
 _PRESETS: dict[str, dict[str, Any]] = {
     LORA_VRAM_PRESET_10GB: {
         "lora_rank": 16,
-        "lora_alpha": 32,
+        "lora_alpha": 128,
         "gradient_checkpointing": True,
         "activation_cpu_offload": True,
         "offload_non_decoder": True,
@@ -39,7 +39,7 @@ _PRESETS: dict[str, dict[str, Any]] = {
     },
     LORA_VRAM_PRESET_12GB: {
         "lora_rank": 32,
-        "lora_alpha": 64,
+        "lora_alpha": 128,
         "gradient_checkpointing": True,
         "activation_cpu_offload": True,
         "offload_non_decoder": True,
@@ -61,7 +61,7 @@ _PRESETS: dict[str, dict[str, Any]] = {
     },
     LORA_VRAM_PRESET_24GB: {
         "lora_rank": 128,
-        "lora_alpha": 256,
+        "lora_alpha": 128,
         "gradient_checkpointing": True,
         "activation_cpu_offload": False,
         "offload_non_decoder": True,

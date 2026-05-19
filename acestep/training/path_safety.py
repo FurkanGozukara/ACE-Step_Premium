@@ -1,7 +1,9 @@
 """Path sanitisation helpers for training modules.
 
 Provides a single ``safe_path`` function that validates user-provided
-filesystem paths against a known safe root directory.  The validation
+filesystem paths against known safe roots. By default, absolute local
+paths are accepted under the machine's filesystem roots, while relative
+paths remain anchored to the primary safe root. The validation
 uses ``os.path.realpath`` followed by a ``.startswith`` check — the
 exact pattern that CodeQL recognises as a sanitiser for the
 ``py/path-injection`` query.
@@ -14,12 +16,16 @@ All training modules that accept user-supplied paths should call
 ``safe_path`` (or ``safe_open``) before performing any filesystem I/O.
 """
 
+import ctypes
 import os
+import string
 from typing import Iterable, Optional
 
 from loguru import logger
 
 from acestep.training.path_inputs import normalize_user_path
+
+_WINDOWS_READABLE_DRIVE_TYPES = {2, 3, 4, 5, 6}
 
 
 def _resolve(path: str) -> str:
@@ -29,12 +35,6 @@ def _resolve(path: str) -> str:
     to their canonical form before comparison.
     """
     return os.path.normpath(os.path.realpath(normalize_user_path(path)))
-
-
-# Root directories that user-provided paths must resolve under.
-# Defaults to the working directory at import time. Override via
-# ``set_safe_root`` / ``set_safe_roots`` if needed (e.g. in tests).
-_SAFE_ROOTS: list[str] = [_resolve(os.getcwd())]
 
 
 def _dedupe_roots(roots: Iterable[str]) -> list[str]:
@@ -51,6 +51,51 @@ def _dedupe_roots(roots: Iterable[str]) -> list[str]:
         seen.add(key)
         deduped.append(resolved)
     return deduped
+
+
+def _windows_drive_roots() -> list[str]:
+    """Return readable Windows drive roots without walking their contents."""
+
+    try:
+        drive_mask = ctypes.windll.kernel32.GetLogicalDrives()
+    except (AttributeError, OSError):
+        drive_mask = 0
+
+    candidates = []
+    if drive_mask:
+        for index, letter in enumerate(string.ascii_uppercase):
+            if drive_mask & (1 << index):
+                candidates.append(f"{letter}:\\")
+    else:
+        candidates = [f"{letter}:\\" for letter in string.ascii_uppercase]
+
+    roots = []
+    for root in candidates:
+        try:
+            drive_type = ctypes.windll.kernel32.GetDriveTypeW(root)
+        except (AttributeError, OSError):
+            drive_type = 0
+        if drive_type and drive_type not in _WINDOWS_READABLE_DRIVE_TYPES:
+            continue
+        if os.path.isdir(root):
+            roots.append(root)
+    return roots
+
+
+def discover_default_safe_roots() -> list[str]:
+    """Return default safe roots for local absolute paths on this machine."""
+
+    local_roots = _windows_drive_roots() if os.name == "nt" else [os.path.abspath(os.sep)]
+    roots = _dedupe_roots([os.getcwd(), *local_roots])
+    if roots:
+        return roots
+    return [_resolve(os.getcwd())]
+
+
+# Root directories that user-provided absolute paths must resolve under.
+# Defaults allow local Windows drive roots or the POSIX filesystem root.
+# Override via ``set_safe_root`` / ``set_safe_roots`` if needed (e.g. in tests).
+_SAFE_ROOTS: list[str] = discover_default_safe_roots()
 
 
 def _safe_prefix(root: str) -> str:
@@ -112,9 +157,10 @@ def get_safe_roots() -> list[str]:
 def safe_path(user_path: str, *, base: Optional[str] = None) -> str:
     """Validate and normalise a user-provided path.
 
-    The returned path is guaranteed to live under *base* (or one of the
-    global safe roots when *base* is ``None``).  Symlinks in both
-    the root and user path are resolved so that paths through symlinks
+    The returned absolute path is guaranteed to live under *base* when
+    provided. Without *base*, absolute paths may live under any configured
+    safe root, and relative paths stay under the primary safe root. Symlinks
+    in both the root and user path are resolved so paths through symlinks
     compare correctly.
 
     Args:
@@ -134,11 +180,14 @@ def safe_path(user_path: str, *, base: Optional[str] = None) -> str:
     user_path = normalize_user_path(user_path)
     roots = [_resolve(base)] if base is not None else _SAFE_ROOTS
 
-    # Resolve the user path.  If relative, join against *root* first.
+    # Resolve absolute paths against all configured roots. Keep relative paths
+    # anchored to the primary root so ``..`` cannot escape through a broad root.
     if os.path.isabs(user_path):
         normalised = _resolve(user_path)
+        roots_for_check = roots
     else:
         normalised = _resolve(os.path.join(roots[0], user_path))
+        roots_for_check = [roots[0]]
 
     # ── CodeQL-recognised sanitiser barrier ──
     # ``normpath(…).startswith(safe_prefix)`` is the pattern that
@@ -147,11 +196,11 @@ def safe_path(user_path: str, *, base: Optional[str] = None) -> str:
     if not any(
         normalised_for_check == os.path.normcase(root)
         or normalised_for_check.startswith(_safe_prefix(root))
-        for root in roots
+        for root in roots_for_check
     ):
         raise ValueError(
             f"Path escapes safe root: {user_path!r} "
-            f"(resolved to {normalised!r}, roots={roots!r})"
+            f"(resolved to {normalised!r}, roots={roots_for_check!r})"
         )
 
     return normalised

@@ -406,7 +406,7 @@
     "lora_rank": "דרגת LoRA (r)",
     "lora_rank_info": "קיבולת גבוהה יותר אך דורש יותר VRAM.",
     "lora_alpha": "LoRA Alpha",
-    "lora_alpha_info": "גורם קנה מידה (בדרך כלל פי 2 מהדרגה).",
+    "lora_alpha_info": "Do not change if you are not expert.",
     "lora_dropout": "LoRA Dropout",
     "learning_rate": "קצב למידה",
     "learning_rate_info": "התחל עם 3e-4, התאם לפי הצורך.",
