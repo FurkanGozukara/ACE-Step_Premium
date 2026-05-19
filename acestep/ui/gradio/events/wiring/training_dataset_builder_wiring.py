@@ -13,9 +13,12 @@ from acestep.ui.gradio.events.local_path_dialogs import (
 from .. import training_handlers as train_h
 from ..training.dataset_ops import select_sample_from_table
 from ..training.subprocess_dataset import run_auto_label_subprocess
-from ..training.subprocess_init import build_dit_init_payload, build_llm_init_payload
 from .context import TrainingWiringContext
 from .training_dataset_status import append_preview_refresh_status
+from .training_dataset_vram_payloads import (
+    build_auto_label_init_payloads,
+    should_run_dataset_action_in_subprocess,
+)
 
 
 _SAMPLE_PREVIEW_OUTPUT_KEYS = (
@@ -73,6 +76,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
         lm_lyrics_language,
         only_unlab,
         model,
+        vram_preset,
         save_path,
         dataset_name,
         subprocess_mode,
@@ -80,7 +84,13 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
     ):
         """Run automatic dataset labeling with the selected model and save path."""
 
-        if subprocess_mode:
+        if should_run_dataset_action_in_subprocess(vram_preset, subprocess_mode):
+            dit_init_params, llm_init_params = build_auto_label_init_payloads(
+                dit_handler,
+                llm_handler,
+                model,
+                vram_preset,
+            )
             return run_auto_label_subprocess(
                 builder_state=state,
                 settings={
@@ -90,11 +100,12 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
                     "lm_lyrics_language": lm_lyrics_language,
                     "only_unlabeled": only_unlab,
                     "model_config": model,
+                    "vram_preset": vram_preset,
                     "save_path": save_path,
                     "dataset_name": dataset_name,
                 },
-                dit_init_params=build_dit_init_payload(dit_handler, model),
-                llm_init_params=build_llm_init_payload(llm_handler),
+                dit_init_params=dit_init_params,
+                llm_init_params=llm_init_params,
                 progress=progress,
             )
 
@@ -149,6 +160,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             training_section["lm_lyrics_language"],
             training_section["only_unlabeled"],
             training_section["dataset_model_config"],
+            training_section["dataset_vram_preset"],
             training_section["save_path"],
             training_section["dataset_name"],
             training_section["auto_label_subprocess"],

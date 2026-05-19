@@ -24,6 +24,9 @@ _TRAINING_DATASET_PREPROCESS_WIRING_PATH = Path(__file__).resolve().with_name(
 )
 _TRAINING_RUN_WIRING_PATH = Path(__file__).resolve().with_name("training_run_wiring.py")
 _TRAINING_LOKR_WIRING_PATH = Path(__file__).resolve().with_name("training_lokr_wiring.py")
+_TRAINING_LORA_RUN_WRAPPER_PATH = Path(__file__).resolve().with_name(
+    "training_lora_run_wrapper.py"
+)
 
 
 def load_setup_event_handlers_node() -> ast.FunctionDef:
@@ -106,6 +109,13 @@ def load_training_lokr_wiring_module() -> ast.Module:
     """Return the parsed AST module for ``training_lokr_wiring.py``."""
 
     source = _TRAINING_LOKR_WIRING_PATH.read_text(encoding="utf-8")
+    return ast.parse(source)
+
+
+def load_training_lora_run_wrapper_module() -> ast.Module:
+    """Return the parsed AST module for ``training_lora_run_wrapper.py``."""
+
+    source = _TRAINING_LORA_RUN_WRAPPER_PATH.read_text(encoding="utf-8")
     return ast.parse(source)
 
 

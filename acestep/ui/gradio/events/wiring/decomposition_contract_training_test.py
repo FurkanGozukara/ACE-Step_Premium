@@ -9,6 +9,7 @@ try:
         load_setup_training_event_handlers_node,
         load_training_dataset_builder_wiring_module,
         load_training_dataset_preprocess_wiring_module,
+        load_training_lora_run_wrapper_module,
         load_training_lokr_wiring_module,
         load_training_run_wiring_module,
     )
@@ -18,6 +19,7 @@ except ImportError:  # pragma: no cover - supports direct file execution
         load_setup_training_event_handlers_node,
         load_training_dataset_builder_wiring_module,
         load_training_dataset_preprocess_wiring_module,
+        load_training_lora_run_wrapper_module,
         load_training_lokr_wiring_module,
         load_training_run_wiring_module,
     )
@@ -46,6 +48,7 @@ class DecompositionContractTrainingTests(unittest.TestCase):
         """Training run wiring should invoke both LoRA and LoKr training entry points."""
 
         training_run_node = load_training_run_wiring_module()
+        lora_wrapper_node = load_training_lora_run_wrapper_module()
         lokr_node = load_training_lokr_wiring_module()
 
         training_run_call_names = []
@@ -57,6 +60,12 @@ class DecompositionContractTrainingTests(unittest.TestCase):
 
         lokr_call_names = []
         lokr_attribute_names = []
+        lora_wrapper_call_names = []
+        for node in ast.walk(lora_wrapper_node):
+            if isinstance(node, ast.Call):
+                name = call_name(node.func)
+                if name:
+                    lora_wrapper_call_names.append(name)
         for node in ast.walk(lokr_node):
             if isinstance(node, ast.Call):
                 name = call_name(node.func)
@@ -65,7 +74,8 @@ class DecompositionContractTrainingTests(unittest.TestCase):
             if isinstance(node, ast.Attribute):
                 lokr_attribute_names.append(node.attr)
 
-        self.assertIn("start_training", training_run_call_names)
+        self.assertIn("build_lora_training_wrapper", training_run_call_names)
+        self.assertIn("start_training", lora_wrapper_call_names)
         self.assertIn("register_lokr_training_handlers", training_run_call_names)
         self.assertIn("start_lokr_training", lokr_call_names)
         self.assertIn("stop_training", lokr_attribute_names)

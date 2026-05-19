@@ -108,6 +108,7 @@ class TrainingWiringContext:
     dit_handler: Any
     llm_handler: Any
     training_section: ComponentMap
+    generation_section: ComponentMap | None = None
 
 
 def build_auto_checkbox_outputs(context: GenerationWiringContext) -> list[Any]:

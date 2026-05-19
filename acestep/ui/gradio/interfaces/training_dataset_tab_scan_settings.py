@@ -10,6 +10,9 @@ from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.interfaces.training_dataset_model_selector import (
     build_dataset_model_selector,
 )
+from acestep.ui.gradio.interfaces.training_dataset_vram_presets import (
+    build_dataset_vram_preset_dropdown,
+)
 from acestep.ui.gradio.language_choices import language_dropdown_choices
 
 
@@ -81,7 +84,11 @@ def build_dataset_scan_and_settings_controls(
         with gr.Column(scale=1):
             gr.HTML(f"<h3>⚙️ {t('training.dataset_settings_header')}</h3>")
 
-            model_controls = build_dataset_model_selector(dit_handler, init_params)
+            with gr.Row():
+                with gr.Column(scale=2):
+                    model_controls = build_dataset_model_selector(dit_handler, init_params)
+                with gr.Column(scale=1):
+                    dataset_vram_preset = build_dataset_vram_preset_dropdown()
 
             dataset_name = gr.Textbox(
                 label=t("training.dataset_name"),
@@ -171,6 +178,7 @@ def build_dataset_scan_and_settings_controls(
         "scan_status": scan_status,
         "audio_files_table": audio_files_table,
         "dataset_model_config": model_controls["dataset_model_config"],
+        "dataset_vram_preset": dataset_vram_preset,
         "dataset_name": dataset_name,
         "all_instrumental": all_instrumental,
         "format_lyrics": format_lyrics,

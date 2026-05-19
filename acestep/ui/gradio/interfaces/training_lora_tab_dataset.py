@@ -8,6 +8,10 @@ from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.interfaces.training_dataset_model_selector import (
     build_lora_training_model_selector,
 )
+from acestep.ui.gradio.interfaces.training_lora_vram_presets import (
+    build_lora_vram_preset_dropdown,
+    default_lora_vram_control_values,
+)
 
 
 def build_lora_dataset_and_adapter_controls(
@@ -15,6 +19,8 @@ def build_lora_dataset_and_adapter_controls(
     init_params: dict | None = None,
 ) -> dict[str, object]:
     """Render LoRA dataset selector and adapter-parameter controls."""
+
+    lora_vram_defaults = default_lora_vram_control_values()
 
     with gr.Row():
         with gr.Column(scale=2):
@@ -41,10 +47,14 @@ def build_lora_dataset_and_adapter_controls(
                 lines=3,
             )
 
-            model_controls = build_lora_training_model_selector(
-                dit_handler=dit_handler,
-                init_params=init_params,
-            )
+            with gr.Row():
+                with gr.Column(scale=2):
+                    model_controls = build_lora_training_model_selector(
+                        dit_handler=dit_handler,
+                        init_params=init_params,
+                    )
+                with gr.Column(scale=1):
+                    lora_vram_preset = build_lora_vram_preset_dropdown()
 
         with gr.Column(scale=1):
             gr.HTML(f"<h3>⚙️ {t('training.train_section_lora')}</h3>")
@@ -60,7 +70,7 @@ def build_lora_dataset_and_adapter_controls(
                 minimum=4,
                 maximum=256,
                 step=4,
-                value=64,
+                value=lora_vram_defaults["lora_rank"],
                 label=t("training.lora_rank"),
                 info=t("training.lora_rank_info"),
                 elem_classes=["has-info-container"],
@@ -70,7 +80,7 @@ def build_lora_dataset_and_adapter_controls(
                 minimum=4,
                 maximum=512,
                 step=4,
-                value=128,
+                value=lora_vram_defaults["lora_alpha"],
                 label=t("training.lora_alpha"),
                 info=t("training.lora_alpha_info"),
                 elem_classes=["has-info-container"],
@@ -90,6 +100,7 @@ def build_lora_dataset_and_adapter_controls(
         "load_dataset_btn": load_dataset_btn,
         "training_dataset_info": training_dataset_info,
         "lora_model_config": model_controls["lora_model_config"],
+        "lora_vram_preset": lora_vram_preset,
         "lora_name": lora_name,
         "lora_rank": lora_rank,
         "lora_alpha": lora_alpha,

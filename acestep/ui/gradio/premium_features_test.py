@@ -138,6 +138,26 @@ class PremiumFeaturesTests(unittest.TestCase):
         self.assertIsNone(remembered)
         self.assertIn("missing", updates[len(keys) + 3])
 
+    def test_corrupt_remembered_preset_returns_to_gpu_defaults(self) -> None:
+        """Unreadable remembered presets should clear selection and keep GPU defaults."""
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            preset_dir = Path(tmp_dir) / premium_features.USER_PRESET_FOLDER
+            preset_dir.mkdir(parents=True, exist_ok=True)
+            (preset_dir / "broken.json").write_text("{not json", encoding="utf-8")
+            try:
+                premium_features.set_last_used_preset_name("broken")
+                updates = premium_features.startup_preset_updates()
+                remembered = premium_features.get_last_used_preset_name()
+            finally:
+                self._restore_project_root(original)
+
+        keys = premium_features.get_preset_component_keys()
+        dropdown_update = updates[len(keys) + 2]
+        self.assertEqual(dropdown_update.get("value"), None)
+        self.assertIsNone(remembered)
+        self.assertIn("Using GPU Optimization Preset", updates[len(keys) + 3])
+
     def test_load_missing_preset_returns_to_gpu_defaults(self) -> None:
         """Manual loads of missing presets should not apply a bundled fallback."""
         with self._with_project_root() as tmp_dir:

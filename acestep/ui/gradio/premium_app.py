@@ -708,6 +708,7 @@ def create_gradio_interface(
             dit_handler=dit_handler,
             llm_handler=llm_handler,
             training_section=training_section,
+            generation_section=generation_section,
         )
         register_batch_folder_handlers(
             dit_handler=dit_handler,

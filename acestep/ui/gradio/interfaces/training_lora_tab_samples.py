@@ -69,7 +69,7 @@ def build_lora_sample_generation_controls() -> dict[str, object]:
         with gr.Row():
             lora_sample_offload_training_model = gr.Checkbox(
                 label="Offload trainer while sampling",
-                value=True,
+                value=False,
             )
             lora_sample_offload_generation = gr.Checkbox(
                 label="Generation CPU offload",

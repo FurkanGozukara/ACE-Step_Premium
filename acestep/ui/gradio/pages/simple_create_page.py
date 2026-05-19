@@ -6,7 +6,7 @@ from typing import Any
 
 import gradio as gr
 
-from acestep.gpu_config import GPU_TIER_LABELS
+from acestep.gpu_config import GPU_TIER_LABELS, get_global_gpu_config
 from acestep.ui.gradio.events.results.video_export import VIDEO_RESOLUTION_CHOICES
 from acestep.ui.gradio.events.generation.quantization import (
     QUANTIZATION_CHOICES,
@@ -29,7 +29,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
     """Build the simplified Create tab."""
 
     params = init_params or {}
-    gpu_config = params.get("gpu_config")
+    gpu_config = params.get("gpu_config") or get_global_gpu_config()
     tier_value = getattr(gpu_config, "tier", None)
     max_duration = getattr(gpu_config, "max_duration_without_lm", 240)
     default_batch = normalize_generation_count(params.get("default_batch_size") or 1)

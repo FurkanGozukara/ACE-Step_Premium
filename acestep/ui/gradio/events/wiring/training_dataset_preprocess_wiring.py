@@ -12,8 +12,11 @@ from acestep.ui.gradio.events.local_path_dialogs import (
 
 from .. import training_handlers as train_h
 from ..training.subprocess_dataset import run_preprocess_subprocess
-from ..training.subprocess_init import build_dit_init_payload
 from .context import TrainingWiringContext
+from .training_dataset_vram_payloads import (
+    build_preprocess_dit_init_payload,
+    should_run_dataset_action_in_subprocess,
+)
 
 
 _DATASET_LOAD_SHARED_OUTPUT_KEYS = (
@@ -147,18 +150,23 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
         mode,
         state,
         model,
+        vram_preset,
         subprocess_mode,
         progress=gr.Progress(track_tqdm=True),
     ):
         """Run preprocessing in-process or in an isolated worker."""
 
-        if subprocess_mode:
+        if should_run_dataset_action_in_subprocess(vram_preset, subprocess_mode):
             return run_preprocess_subprocess(
                 output_dir=output_dir,
                 preprocess_mode=mode,
                 builder_state=state,
                 model_config=model,
-                dit_init_params=build_dit_init_payload(dit_handler, model),
+                dit_init_params=build_preprocess_dit_init_payload(
+                    dit_handler,
+                    model,
+                    vram_preset,
+                ),
                 progress=progress,
             )
         return train_h.preprocess_dataset(
@@ -176,6 +184,7 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
             training_section["preprocess_mode"],
             training_section["dataset_builder_state"],
             training_section["dataset_model_config"],
+            training_section["dataset_vram_preset"],
             training_section["preprocess_subprocess"],
         ],
         outputs=[training_section["preprocess_progress"]],

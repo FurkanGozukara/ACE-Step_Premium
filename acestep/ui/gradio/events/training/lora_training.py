@@ -14,6 +14,7 @@ from loguru import logger
 
 from acestep.gpu_config import get_global_gpu_config
 from acestep.training.lora_naming import validate_lora_name
+from acestep.training.lora_vram_presets import apply_lora_vram_preset
 from acestep.training.path_inputs import normalize_user_path
 from acestep.training.path_safety import safe_path
 from acestep.ui.gradio.i18n import t
@@ -56,6 +57,33 @@ def _uses_fp8_scaled(base_quantization: str) -> bool:
     """Return whether the selected frozen-base quantization is scaled FP8."""
 
     return str(base_quantization or "").strip().casefold() == "fp8 scaled"
+
+
+def _model_config_token(value: object) -> str:
+    """Return a comparable model identifier from a UI model path/name."""
+
+    text = str(value or "").strip().replace("\\", "/").rstrip("/")
+    if not text:
+        return ""
+    return text.rsplit("/", 1)[-1].casefold()
+
+
+def _sample_model_mismatch(
+    training_model_config: object,
+    sample_model_config: object,
+) -> str:
+    """Return an error message when sample and training base models differ."""
+
+    training_token = _model_config_token(training_model_config)
+    sample_token = _model_config_token(sample_model_config)
+    if not training_token or not sample_token or training_token == sample_token:
+        return ""
+    return (
+        "Sample generation uses the Advanced tab base model, but it does not match "
+        f"the LoRA training base model. Advanced model: {sample_model_config}; "
+        f"training model: {training_model_config}. Select the same base model before "
+        "starting training with checkpoint samples enabled."
+    )
 
 
 def _save_training_config_snapshot(lora_config, training_config) -> None:
@@ -106,9 +134,12 @@ def start_training(
     sample_inference_steps: int = 8,
     sample_seed: int = 42,
     sample_output_dir: str = "",
-    sample_offload_training_model: bool = True,
+    sample_offload_training_model: bool = False,
     sample_offload_generation: bool = True,
     model_config: str | None = None,
+    vram_preset: str = "",
+    sample_generation_model_config: str | None = None,
+    sample_generation_settings: dict | None = None,
     progress=None,
 ):
     """Start LoRA training from preprocessed tensors.
@@ -161,6 +192,38 @@ def start_training(
                 None,
                 training_state,
             )
+            return
+
+    preset_values = apply_lora_vram_preset(
+        vram_preset,
+        {
+            "lora_rank": lora_rank,
+            "lora_alpha": lora_alpha,
+            "gradient_checkpointing": gradient_checkpointing,
+            "activation_cpu_offload": activation_cpu_offload,
+            "offload_non_decoder": offload_non_decoder,
+            "keep_frozen_base_in_compute_dtype": keep_frozen_base_in_compute_dtype,
+            "use_8bit_adam": use_8bit_adam,
+            "base_quantization": base_quantization,
+            "empty_cache_every_n_steps": empty_cache_every_n_steps,
+        },
+    )
+    lora_rank = preset_values["lora_rank"]
+    lora_alpha = preset_values["lora_alpha"]
+    gradient_checkpointing = preset_values["gradient_checkpointing"]
+    activation_cpu_offload = preset_values["activation_cpu_offload"]
+    offload_non_decoder = preset_values["offload_non_decoder"]
+    keep_frozen_base_in_compute_dtype = preset_values[
+        "keep_frozen_base_in_compute_dtype"
+    ]
+    use_8bit_adam = preset_values["use_8bit_adam"]
+    base_quantization = preset_values["base_quantization"]
+    empty_cache_every_n_steps = preset_values["empty_cache_every_n_steps"]
+
+    if _as_bool(sample_generation_enabled):
+        mismatch = _sample_model_mismatch(model_config, sample_generation_model_config)
+        if mismatch:
+            yield f"\u274c {mismatch}", "", None, training_state
             return
 
     dit_ready, dit_status = ensure_dit_ready(dit_handler, config_path=model_config)
@@ -285,6 +348,7 @@ def start_training(
             sample_output_dir=str(sample_output_dir or ""),
             sample_offload_training_model=_as_bool(sample_offload_training_model),
             sample_offload_generation=_as_bool(sample_offload_generation),
+            sample_generation_settings=dict(sample_generation_settings or {}),
         )
         _save_training_config_snapshot(lora_config, training_config)
 

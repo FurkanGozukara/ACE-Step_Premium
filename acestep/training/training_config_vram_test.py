@@ -32,6 +32,7 @@ class TrainingConfigVramTests(unittest.TestCase):
             sample_output_dir="samples",
             sample_offload_training_model=False,
             sample_offload_generation=False,
+            sample_generation_settings={"guidance_scale": 1.5, "audio_format": "mp3"},
         )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -55,6 +56,10 @@ class TrainingConfigVramTests(unittest.TestCase):
         self.assertEqual("samples", loaded.sample_output_dir)
         self.assertFalse(loaded.sample_offload_training_model)
         self.assertFalse(loaded.sample_offload_generation)
+        self.assertEqual(
+            {"guidance_scale": 1.5, "audio_format": "mp3"},
+            loaded.sample_generation_settings,
+        )
 
 
 if __name__ == "__main__":

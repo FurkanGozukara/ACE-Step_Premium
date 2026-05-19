@@ -56,7 +56,7 @@ from acestep.training.lokr_utils import (
 )
 from acestep.training.data_module import PreprocessedDataModule
 from acestep.training.path_safety import safe_path
-from acestep.training.sample_generation import run_sample_subprocess
+from acestep.training.sample_generation_inprocess import run_training_sample_inprocess
 from acestep.training.vram_optimizations import (
     apply_training_fp8_scaled,
     cast_training_parameter_dtypes,
@@ -1336,14 +1336,6 @@ class LoRATrainer:
         if not prompt or not lyrics:
             return "Sample generation skipped: prompt or lyrics is empty"
 
-        last_init = getattr(self.dit_handler, "last_init_params", None) or {}
-        project_root = str(last_init.get("project_root") or os.getcwd())
-        config_path = str(
-            last_init.get("config_path") or last_init.get("resolved_config_path") or ""
-        )
-        if not config_path:
-            return "Sample generation skipped: missing base model config path"
-
         sample_root = str(getattr(self.training_config, "sample_output_dir", "") or "")
         if not sample_root.strip():
             sample_root = os.path.join(self.training_config.output_dir, "samples")
@@ -1356,22 +1348,25 @@ class LoRATrainer:
             )),
             target_device=self.module.device,
         ):
-            result = run_sample_subprocess(
-                project_root=project_root,
-                config_path=config_path,
-                device=str(self.module.device),
-                checkpoint_dir=checkpoint_dir,
+            result = run_training_sample_inprocess(
+                handler=self.dit_handler,
                 output_dir=output_dir,
                 prompt=prompt,
                 lyrics=lyrics,
-                duration=float(getattr(self.training_config, "sample_duration", 30.0)),
-                inference_steps=int(getattr(
-                    self.training_config, "sample_inference_steps", 8
-                )),
-                seed=int(getattr(self.training_config, "sample_seed", 42)),
-                offload_generation=bool(getattr(
-                    self.training_config, "sample_offload_generation", True
-                )),
+                generation_settings=dict(
+                    getattr(self.training_config, "sample_generation_settings", {})
+                    or {}
+                ),
+                fallback_duration=float(
+                    getattr(self.training_config, "sample_duration", 30.0)
+                ),
+                fallback_inference_steps=int(
+                    getattr(self.training_config, "sample_inference_steps", 8)
+                ),
+                fallback_seed=int(getattr(self.training_config, "sample_seed", 42)),
+                offload_generation=bool(
+                    getattr(self.training_config, "sample_offload_generation", True)
+                ),
             )
 
         peak = float(result.get("peak_vram_gb") or 0.0)

@@ -7,7 +7,7 @@ Contains dataclasses for LoRA and training configurations.
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import Any, List
 
 
 @dataclass
@@ -146,8 +146,9 @@ class TrainingConfig:
     sample_inference_steps: int = 8
     sample_seed: int = 42
     sample_output_dir: str = ""
-    sample_offload_training_model: bool = True
+    sample_offload_training_model: bool = False
     sample_offload_generation: bool = True
+    sample_generation_settings: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.val_split < 1.0:
@@ -193,6 +194,7 @@ class TrainingConfig:
             "sample_output_dir": self.sample_output_dir,
             "sample_offload_training_model": self.sample_offload_training_model,
             "sample_offload_generation": self.sample_offload_generation,
+            "sample_generation_settings": dict(self.sample_generation_settings),
         }
 
     def save_json(self, path: str | Path) -> None:

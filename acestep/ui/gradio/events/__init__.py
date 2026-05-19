@@ -95,13 +95,20 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
     register_results_restore_and_lrc_handlers(wiring_context)
 
 
-def setup_training_event_handlers(demo, dit_handler, llm_handler, training_section):
+def setup_training_event_handlers(
+    demo,
+    dit_handler,
+    llm_handler,
+    training_section,
+    generation_section=None,
+):
     """Setup event handlers for the training tab (dataset builder and LoRA training)"""
     training_context = TrainingWiringContext(
         demo=demo,
         dit_handler=dit_handler,
         llm_handler=llm_handler,
         training_section=training_section,
+        generation_section=generation_section,
     )
     
     # ========== Load Existing Dataset (Top Section) ==========
