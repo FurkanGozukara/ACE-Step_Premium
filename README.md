@@ -39,6 +39,12 @@
 	- unlimited (>24GB) , tier6b (20-24GB), tier6a (16-20GB), tier5 (12-16GB), tier4 (8-12GB), tier3 (6-8GB), tier2 (4-6GB), tier1 (≤4GB)
 	- ACEStep XL 1.5 Turbo, ACEStep XL 1.5 SFT, ACEStep XL 1.5 Base
 	- Thus, you may expect better quality generation on ACEStep Turbo, SFT and Base models
+ - LoRA selection added to Generate song tab as well since we now fully support LoRA training
+ - Also before starting anything with LoRA training, select your Model from here
+ - If you gonna train ACEStep 1.5 XL SFT, first select it from this screen to load all best SFT parameters then continue this is important
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/d3b16956-3689-45a2-9e3e-79ce719cbcc4" />
+
  - Use isolated subprocess generation was not working properly and this is fixed
  - Cancel Generation button added to both Generate Song and Advanced tab
  	- For this button to work, Use isolated subprocess has to be enabled
