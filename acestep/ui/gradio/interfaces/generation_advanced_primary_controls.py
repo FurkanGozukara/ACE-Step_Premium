@@ -48,7 +48,7 @@ def build_lora_controls() -> dict[str, Any]:
             )
             lora_scale_slider = gr.Slider(
                 minimum=0.0,
-                maximum=1.0,
+                maximum=3.0,
                 value=1.0,
                 step=0.05,
                 label=t("generation.lora_scale_label"),

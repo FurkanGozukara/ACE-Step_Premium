@@ -193,5 +193,31 @@ class SetLokrScaleTests(unittest.TestCase):
         self.assertAlmostEqual(handler.lora_scale, 0.3)
 
 
+class SetPeftScaleTests(unittest.TestCase):
+    """Tests for set_lora_scale with PEFT LoRA adapter type."""
+
+    def test_scale_accepts_values_above_one(self):
+        """Setting scale should preserve values up to the public maximum."""
+
+        handler = _DummyHandler(adapter_type="lora")
+
+        result = set_lora_scale(handler, 2.5)
+
+        self.assertIn("2.50", result)
+        self.assertAlmostEqual(handler.lora_scale, 2.5)
+        self.assertAlmostEqual(handler._active_loras["default"], 2.5)
+
+    def test_scale_clamps_to_public_maximum(self):
+        """Scale values above the public maximum should clamp at 3.0."""
+
+        handler = _DummyHandler(adapter_type="lora")
+
+        result = set_lora_scale(handler, 4.0)
+
+        self.assertIn("3.00", result)
+        self.assertAlmostEqual(handler.lora_scale, 3.0)
+        self.assertAlmostEqual(handler._active_loras["default"], 3.0)
+
+
 if __name__ == "__main__":
     unittest.main()

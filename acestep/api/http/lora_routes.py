@@ -23,7 +23,12 @@ class LoadLoRARequest(BaseModel):
 class SetLoRAScaleRequest(BaseModel):
     """Request payload for setting LoRA strength."""
 
-    scale: float = Field(..., ge=0.0, le=1.0, description="LoRA scale strength (0.0 to 1.0)")
+    scale: float = Field(
+        ...,
+        ge=0.0,
+        le=3.0,
+        description="LoRA scale strength (0.0 to 3.0)",
+    )
     adapter_name: Optional[str] = Field(default=None, description="Optional adapter name for multi-adapter mode")
 
 

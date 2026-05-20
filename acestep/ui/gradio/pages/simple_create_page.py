@@ -23,6 +23,9 @@ from acestep.ui.gradio.premium_features import (
     SIMPLE_MODEL_CHOICES,
     normalize_simple_model_dropdown_value,
 )
+from acestep.ui.gradio.pages.simple_create_lora_controls import (
+    build_simple_model_lora_controls,
+)
 
 
 def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -127,16 +130,14 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                 interactive=False,
                 visible=False,
             )
-            simple_model_dropdown = gr.Dropdown(
-                choices=SIMPLE_MODEL_CHOICES,
-                value=default_model,
-                label="Model",
-                info=(
-                    "SFT uses 50-step CFG with Thinking metadata and shift 3.0. Base uses 64-step "
-                    "APG/CFG with shift 3.0. Turbo uses 8-step fast defaults with shift 3.0. "
-                    "All are XL 4B models; >=12GB VRAM is the practical floor."
-                ),
+            model_lora_controls = build_simple_model_lora_controls(
+                default_model=default_model,
+                model_choices=SIMPLE_MODEL_CHOICES,
+                params=params,
             )
+            simple_model_dropdown = model_lora_controls["simple_model_dropdown"]
+            simple_lora_dropdown = model_lora_controls["simple_lora_dropdown"]
+            simple_lora_scale_slider = model_lora_controls["simple_lora_scale_slider"]
             with gr.Row():
                 simple_tier_dropdown = gr.Dropdown(
                     choices=[(label, key) for key, label in GPU_TIER_LABELS.items()],
@@ -234,6 +235,8 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
         "simple_cancel_generation_btn": simple_cancel_generation_btn,
         "simple_random_btn": simple_random_btn,
         "simple_model_dropdown": simple_model_dropdown,
+        "simple_lora_dropdown": simple_lora_dropdown,
+        "simple_lora_scale_slider": simple_lora_scale_slider,
         "simple_tier_dropdown": simple_tier_dropdown,
         "simple_quantization": simple_quantization,
         "simple_vocal_language": simple_vocal_language,

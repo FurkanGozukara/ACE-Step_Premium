@@ -1,4 +1,4 @@
-"""Discover LoRA adapters from project-level LoRA folders."""
+"""Discover LoRA safetensors files from project-level LoRA folders."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ LORA_NONE_CHOICE: tuple[str, str] = ("None", "")
 
 @dataclass(frozen=True)
 class LoraFolderItem:
-    """One adapter discovered in a project LoRA folder."""
+    """One safetensors artifact discovered in a project LoRA folder."""
 
     label: str
     path: str
@@ -95,13 +95,10 @@ def _is_adapter_dir(path: Path) -> bool:
     return LOKR_WEIGHTS_FILENAME in names
 
 
-def _is_lora_file(path: Path) -> bool:
-    """Return whether a file should be listed as a standalone LoRA artifact."""
+def _is_lora_safetensors_file(path: Path) -> bool:
+    """Return whether a file should be listed as a LoRA safetensors artifact."""
 
     if not path.is_file():
-        return False
-    name = path.name.lower()
-    if name in PEFT_WEIGHT_FILENAMES:
         return False
     return path.suffix.lower() == ".safetensors"
 
@@ -122,34 +119,32 @@ def _scan_dir(
     max_depth: int,
     depth: int = 0,
 ) -> list[LoraFolderItem]:
-    """Recursively scan a LoRA root for adapter-like files and directories."""
+    """Recursively scan a LoRA root for safetensors files."""
 
     items: list[LoraFolderItem] = []
-    if _is_adapter_dir(root):
-        items.append(
-            LoraFolderItem(
-                label=_relative_label(root, project_root),
-                path=str(root),
-                root=str(root),
-            )
-        )
-        return items
-
     try:
         children = sorted(root.iterdir(), key=lambda child: child.name.lower())
     except OSError:
         return items
 
-    for child in children:
-        if child.is_file() and _is_lora_file(child):
-            items.append(
-                LoraFolderItem(
-                    label=_relative_label(child, project_root),
-                    path=str(child),
-                    root=str(root),
-                )
+    safetensors_children = [
+        child for child in children if child.is_file() and _is_lora_safetensors_file(child)
+    ]
+    for child in safetensors_children:
+        items.append(
+            LoraFolderItem(
+                label=_relative_label(child, project_root),
+                path=str(child),
+                root=str(root),
             )
-        elif child.is_dir() and depth < max_depth:
+        )
+
+    for child in children:
+        if not child.is_dir() or depth >= max_depth:
+            continue
+        if safetensors_children and child.name.lower() == "adapter" and _is_adapter_dir(child):
+            continue
+        else:
             items.extend(
                 _scan_dir(
                     child,
@@ -166,7 +161,7 @@ def discover_lora_folder_items(
     *,
     max_depth: int = 4,
 ) -> list[LoraFolderItem]:
-    """Return discovered adapters from ``Loras`` and ``Lora`` folders."""
+    """Return discovered safetensors files from ``Loras`` and ``Lora`` folders."""
 
     root = (Path(project_root) if project_root is not None else PROJECT_ROOT).resolve()
     items: list[LoraFolderItem] = []
@@ -187,7 +182,7 @@ def discover_lora_folder_items(
 def lora_dropdown_choices(
     project_root: str | os.PathLike[str] | None = None,
 ) -> list[tuple[str, str]]:
-    """Return Gradio dropdown choices for discovered LoRA adapters."""
+    """Return Gradio dropdown choices for discovered LoRA safetensors files."""
 
     return [
         LORA_NONE_CHOICE,
@@ -211,7 +206,7 @@ def resolve_loadable_lora_adapter_path(raw_path: str | os.PathLike[str] | None) 
 
     path = Path(resolution.resolved_path)
     if path.is_file():
-        return str(path) if _is_lora_file(path) else ""
+        return str(path) if _is_lora_safetensors_file(path) else ""
 
     if not path.is_dir():
         return ""

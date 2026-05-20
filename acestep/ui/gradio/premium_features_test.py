@@ -339,8 +339,14 @@ class PremiumFeaturesTests(unittest.TestCase):
                 self._restore_project_root(original)
 
         self.assertEqual(loaded["lora_dropdown"], str(adapter))
+        self.assertEqual(loaded["simple_lora_dropdown"], str(adapter))
         self.assertEqual(loaded["lora_scale_slider"], 0.65)
+        self.assertEqual(loaded["simple_lora_scale_slider"], 0.65)
         self.assertEqual(updates[keys.index("lora_dropdown")].get("value"), str(adapter))
+        self.assertEqual(
+            updates[keys.index("simple_lora_dropdown")].get("value"),
+            str(adapter),
+        )
         self.assertIn("Next run will use LoRA:", updates[len(keys)])
 
 

@@ -167,7 +167,9 @@ PRESET_COMPONENT_KEYS: tuple[str, ...] = (
     "mlx_dit_checkbox",
     "lora_path",
     "lora_dropdown",
+    "simple_lora_dropdown",
     "lora_scale_slider",
+    "simple_lora_scale_slider",
     "generation_mode",
     "simple_query_input",
     "simple_vocal_language",
@@ -279,7 +281,9 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "simple_quantization": "none",
     "lora_path": "",
     "lora_dropdown": "",
+    "simple_lora_dropdown": "",
     "lora_scale_slider": 1.0,
+    "simple_lora_scale_slider": 1.0,
     "auto_score": False,
     "auto_lrc": False,
     "autogen_checkbox": False,
@@ -531,6 +535,16 @@ def _apply_runtime_defaults(
         merged["simple_quantization"] = default_quantization_value(
             merged.get("simple_quantization")
         )
+    if not merged.get("simple_lora_dropdown") and merged.get("lora_dropdown"):
+        merged["simple_lora_dropdown"] = merged.get("lora_dropdown", "")
+    elif not merged.get("lora_dropdown") and merged.get("simple_lora_dropdown"):
+        merged["lora_dropdown"] = merged.get("simple_lora_dropdown", "")
+    raw_lora_scale = payload.get("lora_scale_slider")
+    raw_simple_lora_scale = payload.get("simple_lora_scale_slider")
+    if raw_simple_lora_scale in (None, "") and raw_lora_scale not in (None, ""):
+        merged["simple_lora_scale_slider"] = merged.get("lora_scale_slider", 1.0)
+    elif raw_lora_scale in (None, "") and raw_simple_lora_scale not in (None, ""):
+        merged["lora_scale_slider"] = merged.get("simple_lora_scale_slider", 1.0)
     return merged
 
 
@@ -569,7 +583,7 @@ def _payload_to_component_updates(payload: dict[str, Any]) -> list[Any]:
             value = payload[key]
             if key in {"quantization_checkbox", "simple_quantization"}:
                 value = default_quantization_value(value)
-            if key == "lora_dropdown":
+            if key in {"lora_dropdown", "simple_lora_dropdown"}:
                 choices = lora_dropdown_choices(_project_root())
                 valid_values = {choice[1] for choice in choices}
                 if value and value not in valid_values:
@@ -656,7 +670,9 @@ def _lora_status_from_payload(payload: dict[str, Any]) -> tuple[str, Any]:
     """Return LoRA status text plus the hidden legacy checkbox update."""
 
     candidate = str(payload.get("lora_path") or "").strip() or str(
-        payload.get("lora_dropdown") or ""
+        payload.get("lora_dropdown")
+        or payload.get("simple_lora_dropdown")
+        or ""
     ).strip()
     if not candidate:
         return "No LoRA will be used.", gr.update(value=False)

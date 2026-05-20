@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
@@ -13,6 +14,17 @@ from acestep.ui.gradio.events.wiring.training_lora_run_wrapper import (
 
 class TrainingRunWiringTests(unittest.TestCase):
     """Verify LoRA training wrapper argument forwarding."""
+
+    def test_sample_output_directory_browse_is_registered(self) -> None:
+        """Sample output directory should have the same browse affordance as other folders."""
+
+        source = (Path(__file__).resolve().parent / "training_run_wiring.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('training_section["lora_sample_output_dir_browse_btn"].click', source)
+        self.assertIn('inputs=[training_section["lora_sample_output_dir"]]', source)
+        self.assertIn('outputs=[training_section["lora_sample_output_dir"]]', source)
 
     def test_training_wrapper_passes_selected_model_config(self) -> None:
         """The LoRA base-model dropdown value should reach the training handler."""

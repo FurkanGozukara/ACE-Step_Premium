@@ -156,7 +156,7 @@ class AceStepHandler(
         # LoRA state
         self.lora_loaded = False
         self.use_lora = False
-        self.lora_scale = 1.0  # LoRA influence scale (0-1), mirrors active adapter's scale
+        self.lora_scale = 1.0  # LoRA influence scale (0-3), mirrors active adapter's scale
         self._base_decoder = None  # Backup of original decoder state_dict (CPU) for memory efficiency
         self._active_loras = {}  # adapter_name -> scale (per-adapter)
         self._lora_adapter_registry = {}  # adapter_name -> explicit scaling targets

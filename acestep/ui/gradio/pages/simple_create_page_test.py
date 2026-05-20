@@ -33,6 +33,27 @@ class SimpleCreatePageTests(unittest.TestCase):
         self.assertEqual(480, controls["simple_duration"].maximum)
         self.assertEqual("int8_weight_only", controls["simple_quantization"].value)
 
+    def test_prefills_simple_lora_controls_from_generation_params(self) -> None:
+        """The simple tab should display the same LoRA selection as Advanced."""
+
+        choices = [("None", ""), ("voice", "C:\\Loras\\voice")]
+        with patch(
+            "acestep.ui.gradio.pages.simple_create_lora_controls.lora_dropdown_choices",
+            return_value=choices,
+        ):
+            with gr.Blocks():
+                controls = create_simple_create_page(
+                    init_params={
+                        "lora_dropdown": "C:\\Loras\\voice",
+                        "lora_scale_slider": 2.5,
+                    }
+                )
+
+        self.assertEqual("C:\\Loras\\voice", controls["simple_lora_dropdown"].value)
+        self.assertEqual("Select LoRA", controls["simple_lora_dropdown"].label)
+        self.assertEqual(2.5, controls["simple_lora_scale_slider"].value)
+        self.assertEqual(3.0, controls["simple_lora_scale_slider"].maximum)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -120,11 +120,11 @@ class LoraRoutesTests(unittest.TestCase):
         app = self._build_app(handler)
         endpoint = _get_route_endpoint(app, "/v1/lora/scale", "POST")
 
-        payload = SetLoRAScaleRequest(scale=0.42)
+        payload = SetLoRAScaleRequest(scale=2.5)
         result = asyncio.run(endpoint(payload, None))
 
         self.assertEqual(200, result["code"])
-        self.assertEqual(0.42, result["data"]["scale"])
+        self.assertEqual(2.5, result["data"]["scale"])
 
     def test_toggle_route_returns_400_wrapper_for_non_success_message(self):
         """Toggle endpoint should map non-success handler responses to code 400."""

@@ -37,6 +37,7 @@ from .simple_media_outputs import (
     clear_simple_media_preview,
 )
 from .simple_create_params import prepare_simple_generation
+from .simple_lora_wiring import register_simple_lora_sync_handlers
 
 
 _STATUS_OUTPUT_INDEX = 10
@@ -62,6 +63,10 @@ def register_simple_create_handlers(
         fn=open_outputs_folder,
         inputs=[],
         outputs=[simple_page["simple_status"]],
+    )
+    register_simple_lora_sync_handlers(
+        simple_page=simple_page,
+        generation_section=generation_section,
     )
 
     _register_simple_enhance_handlers(

@@ -23,6 +23,12 @@ def _write_peft_adapter(path: Path) -> Path:
     return path
 
 
+def _adapter_safetensors(path: Path) -> Path:
+    """Return the PEFT safetensors file inside a minimal adapter directory."""
+
+    return path / "adapter_model.safetensors"
+
+
 class LoraFolderScanTests(unittest.TestCase):
     """Verify LoRA folder creation and case-insensitive discovery."""
 
@@ -44,8 +50,10 @@ class LoraFolderScanTests(unittest.TestCase):
 
             paths = {Path(item.path).resolve() for item in discover_lora_folder_items(root)}
 
-        self.assertIn(preferred_adapter.resolve(), paths)
-        self.assertIn(legacy_adapter.resolve(), paths)
+        self.assertIn(_adapter_safetensors(preferred_adapter).resolve(), paths)
+        self.assertIn(_adapter_safetensors(legacy_adapter).resolve(), paths)
+        self.assertNotIn(preferred_adapter.resolve(), paths)
+        self.assertNotIn(legacy_adapter.resolve(), paths)
 
     def test_discovers_training_final_adapter_child(self) -> None:
         """A copied training ``final`` directory should list its adapter child."""
@@ -56,7 +64,8 @@ class LoraFolderScanTests(unittest.TestCase):
             choices = lora_dropdown_choices(root)
             values = {Path(value).resolve() for _label, value in choices}
 
-        self.assertIn(adapter_dir.resolve(), values)
+        self.assertIn(_adapter_safetensors(adapter_dir).resolve(), values)
+        self.assertNotIn(adapter_dir.resolve(), values)
         self.assertEqual(choices[0], ("None", ""))
 
     def test_discovers_standalone_safetensors_files(self) -> None:
@@ -71,8 +80,8 @@ class LoraFolderScanTests(unittest.TestCase):
 
         self.assertIn(weights.resolve(), paths)
 
-    def test_adapter_marker_files_are_case_insensitive(self) -> None:
-        """Linux should discover adapter marker files even when casing differs."""
+    def test_lists_uppercase_adapter_safetensors_file(self) -> None:
+        """Linux should list adapter safetensors files even when casing differs."""
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -83,9 +92,26 @@ class LoraFolderScanTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (adapter_dir / "ADAPTER_MODEL.SAFETENSORS").write_bytes(b"")
+            weights = adapter_dir / "ADAPTER_MODEL.SAFETENSORS"
             paths = {Path(item.path).resolve() for item in discover_lora_folder_items(root)}
 
-        self.assertIn(adapter_dir.resolve(), paths)
+        self.assertIn(weights.resolve(), paths)
+        self.assertNotIn(adapter_dir.resolve(), paths)
+
+    def test_prefers_exported_checkpoint_file_over_adapter_child(self) -> None:
+        """When a checkpoint has an exported safetensors file, skip duplicate adapter child."""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            checkpoint_dir = root / "Loras" / "checkpoints" / "style-10"
+            exported = checkpoint_dir / "style-10.safetensors"
+            exported.parent.mkdir(parents=True)
+            exported.write_bytes(b"")
+            adapter_dir = _write_peft_adapter(checkpoint_dir / "adapter")
+            paths = {Path(item.path).resolve() for item in discover_lora_folder_items(root)}
+
+        self.assertIn(exported.resolve(), paths)
+        self.assertNotIn(_adapter_safetensors(adapter_dir).resolve(), paths)
 
     def test_resolves_loadable_adapter_paths(self) -> None:
         """The lightweight resolver should accept PEFT dirs and standalone files."""
@@ -97,7 +123,9 @@ class LoraFolderScanTests(unittest.TestCase):
             standalone.write_bytes(b"")
 
             self.assertEqual(
-                Path(resolve_loadable_lora_adapter_path(adapter_dir)).resolve(),
+                Path(
+                    resolve_loadable_lora_adapter_path(_adapter_safetensors(adapter_dir))
+                ).resolve(),
                 adapter_dir.resolve(),
             )
             self.assertEqual(

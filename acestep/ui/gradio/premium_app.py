@@ -691,6 +691,12 @@ def create_gradio_interface(
         generation_section["simple_model_dropdown"] = simple_page[
             "simple_model_dropdown"
         ]
+        generation_section["simple_lora_dropdown"] = simple_page[
+            "simple_lora_dropdown"
+        ]
+        generation_section["simple_lora_scale_slider"] = simple_page[
+            "simple_lora_scale_slider"
+        ]
         generation_section["simple_quantization"] = simple_page["simple_quantization"]
 
         setup_event_handlers(

@@ -87,6 +87,12 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
         outputs=[training_section["resume_checkpoint_dir"]],
     )
 
+    training_section["lora_sample_output_dir_browse_btn"].click(
+        fn=select_folder_path,
+        inputs=[training_section["lora_sample_output_dir"]],
+        outputs=[training_section["lora_sample_output_dir"]],
+    )
+
     training_section["export_path_browse_btn"].click(
         fn=select_folder_path,
         inputs=[training_section["export_path"]],
