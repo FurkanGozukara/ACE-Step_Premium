@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+import sys
 import tempfile
 import unittest
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
 from acestep.training.configs import LoRAConfig, TrainingConfig
+from acestep.training.lora_vram_presets import LORA_VRAM_PRESET_24GB_PLUS
 from acestep.training.path_safety import (
     discover_default_safe_roots,
     get_safe_roots,
@@ -147,6 +149,94 @@ class LoRATrainingHandlerTests(unittest.TestCase):
         self.assertTrue(_uses_fp8_scaled("FP8 scaled"))
         self.assertTrue(_uses_fp8_scaled(" fp8 SCALED "))
         self.assertFalse(_uses_fp8_scaled("Disabled"))
+
+    def test_start_training_uses_submitted_values_not_selected_preset(self) -> None:
+        """Training configs should use current Gradio values after a preset edit."""
+
+        captured = {}
+
+        class FakeTrainer:
+            """Capture trainer configs without running a real training loop."""
+
+            def __init__(self, dit_handler, lora_config, training_config) -> None:
+                self.dit_handler = dit_handler
+                captured["lora_config"] = lora_config
+                captured["training_config"] = training_config
+
+            def train_from_preprocessed(self, tensor_dir, training_state, resume_from=None):
+                """Return no training events after configuration is built."""
+
+                return iter([])
+
+        lightning_module = ModuleType("lightning")
+        fabric_module = ModuleType("lightning.fabric")
+        fabric_module.Fabric = object
+        peft_module = ModuleType("peft")
+        peft_module.get_peft_model = object
+        peft_module.LoraConfig = object
+        trainer_module = ModuleType("acestep.training.trainer")
+        trainer_module.LoRATrainer = FakeTrainer
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            output_dir = os.path.join(tmpdir, "lora")
+            handler = SimpleNamespace(model=object(), quantization=None, device="cpu")
+            with patch.dict(
+                sys.modules,
+                {
+                    "lightning": lightning_module,
+                    "lightning.fabric": fabric_module,
+                    "peft": peft_module,
+                    "acestep.training.trainer": trainer_module,
+                },
+            ), patch(
+                "acestep.ui.gradio.events.training.lora_training.ensure_dit_ready",
+                return_value=(True, ""),
+            ), patch(
+                "acestep.ui.gradio.events.training.lora_training._training_loss_figure",
+                return_value=None,
+            ):
+                outputs = list(
+                    start_training(
+                        tmpdir,
+                        handler,
+                        20,
+                        44,
+                        0.1,
+                        0.0003,
+                        10,
+                        1,
+                        1,
+                        10,
+                        3.0,
+                        42,
+                        output_dir,
+                        "",
+                        {},
+                        lora_name="test-lora",
+                        gradient_checkpointing=False,
+                        activation_cpu_offload=True,
+                        offload_non_decoder=False,
+                        keep_frozen_base_in_compute_dtype=False,
+                        use_8bit_adam=True,
+                        base_quantization="FP8 scaled",
+                        empty_cache_every_n_steps=17,
+                        vram_preset=LORA_VRAM_PRESET_24GB_PLUS,
+                    )
+                )
+
+        lora_config = captured["lora_config"]
+        training_config = captured["training_config"]
+        self.assertIn("Training completed", outputs[-1][0])
+        self.assertEqual(20, lora_config.r)
+        self.assertEqual(44, lora_config.alpha)
+        self.assertFalse(training_config.gradient_checkpointing)
+        self.assertTrue(training_config.activation_cpu_offload)
+        self.assertFalse(training_config.offload_non_decoder)
+        self.assertFalse(training_config.keep_frozen_base_in_compute_dtype)
+        self.assertTrue(training_config.use_8bit_adam)
+        self.assertTrue(training_config.use_fp8)
+        self.assertEqual(17, training_config.empty_cache_every_n_steps)
 
     def test_training_config_snapshot_writes_loadable_training_config(self) -> None:
         """Saved Gradio training config should be loadable by TrainingConfig."""

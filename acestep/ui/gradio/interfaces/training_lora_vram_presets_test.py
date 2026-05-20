@@ -8,10 +8,11 @@ from unittest.mock import patch
 import gradio as gr
 
 from acestep.training.lora_vram_presets import (
-    LORA_VRAM_PRESET_10GB,
-    LORA_VRAM_PRESET_12GB,
-    LORA_VRAM_PRESET_16GB,
-    LORA_VRAM_PRESET_24GB,
+    LORA_VRAM_PRESET_8_TO_10GB,
+    LORA_VRAM_PRESET_10GB_PLUS,
+    LORA_VRAM_PRESET_12_TO_16GB,
+    LORA_VRAM_PRESET_16_TO_24GB,
+    LORA_VRAM_PRESET_24GB_PLUS,
 )
 from acestep.ui.gradio.interfaces.training_lora_tab_dataset import (
     build_lora_dataset_and_adapter_controls,
@@ -33,16 +34,17 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
         with patch(
             "acestep.ui.gradio.interfaces.training_lora_vram_presets."
             "default_lora_vram_preset_name",
-            return_value=LORA_VRAM_PRESET_16GB,
+            return_value=LORA_VRAM_PRESET_12_TO_16GB,
         ):
             with gr.Blocks():
                 dropdown = build_lora_vram_preset_dropdown()
 
         self.assertEqual("VRAM Preset", dropdown.label)
-        self.assertEqual(LORA_VRAM_PRESET_16GB, dropdown.value)
+        self.assertEqual(LORA_VRAM_PRESET_12_TO_16GB, dropdown.value)
         choice_values = [choice[1] for choice in dropdown.choices]
-        self.assertIn("10 GB - experimental", choice_values)
-        self.assertIn("24 GB+ - faster", choice_values)
+        self.assertIn("8-10 GB", choice_values)
+        self.assertIn("16-24 GB", choice_values)
+        self.assertIn("24GB+", choice_values)
 
     def test_default_values_match_selected_dropdown_preset(self) -> None:
         """The startup control values should match the selected default preset."""
@@ -50,7 +52,7 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
         with patch(
             "acestep.ui.gradio.interfaces.training_lora_vram_presets."
             "default_lora_vram_preset_name",
-            return_value=LORA_VRAM_PRESET_16GB,
+            return_value=LORA_VRAM_PRESET_12_TO_16GB,
         ):
             defaults = default_lora_vram_control_values()
 
@@ -65,16 +67,22 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
         with patch(
             "acestep.ui.gradio.interfaces.training_lora_vram_presets."
             "default_lora_vram_preset_name",
-            return_value=LORA_VRAM_PRESET_16GB,
+            return_value=LORA_VRAM_PRESET_12_TO_16GB,
         ):
             with gr.Blocks():
                 dataset_controls = build_lora_dataset_and_adapter_controls()
                 vram_controls = build_lora_vram_controls()
 
-        self.assertEqual(LORA_VRAM_PRESET_16GB, dataset_controls["lora_vram_preset"].value)
+        self.assertEqual(
+            LORA_VRAM_PRESET_12_TO_16GB,
+            dataset_controls["lora_vram_preset"].value,
+        )
         self.assertEqual(64, dataset_controls["lora_rank"].value)
         self.assertEqual(128, dataset_controls["lora_alpha"].value)
-        self.assertEqual("Do not change if you are not expert.", dataset_controls["lora_alpha"].info)
+        self.assertEqual(
+            "Do not change if you are not expert.",
+            dataset_controls["lora_alpha"].info,
+        )
         self.assertEqual(0.0, dataset_controls["lora_dropout"].value)
         self.assertIn("overfitting", dataset_controls["lora_dropout"].info)
         self.assertTrue(vram_controls["lora_use_8bit_adam"].value)
@@ -83,7 +91,7 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
     def test_preset_updates_match_output_count(self) -> None:
         """Preset changes should update all controlled VRAM widgets."""
 
-        updates = lora_vram_preset_updates(LORA_VRAM_PRESET_12GB)
+        updates = lora_vram_preset_updates(LORA_VRAM_PRESET_10GB_PLUS)
 
         self.assertEqual(9, len(updates))
         self.assertEqual(32, updates[0]["value"])
@@ -93,10 +101,21 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
         """Each measured preset should update every dependent LoRA control."""
 
         expected_values = {
-            LORA_VRAM_PRESET_10GB: [16, 128, True, True, True, True, True, "FP8 scaled", 5],
-            LORA_VRAM_PRESET_12GB: [32, 128, True, True, True, True, True, "FP8 scaled", 5],
-            LORA_VRAM_PRESET_16GB: [64, 128, True, False, True, True, True, "Disabled", 10],
-            LORA_VRAM_PRESET_24GB: [128, 128, True, False, True, True, False, "Disabled", 0],
+            LORA_VRAM_PRESET_8_TO_10GB: [
+                16, 128, True, True, True, True, True, "FP8 scaled", 5,
+            ],
+            LORA_VRAM_PRESET_10GB_PLUS: [
+                32, 128, True, True, True, True, True, "FP8 scaled", 5,
+            ],
+            LORA_VRAM_PRESET_12_TO_16GB: [
+                64, 128, True, False, True, True, True, "Disabled", 10,
+            ],
+            LORA_VRAM_PRESET_16_TO_24GB: [
+                128, 128, True, False, True, True, False, "Disabled", 0,
+            ],
+            LORA_VRAM_PRESET_24GB_PLUS: [
+                128, 128, True, False, True, False, False, "Disabled", 0,
+            ],
         }
 
         for preset_name, expected in expected_values.items():
@@ -105,10 +124,10 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
                 actual = [update["value"] for update in updates]
                 self.assertEqual(expected, actual)
 
-    def test_experimental_preset_updates_to_rank_16(self) -> None:
-        """The experimental preset should drive the UI to the measured 10 GB values."""
+    def test_8_to_10gb_preset_updates_to_rank_16(self) -> None:
+        """The 8-10 GB preset should drive the UI to the smallest measured values."""
 
-        updates = lora_vram_preset_updates(LORA_VRAM_PRESET_10GB)
+        updates = lora_vram_preset_updates(LORA_VRAM_PRESET_8_TO_10GB)
 
         self.assertEqual(9, len(updates))
         self.assertEqual(16, updates[0]["value"])

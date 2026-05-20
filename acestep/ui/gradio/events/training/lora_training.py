@@ -14,7 +14,6 @@ from loguru import logger
 
 from acestep.gpu_config import get_global_gpu_config
 from acestep.training.lora_naming import validate_lora_name
-from acestep.training.lora_vram_presets import apply_lora_vram_preset
 from acestep.training.path_inputs import normalize_user_path
 from acestep.training.path_safety import safe_path
 from acestep.ui.gradio.i18n import t
@@ -195,31 +194,8 @@ def start_training(
             )
             return
 
-    preset_values = apply_lora_vram_preset(
-        vram_preset,
-        {
-            "lora_rank": lora_rank,
-            "lora_alpha": lora_alpha,
-            "gradient_checkpointing": gradient_checkpointing,
-            "activation_cpu_offload": activation_cpu_offload,
-            "offload_non_decoder": offload_non_decoder,
-            "keep_frozen_base_in_compute_dtype": keep_frozen_base_in_compute_dtype,
-            "use_8bit_adam": use_8bit_adam,
-            "base_quantization": base_quantization,
-            "empty_cache_every_n_steps": empty_cache_every_n_steps,
-        },
-    )
-    lora_rank = preset_values["lora_rank"]
-    lora_alpha = preset_values["lora_alpha"]
-    gradient_checkpointing = preset_values["gradient_checkpointing"]
-    activation_cpu_offload = preset_values["activation_cpu_offload"]
-    offload_non_decoder = preset_values["offload_non_decoder"]
-    keep_frozen_base_in_compute_dtype = preset_values[
-        "keep_frozen_base_in_compute_dtype"
-    ]
-    use_8bit_adam = preset_values["use_8bit_adam"]
-    base_quantization = preset_values["base_quantization"]
-    empty_cache_every_n_steps = preset_values["empty_cache_every_n_steps"]
+    # The preset dropdown only updates Gradio controls; training uses the submitted values.
+    _ = vram_preset
 
     if _as_bool(sample_generation_enabled):
         mismatch = _sample_model_mismatch(model_config, sample_generation_model_config)

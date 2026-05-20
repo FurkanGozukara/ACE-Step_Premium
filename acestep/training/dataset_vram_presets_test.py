@@ -36,7 +36,7 @@ class DatasetVramPresetTests(unittest.TestCase):
         self.assertFalse(dataset_vram_preset_requires_subprocess(DATASET_VRAM_PRESET_AUTO))
 
     def test_safest_preset_uses_measured_low_vram_models(self) -> None:
-        """The 12 GB preset should use the measured low-VRAM dataset settings."""
+        """The 10 GB+ preset should use the measured low-VRAM dataset settings."""
 
         preset = get_dataset_vram_preset(DATASET_VRAM_PRESET_12GB)
 
@@ -46,7 +46,7 @@ class DatasetVramPresetTests(unittest.TestCase):
         self.assertFalse(preset["preprocess"]["dit"]["offload_dit_to_cpu"])
 
     def test_balanced_preset_uses_mid_tier_lm(self) -> None:
-        """The 16 GB preset should use the 1.7B LM and module offload."""
+        """The 12-16 GB preset should use the 1.7B LM and module offload."""
 
         llm_params = apply_dataset_llm_preset(
             DATASET_VRAM_PRESET_16GB,

@@ -30,7 +30,8 @@ class TrainingDatasetVramPresetUiTests(unittest.TestCase):
         values = [choice[1] for choice in dropdown.choices]
         self.assertEqual("Dataset VRAM Preset", dropdown.label)
         self.assertEqual(DATASET_VRAM_PRESET_16GB, dropdown.value)
-        self.assertIn("12 GB - safest", values)
+        self.assertIn("10 GB+", values)
+        self.assertIn("12-16 GB", values)
         self.assertIn("24 GB+ - quality", values)
 
 
