@@ -26,6 +26,111 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+<h3>20 May 2026 V2.0 Update</h3>
+
+- This is a massive upgrade and we have added so many new features so read carefully all
+- The deault models were all 32-bit however we were generating songs in BF16 or FP8 / Int8
+	- Thus, the models were keeping double size on disk for no reason and taking more RAM and duration to load
+	- Therefore, I have generated BF16 models and updated the app and model downloader
+	- Thus, you can make a complete fresh install or, delete \ACE-Step_Premium\models folder and run Windows_Install_or_Update.bat / Windows_Download_All_Models.bat again to download new models
+	- Make sure to get latest zip file and overwrite previous installer files
+	- New all 3 models folder takes 41.9 GB, previously it was 69.8 GB
+- All default generation presets for all 3-models updated - the parameters are now more accurate 
+	- unlimited (>24GB) , tier6b (20-24GB), tier6a (16-20GB), tier5 (12-16GB), tier4 (8-12GB), tier3 (6-8GB), tier2 (4-6GB), tier1 (≤4GB)
+	- ACEStep XL 1.5 Turbo, ACEStep XL 1.5 SFT, ACEStep XL 1.5 Base
+	- Thus, you may expect better quality generation on ACEStep Turbo, SFT and Base models
+ - Use isolated subprocess generation was not working properly and this is fixed
+ - Cancel Generation button added to both Generate Song and Advanced tab
+ 	- For this button to work, Use isolated subprocess has to be enabled
+- 🎓 LoRA Training tab completely remade
+	- Now you can browse Dataset JSON Path and directly load
+	- Now you can browse Browse Audio Folder and directly load
+   
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/d3007cf2-fa50-4adb-a04d-f3326ad3a2b4" />
+   
+ - Dataset generation settings now fully working
+	- Format Lyrics (LM) is not recommended
+	- Transcribe Lyrics (LM) is recommended
+	- If there are existing lyric files, Transcribe Lyrics (LM) will keep lyrics as it is and fill other data like Duration, Label, BPM, Key, Caption
+	- Format is, audio_file_name.txt in same folder as audio
+ 	- Also select your Dataset Model according to the model you gonna train and Dataset VRAM preset - it will be also auto set according to your GPU during initial start
+  	- If you get Out of Memory Error (OOM), move to 1 below VRAM Preset
+    - Available auto-label and preprocess presets : 24 GB+ - quality, 12-16 GB, 10 GB+	
+    
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/96b133bb-1c8f-4ea6-977d-feb07d2aa34e" />
+
+ - Auto-Label All now fully working all bugs and errors fixed
+	- Now use Browse Label Folder to pick auto labels saved folder
+	- It will save labels after each labelling done
+	- With using same folder, it will continue wherever left
+   
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/0219cb98-ccb6-4e42-8cf4-2b716e6233ac" />
+
+ - Now you can navigate between each data item and manually change / fix and save
+ - Selecting song from above listing will also update this Preview & Edit selected song
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/47ab27ae-7427-42d9-b9bd-c53a446a1dad" />
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/d77e3c24-e1d7-4ba2-9367-222ff1bac414" />
+
+ - After auto labelling done, save your dataset into any desired location with any name
+ 	- Now this auto labelling is fully VRAM optimized and auto unloads after completed and 100% free up VRAM and RAM
+
+<img width="3508" height="504" alt="image" src="https://github.com/user-attachments/assets/6004d477-5717-402c-8ff4-3d65ef9fab2d" />
+
+- After dataset json saved, load dataset json and preprocess and generate training pt files into desired target folder
+	- These pt tensor files will be used to train the model it contains every information needed to train
+	- Now this preprocess is fully optimized and auto unloads after completed and 100% free up VRAM and RAM
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/958fede4-5c7c-4556-9467-dbc868ce2cd0" />
+
+- Once you are done with Dataset builder move to Train LoRA tab
+	- Train LoKr not tested yet but Train LoRA fully working and fully tested and optimized
+   
+<img width="702" height="97" alt="image" src="https://github.com/user-attachments/assets/11142709-4a64-4e8b-b348-98ccfdbd7c7a" />
+
+- Select folder of preprocessed tensors and load it
+	- App will auto select VRAM Preset according to your GPU at initial load
+ 	- If you get Out of Memory Error (OOM), move to 1 below VRAM Preset
+  	- Available presets : 24GB+, 16-24 GB, 12-16 GB, 10 GB+, 8-10 GB
+	- 48 GB or above GPUs can try turning off Gradient checkpointing - not tested yet 
+- Select your LoRA Base Model again - same as auto label and tensor generation
+- Set your LoRA Training Name
+	- Currently other parameters are set as best according to VRAM Preset
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/620ca310-5650-43a3-8f11-9cb31191c53b" />
+
+- Learning rate and Training Epoch Count is in research
+- So far I tested below settings on 50 songs dataset
+- Set your Epoch count and Save Every N Epochs before starting training
+- Batch size 1 and Gradient Accumulation steps 1 are best quality
+- Set your Output directory as well where LoRA and training state files will be saved
+	- This will be auto set to Loras folder so you can auto select from advanced tab Loras
+	- Quick LoRA selection option added to fast generation tab as well
+ 	- So you will be able to select any use your LoRAs immediately from this folder 
+- You can also resume from training state file
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/1da754e9-da6c-4a5a-868a-568b8eda506a" />
+  
+- Once all is set until this point you can start training
+- If you want to generate samples during training, we support it as well
+- So before starting training, make sure to enable sample and write your style and lyrics if you want
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/67fb5438-48a5-45e3-a474-ba06de3f60cd" />
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/3dff1e1a-65a7-429d-ae77-6012b87fc153" />
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/8ec7d7d2-cbf9-406f-9659-a65c1f19bab4" />
+
+- To update download latest zip file, overwrite older files and run Windows_Install_or_Update.bat file
+- ACEStep XL 1.5 SFT model training recommend but I am testing right now not concluded yet
+- Hopefully will make a full training tutorial soon
+- It takes around 100 minutes for RTX 5090 for 5000 steps with sample generation so pretty fast and best config uses 22.6 GB VRAM - so fits into RTX 4090 or 3090 as well
+
+
+<h3>15 May 2026 V1.1 Update</h3>
+
+- The behaviour of Songs, Number of songs to generate sequentially is fixed
+- Will generate multiple songs in a loop
+- Just run Windows_Install_or_Update.bat to update
+
 <h2>How To Use ACEStep 1.5 XL SECourses Premium App and its features</h2>
 
 - Main app interface screenshot
