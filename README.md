@@ -123,6 +123,9 @@
 - ACEStep XL 1.5 SFT model training recommend but I am testing right now not concluded yet
 - Hopefully will make a full training tutorial soon
 - It takes around 100 minutes for RTX 5090 for 5000 steps with sample generation so pretty fast and best config uses 22.6 GB VRAM - so fits into RTX 4090 or 3090 as well
+- Model variants comparison as below
+
+<img width="2435" height="569" alt="image" src="https://github.com/user-attachments/assets/4c8a0277-b10c-4709-bcfb-5313e71fd4af" />
 
 
 <h3>15 May 2026 V1.1 Update</h3>
