@@ -68,6 +68,8 @@ class SampleGenerationInprocessTests(unittest.TestCase):
         self.assertIsNone(captured["llm_handler"])
         self.assertEqual(45, captured["params"].duration)
         self.assertEqual(6, captured["params"].inference_steps)
+        self.assertEqual("style", captured["params"].caption)
+        self.assertEqual("lyrics", captured["params"].lyrics)
         self.assertEqual(1.25, captured["params"].guidance_scale)
         self.assertEqual("mp3", captured["config"].audio_format)
         self.assertFalse(handler.offload_to_cpu)

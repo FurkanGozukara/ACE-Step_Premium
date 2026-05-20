@@ -121,8 +121,6 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
             training_section["lora_sample_every_n_epochs"],
             training_section["lora_sample_prompt"],
             training_section["lora_sample_lyrics"],
-            training_section["lora_sample_duration"],
-            training_section["lora_sample_inference_steps"],
             training_section["lora_sample_seed"],
             training_section["lora_sample_output_dir"],
             training_section["lora_sample_offload_training_model"],

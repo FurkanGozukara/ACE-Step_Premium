@@ -33,21 +33,11 @@ def build_lora_sample_generation_controls() -> dict[str, object]:
                 precision=0,
             )
 
-        with gr.Row():
-            lora_sample_duration = gr.Slider(
-                minimum=10,
-                maximum=120,
-                step=5,
-                value=30,
-                label="Sample duration",
-            )
-            lora_sample_inference_steps = gr.Slider(
-                minimum=1,
-                maximum=8,
-                step=1,
-                value=8,
-                label="Sample inference steps",
-            )
+        gr.Markdown(
+            "Checkpoint samples use the Duration and Inference steps from the "
+            "Advanced Generation tab. The sample style prompt and sample lyrics "
+            "below are used only for checkpoint samples."
+        )
 
         lora_sample_prompt = gr.Textbox(
             label="Sample style prompt",
@@ -80,8 +70,6 @@ def build_lora_sample_generation_controls() -> dict[str, object]:
         "lora_sample_enabled": lora_sample_enabled,
         "lora_sample_every_n_epochs": lora_sample_every_n_epochs,
         "lora_sample_seed": lora_sample_seed,
-        "lora_sample_duration": lora_sample_duration,
-        "lora_sample_inference_steps": lora_sample_inference_steps,
         "lora_sample_prompt": lora_sample_prompt,
         "lora_sample_lyrics": lora_sample_lyrics,
         "lora_sample_output_dir": lora_sample_output_dir,

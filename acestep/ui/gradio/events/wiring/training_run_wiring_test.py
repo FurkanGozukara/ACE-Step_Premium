@@ -26,9 +26,17 @@ class TrainingRunWiringTests(unittest.TestCase):
             self.assertEqual("Disabled", kwargs["base_quantization"])
             self.assertFalse(kwargs["sample_generation_enabled"])
             self.assertEqual("prompt", kwargs["sample_prompt"])
+            self.assertEqual("lyrics", kwargs["sample_lyrics"])
+            self.assertEqual(45.0, kwargs["sample_duration"])
+            self.assertEqual(6, kwargs["sample_inference_steps"])
             self.assertEqual("model-b", kwargs["sample_generation_model_config"])
             self.assertEqual(
-                {"config_path": "model-b", "guidance_scale": 1.0},
+                {
+                    "config_path": "model-b",
+                    "audio_duration": 45,
+                    "inference_steps": 6,
+                    "guidance_scale": 1.0,
+                },
                 kwargs["sample_generation_settings"],
             )
             yield "started", "", None, {"is_training": True}
@@ -36,7 +44,12 @@ class TrainingRunWiringTests(unittest.TestCase):
         wrapper = build_lora_training_wrapper(
             dit_handler=object(),
             normalize_training_state=_normalize_training_state,
-            sample_setting_keys=("config_path", "guidance_scale"),
+            sample_setting_keys=(
+                "config_path",
+                "audio_duration",
+                "inference_steps",
+                "guidance_scale",
+            ),
         )
 
         with patch(
@@ -70,8 +83,6 @@ class TrainingRunWiringTests(unittest.TestCase):
                     10,
                     "prompt",
                     "lyrics",
-                    30,
-                    8,
                     42,
                     "samples",
                     True,
@@ -81,6 +92,8 @@ class TrainingRunWiringTests(unittest.TestCase):
                     "Manual",
                     {"is_training": False, "should_stop": False},
                     "model-b",
+                    45,
+                    6,
                     1.0,
                 )
             )
@@ -129,8 +142,6 @@ class TrainingRunWiringTests(unittest.TestCase):
                     10,
                     "prompt",
                     "lyrics",
-                    30,
-                    8,
                     42,
                     "samples",
                     True,
