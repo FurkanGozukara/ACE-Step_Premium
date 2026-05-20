@@ -62,6 +62,20 @@ def register_simple_lora_sync_handlers(
         inputs=[generation_section["lora_dropdown"]],
         outputs=[simple_page["simple_lora_dropdown"]],
     )
+    if "simple_refresh_lora_dropdown_btn" in simple_page:
+        simple_page["simple_refresh_lora_dropdown_btn"].click(
+            fn=refresh_simple_lora_controls,
+            inputs=[
+                simple_page["simple_lora_dropdown"],
+                generation_section["lora_path"],
+            ],
+            outputs=[
+                simple_page["simple_lora_dropdown"],
+                generation_section["lora_dropdown"],
+                generation_section["lora_status"],
+                generation_section["use_lora_checkbox"],
+            ],
+        )
 
 
 def sync_simple_lora_dropdown(selected_path: str | None) -> tuple[Any, Any, str, Any]:
@@ -97,10 +111,35 @@ def sync_advanced_lora_scale(scale: float | int | str | None) -> Any:
 def refresh_simple_lora_dropdown(current_value: str | None = None) -> Any:
     """Refresh simple-tab LoRA choices after the advanced refresh button is clicked."""
 
+    choices, value = _refreshed_lora_choices_and_value(current_value)
+    return gr.update(choices=choices, value=value)
+
+
+def refresh_simple_lora_controls(
+    current_value: str | None = None,
+    manual_path: str | None = None,
+) -> tuple[Any, ...]:
+    """Refresh simple LoRA choices and keep advanced LoRA controls synchronized."""
+
+    choices, value = _refreshed_lora_choices_and_value(current_value)
+    status, use_lora_update = gen_h.update_lora_next_run_status(manual_path, value)
+    return (
+        gr.update(choices=choices, value=value),
+        gr.update(choices=choices, value=value),
+        status,
+        use_lora_update,
+    )
+
+
+def _refreshed_lora_choices_and_value(
+    current_value: str | None = None,
+) -> tuple[list[tuple[str, str]], str]:
+    """Return freshly scanned LoRA choices and a still-valid selected value."""
+
     choices = lora_dropdown_choices()
     valid_values = {value for _label, value in choices}
     value = current_value if current_value in valid_values else ""
-    return gr.update(choices=choices, value=value)
+    return choices, value
 
 
 def _normalize_lora_scale(scale: float | int | str | None) -> float:

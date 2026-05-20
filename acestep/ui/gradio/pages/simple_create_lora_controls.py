@@ -46,13 +46,22 @@ def build_simple_model_lora_controls(
     )
 
     with gr.Group():
-        simple_lora_dropdown = gr.Dropdown(
-            label="Select LoRA",
-            choices=lora_choices,
-            value=lora_value,
-            info=t("generation.lora_dropdown_info"),
-            interactive=True,
-        )
+        with gr.Row():
+            simple_lora_dropdown = gr.Dropdown(
+                label="Select LoRA",
+                choices=lora_choices,
+                value=lora_value,
+                info=t("generation.lora_dropdown_info"),
+                interactive=True,
+                scale=4,
+            )
+            simple_refresh_lora_dropdown_btn = gr.Button(
+                t("generation.refresh_lora_dropdown_btn"),
+                variant="secondary",
+                size="sm",
+                scale=1,
+                min_width=90,
+            )
         simple_lora_scale_slider = gr.Slider(
             minimum=0.0,
             maximum=_LORA_SCALE_MAX,
@@ -65,6 +74,7 @@ def build_simple_model_lora_controls(
     return {
         "simple_model_dropdown": simple_model_dropdown,
         "simple_lora_dropdown": simple_lora_dropdown,
+        "simple_refresh_lora_dropdown_btn": simple_refresh_lora_dropdown_btn,
         "simple_lora_scale_slider": simple_lora_scale_slider,
     }
 

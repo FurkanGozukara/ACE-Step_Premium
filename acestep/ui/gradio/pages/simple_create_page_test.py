@@ -51,6 +51,7 @@ class SimpleCreatePageTests(unittest.TestCase):
 
         self.assertEqual("C:\\Loras\\voice", controls["simple_lora_dropdown"].value)
         self.assertEqual("Select LoRA", controls["simple_lora_dropdown"].label)
+        self.assertEqual("Refresh", controls["simple_refresh_lora_dropdown_btn"].value)
         self.assertEqual(2.5, controls["simple_lora_scale_slider"].value)
         self.assertEqual(3.0, controls["simple_lora_scale_slider"].maximum)
 

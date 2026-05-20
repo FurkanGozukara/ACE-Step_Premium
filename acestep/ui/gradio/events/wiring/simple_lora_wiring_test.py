@@ -56,6 +56,52 @@ class SimpleLoraWiringTests(unittest.TestCase):
         self.assertEqual(choices, update.get("choices"))
         self.assertEqual("adapter", update.get("value"))
 
+    def test_refresh_simple_lora_controls_syncs_advanced_controls(self) -> None:
+        """Quick-tab refresh should refresh choices and mirror selection to Advanced."""
+
+        choices = [("None", ""), ("voice", "adapter")]
+        with patch.object(simple_lora_wiring, "lora_dropdown_choices", return_value=choices):
+            with patch.object(
+                simple_lora_wiring.gen_h,
+                "update_lora_next_run_status",
+                return_value=(
+                    "Next run will use LoRA: adapter",
+                    {"value": True},
+                ),
+            ):
+                (
+                    simple_update,
+                    advanced_update,
+                    status,
+                    use_update,
+                ) = simple_lora_wiring.refresh_simple_lora_controls("adapter", "")
+
+        self.assertEqual(choices, simple_update.get("choices"))
+        self.assertEqual("adapter", simple_update.get("value"))
+        self.assertEqual(choices, advanced_update.get("choices"))
+        self.assertEqual("adapter", advanced_update.get("value"))
+        self.assertIn("Next run will use LoRA", status)
+        self.assertTrue(use_update.get("value"))
+
+    def test_refresh_simple_lora_controls_clears_missing_selection(self) -> None:
+        """Quick-tab refresh should clear a selection that disappeared from disk."""
+
+        choices = [("None", "")]
+        with patch.object(simple_lora_wiring, "lora_dropdown_choices", return_value=choices):
+            with patch.object(
+                simple_lora_wiring.gen_h,
+                "update_lora_next_run_status",
+                return_value=("No LoRA will be used.", {"value": False}),
+            ):
+                simple_update, advanced_update, status, use_update = (
+                    simple_lora_wiring.refresh_simple_lora_controls("missing", "")
+                )
+
+        self.assertEqual("", simple_update.get("value"))
+        self.assertEqual("", advanced_update.get("value"))
+        self.assertEqual("No LoRA will be used.", status)
+        self.assertFalse(use_update.get("value"))
+
 
 if __name__ == "__main__":
     unittest.main()

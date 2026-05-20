@@ -137,6 +137,9 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
             )
             simple_model_dropdown = model_lora_controls["simple_model_dropdown"]
             simple_lora_dropdown = model_lora_controls["simple_lora_dropdown"]
+            simple_refresh_lora_dropdown_btn = model_lora_controls[
+                "simple_refresh_lora_dropdown_btn"
+            ]
             simple_lora_scale_slider = model_lora_controls["simple_lora_scale_slider"]
             with gr.Row():
                 simple_tier_dropdown = gr.Dropdown(
@@ -236,6 +239,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
         "simple_random_btn": simple_random_btn,
         "simple_model_dropdown": simple_model_dropdown,
         "simple_lora_dropdown": simple_lora_dropdown,
+        "simple_refresh_lora_dropdown_btn": simple_refresh_lora_dropdown_btn,
         "simple_lora_scale_slider": simple_lora_scale_slider,
         "simple_tier_dropdown": simple_tier_dropdown,
         "simple_quantization": simple_quantization,
