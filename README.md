@@ -51,7 +51,8 @@
 - Everything will be saved inside target folder with your training name like below 
 - Much more organized and clean and ready to use after training
 - safetensors files are LoRA files ready to use and pt files are state files which you can use to continue training
-- There is no new zip file, use latest file, and run Windows_Install_or_Update.bat to update
+- Get latest zip file and run Windows_Install_or_Update.bat to update
+	- Torchao upgraded to 0.16.0 for training
 - Zip file changes only when needed
 
 <img width="1121" height="585" alt="image" src="https://github.com/user-attachments/assets/05491eac-549b-4a08-9b9e-03156dd8fe39" />
