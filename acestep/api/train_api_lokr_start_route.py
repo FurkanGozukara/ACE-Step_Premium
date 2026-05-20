@@ -73,6 +73,7 @@ def register_lokr_training_start_route(
             )
             training_config = TrainingConfig(
                 shift=request.training_shift,
+                num_inference_steps=request.training_num_inference_steps,
                 learning_rate=request.learning_rate,
                 batch_size=request.train_batch_size,
                 gradient_accumulation_steps=request.gradient_accumulation,
@@ -122,6 +123,7 @@ def register_lokr_training_start_route(
                     "lokr_weight_decompose": request.lokr_weight_decompose,
                     "learning_rate": request.learning_rate,
                     "epochs": request.train_epochs,
+                    "num_inference_steps": request.training_num_inference_steps,
                 },
                 "_component_manager": mgr,
             }

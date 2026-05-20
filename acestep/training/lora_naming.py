@@ -57,10 +57,26 @@ def lora_epoch_name(lora_name: str, epoch: int) -> str:
         epoch: One-based epoch number.
 
     Returns:
-        Name in ``<lora_name>-<epoch>`` form.
+        Name in ``<lora_name>-epoch-<epoch>`` form.
     """
 
-    return f"{lora_name}-{int(epoch)}"
+    return f"{lora_name}-epoch-{int(epoch)}"
+
+
+def lora_training_state_filename(epoch: int, suffix: str = "") -> str:
+    """Return the resume-state filename for a LoRA training epoch.
+
+    Args:
+        epoch: One-based epoch number.
+        suffix: Optional filename suffix such as ``"final"``.
+
+    Returns:
+        Name in ``epoch-<epoch>-training_resume_state[-suffix].pt`` form.
+    """
+
+    suffix_text = str(suffix or "").strip()
+    suffix_part = f"-{suffix_text}" if suffix_text else ""
+    return f"epoch-{int(epoch)}-training_resume_state{suffix_part}.pt"
 
 
 def lora_safetensors_filename(artifact_name: str) -> str:

@@ -7,9 +7,8 @@ from typing import Any
 import gradio as gr
 
 from ..local_path_dialogs import (
-    normalize_dialog_path,
     select_folder_path,
-    select_json_file_path,
+    select_optional_json_file_path,
 )
 from .context import GenerationWiringContext
 
@@ -30,8 +29,8 @@ def register_dataset_import_handlers(context: GenerationWiringContext) -> None:
     def browse_and_import_json(dataset_type: str, current_path: str) -> tuple[Any, ...]:
         """Pick a dataset JSON path and import it into the Dataset page."""
 
-        selected = select_json_file_path(current_path)
-        if not selected or selected == normalize_dialog_path(current_path):
+        selected = select_optional_json_file_path(current_path)
+        if selected is None:
             return (gr.update(), *_empty_dataset_import("No dataset JSON selected."))
         result = dataset_handler.import_dataset_for_ui(dataset_type, selected)
         return (gr.update(value=selected), *_finish_dataset_import(dataset_handler, result))

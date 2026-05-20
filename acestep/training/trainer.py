@@ -1,4 +1,4 @@
-"""
+﻿"""
 LoRA Trainer for ACE-Step
 
 Lightning Fabric-based trainer for LoRA fine-tuning of ACE-Step DiT decoder.
@@ -44,7 +44,6 @@ from acestep.training.lora_injection import inject_lora_into_dit
 from acestep.training.lora_naming import lora_epoch_name
 from acestep.training.lora_utils import check_peft_available
 from acestep.training.lora_checkpoint import (
-    save_lora_weights,
     save_training_checkpoint,
     load_training_checkpoint,
 )
@@ -57,6 +56,7 @@ from acestep.training.lokr_utils import (
 from acestep.training.data_module import PreprocessedDataModule
 from acestep.training.path_safety import safe_path
 from acestep.training.sample_generation_inprocess import run_training_sample_inprocess
+from acestep.training.timestep_schedule import build_shifted_timestep_schedule
 from acestep.training.vram_optimizations import (
     apply_training_fp8_scaled,
     cast_training_parameter_dtypes,
@@ -68,35 +68,103 @@ from acestep.training.vram_optimizations import (
 )
 
 
-# Turbo model shift=3.0 discrete timesteps (8 steps, same as inference)
-
-
 def _named_lora_epoch(training_config: TrainingConfig, epoch: int) -> str:
     """Return the configured LoRA artifact basename for an epoch."""
 
     return lora_epoch_name(getattr(training_config, "lora_name", "lora"), epoch)
 
 
-def _named_lora_checkpoint_dir(training_config: TrainingConfig, epoch: int) -> str:
-    """Return the configured LoRA checkpoint directory for an epoch."""
+def _checkpoint_save_interval(training_config: TrainingConfig) -> int:
+    """Return the non-negative periodic checkpoint interval."""
 
-    return os.path.join(
+    try:
+        return max(0, int(getattr(training_config, "save_every_n_epochs", 0)))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _should_save_epoch_checkpoint(training_config: TrainingConfig, epoch: int) -> bool:
+    """Return whether a periodic checkpoint should be saved for an epoch."""
+
+    interval = _checkpoint_save_interval(training_config)
+    return interval > 0 and int(epoch) % interval == 0
+
+
+def _save_final_lora_artifacts(
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    scheduler,
+    training_config: TrainingConfig,
+    global_step: int,
+) -> str:
+    """Save final LoRA weights and a resumable final state file."""
+
+    final_epoch = int(training_config.max_epochs)
+    final_artifact_name = f"{_named_lora_epoch(training_config, final_epoch)}-final"
+    save_training_checkpoint(
+        model,
+        optimizer,
+        scheduler,
+        final_epoch,
+        global_step,
         training_config.output_dir,
-        "checkpoints",
-        _named_lora_epoch(training_config, epoch),
+        artifact_name=final_artifact_name,
+        state_suffix="final",
+    )
+
+    return training_config.output_dir
+
+
+def _save_lora_epoch_checkpoint(
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    scheduler,
+    training_config: TrainingConfig,
+    epoch: int,
+    global_step: int,
+    *,
+    state_suffix: str = "",
+) -> str:
+    """Save one flat LoRA epoch checkpoint and return its state path."""
+
+    artifact_name = _named_lora_epoch(training_config, epoch)
+    if state_suffix:
+        artifact_name = f"{artifact_name}-{state_suffix}"
+    return save_training_checkpoint(
+        model,
+        optimizer,
+        scheduler,
+        epoch,
+        global_step,
+        training_config.output_dir,
+        artifact_name=artifact_name,
+        state_suffix=state_suffix,
     )
 
 
-TURBO_SHIFT3_TIMESTEPS = [
-    1.0,
-    0.9545454545454546,
-    0.9,
-    0.8333333333333334,
-    0.75,
-    0.6428571428571429,
-    0.5,
-    0.3,
-]
+def _load_lora_resume_state_dict(
+    adapter_path: str,
+    device: torch.device,
+) -> Dict[str, Any]:
+    """Load LoRA adapter tensors from a flat file or legacy adapter directory."""
+
+    if os.path.isfile(adapter_path):
+        if adapter_path.endswith(".safetensors"):
+            from safetensors.torch import load_file
+
+            return load_file(adapter_path)
+        return torch.load(adapter_path, map_location=device, weights_only=True)
+
+    adapter_weights_path = os.path.join(adapter_path, "adapter_model.safetensors")
+    if not os.path.exists(adapter_weights_path):
+        adapter_weights_path = os.path.join(adapter_path, "adapter_model.bin")
+    if not os.path.exists(adapter_weights_path):
+        raise FileNotFoundError(f"Adapter weights not found in {adapter_path}")
+    if adapter_weights_path.endswith(".safetensors"):
+        from safetensors.torch import load_file
+
+        return load_file(adapter_weights_path)
+    return torch.load(adapter_weights_path, map_location=device, weights_only=True)
 
 
 def _normalize_device_type(device: Any) -> str:
@@ -361,15 +429,14 @@ def _configure_training_memory_features(decoder: nn.Module) -> Tuple[bool, bool,
 
 
 def sample_discrete_timestep(bsz, timesteps_tensor):
-    """Sample timesteps from discrete turbo shift=3 schedule.
+    """Sample timesteps from the configured discrete training schedule.
 
-    For each sample in the batch, randomly select one of the 8 discrete timesteps
-    used by the turbo model with shift=3.0.
+    For each sample in the batch, randomly select one timestep derived from
+    the submitted training ``shift`` and ``num_inference_steps`` values.
 
     Args:
         bsz: Batch size
-        device: Device
-        dtype: Data type (should be bfloat16)
+        timesteps_tensor: Configured schedule tensor.
 
     Returns:
         Tuple of (t, r) where both are the same sampled timestep
@@ -424,8 +491,16 @@ class PreprocessedLoRAModule(nn.Module):
         self.device_type = _normalize_device_type(self.device)
         self.dtype = _select_compute_dtype(self.device_type)
         self.transfer_non_blocking = self.device_type in ("cuda", "xpu")
+        timestep_schedule = build_shifted_timestep_schedule(
+            training_config.num_inference_steps,
+            training_config.shift,
+        )
         self.timesteps_tensor = torch.tensor(
-            TURBO_SHIFT3_TIMESTEPS, device=self.device, dtype=self.dtype
+            timestep_schedule, device=self.device, dtype=self.dtype
+        )
+        logger.info(
+            f"LoRA training timestep schedule: steps={training_config.num_inference_steps}, "
+            f"shift={training_config.shift}"
         )
         # When gradient checkpointing is enabled via wrapper layers that don't expose
         # enable_input_require_grads(), force at least one forward input to require grad
@@ -545,7 +620,7 @@ class PreprocessedLoRAModule(nn.Module):
             x1 = torch.randn_like(target_latents)  # Noise
             x0 = target_latents  # Data
 
-            # Sample timesteps from discrete turbo shift=3 schedule (8 steps)
+            # Sample timesteps from the submitted Gradio/API training schedule.
             t, _ = sample_discrete_timestep(bsz, self.timesteps_tensor)
             t_ = t.unsqueeze(-1).unsqueeze(-1)
 
@@ -637,7 +712,7 @@ class LoRATrainer:
                     0,
                     0.0,
                     (
-                        "❌ LoRA training requires a non-quantized DiT model. "
+                        "âŒ LoRA training requires a non-quantized DiT model. "
                         f"Current quantization: {quantization_mode}. "
                         "Re-initialize service with INT8 Quantization disabled, then retry training."
                     ),
@@ -648,10 +723,10 @@ class LoRATrainer:
             try:
                 tensor_dir = safe_path(tensor_dir)
             except ValueError:
-                yield 0, 0.0, f"❌ Rejected unsafe tensor directory: {tensor_dir}"
+                yield 0, 0.0, f"âŒ Rejected unsafe tensor directory: {tensor_dir}"
                 return
             if not os.path.isdir(tensor_dir):
-                yield 0, 0.0, f"❌ Tensor directory not found: {tensor_dir}"
+                yield 0, 0.0, f"âŒ Tensor directory not found: {tensor_dir}"
                 return
 
             # Create training module
@@ -736,27 +811,27 @@ class LoRATrainer:
             data_module.setup("fit")
 
             if len(data_module.train_dataset) == 0:
-                yield 0, 0.0, "❌ No valid samples found in tensor directory"
+                yield 0, 0.0, "âŒ No valid samples found in tensor directory"
                 return
 
             yield (
                 0,
                 0.0,
-                f"📂 Loaded {len(data_module.train_dataset)} preprocessed samples",
+                f"ðŸ“‚ Loaded {len(data_module.train_dataset)} preprocessed samples",
             )
             if ckpt_enabled:
-                yield 0, 0.0, "🧠 Gradient checkpointing enabled for decoder"
+                yield 0, 0.0, "ðŸ§  Gradient checkpointing enabled for decoder"
             elif getattr(self.training_config, "gradient_checkpointing", True):
                 yield (
                     0,
                     0.0,
-                    "⚠️ Gradient checkpointing not enabled (model wrapper did not expose it)",
+                    "âš ï¸ Gradient checkpointing not enabled (model wrapper did not expose it)",
                 )
             if not input_grads_enabled:
                 yield (
                     0,
                     0.0,
-                    "ℹ️ Input-grad hook not available on this DiT; using explicit checkpointing fallback",
+                    "â„¹ï¸ Input-grad hook not available on this DiT; using explicit checkpointing fallback",
                 )
 
             reset_cuda_peak()
@@ -769,7 +844,7 @@ class LoRATrainer:
 
         except Exception as e:
             logger.exception("Training failed")
-            yield 0, 0.0, f"❌ Training failed: {str(e)}"
+            yield 0, 0.0, f"âŒ Training failed: {str(e)}"
         finally:
             self.is_training = False
 
@@ -789,32 +864,19 @@ class LoRATrainer:
             device_type if device_type in ("cuda", "xpu", "mps", "cpu") else "auto"
         )
 
-        # Create TensorBoard logger when available; continue without it otherwise.
-        tb_logger = None
-        try:
-            tb_logger = TensorBoardLogger(
-                root_dir=self.training_config.output_dir, name="logs"
-            )
-        except ModuleNotFoundError as e:
-            logger.warning(
-                f"TensorBoard logger unavailable, continuing without logger: {e}"
-            )
-
         # Initialize Fabric
         fabric_kwargs = {
             "accelerator": accelerator,
             "devices": 1,
             "precision": precision,
         }
-        if tb_logger is not None:
-            fabric_kwargs["loggers"] = [tb_logger]
         self.fabric = Fabric(**fabric_kwargs)
         self.fabric.launch()
 
         yield (
             0,
             0.0,
-            f"🚀 Starting training (device: {device_type}, precision: {precision})...",
+            f"ðŸš€ Starting training (device: {device_type}, precision: {precision})...",
         )
 
         # Keep trainable adapter tensors in fp32, but avoid promoting the
@@ -876,13 +938,13 @@ class LoRATrainer:
         ]
 
         if not trainable_params:
-            yield 0, 0.0, "❌ No trainable parameters found!"
+            yield 0, 0.0, "âŒ No trainable parameters found!"
             return
 
         yield (
             0,
             0.0,
-            f"🎯 Training {sum(p.numel() for p in trainable_params):,} parameters",
+            f"ðŸŽ¯ Training {sum(p.numel() for p in trainable_params):,} parameters",
         )
 
         optimizer_kwargs = {
@@ -956,12 +1018,12 @@ class LoRATrainer:
                 yield (
                     0,
                     0.0,
-                    f"⚠️ Rejected unsafe checkpoint path: {resume_from}, starting fresh",
+                    f"âš ï¸ Rejected unsafe checkpoint path: {resume_from}, starting fresh",
                 )
                 resume_from = None
         if resume_from and os.path.exists(resume_from):
             try:
-                yield 0, 0.0, f"🔄 Loading checkpoint from {resume_from}..."
+                yield 0, 0.0, f"ðŸ”„ Loading checkpoint from {resume_from}..."
 
                 # Load checkpoint using utility function
                 checkpoint_info = load_training_checkpoint(
@@ -973,57 +1035,39 @@ class LoRATrainer:
 
                 if checkpoint_info["adapter_path"]:
                     adapter_path = checkpoint_info["adapter_path"]
-                    adapter_weights_path = os.path.join(
-                        adapter_path, "adapter_model.safetensors"
+                    state_dict = _load_lora_resume_state_dict(
+                        adapter_path,
+                        self.module.device,
                     )
-                    if not os.path.exists(adapter_weights_path):
-                        adapter_weights_path = os.path.join(
-                            adapter_path, "adapter_model.bin"
-                        )
 
-                    if os.path.exists(adapter_weights_path):
-                        # Load adapter weights
-                        from safetensors.torch import load_file
+                    # Get the decoder (might be wrapped by Fabric)
+                    decoder = self.module.model.decoder
+                    if hasattr(decoder, "_forward_module"):
+                        decoder = decoder._forward_module
 
-                        if adapter_weights_path.endswith(".safetensors"):
-                            state_dict = load_file(adapter_weights_path)
-                        else:
-                            state_dict = torch.load(
-                                adapter_weights_path,
-                                map_location=self.module.device,
-                                weights_only=True,
-                            )
+                    decoder.load_state_dict(state_dict, strict=False)
 
-                        # Get the decoder (might be wrapped by Fabric)
-                        decoder = self.module.model.decoder
-                        if hasattr(decoder, "_forward_module"):
-                            decoder = decoder._forward_module
+                    start_epoch = checkpoint_info["epoch"]
+                    global_step = checkpoint_info["global_step"]
 
-                        decoder.load_state_dict(state_dict, strict=False)
-
-                        start_epoch = checkpoint_info["epoch"]
-                        global_step = checkpoint_info["global_step"]
-
-                        status_parts = [
-                            f"✅ Resumed from epoch {start_epoch}, step {global_step}"
-                        ]
-                        if checkpoint_info["loaded_optimizer"]:
-                            status_parts.append("optimizer ✓")
-                        if checkpoint_info["loaded_scheduler"]:
-                            status_parts.append("scheduler ✓")
-                        yield 0, 0.0, ", ".join(status_parts)
-                    else:
-                        yield 0, 0.0, f"⚠️ Adapter weights not found in {adapter_path}"
+                    status_parts = [
+                        f"✅ Resumed from epoch {start_epoch}, step {global_step}"
+                    ]
+                    if checkpoint_info["loaded_optimizer"]:
+                        status_parts.append("optimizer ✓")
+                    if checkpoint_info["loaded_scheduler"]:
+                        status_parts.append("scheduler ✓")
+                    yield 0, 0.0, ", ".join(status_parts)
                 else:
-                    yield 0, 0.0, f"⚠️ No valid checkpoint found in {resume_from}"
+                    yield 0, 0.0, f"âš ï¸ No valid checkpoint found in {resume_from}"
 
             except Exception as e:
                 logger.exception("Failed to load checkpoint")
-                yield 0, 0.0, f"⚠️ Failed to load checkpoint: {e}, starting fresh"
+                yield 0, 0.0, f"âš ï¸ Failed to load checkpoint: {e}, starting fresh"
                 start_epoch = 0
                 global_step = 0
         elif resume_from:
-            yield 0, 0.0, f"⚠️ Checkpoint path not found: {resume_from}, starting fresh"
+            yield 0, 0.0, f"âš ï¸ Checkpoint path not found: {resume_from}, starting fresh"
 
         # Training loop
         accumulation_step = 0
@@ -1043,7 +1087,7 @@ class LoRATrainer:
                     yield (
                         global_step,
                         accumulated_loss / max(accumulation_step, 1),
-                        "⏹️ Training stopped by user",
+                        "â¹ï¸ Training stopped by user",
                     )
                     return
 
@@ -1070,7 +1114,7 @@ class LoRATrainer:
                             global_step,
                             float("nan"),
                             (
-                                f"⚠️ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
+                                f"âš ï¸ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
                                 "skipping optimizer step"
                             ),
                         )
@@ -1135,7 +1179,7 @@ class LoRATrainer:
                         global_step,
                         float("nan"),
                         (
-                            f"⚠️ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
+                            f"âš ï¸ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
                             "skipping optimizer remainder step"
                         ),
                     )
@@ -1221,90 +1265,56 @@ class LoRATrainer:
                     best_val_step = global_step
                     if training_state is not None:
                         training_state["plot_best_step"] = best_val_step
-                    best_dir = os.path.join(
-                        self.training_config.output_dir, "checkpoints", "best"
-                    )
-                    artifact_name = _named_lora_epoch(self.training_config, epoch + 1)
-                    save_training_checkpoint(
+                    _save_lora_epoch_checkpoint(
                         self.module.model,
                         optimizer,
                         scheduler,
+                        self.training_config,
                         epoch + 1,
                         global_step,
-                        best_dir,
-                        artifact_name=artifact_name,
+                        state_suffix="best",
                     )
 
-            sample_checkpoint_dir = None
             # Save checkpoint
-            if (epoch + 1) % self.training_config.save_every_n_epochs == 0:
-                artifact_name = _named_lora_epoch(self.training_config, epoch + 1)
-                checkpoint_dir = _named_lora_checkpoint_dir(
-                    self.training_config,
-                    epoch + 1,
-                )
-                save_training_checkpoint(
+            if _should_save_epoch_checkpoint(self.training_config, epoch + 1):
+                _save_lora_epoch_checkpoint(
                     self.module.model,
                     optimizer,
                     scheduler,
+                    self.training_config,
                     epoch + 1,
                     global_step,
-                    checkpoint_dir,
-                    artifact_name=artifact_name,
                 )
                 yield (
                     global_step,
                     avg_epoch_loss,
-                    f"💾 Checkpoint saved at epoch {epoch + 1}",
+                    f"ðŸ’¾ Checkpoint saved at epoch {epoch + 1}",
                 )
 
             sample_every = int(
                 getattr(self.training_config, "sample_every_n_epochs", 0) or 0
             )
             if sample_every > 0 and (epoch + 1) % sample_every == 0:
-                if (epoch + 1) % self.training_config.save_every_n_epochs == 0:
-                    sample_checkpoint_dir = _named_lora_checkpoint_dir(
-                        self.training_config,
-                        epoch + 1,
-                    )
-                else:
-                    sample_checkpoint_dir = os.path.join(
-                        self.training_config.output_dir,
-                        "checkpoints",
-                        f"{_named_lora_epoch(self.training_config, epoch + 1)}-sample",
-                    )
-                    artifact_name = _named_lora_epoch(self.training_config, epoch + 1)
-                    save_training_checkpoint(
-                        self.module.model,
-                        optimizer,
-                        scheduler,
-                        epoch + 1,
-                        global_step,
-                        sample_checkpoint_dir,
-                        artifact_name=artifact_name,
-                    )
                 yield (
                     global_step,
                     avg_epoch_loss,
                     f"Generating LoRA sample for epoch {epoch + 1}...",
                 )
                 sample_msg = self._generate_checkpoint_sample(
-                    sample_checkpoint_dir,
+                    "",
                     epoch + 1,
                 )
                 if sample_msg:
                     yield global_step, avg_epoch_loss, sample_msg
 
-        # Save final model
-        final_path = os.path.join(self.training_config.output_dir, "final")
-        final_artifact_name = _named_lora_epoch(
-            self.training_config,
-            self.training_config.max_epochs,
-        )
-        save_lora_weights(
+        # Save final model and a resumable final state regardless of
+        # periodic checkpoint interval.
+        final_path = _save_final_lora_artifacts(
             self.module.model,
-            final_path,
-            artifact_name=final_artifact_name,
+            optimizer,
+            scheduler,
+            self.training_config,
+            global_step,
         )
 
         final_loss = (
@@ -1317,7 +1327,7 @@ class LoRATrainer:
         yield (
             global_step,
             final_loss,
-            f"✅ Training complete! LoRA saved to {final_path}{peak_suffix}",
+            f"âœ… Training complete! LoRA saved to {final_path}{peak_suffix}",
         )
 
     def _generate_checkpoint_sample(
@@ -1325,7 +1335,7 @@ class LoRATrainer:
         checkpoint_dir: str,
         epoch: int,
     ) -> str:
-        """Generate a low-spike audio sample for a saved LoRA checkpoint."""
+        """Generate a low-spike audio sample during LoRA training."""
 
         sample_every = int(getattr(self.training_config, "sample_every_n_epochs", 0) or 0)
         if sample_every <= 0:
@@ -1336,10 +1346,8 @@ class LoRATrainer:
         if not prompt or not lyrics:
             return "Sample generation skipped: prompt or lyrics is empty"
 
-        sample_root = str(getattr(self.training_config, "sample_output_dir", "") or "")
-        if not sample_root.strip():
-            sample_root = os.path.join(self.training_config.output_dir, "samples")
-        output_dir = os.path.join(sample_root, f"epoch_{epoch:04d}")
+        sample_root = os.path.join(self.training_config.output_dir, "samples")
+        artifact_basename = f"{getattr(self.training_config, 'lora_name', 'lora')}_{epoch}"
 
         with sample_generation_vram_guard(
             self.module,
@@ -1350,7 +1358,8 @@ class LoRATrainer:
         ):
             result = run_training_sample_inprocess(
                 handler=self.dit_handler,
-                output_dir=output_dir,
+                output_dir=sample_root,
+                artifact_basename=artifact_basename,
                 prompt=prompt,
                 lyrics=lyrics,
                 generation_settings=dict(
@@ -1372,7 +1381,7 @@ class LoRATrainer:
         peak = float(result.get("peak_vram_gb") or 0.0)
         if result.get("success"):
             audios = result.get("audios") or []
-            first_path = audios[0].get("path") if audios else output_dir
+            first_path = audios[0].get("path") if audios else sample_root
             return f"Sample generated for epoch {epoch}: {first_path} (peak {peak:.2f} GiB)"
         error = result.get("error") or result.get("stderr_tail") or "unknown error"
         return f"Sample generation failed for epoch {epoch}: {error} (peak {peak:.2f} GiB)"
@@ -1383,7 +1392,7 @@ class LoRATrainer:
         training_state: Optional[Dict],
     ) -> Generator[Tuple[int, float, str], None, None]:
         """Basic training loop without Fabric."""
-        yield 0, 0.0, "🚀 Starting basic training loop..."
+        yield 0, 0.0, "ðŸš€ Starting basic training loop..."
 
         os.makedirs(self.training_config.output_dir, exist_ok=True)
 
@@ -1394,7 +1403,7 @@ class LoRATrainer:
         ]
 
         if not trainable_params:
-            yield 0, 0.0, "❌ No trainable parameters found!"
+            yield 0, 0.0, "âŒ No trainable parameters found!"
             return
 
         cast_training_parameter_dtypes(
@@ -1464,7 +1473,7 @@ class LoRATrainer:
                     yield (
                         global_step,
                         accumulated_loss / max(accumulation_step, 1),
-                        "⏹️ Training stopped",
+                        "â¹ï¸ Training stopped",
                     )
                     return
 
@@ -1538,64 +1547,42 @@ class LoRATrainer:
             yield (
                 global_step,
                 avg_epoch_loss,
-                f"✅ Epoch {epoch + 1}/{self.training_config.max_epochs} in {epoch_time:.1f}s",
+                f"âœ… Epoch {epoch + 1}/{self.training_config.max_epochs} in {epoch_time:.1f}s",
             )
 
-            if (epoch + 1) % self.training_config.save_every_n_epochs == 0:
-                artifact_name = _named_lora_epoch(self.training_config, epoch + 1)
-                checkpoint_dir = _named_lora_checkpoint_dir(
+            if _should_save_epoch_checkpoint(self.training_config, epoch + 1):
+                _save_lora_epoch_checkpoint(
+                    self.module.model,
+                    optimizer,
+                    scheduler,
                     self.training_config,
                     epoch + 1,
+                    global_step,
                 )
-                save_lora_weights(
-                    self.module.model,
-                    checkpoint_dir,
-                    artifact_name=artifact_name,
-                )
-                yield global_step, avg_epoch_loss, "💾 Checkpoint saved"
+                yield global_step, avg_epoch_loss, "ðŸ’¾ Checkpoint saved"
 
             sample_every = int(
                 getattr(self.training_config, "sample_every_n_epochs", 0) or 0
             )
             if sample_every > 0 and (epoch + 1) % sample_every == 0:
-                if (epoch + 1) % self.training_config.save_every_n_epochs == 0:
-                    sample_checkpoint_dir = _named_lora_checkpoint_dir(
-                        self.training_config,
-                        epoch + 1,
-                    )
-                else:
-                    sample_checkpoint_dir = os.path.join(
-                        self.training_config.output_dir,
-                        "checkpoints",
-                        f"{_named_lora_epoch(self.training_config, epoch + 1)}-sample",
-                    )
-                    artifact_name = _named_lora_epoch(self.training_config, epoch + 1)
-                    save_lora_weights(
-                        self.module.model,
-                        sample_checkpoint_dir,
-                        artifact_name=artifact_name,
-                    )
                 yield (
                     global_step,
                     avg_epoch_loss,
                     f"Generating LoRA sample for epoch {epoch + 1}...",
                 )
                 sample_msg = self._generate_checkpoint_sample(
-                    sample_checkpoint_dir,
+                    "",
                     epoch + 1,
                 )
                 if sample_msg:
                     yield global_step, avg_epoch_loss, sample_msg
 
-        final_path = os.path.join(self.training_config.output_dir, "final")
-        final_artifact_name = _named_lora_epoch(
-            self.training_config,
-            self.training_config.max_epochs,
-        )
-        save_lora_weights(
+        final_path = _save_final_lora_artifacts(
             self.module.model,
-            final_path,
-            artifact_name=final_artifact_name,
+            optimizer,
+            scheduler,
+            self.training_config,
+            global_step,
         )
         final_loss = (
             self.module.training_losses[-1] if self.module.training_losses else 0.0
@@ -1607,7 +1594,7 @@ class LoRATrainer:
         yield (
             global_step,
             final_loss,
-            f"✅ Training complete! LoRA saved to {final_path}{peak_suffix}",
+            f"âœ… Training complete! LoRA saved to {final_path}{peak_suffix}",
         )
 
     def stop(self):
@@ -1634,8 +1621,16 @@ class PreprocessedLoKRModule(nn.Module):
         self.device_type = _normalize_device_type(self.device)
         self.dtype = _select_compute_dtype(self.device_type)
         self.transfer_non_blocking = self.device_type in ("cuda", "xpu")
+        timestep_schedule = build_shifted_timestep_schedule(
+            training_config.num_inference_steps,
+            training_config.shift,
+        )
         self.timesteps_tensor = torch.tensor(
-            TURBO_SHIFT3_TIMESTEPS, device=self.device, dtype=self.dtype
+            timestep_schedule, device=self.device, dtype=self.dtype
+        )
+        logger.info(
+            f"LoKr training timestep schedule: steps={training_config.num_inference_steps}, "
+            f"shift={training_config.shift}"
         )
         self.force_input_grads_for_checkpointing = False
         self.lycoris_net = None
@@ -1748,7 +1743,7 @@ class LoKRTrainer:
                     0,
                     0.0,
                     (
-                        "❌ LoKr training requires a non-quantized DiT model. "
+                        "âŒ LoKr training requires a non-quantized DiT model. "
                         f"Current quantization: {quantization_mode}. "
                         "Re-initialize service with INT8 Quantization disabled, then retry training."
                     ),
@@ -1758,17 +1753,17 @@ class LoKRTrainer:
             try:
                 tensor_dir = safe_path(tensor_dir)
             except ValueError:
-                yield 0, 0.0, f"❌ Rejected unsafe tensor directory: {tensor_dir}"
+                yield 0, 0.0, f"âŒ Rejected unsafe tensor directory: {tensor_dir}"
                 return
             if not os.path.isdir(tensor_dir):
-                yield 0, 0.0, f"❌ Tensor directory not found: {tensor_dir}"
+                yield 0, 0.0, f"âŒ Tensor directory not found: {tensor_dir}"
                 return
 
             if not check_lycoris_available():
                 yield (
                     0,
                     0.0,
-                    "❌ LyCORIS not installed. Install lycoris-lora to train LoKr.",
+                    "âŒ LyCORIS not installed. Install lycoris-lora to train LoKr.",
                 )
                 return
 
@@ -1812,7 +1807,7 @@ class LoKRTrainer:
             data_module.setup("fit")
 
             if len(data_module.train_dataset) == 0:
-                yield 0, 0.0, "❌ No valid samples found in tensor directory"
+                yield 0, 0.0, "âŒ No valid samples found in tensor directory"
                 return
 
             self.run_metadata = {
@@ -1824,21 +1819,21 @@ class LoKRTrainer:
             yield (
                 0,
                 0.0,
-                f"📂 Loaded {len(data_module.train_dataset)} preprocessed samples",
+                f"ðŸ“‚ Loaded {len(data_module.train_dataset)} preprocessed samples",
             )
             if ckpt_enabled:
-                yield 0, 0.0, "🧠 Gradient checkpointing enabled for decoder"
+                yield 0, 0.0, "ðŸ§  Gradient checkpointing enabled for decoder"
             else:
                 yield (
                     0,
                     0.0,
-                    "⚠️ Gradient checkpointing not enabled (model wrapper did not expose it)",
+                    "âš ï¸ Gradient checkpointing not enabled (model wrapper did not expose it)",
                 )
             if not input_grads_enabled:
                 yield (
                     0,
                     0.0,
-                    "ℹ️ Input-grad hook not available on this DiT; using explicit checkpointing fallback",
+                    "â„¹ï¸ Input-grad hook not available on this DiT; using explicit checkpointing fallback",
                 )
 
             if LIGHTNING_AVAILABLE:
@@ -1848,7 +1843,7 @@ class LoKRTrainer:
 
         except Exception as e:
             logger.exception("LoKr training failed")
-            yield 0, 0.0, f"❌ Training failed: {str(e)}"
+            yield 0, 0.0, f"âŒ Training failed: {str(e)}"
         finally:
             if self.module is not None and hasattr(self.module, "model"):
                 _unwrap_stale_fabric_decoder(self.module.model)
@@ -1897,7 +1892,7 @@ class LoKRTrainer:
         yield (
             0,
             0.0,
-            f"🚀 Starting training (device: {device_type}, precision: {precision})...",
+            f"ðŸš€ Starting training (device: {device_type}, precision: {precision})...",
         )
         if not manual_nonfinite_check:
             logger.info(
@@ -1940,7 +1935,7 @@ class LoKRTrainer:
         )
 
         if not trainable_params:
-            yield 0, 0.0, "❌ No trainable parameters found!"
+            yield 0, 0.0, "âŒ No trainable parameters found!"
             return
         if total_trainable_tensors == 0:
             logger.warning(
@@ -1951,7 +1946,7 @@ class LoKRTrainer:
         yield (
             0,
             0.0,
-            f"🎯 Training {sum(p.numel() for p in trainable_params):,} parameters",
+            f"ðŸŽ¯ Training {sum(p.numel() for p in trainable_params):,} parameters",
         )
 
         optimizer_kwargs = {
@@ -2014,7 +2009,7 @@ class LoKRTrainer:
                     yield (
                         global_step,
                         accumulated_loss / max(accumulation_step, 1),
-                        "⏹️ Training stopped by user",
+                        "â¹ï¸ Training stopped by user",
                     )
                     return
 
@@ -2049,7 +2044,7 @@ class LoKRTrainer:
                                 global_step,
                                 float("nan"),
                                 (
-                                    f"⚠️ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
+                                    f"âš ï¸ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
                                     "skipping optimizer step (see logs for tensor names)"
                                 ),
                             )
@@ -2110,7 +2105,7 @@ class LoKRTrainer:
                             global_step,
                             float("nan"),
                             (
-                                f"⚠️ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
+                                f"âš ï¸ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
                                 "skipping optimizer remainder step (see logs for tensor names)"
                             ),
                         )
@@ -2157,12 +2152,12 @@ class LoKRTrainer:
                 global_step,
                 avg_epoch_loss,
                 (
-                    f"✅ Epoch {epoch + 1}/{self.training_config.max_epochs} "
+                    f"âœ… Epoch {epoch + 1}/{self.training_config.max_epochs} "
                     f"in {epoch_time:.1f}s, Loss: {avg_epoch_loss:.4f}"
                 ),
             )
 
-            if (epoch + 1) % self.training_config.save_every_n_epochs == 0:
+            if _should_save_epoch_checkpoint(self.training_config, epoch + 1):
                 checkpoint_dir = os.path.join(
                     self.training_config.output_dir, "checkpoints", f"epoch_{epoch + 1}_loss_{avg_epoch_loss:.4f}"
                 )
@@ -2179,7 +2174,7 @@ class LoKRTrainer:
                 yield (
                     global_step,
                     avg_epoch_loss,
-                    f"💾 Checkpoint saved at epoch {epoch + 1}",
+                    f"ðŸ’¾ Checkpoint saved at epoch {epoch + 1}",
                 )
 
         final_path = os.path.join(self.training_config.output_dir, "final")
@@ -2197,7 +2192,7 @@ class LoKRTrainer:
         yield (
             global_step,
             final_loss,
-            f"✅ Training complete! LoKr saved to {final_path}",
+            f"âœ… Training complete! LoKr saved to {final_path}",
         )
 
     def _train_basic(
@@ -2205,7 +2200,7 @@ class LoKRTrainer:
         data_module: PreprocessedDataModule,
         training_state: Optional[Dict],
     ) -> Generator[Tuple[int, float, str], None, None]:
-        yield 0, 0.0, "🚀 Starting basic training loop..."
+        yield 0, 0.0, "ðŸš€ Starting basic training loop..."
         os.makedirs(self.training_config.output_dir, exist_ok=True)
 
         train_loader = data_module.train_dataloader()
@@ -2214,7 +2209,7 @@ class LoKRTrainer:
             getattr(self.module, "lycoris_net", None),
         )
         if not trainable_params:
-            yield 0, 0.0, "❌ No trainable parameters found!"
+            yield 0, 0.0, "âŒ No trainable parameters found!"
             return
 
         optimizer = AdamW(
@@ -2262,7 +2257,7 @@ class LoKRTrainer:
                     yield (
                         global_step,
                         accumulated_loss / max(accumulation_step, 1),
-                        "⏹️ Training stopped",
+                        "â¹ï¸ Training stopped",
                     )
                     return
 
@@ -2324,10 +2319,10 @@ class LoKRTrainer:
             yield (
                 global_step,
                 avg_epoch_loss,
-                f"✅ Epoch {epoch + 1}/{self.training_config.max_epochs} in {epoch_time:.1f}s",
+                f"âœ… Epoch {epoch + 1}/{self.training_config.max_epochs} in {epoch_time:.1f}s",
             )
 
-            if (epoch + 1) % self.training_config.save_every_n_epochs == 0:
+            if _should_save_epoch_checkpoint(self.training_config, epoch + 1):
                 checkpoint_dir = os.path.join(
                     self.training_config.output_dir, "checkpoints", f"epoch_{epoch + 1}_loss_{avg_epoch_loss:.4f}"
                 )
@@ -2341,7 +2336,7 @@ class LoKRTrainer:
                     lokr_config=self.lokr_config,
                     run_metadata=self.run_metadata,
                 )
-                yield global_step, avg_epoch_loss, "💾 Checkpoint saved"
+                yield global_step, avg_epoch_loss, "ðŸ’¾ Checkpoint saved"
 
         final_path = os.path.join(self.training_config.output_dir, "final")
         final_metadata: Dict[str, Any] = {"lokr_config": self.lokr_config.to_dict()}
@@ -2358,7 +2353,7 @@ class LoKRTrainer:
         yield (
             global_step,
             final_loss,
-            f"✅ Training complete! LoKr saved to {final_path}",
+            f"âœ… Training complete! LoKr saved to {final_path}",
         )
 
     def stop(self):

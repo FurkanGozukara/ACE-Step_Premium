@@ -58,6 +58,7 @@ def register_lora_training_start_route(
             lora_config = LoRAConfigClass(r=request.lora_rank, alpha=request.lora_alpha, dropout=request.lora_dropout)
             training_config = TrainingConfig(
                 shift=request.training_shift,
+                num_inference_steps=request.training_num_inference_steps,
                 learning_rate=request.learning_rate,
                 batch_size=request.train_batch_size,
                 gradient_accumulation_steps=request.gradient_accumulation,
@@ -102,6 +103,7 @@ def register_lora_training_start_route(
                     "lora_alpha": request.lora_alpha,
                     "learning_rate": request.learning_rate,
                     "epochs": request.train_epochs,
+                    "num_inference_steps": request.training_num_inference_steps,
                 },
                 "_component_manager": mgr,
             }

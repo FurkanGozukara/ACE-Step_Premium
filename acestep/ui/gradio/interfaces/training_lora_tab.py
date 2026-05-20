@@ -44,11 +44,13 @@ def create_training_lora_tab(
             )
         )
         tab_controls.update(build_lora_vram_controls())
+        selected_model = getattr(tab_controls["lora_model_config"], "value", None)
         tab_controls.update(
             build_lora_run_and_export_controls(
                 epoch_min=epoch_min,
                 epoch_step=epoch_step,
                 epoch_default=epoch_default,
+                model_config=selected_model,
             )
         )
         tab_controls.update(build_lora_sample_generation_controls())

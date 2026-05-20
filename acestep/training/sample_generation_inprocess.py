@@ -18,6 +18,7 @@ def run_training_sample_inprocess(
     *,
     handler: Any,
     output_dir: str,
+    artifact_basename: str | None = None,
     prompt: str,
     lyrics: str,
     generation_settings: dict[str, Any],
@@ -29,17 +30,16 @@ def run_training_sample_inprocess(
     """Generate a checkpoint sample with the already-loaded training handler."""
 
     from acestep.inference import GenerationConfig, GenerationParams, generate_music
-    from acestep.ui.gradio.events.generation.audio_format_options import (
-        normalize_audio_format,
-        primary_audio_format,
-    )
     from acestep.ui.gradio.events.generation.validation import (
         parse_and_validate_timesteps,
     )
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    result_path = output_path / "sample_result.json"
+    artifact_stem = _safe_artifact_basename(artifact_basename)
+    result_path = output_path / (
+        f"{artifact_stem}.json" if artifact_stem else "sample_result.json"
+    )
     settings = dict(generation_settings or {})
     inference_steps = _as_int(settings.get("inference_steps"), fallback_inference_steps)
     timesteps, _warned, _message = parse_and_validate_timesteps(
@@ -49,8 +49,7 @@ def run_training_sample_inprocess(
     if timesteps is not None:
         inference_steps = max(1, len(timesteps) - 1)
 
-    audio_format = normalize_audio_format(settings.get("audio_format"))
-    backend_audio_format = primary_audio_format(audio_format)
+    backend_audio_format = "flac"
     seed = _resolve_seed(settings, fallback_seed)
     duration = _as_float(settings.get("audio_duration"), fallback_duration)
 
@@ -129,14 +128,55 @@ def run_training_sample_inprocess(
         "audio_format": backend_audio_format,
         "inference_steps": inference_steps,
         "duration": duration,
+        "artifact_basename": artifact_stem,
     }
     payload["peak_vram_increase_gb"] = max(
         0.0,
         payload["peak_vram_gb"] - payload["peak_vram_before_gb"],
     )
+    if artifact_stem:
+        payload["audios"] = _rename_primary_audio(
+            payload["audios"],
+            output_path,
+            artifact_stem,
+        )
     result_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     release_memory()
     return payload
+
+
+def _safe_artifact_basename(value: str | None) -> str:
+    """Return a filename-safe artifact stem for a training sample."""
+
+    stem = str(value or "").strip()
+    if not stem:
+        return ""
+    if stem in {".", ".."} or any(char in stem for char in '<>:"/\\|?*'):
+        raise ValueError(f"Invalid sample artifact name: {value!r}")
+    return stem
+
+
+def _rename_primary_audio(
+    audios: list[dict[str, Any]],
+    output_path: Path,
+    artifact_stem: str,
+) -> list[dict[str, Any]]:
+    """Rename the first generated audio to match the sample metadata file."""
+
+    if not audios:
+        return audios
+
+    updated = [dict(audio) for audio in audios]
+    source_text = str(updated[0].get("path") or "")
+    target = output_path / f"{artifact_stem}.flac"
+    if source_text:
+        source = Path(source_text)
+        if source.exists() and source.resolve() != target.resolve():
+            target.unlink(missing_ok=True)
+            source.replace(target)
+    if target.exists():
+        updated[0]["path"] = str(target)
+    return updated
 
 
 def _resolve_seed(settings: dict[str, Any], fallback: int) -> int:
@@ -170,4 +210,3 @@ def _as_float(value: Any, default: float) -> float:
         return float(value)
     except (TypeError, ValueError, OverflowError):
         return float(default)
-

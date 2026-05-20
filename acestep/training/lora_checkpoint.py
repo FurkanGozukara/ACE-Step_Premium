@@ -5,6 +5,8 @@ Provides functions for saving and loading LoRA checkpoints.
 """
 
 import os
+import re
+import tempfile
 from typing import Any, Dict, Optional
 
 from loguru import logger
@@ -13,7 +15,10 @@ import torch
 from torch.nn import Module
 
 from acestep.training.configs import LoRAConfig
-from acestep.training.lora_naming import lora_safetensors_filename
+from acestep.training.lora_naming import (
+    lora_safetensors_filename,
+    lora_training_state_filename,
+)
 from acestep.training.lora_single_file import (
     is_peft_lora_single_file,
     materialize_peft_lora_single_file,
@@ -29,11 +34,26 @@ except ImportError:
     PEFT_AVAILABLE = False
 
 
+def _save_named_lora_single_file(
+    adapter_path: str,
+    output_dir: str,
+    artifact_name: str,
+) -> str:
+    """Save a PEFT adapter directory as a named single-file artifact."""
+
+    single_file_path = os.path.join(
+        output_dir,
+        lora_safetensors_filename(artifact_name),
+    )
+    return save_peft_lora_single_file(adapter_path, single_file_path)
+
+
 def save_lora_weights(
     model: Module,
     output_dir: str,
     save_full_model: bool = False,
     artifact_name: Optional[str] = None,
+    save_adapter: bool = True,
 ) -> str:
     """Save LoRA adapter weights.
 
@@ -42,6 +62,7 @@ def save_lora_weights(
         output_dir: Directory to save weights
         save_full_model: Whether to save the full model state dict
         artifact_name: Optional basename for a combined safetensors artifact
+        save_adapter: Whether to also keep the PEFT adapter directory on disk
 
     Returns:
         Path to saved weights
@@ -50,17 +71,31 @@ def save_lora_weights(
     os.makedirs(output_dir, exist_ok=True)
 
     if hasattr(model, "decoder") and hasattr(model.decoder, "save_pretrained"):
-        adapter_path = os.path.join(output_dir, "adapter")
-        model.decoder.save_pretrained(adapter_path)
-        logger.info(f"LoRA adapter saved to {adapter_path}")
-        if artifact_name:
-            single_file_path = os.path.join(
+        if save_adapter:
+            adapter_path = os.path.join(output_dir, "adapter")
+            model.decoder.save_pretrained(adapter_path)
+            logger.info(f"LoRA adapter saved to {adapter_path}")
+            if artifact_name:
+                single_file_path = _save_named_lora_single_file(
+                    adapter_path,
+                    output_dir,
+                    artifact_name,
+                )
+                logger.info(f"Combined LoRA safetensors saved to {single_file_path}")
+            return adapter_path
+
+        if not artifact_name:
+            raise ValueError("artifact_name is required when save_adapter is False")
+        with tempfile.TemporaryDirectory(prefix="acestep_lora_adapter_") as tmp_dir:
+            adapter_path = os.path.join(tmp_dir, "adapter")
+            model.decoder.save_pretrained(adapter_path)
+            single_file_path = _save_named_lora_single_file(
+                adapter_path,
                 output_dir,
-                lora_safetensors_filename(artifact_name),
+                artifact_name,
             )
-            save_peft_lora_single_file(adapter_path, single_file_path)
-            logger.info(f"Combined LoRA safetensors saved to {single_file_path}")
-        return adapter_path
+        logger.info(f"LoRA safetensors saved to {single_file_path}")
+        return single_file_path
     elif save_full_model:
         model_path = os.path.join(output_dir, "model.pt")
         torch.save(model.state_dict(), model_path)
@@ -76,8 +111,17 @@ def save_lora_weights(
             logger.warning("No LoRA parameters found to save!")
             return ""
 
-        lora_path = os.path.join(output_dir, "lora_weights.pt")
-        torch.save(lora_state_dict, lora_path)
+        if artifact_name:
+            from safetensors.torch import save_file
+
+            lora_path = os.path.join(
+                output_dir,
+                lora_safetensors_filename(artifact_name),
+            )
+            save_file(lora_state_dict, lora_path, metadata={"format": "pt"})
+        else:
+            lora_path = os.path.join(output_dir, "lora_weights.pt")
+            torch.save(lora_state_dict, lora_path)
         logger.info(f"LoRA weights saved to {lora_path}")
         return lora_path
 
@@ -140,8 +184,9 @@ def save_training_checkpoint(
     global_step: int,
     output_dir: str,
     artifact_name: Optional[str] = None,
+    state_suffix: str = "",
 ) -> str:
-    """Save a training checkpoint including LoRA weights and training state.
+    """Save a flat LoRA checkpoint including weights and resume state.
 
     Args:
         model: Model with LoRA adapters
@@ -149,31 +194,48 @@ def save_training_checkpoint(
         scheduler: Scheduler state
         epoch: Current epoch number
         global_step: Current global step
-        output_dir: Directory to save checkpoint
+        output_dir: Directory to save checkpoint files
         artifact_name: Optional basename for a combined safetensors artifact
+        state_suffix: Optional suffix for the resume-state filename
 
     Returns:
-        Path to saved checkpoint directory
+        Path to saved training resume state file
     """
     output_dir = safe_path(output_dir)
     os.makedirs(output_dir, exist_ok=True)
 
-    save_lora_weights(model, output_dir, artifact_name=artifact_name)
+    if not artifact_name:
+        artifact_name = f"lora-epoch-{int(epoch)}"
+    lora_weights_path = save_lora_weights(
+        model,
+        output_dir,
+        artifact_name=artifact_name,
+        save_adapter=False,
+    )
 
     training_state = {
         "epoch": epoch,
         "global_step": global_step,
-        "optimizer_state_dict": optimizer.state_dict(),
-        "scheduler_state_dict": scheduler.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict()
+        if hasattr(optimizer, "state_dict")
+        else {},
+        "scheduler_state_dict": scheduler.state_dict()
+        if hasattr(scheduler, "state_dict")
+        else {},
+        "lora_weights_path": os.path.basename(lora_weights_path),
+        "artifact_name": artifact_name,
     }
 
-    state_path = os.path.join(output_dir, "training_state.pt")
+    state_path = os.path.join(
+        output_dir,
+        lora_training_state_filename(epoch, suffix=state_suffix),
+    )
     torch.save(training_state, state_path)
 
     logger.info(
-        f"Training checkpoint saved to {output_dir} (epoch {epoch}, step {global_step})"
+        f"Training checkpoint saved to {state_path} (epoch {epoch}, step {global_step})"
     )
-    return output_dir
+    return state_path
 
 
 def load_training_checkpoint(
@@ -185,7 +247,7 @@ def load_training_checkpoint(
     """Load training checkpoint.
 
     Args:
-        checkpoint_dir: Directory containing checkpoint files
+        checkpoint_dir: Resume-state file, single-file LoRA, or legacy checkpoint dir
         optimizer: Optimizer instance to load state into (optional).
             When provided, loads optimizer_state_dict from the checkpoint.
         scheduler: Scheduler instance to load state into (optional).
@@ -197,8 +259,8 @@ def load_training_checkpoint(
         - epoch: Saved epoch number
         - global_step: Saved global step
         - adapter_path: Path to adapter weights
-        - loaded_optimizer: Whether optimizer state was loaded (True when optimizer param provided and state loaded)
-        - loaded_scheduler: Whether scheduler state was loaded (True when scheduler param provided and state loaded)
+        - loaded_optimizer: Whether optimizer state was loaded
+        - loaded_scheduler: Whether scheduler state was loaded
     """
     result = {
         "epoch": 0,
@@ -209,18 +271,20 @@ def load_training_checkpoint(
     }
 
     try:
-        safe_dir = safe_path(checkpoint_dir)
+        checkpoint_path = safe_path(checkpoint_dir)
     except ValueError:
-        logger.warning(f"Rejected unsafe checkpoint directory: {checkpoint_dir!r}")
+        logger.warning(f"Rejected unsafe checkpoint path: {checkpoint_dir!r}")
         return result
 
-    adapter_path = os.path.join(safe_dir, "adapter")
-    if os.path.isdir(adapter_path):
-        result["adapter_path"] = adapter_path
-    elif os.path.isdir(safe_dir):
-        result["adapter_path"] = safe_dir
+    checkpoint_root = (
+        os.path.dirname(checkpoint_path)
+        if os.path.isfile(checkpoint_path)
+        else checkpoint_path
+    )
+    state_path = _resolve_training_state_path(checkpoint_path)
+    if checkpoint_path.endswith(".safetensors") and os.path.isfile(checkpoint_path):
+        result["adapter_path"] = checkpoint_path
 
-    state_path = os.path.join(safe_dir, "training_state.pt")
     if os.path.isfile(state_path):
         try:
             training_state = torch.load(
@@ -232,15 +296,23 @@ def load_training_checkpoint(
                     result["epoch"] = int(training_state["epoch"])
                 except (ValueError, TypeError) as e:
                     logger.warning(
-                        f"Failed to parse 'epoch' from training_state.pt: {e}, using default 0"
+                        f"Failed to parse 'epoch' from resume state: {e}, using default 0"
                     )
             if "global_step" in training_state:
                 try:
                     result["global_step"] = int(training_state["global_step"])
                 except (ValueError, TypeError) as e:
                     logger.warning(
-                        f"Failed to parse 'global_step' from training_state.pt: {e}, using default 0"
+                        f"Failed to parse 'global_step' from resume state: {e}, using default 0"
                     )
+            adapter_path = _resolve_state_lora_weights_path(
+                checkpoint_root,
+                state_path,
+                training_state,
+                result["epoch"],
+            )
+            if adapter_path:
+                result["adapter_path"] = adapter_path
 
             if optimizer is not None and "optimizer_state_dict" in training_state:
                 try:
@@ -265,18 +337,132 @@ def load_training_checkpoint(
                     logger.warning(f"Failed to load scheduler state: {e}")
 
             logger.info(
-                f"Loaded checkpoint metadata from epoch {result['epoch']}, step {result['global_step']}"
+                "Loaded checkpoint metadata from epoch "
+                f"{result['epoch']}, step {result['global_step']}"
             )
         except (OSError, RuntimeError, ValueError) as e:
-            logger.warning(f"Failed to load training_state.pt: {e}")
+            logger.warning(f"Failed to load resume state: {e}")
     else:
-        import re
-
-        match = re.search(r"epoch_(\d+)", safe_dir)
+        adapter_path = _resolve_legacy_adapter_path(checkpoint_path)
+        if adapter_path:
+            result["adapter_path"] = adapter_path
+        match = re.search(r"(?:epoch_|epoch-)(\d+)", checkpoint_path)
         if match:
             result["epoch"] = int(match.group(1))
             logger.info(
-                f"No training_state.pt found, extracted epoch {result['epoch']} from path"
+                f"No resume state found, extracted epoch {result['epoch']} from path"
             )
 
     return result
+
+
+def _resolve_training_state_path(checkpoint_path: str) -> str:
+    """Return a resume-state path from a file or legacy checkpoint directory."""
+
+    if os.path.isfile(checkpoint_path):
+        return checkpoint_path if checkpoint_path.endswith(".pt") else ""
+    legacy_state = os.path.join(checkpoint_path, "training_state.pt")
+    if os.path.isfile(legacy_state):
+        return legacy_state
+    candidates = (
+        [
+            os.path.join(checkpoint_path, name)
+            for name in os.listdir(checkpoint_path)
+            if re.match(r"^epoch-\d+-training_resume_state(?:-[\w-]+)?\.pt$", name)
+        ]
+        if os.path.isdir(checkpoint_path)
+        else []
+    )
+    if not candidates:
+        return ""
+    candidates.sort(key=lambda path: _resume_state_sort_key(os.path.basename(path)))
+    return candidates[-1]
+
+
+def _resume_state_sort_key(filename: str) -> tuple[int, int, str]:
+    """Return sort key for resume-state files, preferring final files."""
+
+    match = re.match(
+        r"^epoch-(\d+)-training_resume_state(?:-([\w-]+))?\.pt$",
+        filename,
+    )
+    epoch = int(match.group(1)) if match else 0
+    suffix = match.group(2) if match else ""
+    final_rank = 1 if suffix == "final" else 0
+    return epoch, final_rank, filename
+
+
+def _resolve_state_lora_weights_path(
+    checkpoint_root: str,
+    state_path: str,
+    training_state: Dict[str, Any],
+    epoch: int,
+) -> str | None:
+    """Return the safetensors path referenced by a flat resume state."""
+
+    raw_path = str(training_state.get("lora_weights_path") or "").strip()
+    for candidate in _state_lora_weight_candidates(
+        checkpoint_root,
+        state_path,
+        training_state,
+        epoch,
+        raw_path,
+    ):
+        try:
+            safe_candidate = (
+                safe_path(candidate)
+                if os.path.isabs(candidate)
+                else safe_path(candidate, base=checkpoint_root)
+            )
+        except ValueError:
+            continue
+        if os.path.isfile(safe_candidate):
+            return safe_candidate
+    return _resolve_legacy_adapter_path(checkpoint_root)
+
+
+def _state_lora_weight_candidates(
+    checkpoint_root: str,
+    state_path: str,
+    training_state: Dict[str, Any],
+    epoch: int,
+    raw_path: str,
+) -> list[str]:
+    """Return likely LoRA weight files for a resume state."""
+
+    candidates: list[str] = []
+    if raw_path:
+        candidates.append(raw_path)
+    artifact_name = str(training_state.get("artifact_name") or "").strip()
+    if artifact_name:
+        candidates.append(lora_safetensors_filename(artifact_name))
+    lora_name = str(training_state.get("lora_name") or "").strip()
+    if lora_name and epoch > 0:
+        final_suffix = (
+            "-final" if os.path.basename(state_path).endswith("-final.pt") else ""
+        )
+        candidates.append(f"{lora_name}-epoch-{epoch}{final_suffix}.safetensors")
+    if os.path.isdir(checkpoint_root):
+        candidates.extend(
+            name
+            for name in os.listdir(checkpoint_root)
+            if name.endswith(".safetensors")
+        )
+    return candidates
+
+
+def _resolve_legacy_adapter_path(checkpoint_path: str) -> str | None:
+    """Return an adapter path from old directory checkpoints when present."""
+
+    if os.path.isfile(checkpoint_path):
+        return checkpoint_path if checkpoint_path.endswith(".safetensors") else None
+    adapter_path = os.path.join(checkpoint_path, "adapter")
+    if os.path.isdir(adapter_path):
+        return adapter_path
+    if os.path.isdir(checkpoint_path):
+        for name in sorted(os.listdir(checkpoint_path)):
+            candidate = os.path.join(checkpoint_path, name)
+            if os.path.isfile(candidate) and candidate.endswith(".safetensors"):
+                return candidate
+        return checkpoint_path
+    return None

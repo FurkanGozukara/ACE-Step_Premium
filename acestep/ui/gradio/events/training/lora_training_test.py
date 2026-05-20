@@ -20,6 +20,8 @@ from acestep.ui.gradio.events.training.lora_training import (
     _checkpoint_epoch_from_name,
     _save_training_config_snapshot,
     _uses_fp8_scaled,
+    export_lora,
+    open_lora_output_folder,
     start_training,
 )
 
@@ -119,10 +121,10 @@ class LoRATrainingHandlerTests(unittest.TestCase):
                         128,
                         0.0,
                         0.0003,
-                        10,
+                        0,
                         1,
                         1,
-                        10,
+                        0,
                         3.0,
                         42,
                         output_dir,
@@ -141,6 +143,11 @@ class LoRATrainingHandlerTests(unittest.TestCase):
         self.assertEqual(10, _checkpoint_epoch_from_name("epoch_10_loss_0.1234"))
         self.assertEqual(32, _checkpoint_epoch_from_name("my awesome-song-32"))
         self.assertEqual(32, _checkpoint_epoch_from_name("my awesome-song-32-sample"))
+        self.assertEqual(32, _checkpoint_epoch_from_name("my awesome-song-epoch-32"))
+        self.assertEqual(
+            32,
+            _checkpoint_epoch_from_name("my awesome-song-epoch-32-final.safetensors"),
+        )
         self.assertIsNone(_checkpoint_epoch_from_name("best"))
 
     def test_uses_fp8_scaled_normalizes_dropdown_label(self) -> None:
@@ -207,13 +214,14 @@ class LoRATrainingHandlerTests(unittest.TestCase):
                         10,
                         1,
                         1,
-                        10,
+                        0,
                         3.0,
                         42,
                         output_dir,
                         "",
                         {},
                         lora_name="test-lora",
+                        training_num_inference_steps=37,
                         gradient_checkpointing=False,
                         activation_cpu_offload=True,
                         offload_non_decoder=False,
@@ -224,6 +232,13 @@ class LoRATrainingHandlerTests(unittest.TestCase):
                         vram_preset=LORA_VRAM_PRESET_24GB_PLUS,
                     )
                 )
+            expected_output_dir = os.path.realpath(os.path.join(output_dir, "test-lora"))
+            config_exists = os.path.isfile(
+                os.path.join(expected_output_dir, "training_config.json")
+            )
+            base_config_exists = os.path.exists(
+                os.path.join(output_dir, "training_config.json")
+            )
 
         lora_config = captured["lora_config"]
         training_config = captured["training_config"]
@@ -237,6 +252,127 @@ class LoRATrainingHandlerTests(unittest.TestCase):
         self.assertTrue(training_config.use_8bit_adam)
         self.assertTrue(training_config.use_fp8)
         self.assertEqual(17, training_config.empty_cache_every_n_steps)
+        self.assertEqual(37, training_config.num_inference_steps)
+        self.assertEqual(0, training_config.save_every_n_epochs)
+        self.assertEqual(expected_output_dir, training_config.output_dir)
+        self.assertTrue(config_exists)
+        self.assertFalse(base_config_exists)
+
+    def test_export_lora_uses_named_child_output_dir(self) -> None:
+        """Export should read from the named child run folder after training."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            base_output_dir = os.path.join(tmpdir, "Loras")
+            run_dir = os.path.join(base_output_dir, "test-lora")
+            export_path = os.path.join(tmpdir, "exports", "test-lora")
+            os.makedirs(run_dir)
+            with open(
+                os.path.join(run_dir, "test-lora-epoch-3-final.safetensors"),
+                "w",
+                encoding="utf-8",
+            ) as handle:
+                handle.write("weights")
+
+            status = export_lora(export_path, base_output_dir, "test-lora")
+
+            self.assertIn("export", status.lower())
+            self.assertTrue(
+                os.path.isfile(
+                    os.path.join(export_path, "test-lora-epoch-3-final.safetensors")
+                )
+            )
+
+    def test_start_training_passes_resume_state_file_directly(self) -> None:
+        """Resume should pass the selected training state file, not its directory."""
+
+        captured = {}
+
+        class FakeTrainer:
+            """Capture resume path without running training."""
+
+            def __init__(self, dit_handler, lora_config, training_config) -> None:
+                self.dit_handler = dit_handler
+                self.lora_config = lora_config
+                self.training_config = training_config
+
+            def train_from_preprocessed(self, tensor_dir, training_state, resume_from=None):
+                """Capture the submitted resume path."""
+
+                captured["resume_from"] = resume_from
+                return iter([])
+
+        trainer_module = ModuleType("acestep.training.trainer")
+        trainer_module.LoRATrainer = FakeTrainer
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            output_dir = os.path.join(tmpdir, "Loras")
+            resume_state = os.path.join(tmpdir, "epoch-3-training_resume_state.pt")
+            open(resume_state, "wb").close()
+            handler = SimpleNamespace(model=object(), quantization=None, device="cpu")
+            with patch.dict(sys.modules, {"acestep.training.trainer": trainer_module}):
+                with patch(
+                    "acestep.ui.gradio.events.training.lora_training.ensure_dit_ready",
+                    return_value=(True, ""),
+                ), patch(
+                    "acestep.ui.gradio.events.training.lora_training._training_loss_figure",
+                    return_value=None,
+                ):
+                    list(
+                        start_training(
+                            tmpdir,
+                            handler,
+                            20,
+                            44,
+                            0.1,
+                            0.0003,
+                            10,
+                            1,
+                            1,
+                            0,
+                            3.0,
+                            42,
+                            output_dir,
+                            resume_state,
+                            {},
+                            lora_name="test-lora",
+                        )
+                    )
+
+        self.assertEqual(os.path.realpath(resume_state), captured["resume_from"])
+
+    def test_open_lora_output_folder_uses_named_child_output_dir(self) -> None:
+        """Output opener should resolve to the saved named LoRA run folder."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            base_output_dir = os.path.join(tmpdir, "Loras")
+            with patch(
+                "acestep.ui.gradio.events.training.lora_training.open_folder_path",
+                return_value="Opened folder",
+            ) as open_folder:
+                status = open_lora_output_folder(base_output_dir, "test-lora")
+
+        self.assertEqual("Opened folder", status)
+        open_folder.assert_called_once_with(
+            os.path.realpath(os.path.join(base_output_dir, "test-lora"))
+        )
+
+    def test_open_lora_output_folder_uses_parent_without_lora_name(self) -> None:
+        """Blank training names should open the selected LoRA parent folder."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            base_output_dir = os.path.join(tmpdir, "Loras")
+            with patch(
+                "acestep.ui.gradio.events.training.lora_training.open_folder_path",
+                return_value="Opened folder",
+            ) as open_folder:
+                status = open_lora_output_folder(base_output_dir, "")
+
+        self.assertEqual("Opened folder", status)
+        open_folder.assert_called_once_with(os.path.realpath(base_output_dir))
 
     def test_training_config_snapshot_writes_loadable_training_config(self) -> None:
         """Saved Gradio training config should be loadable by TrainingConfig."""

@@ -90,6 +90,10 @@ def stop_training(*args: Any, **kwargs: Any) -> Any:
     return _forward("lora_training", "stop_training", *args, **kwargs)
 
 
+def open_lora_output_folder(*args: Any, **kwargs: Any) -> Any:
+    return _forward("lora_training", "open_lora_output_folder", *args, **kwargs)
+
+
 def export_lora(*args: Any, **kwargs: Any) -> Any:
     return _forward("lora_training", "export_lora", *args, **kwargs)
 
@@ -129,6 +133,7 @@ __all__ = [
     "load_training_dataset",
     "start_training",
     "stop_training",
+    "open_lora_output_folder",
     "export_lora",
     "start_lokr_training",
     "list_lokr_export_epochs",

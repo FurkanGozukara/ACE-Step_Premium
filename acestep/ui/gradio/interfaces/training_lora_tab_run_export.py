@@ -6,6 +6,9 @@ from pathlib import Path
 
 import gradio as gr
 
+from acestep.ui.gradio.events.training.schedule_defaults import (
+    training_schedule_defaults_for_model,
+)
 from acestep.ui.gradio.i18n import t
 
 
@@ -21,10 +24,12 @@ def build_lora_run_and_export_controls(
     epoch_min: int,
     epoch_step: int,
     epoch_default: int,
+    model_config: str | None = None,
 ) -> dict[str, object]:
-    """Render LoRA training-run and export controls for the training tab."""
+    """Render LoRA training-run controls for the training tab."""
 
     default_output_dir = default_lora_output_dir()
+    schedule_defaults = training_schedule_defaults_for_model(model_config)
     gr.HTML(f"<hr><h3>🎛️ {t('training.train_section_params')}</h3>")
 
     with gr.Row():
@@ -71,7 +76,7 @@ def build_lora_run_and_export_controls(
 
     with gr.Row():
         save_every_n_epochs = gr.Slider(
-            minimum=1,
+            minimum=0,
             maximum=1000,
             step=1,
             value=10,
@@ -81,12 +86,22 @@ def build_lora_run_and_export_controls(
         )
 
         training_shift = gr.Slider(
-            minimum=1.0,
-            maximum=5.0,
-            step=0.5,
-            value=3.0,
+            minimum=schedule_defaults["shift_minimum"],
+            maximum=schedule_defaults["shift_maximum"],
+            step=schedule_defaults["shift_step"],
+            value=schedule_defaults["shift"],
             label=t("training.shift"),
             info=t("training.shift_info"),
+            elem_classes=["has-info-container"],
+        )
+
+        training_num_inference_steps = gr.Slider(
+            minimum=schedule_defaults["num_inference_steps_minimum"],
+            maximum=schedule_defaults["num_inference_steps_maximum"],
+            step=1,
+            value=schedule_defaults["num_inference_steps"],
+            label=t("training.num_inference_steps"),
+            info=t("training.num_inference_steps_info"),
             elem_classes=["has-info-container"],
         )
 
@@ -110,18 +125,25 @@ def build_lora_run_and_export_controls(
                 "Browse Output Folder",
                 variant="secondary",
             )
+            lora_open_output_dir_btn = gr.Button(
+                "Open Output Folder",
+                variant="secondary",
+            )
 
     with gr.Row():
         with gr.Column(scale=3):
             resume_checkpoint_dir = gr.Textbox(
-                label="Resume Checkpoint",
-                placeholder="./lora_output/checkpoints/epoch_200",
-                info="Directory of a saved LoRA checkpoint to resume from",
+                label="Resume Training State",
+                placeholder="./Loras/my_lora/epoch-200-training_resume_state.pt",
+                info=(
+                    "Path to a saved LoRA training_resume_state .pt file from "
+                    "<Output Directory>/<LoRA Training Name>"
+                ),
                 elem_classes=["has-info-container"],
             )
         with gr.Column(scale=1):
             resume_checkpoint_dir_browse_btn = gr.Button(
-                "Browse Checkpoint Folder",
+                "Browse Training State",
                 variant="secondary",
             )
 
@@ -166,27 +188,6 @@ def build_lora_run_and_export_controls(
             scale=1,
         )
 
-    gr.HTML(f"<hr><h3>📦 {t('training.export_header')}</h3>")
-
-    with gr.Row():
-        with gr.Column(scale=3):
-            export_path = gr.Textbox(
-                label=t("training.export_path"),
-                value="./lora_output/final_lora",
-                placeholder="./lora_output/my_lora",
-            )
-        with gr.Column(scale=1):
-            export_path_browse_btn = gr.Button(
-                "Browse Export Folder",
-                variant="secondary",
-            )
-            export_lora_btn = gr.Button(t("training.export_lora_btn"), variant="secondary")
-
-    export_status = gr.Textbox(
-        label=t("training.export_status"),
-        interactive=False,
-    )
-
     return {
         "learning_rate": learning_rate,
         "train_epochs": train_epochs,
@@ -195,9 +196,11 @@ def build_lora_run_and_export_controls(
         "training_step_estimate": training_step_estimate,
         "save_every_n_epochs": save_every_n_epochs,
         "training_shift": training_shift,
+        "training_num_inference_steps": training_num_inference_steps,
         "training_seed": training_seed,
         "lora_output_dir": lora_output_dir,
         "lora_output_dir_browse_btn": lora_output_dir_browse_btn,
+        "lora_open_output_dir_btn": lora_open_output_dir_btn,
         "resume_checkpoint_dir": resume_checkpoint_dir,
         "resume_checkpoint_dir_browse_btn": resume_checkpoint_dir_browse_btn,
         "training_subprocess": training_subprocess,
@@ -206,8 +209,4 @@ def build_lora_run_and_export_controls(
         "training_progress": training_progress,
         "training_log": training_log,
         "training_loss_plot": training_loss_plot,
-        "export_path": export_path,
-        "export_path_browse_btn": export_path_browse_btn,
-        "export_lora_btn": export_lora_btn,
-        "export_status": export_status,
     }

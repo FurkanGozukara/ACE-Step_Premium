@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 from acestep.training.path_inputs import normalize_user_path
+from acestep.training.path_safety import safe_path
 
 try:
     from tkinter import Tk, filedialog
@@ -66,17 +69,53 @@ def select_optional_folder_path(current_path: str = "") -> str | None:
 
 def select_json_file_path(current_path: str = "") -> str:
     """Open a native JSON file picker and return the selected file path."""
-    return _select_file_path(current_path, ".json", "JSON files", save=False)
+    selected = select_optional_json_file_path(current_path)
+    return selected if selected is not None else normalize_dialog_path(current_path)
+
+
+def select_optional_json_file_path(current_path: str = "") -> str | None:
+    """Open a native JSON picker and return ``None`` when it is canceled."""
+    return _select_file_path(
+        current_path, ".json", "JSON files", save=False, cancel_returns_current=False
+    )
 
 
 def select_json_save_path(current_path: str = "") -> str:
     """Open a native JSON save picker and return the selected file path."""
-    return _select_file_path(current_path, ".json", "JSON files", save=True)
+    return _select_file_path(current_path, ".json", "JSON files", save=True) or ""
 
 
 def select_safetensors_save_path(current_path: str = "") -> str:
     """Open a native safetensors save picker and return the selected file path."""
-    return _select_file_path(current_path, ".safetensors", "SafeTensors files", save=True)
+    return _select_file_path(current_path, ".safetensors", "SafeTensors files", save=True) or ""
+
+
+def select_pt_file_path(current_path: str = "") -> str:
+    """Open a native PyTorch state file picker and return the selected file path."""
+
+    return _select_file_path(current_path, ".pt", "PyTorch state files", save=False) or ""
+
+
+def open_folder_path(path: str) -> str:
+    """Open a local folder in the platform file explorer.
+
+    Args:
+        path: User-selected folder path to open.
+
+    Returns:
+        User-facing status describing the opened folder or failure.
+    """
+
+    normalized = normalize_user_path(path)
+    if not normalized:
+        return "No folder path selected."
+    try:
+        target = Path(safe_path(normalized))
+        target.mkdir(parents=True, exist_ok=True)
+        _open_folder_in_platform_file_manager(target)
+    except (OSError, RuntimeError, ValueError) as exc:
+        return f"Failed to open folder: {exc}"
+    return f"Opened folder: {target}"
 
 
 def _select_file_path(
@@ -85,11 +124,12 @@ def _select_file_path(
     extension_name: str,
     *,
     save: bool,
-) -> str:
+    cancel_returns_current: bool = True,
+) -> str | None:
     """Open a native file picker and return a normalized selected path."""
     current = normalize_dialog_path(current_path)
     if not is_dialog_available():
-        return current
+        return current if cancel_returns_current or current else None
     initial_dir, initial_file = _split_initial_file(current)
     root = _create_dialog_root()
     try:
@@ -112,7 +152,7 @@ def _select_file_path(
     finally:
         root.destroy()
     if not selected:
-        return current
+        return current if cancel_returns_current else None
     selected = normalize_dialog_path(selected)
     if save and default_extension and not selected.lower().endswith(default_extension):
         selected = f"{selected}{default_extension}"
@@ -143,3 +183,22 @@ def _split_initial_file(path: str) -> tuple[str, str]:
     if path and os.path.isdir(path):
         return path, ""
     return _initial_dir(path), os.path.basename(path) if path else ""
+
+
+def _open_folder_in_platform_file_manager(target: Path) -> None:
+    """Open ``target`` with the current platform's file manager."""
+
+    if sys.platform == "win32":
+        os.startfile(str(target))  # type: ignore[attr-defined]
+        return
+    if sys.platform == "darwin":
+        subprocess.Popen(["open", str(target)])
+        return
+
+    for command in (["xdg-open"], ["gio", "open"], ["kde-open"]):
+        if shutil.which(command[0]):
+            subprocess.Popen([*command, str(target)])
+            return
+    raise RuntimeError(
+        "No Linux folder opener found: install xdg-open, gio, or kde-open."
+    )

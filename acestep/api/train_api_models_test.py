@@ -17,6 +17,14 @@ class TrainApiModelDefaultsTests(unittest.TestCase):
 
         self.assertEqual(128, request.lora_alpha)
         self.assertEqual(0.0, request.lora_dropout)
+        self.assertEqual(8, request.training_num_inference_steps)
+
+    def test_lora_allows_disabling_periodic_checkpoints(self) -> None:
+        """A zero interval should be valid because final artifacts always save."""
+
+        request = StartTrainingRequest(tensor_dir="tensors", save_every_n_epochs=0)
+
+        self.assertEqual(0, request.save_every_n_epochs)
 
 
 if __name__ == "__main__":

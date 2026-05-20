@@ -83,28 +83,27 @@ class TrainingConfig:
     
     Training uses:
     - Device-aware mixed precision (bf16 on CUDA/XPU, fp16 on MPS, fp32 on CPU)
-    - Discrete timesteps from turbo shift=3.0 schedule (8 steps)
-    - Randomly samples one of 8 timesteps per training step:
-      [1.0, 0.9545, 0.9, 0.8333, 0.75, 0.6429, 0.5, 0.3]
+    - Discrete timesteps derived from the submitted shift and step-count values
+    - Randomly samples one configured timestep per training step
     
     Attributes:
-        shift: Timestep shift factor (fixed at 3.0 for turbo model)
-        num_inference_steps: Number of inference steps (fixed at 8 for turbo)
+        shift: Timestep shift factor used to build the training schedule
+        num_inference_steps: Number of timestep points to sample from
         learning_rate: Initial learning rate
         batch_size: Training batch size
         gradient_accumulation_steps: Number of gradient accumulation steps
         max_epochs: Maximum number of training epochs
-        save_every_n_epochs: Save checkpoint every N epochs
+        save_every_n_epochs: Save checkpoint every N epochs; 0 disables
+            periodic checkpoints while final artifacts still save
         warmup_steps: Number of warmup steps for learning rate scheduler
         weight_decay: Weight decay for optimizer
         max_grad_norm: Maximum gradient norm for clipping
         mixed_precision: Preferred precision mode for logging/config tracking
         seed: Random seed for reproducibility
-        output_dir: Directory to save checkpoints and logs
+        output_dir: Directory to save LoRA safetensors, resume states, and samples
     """
-    # Fixed for turbo model
-    shift: float = 3.0  # Fixed: turbo uses shift=3.0
-    num_inference_steps: int = 8  # Fixed: turbo uses 8 steps
+    shift: float = 3.0
+    num_inference_steps: int = 8
     learning_rate: float = 1e-4
     batch_size: int = 1
     gradient_accumulation_steps: int = 4

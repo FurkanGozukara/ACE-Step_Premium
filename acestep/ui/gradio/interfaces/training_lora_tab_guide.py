@@ -48,11 +48,10 @@ it from the LoRAs Folder dropdown so it influences the next generation automatic
    rate.
 
 7. **Use the saved adapter**  
-   Successful training writes checkpoints under `checkpoints/` and the final adapter under
-   `final/adapter`. To use it, copy or export the adapter folder, open generation settings,
-   set the LoRA path or select it from the LoRAs Folder dropdown, then generate. The LoRA
-   path field accepts relative paths, full Windows paths, full Linux paths, quoted pasted
-   paths, `final/adapter`, `final`, and checkpoint folders that contain an `adapter` child.
+   Successful training writes `.safetensors` files directly in the named LoRA run folder.
+   To use it, set the LoRA path to the saved safetensors file or select it from the LoRAs
+   Folder dropdown, then generate. Resume training from the matching
+   `epoch-*-training_resume_state.pt` file.
 
 ### Practical Defaults
 
@@ -128,7 +127,7 @@ LORA_TRAINING_NOTES_COLUMNS = (
 ### Checkpoint Advice
 
 - The final epoch is not always the best adapter.
-- Export and compare multiple checkpoints.
+- Compare multiple saved `.safetensors` epochs.
 - Compare checkpoints with the same prompt, seed, LoRA scale, and generation settings.
 
 ### File Naming Reminder

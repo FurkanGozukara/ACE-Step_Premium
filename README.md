@@ -1,4 +1,4 @@
-<h1>ACE-Step 1.5 XL Premium v2.0 - Better Music & Song Generator Than SUNO 5.0 - Remix and Repaint Features - Windows, RunPod, Massed Compute, Linux 1-click Installers</h1>
+<h1>ACE-Step 1.5 XL Premium v2.1 - Better Music & Song Generator Than SUNO 5.0 - Remix and Repaint Features - Windows, RunPod, Massed Compute, Linux 1-click Installers</h1>
 
 <h2>Quick Info</h2>
 

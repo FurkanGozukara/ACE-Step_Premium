@@ -35,6 +35,7 @@ def _build_lokr_training_wrapper(
         lokr_gradient_accumulation: Any,
         lokr_save_every_n_epochs: Any,
         lokr_training_shift: Any,
+        lokr_training_num_inference_steps: Any,
         lokr_training_seed: Any,
         lokr_output_dir: Any,
         training_state: Any,
@@ -62,6 +63,7 @@ def _build_lokr_training_wrapper(
                 lokr_training_seed,
                 lokr_output_dir,
                 state,
+                training_num_inference_steps=lokr_training_num_inference_steps,
             ):
                 yield progress, log_msg, plot, next_state
         except Exception as exc:  # pragma: no cover - defensive UI wrapper
@@ -135,6 +137,7 @@ def register_lokr_training_handlers(
             training_section["lokr_gradient_accumulation"],
             training_section["lokr_save_every_n_epochs"],
             training_section["lokr_training_shift"],
+            training_section["lokr_training_num_inference_steps"],
             training_section["lokr_training_seed"],
             training_section["lokr_output_dir"],
             training_section["training_state"],

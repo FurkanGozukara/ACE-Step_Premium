@@ -114,6 +114,25 @@ class LoraSingleFileTests(unittest.TestCase):
             self.assertTrue(artifact.is_file())
             self.assertTrue(is_peft_lora_single_file(artifact))
 
+    def test_save_lora_weights_can_skip_adapter_directory(self) -> None:
+        """Flat training saves should write only the named safetensors file."""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            set_safe_roots([tmp])
+            output_dir = Path(tmp) / "run"
+
+            saved_path = save_lora_weights(
+                _FakeModel(),
+                str(output_dir),
+                artifact_name="my awesome song-epoch-32",
+                save_adapter=False,
+            )
+
+            artifact = output_dir / "my awesome song-epoch-32.safetensors"
+            self.assertEqual(str(artifact), saved_path)
+            self.assertTrue(artifact.is_file())
+            self.assertFalse((output_dir / "adapter").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

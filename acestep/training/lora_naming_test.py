@@ -7,6 +7,7 @@ import unittest
 from acestep.training.lora_naming import (
     lora_epoch_name,
     lora_safetensors_filename,
+    lora_training_state_filename,
     validate_lora_name,
 )
 
@@ -21,10 +22,18 @@ class LoraNamingTests(unittest.TestCase):
 
         self.assertIsNone(error)
         self.assertEqual("my awesome-song", name)
-        self.assertEqual("my awesome-song-32", lora_epoch_name(name, 32))
+        self.assertEqual("my awesome-song-epoch-32", lora_epoch_name(name, 32))
         self.assertEqual(
-            "my awesome-song-32.safetensors",
+            "my awesome-song-epoch-32.safetensors",
             lora_safetensors_filename(lora_epoch_name(name, 32)),
+        )
+        self.assertEqual(
+            "epoch-32-training_resume_state.pt",
+            lora_training_state_filename(32),
+        )
+        self.assertEqual(
+            "epoch-32-training_resume_state-final.pt",
+            lora_training_state_filename(32, suffix="final"),
         )
 
     def test_rejects_path_separators(self) -> None:

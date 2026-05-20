@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import gradio as gr
 
+from acestep.ui.gradio.events.training.schedule_defaults import (
+    training_schedule_defaults_for_model,
+)
 from acestep.ui.gradio.i18n import t
 
 
 def build_lokr_run_and_export_controls() -> dict[str, object]:
     """Render LoKr training-run and export controls for the training tab."""
 
+    schedule_defaults = training_schedule_defaults_for_model("turbo")
     gr.HTML(f"<hr><h3>🎛️ {t('training.train_section_params')}</h3>")
 
     with gr.Row():
@@ -54,12 +58,22 @@ def build_lokr_run_and_export_controls() -> dict[str, object]:
         )
 
         lokr_training_shift = gr.Slider(
-            minimum=1.0,
-            maximum=5.0,
-            step=0.5,
-            value=3.0,
+            minimum=schedule_defaults["shift_minimum"],
+            maximum=schedule_defaults["shift_maximum"],
+            step=schedule_defaults["shift_step"],
+            value=schedule_defaults["shift"],
             label=t("training.shift"),
             info=t("training.shift_info"),
+            elem_classes=["has-info-container"],
+        )
+
+        lokr_training_num_inference_steps = gr.Slider(
+            minimum=schedule_defaults["num_inference_steps_minimum"],
+            maximum=schedule_defaults["num_inference_steps_maximum"],
+            step=1,
+            value=schedule_defaults["num_inference_steps"],
+            label=t("training.num_inference_steps"),
+            info=t("training.num_inference_steps_info"),
             elem_classes=["has-info-container"],
         )
 
@@ -163,6 +177,7 @@ def build_lokr_run_and_export_controls() -> dict[str, object]:
         "lokr_gradient_accumulation": lokr_gradient_accumulation,
         "lokr_save_every_n_epochs": lokr_save_every_n_epochs,
         "lokr_training_shift": lokr_training_shift,
+        "lokr_training_num_inference_steps": lokr_training_num_inference_steps,
         "lokr_training_seed": lokr_training_seed,
         "lokr_output_dir": lokr_output_dir,
         "lokr_output_dir_browse_btn": lokr_output_dir_browse_btn,

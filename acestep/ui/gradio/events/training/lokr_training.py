@@ -18,6 +18,26 @@ from acestep.ui.gradio.i18n import t
 from .training_utils import _format_duration, _training_loss_figure
 
 
+def _as_positive_int(value: Any, default: int) -> int:
+    """Coerce a Gradio numeric value to a positive int."""
+
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(1, parsed)
+
+
+def _as_nonnegative_int(value: Any, default: int) -> int:
+    """Coerce a Gradio numeric value to a non-negative int."""
+
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(0, parsed)
+
+
 def start_lokr_training(
     tensor_dir: str,
     dit_handler,
@@ -37,6 +57,7 @@ def start_lokr_training(
     training_seed: int,
     lokr_output_dir: str,
     training_state: Dict,
+    training_num_inference_steps: int = 8,
     progress=None,
 ):
     """Start LoKr training from preprocessed tensors.
@@ -136,8 +157,10 @@ def start_lokr_training(
         )
         training_config = TrainingConfig(
             shift=training_shift, learning_rate=learning_rate,
+            num_inference_steps=_as_positive_int(training_num_inference_steps, 8),
             batch_size=train_batch_size, gradient_accumulation_steps=gradient_accumulation,
-            max_epochs=train_epochs, save_every_n_epochs=save_every_n_epochs,
+            max_epochs=train_epochs,
+            save_every_n_epochs=_as_nonnegative_int(save_every_n_epochs, 10),
             seed=training_seed, output_dir=lokr_output_dir,
             num_workers=num_workers, pin_memory=pin_memory,
             prefetch_factor=prefetch_factor, persistent_workers=persistent_workers,

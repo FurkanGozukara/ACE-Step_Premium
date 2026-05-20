@@ -5,9 +5,8 @@ from typing import Any, Mapping
 import gradio as gr
 
 from acestep.ui.gradio.events.local_path_dialogs import (
-    normalize_dialog_path,
     select_folder_path,
-    select_json_file_path,
+    select_optional_json_file_path,
 )
 
 from .. import training_handlers as train_h
@@ -90,8 +89,8 @@ def _browse_and_load_dataset_json(
 ) -> tuple[Any, ...]:
     """Pick a dataset JSON file and load it into the dataset builder."""
 
-    selected = select_json_file_path(current_path)
-    if not selected or selected == normalize_dialog_path(current_path):
+    selected = select_optional_json_file_path(current_path)
+    if selected is None:
         return (gr.update(), *_no_dataset_load_outputs("No dataset JSON selected."))
 
     load_outputs = train_h.load_existing_dataset_for_preprocess(selected, builder_state)

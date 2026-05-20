@@ -36,7 +36,8 @@ def build_lora_sample_generation_controls() -> dict[str, object]:
         gr.Markdown(
             "Checkpoint samples use the Duration and Inference steps from the "
             "Advanced Generation tab. The sample style prompt and sample lyrics "
-            "below are used only for checkpoint samples."
+            "below are used only for checkpoint samples. Samples are saved in the "
+            "named LoRA run folder under samples."
         )
 
         lora_sample_prompt = gr.Textbox(
@@ -51,18 +52,6 @@ def build_lora_sample_generation_controls() -> dict[str, object]:
             lines=8,
             max_lines=16,
         )
-        with gr.Row():
-            with gr.Column(scale=3):
-                lora_sample_output_dir = gr.Textbox(
-                    label="Sample output directory",
-                    value="./lora_output/samples",
-                    placeholder="./lora_output/samples",
-                )
-            with gr.Column(scale=1):
-                lora_sample_output_dir_browse_btn = gr.Button(
-                    "Browse Sample Folder",
-                    variant="secondary",
-                )
         with gr.Row():
             lora_sample_offload_training_model = gr.Checkbox(
                 label="Offload trainer while sampling",
@@ -79,8 +68,6 @@ def build_lora_sample_generation_controls() -> dict[str, object]:
         "lora_sample_seed": lora_sample_seed,
         "lora_sample_prompt": lora_sample_prompt,
         "lora_sample_lyrics": lora_sample_lyrics,
-        "lora_sample_output_dir": lora_sample_output_dir,
-        "lora_sample_output_dir_browse_btn": lora_sample_output_dir_browse_btn,
         "lora_sample_offload_training_model": lora_sample_offload_training_model,
         "lora_sample_offload_generation": lora_sample_offload_generation,
     }

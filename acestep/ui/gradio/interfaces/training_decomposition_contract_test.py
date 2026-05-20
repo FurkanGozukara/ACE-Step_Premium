@@ -140,13 +140,13 @@ class TrainingDecompositionContractTests(unittest.TestCase):
 
         interfaces_dir = Path(__file__).resolve().parent
         expected_markers = {
-            "training_lora_tab_guide.py": ["LoRA Training Guide", "final/adapter"],
+            "training_lora_tab_guide.py": ["LoRA Training Guide", ".safetensors"],
             "training.py": ["🎵 LoRA Training for ACE-Step"],
             "training_dataset_tab_scan_settings.py": ["📂 Load Existing Dataset", "🔍 Scan New Directory"],
             "training_dataset_tab_label_preview.py": ["🤖", "👀"],
             "training_dataset_tab_save_preprocess.py": ["💾", "⚡"],
             "training_lora_tab_dataset.py": ["📊", "⚙️"],
-            "training_lora_tab_run_export.py": ["🎛️", "📦"],
+            "training_lora_tab_run_export.py": ["🎛️"],
             "training_lokr_tab_run_export.py": ["🎛️", "📦"],
         }
         for module_name, markers in expected_markers.items():

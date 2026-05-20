@@ -1,7 +1,7 @@
 """LoRA training handlers for the training UI.
 
 Contains functions for starting LoRA training, stopping training,
-and exporting trained LoRA weights.
+opening output folders, and exporting trained LoRA weights.
 """
 
 import json
@@ -14,8 +14,13 @@ from loguru import logger
 
 from acestep.gpu_config import get_global_gpu_config
 from acestep.training.lora_naming import validate_lora_name
+from acestep.training.lora_output_paths import (
+    resolve_lora_export_root,
+    resolve_lora_training_output_dir,
+)
 from acestep.training.path_inputs import normalize_user_path
 from acestep.training.path_safety import safe_path
+from acestep.ui.gradio.events.local_path_dialogs import open_folder_path
 from acestep.ui.gradio.i18n import t
 from .service_auto_init import ensure_dit_ready
 from .subprocess_control import request_training_subprocess_stop
@@ -102,6 +107,36 @@ def _save_training_config_snapshot(lora_config, training_config) -> None:
     training_config.save_json(os.path.join(output_dir, "training_config.json"))
 
 
+def open_lora_output_folder(lora_output_dir: str, lora_name: str = "") -> str:
+    """Open the selected LoRA output folder or named LoRA run folder.
+
+    Args:
+        lora_output_dir: User-selected parent directory for LoRA runs.
+        lora_name: Optional LoRA training name used for the per-run folder.
+
+    Returns:
+        User-facing status from the platform folder opener.
+    """
+
+    normalized_output_dir = normalize_user_path(lora_output_dir)
+    if not normalized_output_dir:
+        return "Please enter a LoRA output directory path."
+
+    normalized_name = str(lora_name or "").strip()
+    try:
+        if normalized_name:
+            target_dir = resolve_lora_training_output_dir(
+                normalized_output_dir,
+                normalized_name,
+            )
+        else:
+            target_dir = safe_path(normalized_output_dir)
+    except ValueError as exc:
+        return f"Invalid LoRA output folder: {exc}"
+
+    return open_folder_path(target_dir)
+
+
 def start_training(
     tensor_dir: str,
     dit_handler,
@@ -118,6 +153,7 @@ def start_training(
     lora_output_dir: str,
     resume_checkpoint_dir: str,
     training_state: Dict,
+    training_num_inference_steps: int = 8,
     lora_name: str = "",
     gradient_checkpointing: bool = True,
     activation_cpu_offload: bool = False,
@@ -133,7 +169,6 @@ def start_training(
     sample_duration: float = 30.0,
     sample_inference_steps: int = 8,
     sample_seed: int = 42,
-    sample_output_dir: str = "",
     sample_offload_training_model: bool = False,
     sample_offload_generation: bool = True,
     model_config: str | None = None,
@@ -171,7 +206,10 @@ def start_training(
         yield "❌ Please enter a LoRA output directory path", "", None, training_state
         return
     try:
-        lora_output_dir = safe_path(lora_output_dir)
+        lora_output_dir = resolve_lora_training_output_dir(
+            lora_output_dir,
+            normalized_lora_name,
+        )
     except ValueError:
         yield (
             f"❌ Rejected unsafe LoRA output directory path: {lora_output_dir}",
@@ -180,19 +218,6 @@ def start_training(
             training_state,
         )
         return
-
-    sample_output_dir = normalize_user_path(sample_output_dir)
-    if sample_output_dir:
-        try:
-            sample_output_dir = safe_path(sample_output_dir)
-        except ValueError:
-            yield (
-                f"❌ Rejected unsafe sample output directory path: {sample_output_dir}",
-                "",
-                None,
-                training_state,
-            )
-            return
 
     # The preset dropdown only updates Gradio controls; training uses the submitted values.
     _ = vram_preset
@@ -296,8 +321,10 @@ def start_training(
         )
         training_config = TrainingConfig(
             shift=training_shift, learning_rate=learning_rate,
+            num_inference_steps=_as_positive_int(training_num_inference_steps, 8),
             batch_size=train_batch_size, gradient_accumulation_steps=gradient_accumulation,
-            max_epochs=train_epochs, save_every_n_epochs=save_every_n_epochs,
+            max_epochs=train_epochs,
+            save_every_n_epochs=_as_nonnegative_int(save_every_n_epochs, 10),
             seed=training_seed, output_dir=lora_output_dir,
             lora_name=normalized_lora_name,
             use_fp8=_uses_fp8_scaled(base_quantization),
@@ -322,7 +349,7 @@ def start_training(
             sample_duration=float(sample_duration or 30.0),
             sample_inference_steps=_as_positive_int(sample_inference_steps, 8),
             sample_seed=int(sample_seed or 42),
-            sample_output_dir=str(sample_output_dir or ""),
+            sample_output_dir="",
             sample_offload_training_model=_as_bool(sample_offload_training_model),
             sample_offload_generation=_as_bool(sample_offload_generation),
             sample_generation_settings=dict(sample_generation_settings or {}),
@@ -356,8 +383,6 @@ def start_training(
             try:
                 normalized_resume = safe_path(resume_checkpoint_dir)
                 if os.path.exists(normalized_resume):
-                    if os.path.isfile(normalized_resume):
-                        normalized_resume = os.path.dirname(normalized_resume)
                     resume_from = normalized_resume
             except ValueError:
                 logger.warning(f"Rejected unsafe resume path: {resume_checkpoint_dir}")
@@ -450,13 +475,61 @@ def _checkpoint_epoch_from_name(name: str) -> int | None:
     if old_match:
         return int(old_match.group(1))
 
+    flat_match = re.search(r"-epoch-(\d+)(?:-|\.|$)", name)
+    if flat_match:
+        return int(flat_match.group(1))
+
     named_match = re.search(r"-(\d+)(?:$|-sample$)", name)
     if named_match:
         return int(named_match.group(1))
     return None
 
 
-def export_lora(export_path: str, lora_output_dir: str) -> str:
+def _latest_flat_lora_artifact(output_dir: str) -> str | None:
+    """Return the preferred flat LoRA safetensors artifact from a run folder."""
+
+    if not os.path.isdir(output_dir):
+        return None
+    artifacts = [
+        name for name in os.listdir(output_dir) if name.endswith(".safetensors")
+    ]
+    if not artifacts:
+        return None
+
+    def artifact_key(name: str) -> tuple[int, int, str]:
+        epoch = _checkpoint_epoch_from_name(name) or 0
+        final_rank = 1 if name.endswith("-final.safetensors") else 0
+        return epoch, final_rank, name
+
+    artifacts.sort(key=artifact_key)
+    return os.path.join(output_dir, artifacts[-1])
+
+
+def _copy_lora_export_source(source_path: str, export_path: str) -> None:
+    """Copy a LoRA export source file or legacy directory to the destination."""
+
+    import shutil
+
+    parent_dir = os.path.dirname(export_path) or "."
+    os.makedirs(parent_dir, exist_ok=True)
+
+    if os.path.isdir(source_path):
+        if os.path.exists(export_path):
+            shutil.rmtree(export_path)
+        shutil.copytree(source_path, export_path)
+        return
+
+    if os.path.isdir(export_path):
+        destination = os.path.join(export_path, os.path.basename(source_path))
+    elif export_path.endswith(".safetensors"):
+        destination = export_path
+    else:
+        os.makedirs(export_path, exist_ok=True)
+        destination = os.path.join(export_path, os.path.basename(source_path))
+    shutil.copy2(source_path, destination)
+
+
+def export_lora(export_path: str, lora_output_dir: str, lora_name: str = "") -> str:
     """Export the trained LoRA weights.
 
     Returns:
@@ -471,14 +544,17 @@ def export_lora(export_path: str, lora_output_dir: str) -> str:
         return t("training.invalid_lora_output_dir")
 
     try:
-        safe_lora_dir = safe_path(lora_output_dir)
+        safe_lora_dir = resolve_lora_export_root(lora_output_dir, lora_name)
     except ValueError:
         return t("training.invalid_lora_output_dir")
 
+    flat_artifact = _latest_flat_lora_artifact(safe_lora_dir)
     final_dir = os.path.join(safe_lora_dir, "final")
     checkpoint_dir = os.path.join(safe_lora_dir, "checkpoints")
 
-    if os.path.exists(final_dir):
+    if flat_artifact:
+        source_path = flat_artifact
+    elif os.path.exists(final_dir):
         source_path = final_dir
     elif os.path.exists(checkpoint_dir):
         checkpoints = [
@@ -501,15 +577,7 @@ def export_lora(export_path: str, lora_output_dir: str) -> str:
         return t("training.invalid_export_path")
 
     try:
-        import shutil
-
-        parent_dir = os.path.dirname(safe_export) or "."
-        os.makedirs(parent_dir, exist_ok=True)
-
-        if os.path.exists(safe_export):
-            shutil.rmtree(safe_export)
-
-        shutil.copytree(source_path, safe_export)
+        _copy_lora_export_source(source_path, safe_export)
         return t("training.lora_exported", path=safe_export)
 
     except Exception as e:

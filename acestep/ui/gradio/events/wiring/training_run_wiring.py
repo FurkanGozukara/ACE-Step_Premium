@@ -2,9 +2,13 @@
 
 from typing import Any
 
-from acestep.ui.gradio.events.local_path_dialogs import select_folder_path
+from acestep.ui.gradio.events.local_path_dialogs import (
+    select_folder_path,
+    select_pt_file_path,
+)
 
 from .. import training_handlers as train_h
+from ..training.schedule_defaults import training_schedule_updates_for_model
 from .context import TrainingWiringContext
 from .training_lora_run_wrapper import build_lora_training_wrapper
 from .training_lokr_wiring import register_lokr_training_handlers
@@ -75,28 +79,34 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
         ],
     )
 
+    training_section["lora_model_config"].change(
+        fn=training_schedule_updates_for_model,
+        inputs=[training_section["lora_model_config"]],
+        outputs=[
+            training_section["training_shift"],
+            training_section["training_num_inference_steps"],
+        ],
+    )
+
     training_section["lora_output_dir_browse_btn"].click(
         fn=select_folder_path,
         inputs=[training_section["lora_output_dir"]],
         outputs=[training_section["lora_output_dir"]],
     )
 
+    training_section["lora_open_output_dir_btn"].click(
+        fn=train_h.open_lora_output_folder,
+        inputs=[
+            training_section["lora_output_dir"],
+            training_section["lora_name"],
+        ],
+        outputs=[training_section["training_progress"]],
+    )
+
     training_section["resume_checkpoint_dir_browse_btn"].click(
-        fn=select_folder_path,
+        fn=select_pt_file_path,
         inputs=[training_section["resume_checkpoint_dir"]],
         outputs=[training_section["resume_checkpoint_dir"]],
-    )
-
-    training_section["lora_sample_output_dir_browse_btn"].click(
-        fn=select_folder_path,
-        inputs=[training_section["lora_sample_output_dir"]],
-        outputs=[training_section["lora_sample_output_dir"]],
-    )
-
-    training_section["export_path_browse_btn"].click(
-        fn=select_folder_path,
-        inputs=[training_section["export_path"]],
-        outputs=[training_section["export_path"]],
     )
 
     training_section["start_training_btn"].click(
@@ -113,6 +123,7 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
             training_section["gradient_accumulation"],
             training_section["save_every_n_epochs"],
             training_section["training_shift"],
+            training_section["training_num_inference_steps"],
             training_section["training_seed"],
             training_section["lora_output_dir"],
             training_section["resume_checkpoint_dir"],
@@ -128,7 +139,6 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
             training_section["lora_sample_prompt"],
             training_section["lora_sample_lyrics"],
             training_section["lora_sample_seed"],
-            training_section["lora_sample_output_dir"],
             training_section["lora_sample_offload_training_model"],
             training_section["lora_sample_offload_generation"],
             training_section["training_subprocess"],
@@ -152,15 +162,6 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
             training_section["training_progress"],
             training_section["training_state"],
         ],
-    )
-
-    training_section["export_lora_btn"].click(
-        fn=train_h.export_lora,
-        inputs=[
-            training_section["export_path"],
-            training_section["lora_output_dir"],
-        ],
-        outputs=[training_section["export_status"]],
     )
 
     register_lokr_training_handlers(

@@ -21,8 +21,17 @@ class StartTrainingRequest(BaseModel):
     train_epochs: int = Field(default=10, ge=1, description="Training epochs")
     train_batch_size: int = Field(default=1, ge=1, description="Batch size")
     gradient_accumulation: int = Field(default=4, ge=1, description="Gradient accumulation steps")
-    save_every_n_epochs: int = Field(default=5, ge=1, description="Save checkpoint every N epochs")
+    save_every_n_epochs: int = Field(
+        default=5,
+        ge=0,
+        description="Save checkpoint every N epochs; 0 disables periodic checkpoints",
+    )
     training_shift: float = Field(default=3.0, ge=0.0, description="Training timestep shift")
+    training_num_inference_steps: int = Field(
+        default=8,
+        ge=1,
+        description="Training timestep schedule length",
+    )
     training_seed: int = Field(default=42, description="Random seed")
     lora_output_dir: str = Field(default="./lora_output", description="Output directory")
     use_fp8: bool = Field(default=False, description="Use FP8 training when runtime supports it")
@@ -46,6 +55,11 @@ class StartLoKRTrainingRequest(BaseModel):
     gradient_accumulation: int = Field(default=4, ge=1, description="Gradient accumulation steps")
     save_every_n_epochs: int = Field(default=5, ge=1, description="Save checkpoint every N epochs")
     training_shift: float = Field(default=3.0, ge=0.0, description="Training timestep shift")
+    training_num_inference_steps: int = Field(
+        default=8,
+        ge=1,
+        description="Training timestep schedule length",
+    )
     training_seed: int = Field(default=42, description="Random seed")
     output_dir: str = Field(default="./lokr_output", description="Output directory")
     gradient_checkpointing: bool = Field(default=False, description="Trade compute speed for lower VRAM usage")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -26,6 +27,8 @@ class SampleGenerationInprocessTests(unittest.TestCase):
         captured = {}
 
         def fake_generate_music(dit_handler, llm_handler, *, params, config, save_dir):
+            generated_path = Path(save_dir) / "generated.flac"
+            generated_path.write_bytes(b"audio")
             captured.update(
                 {
                     "handler": dit_handler,
@@ -39,7 +42,13 @@ class SampleGenerationInprocessTests(unittest.TestCase):
                 success=True,
                 error=None,
                 status_message="ok",
-                audios=[{"path": "sample.flac", "key": "abc", "sample_rate": 48000}],
+                audios=[
+                    {
+                        "path": str(generated_path),
+                        "key": "abc",
+                        "sample_rate": 48000,
+                    }
+                ],
             )
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -47,6 +56,7 @@ class SampleGenerationInprocessTests(unittest.TestCase):
                 result = run_training_sample_inprocess(
                     handler=handler,
                     output_dir=tmpdir,
+                    artifact_basename="test_lora_7",
                     prompt="style",
                     lyrics="lyrics",
                     generation_settings={
@@ -62,6 +72,12 @@ class SampleGenerationInprocessTests(unittest.TestCase):
                     fallback_seed=42,
                     offload_generation=True,
                 )
+            expected_audio_path = Path(tmpdir) / "test_lora_7.flac"
+            expected_metadata_path = Path(tmpdir) / "test_lora_7.json"
+            sample_result_path = Path(tmpdir) / "sample_result.json"
+            audio_exists = expected_audio_path.is_file()
+            metadata_exists = expected_metadata_path.is_file()
+            sample_result_exists = sample_result_path.exists()
 
         self.assertTrue(result["success"])
         self.assertIs(handler, captured["handler"])
@@ -71,7 +87,11 @@ class SampleGenerationInprocessTests(unittest.TestCase):
         self.assertEqual("style", captured["params"].caption)
         self.assertEqual("lyrics", captured["params"].lyrics)
         self.assertEqual(1.25, captured["params"].guidance_scale)
-        self.assertEqual("mp3", captured["config"].audio_format)
+        self.assertEqual("flac", captured["config"].audio_format)
+        self.assertEqual(str(expected_audio_path), result["audios"][0]["path"])
+        self.assertTrue(audio_exists)
+        self.assertTrue(metadata_exists)
+        self.assertFalse(sample_result_exists)
         self.assertFalse(handler.offload_to_cpu)
         self.assertTrue(handler.offload_dit_to_cpu)
 

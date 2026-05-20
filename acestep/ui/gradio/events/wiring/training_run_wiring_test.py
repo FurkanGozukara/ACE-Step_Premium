@@ -15,16 +15,58 @@ from acestep.ui.gradio.events.wiring.training_lora_run_wrapper import (
 class TrainingRunWiringTests(unittest.TestCase):
     """Verify LoRA training wrapper argument forwarding."""
 
-    def test_sample_output_directory_browse_is_registered(self) -> None:
-        """Sample output directory should have the same browse affordance as other folders."""
+    def test_sample_output_directory_control_is_removed(self) -> None:
+        """Samples should always save under the named LoRA run folder."""
 
         source = (Path(__file__).resolve().parent / "training_run_wiring.py").read_text(
             encoding="utf-8"
         )
 
-        self.assertIn('training_section["lora_sample_output_dir_browse_btn"].click', source)
-        self.assertIn('inputs=[training_section["lora_sample_output_dir"]]', source)
-        self.assertIn('outputs=[training_section["lora_sample_output_dir"]]', source)
+        self.assertNotIn("lora_sample_output_dir", source)
+
+    def test_model_change_updates_training_schedule_controls(self) -> None:
+        """The LoRA base-model dropdown should update training schedule defaults."""
+
+        source = (Path(__file__).resolve().parent / "training_run_wiring.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('training_section["lora_model_config"].change', source)
+        self.assertIn("training_schedule_updates_for_model", source)
+        self.assertIn('training_section["training_shift"]', source)
+        self.assertIn('training_section["training_num_inference_steps"]', source)
+
+    def test_lora_export_button_is_not_registered(self) -> None:
+        """LoRA training should rely on saved final/checkpoint artifacts."""
+
+        source = (Path(__file__).resolve().parent / "training_run_wiring.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertNotIn("export_lora_btn", source)
+        self.assertNotIn("export_path", source)
+
+    def test_lora_output_folder_open_button_is_registered(self) -> None:
+        """The LoRA output opener should target the saved LoRA run folder."""
+
+        source = (Path(__file__).resolve().parent / "training_run_wiring.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('training_section["lora_open_output_dir_btn"].click', source)
+        self.assertIn("open_lora_output_folder", source)
+        self.assertIn('training_section["lora_output_dir"]', source)
+        self.assertIn('training_section["lora_name"]', source)
+
+    def test_resume_browse_selects_training_state_file(self) -> None:
+        """Resume browse should select the flat training state file directly."""
+
+        source = (Path(__file__).resolve().parent / "training_run_wiring.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("select_pt_file_path", source)
+        self.assertIn('training_section["resume_checkpoint_dir_browse_btn"].click', source)
 
     def test_training_wrapper_passes_selected_model_config(self) -> None:
         """The LoRA base-model dropdown value should reach the training handler."""
@@ -34,6 +76,7 @@ class TrainingRunWiringTests(unittest.TestCase):
 
             self.assertEqual("my-awesome-song", kwargs["lora_name"])
             self.assertEqual("model-b", kwargs["model_config"])
+            self.assertEqual(19, kwargs["training_num_inference_steps"])
             self.assertTrue(kwargs["gradient_checkpointing"])
             self.assertEqual("Disabled", kwargs["base_quantization"])
             self.assertFalse(kwargs["sample_generation_enabled"])
@@ -81,6 +124,7 @@ class TrainingRunWiringTests(unittest.TestCase):
                     1,
                     10,
                     3.0,
+                    19,
                     42,
                     "out",
                     "",
@@ -96,7 +140,6 @@ class TrainingRunWiringTests(unittest.TestCase):
                     "prompt",
                     "lyrics",
                     42,
-                    "samples",
                     True,
                     True,
                     False,
@@ -140,6 +183,7 @@ class TrainingRunWiringTests(unittest.TestCase):
                     1,
                     10,
                     3.0,
+                    8,
                     42,
                     "out",
                     "",
@@ -155,7 +199,6 @@ class TrainingRunWiringTests(unittest.TestCase):
                     "prompt",
                     "lyrics",
                     42,
-                    "samples",
                     True,
                     True,
                     True,
@@ -168,6 +211,10 @@ class TrainingRunWiringTests(unittest.TestCase):
         self.assertEqual("subprocess", outputs[0][0])
         build_init.assert_called_once()
         self.assertTrue(stream.call_args.kwargs["training_args"]["gradient_checkpointing"])
+        self.assertEqual(
+            8,
+            stream.call_args.kwargs["training_args"]["training_num_inference_steps"],
+        )
 
 
 def _normalize_training_state(training_state: Any) -> dict[str, bool]:
