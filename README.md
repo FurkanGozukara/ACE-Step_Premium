@@ -26,6 +26,33 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+<h3>20 May 2026 V2.1 Update</h3>
+
+- Please read V2.0 update first
+- Browse Dataset JSON bug fixed which is needed to Preprocess files and generate training tensor files
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/b65b58ba-6ad4-427c-96fd-7ec33b836b5e" />
+
+- In train LoRA tab we have improved the parameters you can set and default parameters are also improved
+- Now when you change training base model, it will auto update training parameters to best for each model specifics
+- Now Shift and Training Timestep Steps working accurately and set for each model : Base, SFT, Turbo
+- Now Resume Training State directly takes saved state file, state files are now directly saved read below to see
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/62d1eaa4-e08d-44e6-a6df-ab70cc490820" />
+
+- Unnecessary export LoRA and custom samples directory removed
+- How training generated files saved completely revamped and improved
+- Everything will be saved inside target folder with your training name like below 
+- Much more organized and clean and ready to use after training
+- safetensors files are LoRA files ready to use and pt files are state files which you can use to continue training
+- There is no new zip file, use latest file, and run Windows_Install_or_Update.bat to update
+- Zip file changes only when needed
+
+<img width="1121" height="585" alt="image" src="https://github.com/user-attachments/assets/05491eac-549b-4a08-9b9e-03156dd8fe39" />
+<img width="1109" height="459" alt="image" src="https://github.com/user-attachments/assets/aa13220b-05ca-4e38-919a-e20ceaf1dd64" />
+
+
+
 <h3>20 May 2026 V2.0 Update</h3>
 
 - This is a massive upgrade and we have added so many new features so read carefully all
