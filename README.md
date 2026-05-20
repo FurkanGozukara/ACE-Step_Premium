@@ -1,5 +1,7 @@
 <h1>ACE-Step 1.5 XL Premium v2.1 - Better Music & Song Generator Than SUNO 5.0 - Remix and Repaint Features - Windows, RunPod, Massed Compute, Linux 1-click Installers</h1>
 
+<h2>Download app : https://www.patreon.com/posts/157675060</h2>
+
 <h2>Quick Info</h2>
 
 **<p>Latest installer zip file : https://www.patreon.com/posts/157675060 </p>**
@@ -33,6 +35,10 @@
 
 <img height="600" alt="image" src="https://github.com/user-attachments/assets/b65b58ba-6ad4-427c-96fd-7ec33b836b5e" />
 
+- LoRA refresh added to quick generation panel
+  
+  <img width="1318" height="474" alt="image" src="https://github.com/user-attachments/assets/240449ae-709e-4df6-8aad-a1cc7376904d" />
+  
 - In train LoRA tab we have improved the parameters you can set and default parameters are also improved
 - Now when you change training base model, it will auto update training parameters to best for each model specifics
 - Now Shift and Training Timestep Steps working accurately and set for each model : Base, SFT, Turbo
