@@ -7,6 +7,7 @@ from typing import Any
 
 
 _EPOCH_RE = re.compile(r"Epoch\s+(\d+)(?:/(\d+))?")
+_LOSS_RE = re.compile(r"Loss:\s*([-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)")
 
 
 def build_training_progress_text(
@@ -15,12 +16,15 @@ def build_training_progress_text(
     step: int,
     total_epochs: int,
     elapsed_seconds: float,
+    loss: float | None = None,
+    total_steps: int | None = None,
 ) -> str:
-    """Return status text with elapsed time, ETA, epoch progress, and speed."""
+    """Return concise status text with elapsed time, ETA, loss, and step count."""
 
     status_text = str(status)
     stats = [f"Elapsed: {_format_duration(elapsed_seconds)}"]
     epoch_info = _parse_epoch(status_text, total_epochs)
+    status_has_metric = _is_metric_status(status_text, epoch_info)
     if epoch_info is not None:
         current_epoch, resolved_total = epoch_info
         left_epochs = max(resolved_total - current_epoch, 0)
@@ -35,9 +39,21 @@ def build_training_progress_text(
 
     speed = _step_speed(step, elapsed_seconds)
     if speed is not None:
-        stats.append(f"Speed: {speed:.2f} steps/s")
+        stats.append(f"Speed: {speed:.2f} it/s")
 
-    return f"{status_text}\n" + " | ".join(stats)
+    suffixes = []
+    resolved_loss = _resolve_loss(status_text, loss if step > 0 else None)
+    if resolved_loss is not None:
+        suffixes.append(f"Loss: {resolved_loss:.4f}")
+    if step > 0:
+        suffixes.append(_format_step(step, total_steps))
+
+    progress_text = " | ".join(stats)
+    if suffixes:
+        progress_text = f"{progress_text} - {' - '.join(suffixes)}"
+    if status_has_metric:
+        return progress_text
+    return f"{status_text} | {progress_text}"
 
 
 def _parse_epoch(status_text: str, default_total: int) -> tuple[int, int] | None:
@@ -65,6 +81,31 @@ def _step_speed(step: int, elapsed_seconds: float) -> float | None:
     if step <= 0 or elapsed_seconds <= 0:
         return None
     return step / elapsed_seconds
+
+
+def _resolve_loss(status_text: str, loss: float | None) -> float | None:
+    """Return the current loss from the handler value or trainer status text."""
+
+    if loss is not None and loss == loss:
+        return float(loss)
+    match = _LOSS_RE.search(status_text)
+    if not match:
+        return None
+    return float(match.group(1))
+
+
+def _format_step(step: int, total_steps: int | None) -> str:
+    """Format current and total optimizer steps."""
+
+    if total_steps is None or total_steps <= 0:
+        return f"Step {step}"
+    return f"Step {step}/{total_steps}"
+
+
+def _is_metric_status(status_text: str, epoch_info: tuple[int, int] | None) -> bool:
+    """Return whether the original trainer status is redundant metric text."""
+
+    return epoch_info is not None or _LOSS_RE.search(status_text) is not None
 
 
 def _format_duration(seconds: float) -> str:

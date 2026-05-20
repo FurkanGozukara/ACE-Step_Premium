@@ -39,10 +39,7 @@ def format_lora_step_estimate(
     batch = _positive_int(batch_size)
     accumulation = _positive_int(gradient_accumulation)
     epochs = _positive_int(train_epochs)
-
-    batches_per_epoch = math.ceil(sample_count / batch)
-    steps_per_epoch = math.ceil(batches_per_epoch / accumulation)
-    total_steps = steps_per_epoch * epochs
+    total_steps = _calculate_total_steps(sample_count, batch, accumulation, epochs)
     effective_batch = batch * accumulation
 
     return (
@@ -53,6 +50,37 @@ def format_lora_step_estimate(
         f"Effective batch size: `{batch} * {accumulation} = {effective_batch}` "
         "tensor samples per optimizer update."
     )
+
+
+def estimate_lora_total_steps(
+    tensor_dir: Any,
+    batch_size: Any,
+    gradient_accumulation: Any,
+    train_epochs: Any,
+) -> int | None:
+    """Return the expected optimizer update count for a LoRA tensor dataset."""
+
+    sample_count = _count_tensor_samples(tensor_dir)
+    if sample_count is None or sample_count == 0:
+        return None
+
+    batch = _positive_int(batch_size)
+    accumulation = _positive_int(gradient_accumulation)
+    epochs = _positive_int(train_epochs)
+    return _calculate_total_steps(sample_count, batch, accumulation, epochs)
+
+
+def _calculate_total_steps(
+    sample_count: int,
+    batch: int,
+    accumulation: int,
+    epochs: int,
+) -> int:
+    """Calculate optimizer updates from normalized dataset and training values."""
+
+    batches_per_epoch = math.ceil(sample_count / batch)
+    steps_per_epoch = math.ceil(batches_per_epoch / accumulation)
+    return steps_per_epoch * epochs
 
 
 def _count_tensor_samples(tensor_dir: Any) -> int | None:

@@ -20,6 +20,7 @@ from acestep.training.path_safety import safe_path
 from acestep.ui.gradio.i18n import t
 from .service_auto_init import ensure_dit_ready
 from .subprocess_control import request_training_subprocess_stop
+from .step_estimate import estimate_lora_total_steps
 from .training_progress_stats import build_training_progress_text
 from .training_utils import (
     _format_duration,
@@ -355,6 +356,12 @@ def start_training(
         log_lines: list = []
         step_list: list = []
         loss_list: list = []
+        total_steps = estimate_lora_total_steps(
+            tensor_dir,
+            train_batch_size,
+            gradient_accumulation,
+            train_epochs,
+        )
         initial_plot = _training_loss_figure(training_state, step_list, loss_list)
         start_time = time.time()
 
@@ -400,11 +407,10 @@ def start_training(
                 step=step,
                 total_epochs=int(train_epochs or 0),
                 elapsed_seconds=elapsed_seconds,
+                loss=loss,
+                total_steps=total_steps,
             )
-            log_msg = f"[{_format_duration(elapsed_seconds)}] Step {step}: {status}"
-            logger.info(log_msg)
-
-            log_lines.append(status)
+            log_lines.append(display_status)
             if len(log_lines) > 15:
                 log_lines = log_lines[-15:]
             log_text = "\n".join(log_lines)

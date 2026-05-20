@@ -9,6 +9,7 @@ from pathlib import Path
 
 from acestep.training.path_safety import get_safe_roots, set_safe_roots
 from acestep.ui.gradio.events.training.step_estimate import (
+    estimate_lora_total_steps,
     format_lora_step_estimate,
 )
 
@@ -43,6 +44,22 @@ class LoraStepEstimateTests(unittest.TestCase):
         self.assertIn("700 optimizer updates", estimate)
         self.assertIn("ceil(ceil(50 / 2) / 4) * 100", estimate)
         self.assertIn("2 * 4 = 8", estimate)
+
+    def test_total_steps_helper_uses_training_formula(self) -> None:
+        """Total-step helper should match the trainer optimizer-update formula."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            dataset_dir = Path(tmpdir) / "tensors"
+            dataset_dir.mkdir()
+            (dataset_dir / "manifest.json").write_text(
+                json.dumps({"num_samples": 50}),
+                encoding="utf-8",
+            )
+
+            total_steps = estimate_lora_total_steps(dataset_dir, 2, 4, 100)
+
+        self.assertEqual(700, total_steps)
 
     def test_estimate_counts_pt_files_without_manifest(self) -> None:
         """Datasets without a manifest should still estimate from .pt files."""
