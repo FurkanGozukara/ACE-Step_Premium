@@ -54,7 +54,7 @@ class TestEnforceEagerWhenFlashAttnMissing(unittest.TestCase):
 
         captured = {}
 
-        def fake_init_vllm(model_path: str, enforce_eager: bool = False) -> str:
+        def fake_init_vllm(model_path: str, enforce_eager: bool = False, **_kwargs) -> str:
             captured["enforce_eager"] = enforce_eager
             return "✅ ok"
 
@@ -67,6 +67,7 @@ class TestEnforceEagerWhenFlashAttnMissing(unittest.TestCase):
              patch("torch.cuda.empty_cache"), \
              patch("torch.cuda.synchronize"), \
              patch("torch.cuda.get_device_name", return_value=device_name), \
+             patch("acestep.llm_inference.get_vllm_preflight_warning", return_value=None), \
              patch.object(handler, "_initialize_5hz_lm_vllm", side_effect=fake_init_vllm):
 
             mock_tok.from_pretrained.return_value = MagicMock()
