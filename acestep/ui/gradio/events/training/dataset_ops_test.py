@@ -537,6 +537,21 @@ class TestSaveDataset(unittest.TestCase):
         builder.save_dataset.assert_called_once_with(expected_path, "name")
         self.assertEqual(expected_path, update["value"])
 
+    def test_unlabeled_dataset_still_saves_with_warning(self):
+        """Saving an unlabeled dataset should warn without skipping the file write."""
+
+        builder = MagicMock()
+        builder.samples = [MagicMock()]
+        builder.get_labeled_count.return_value = 0
+        builder.save_dataset.return_value = "\u2705 Dataset saved"
+
+        status, update = save_dataset("path.json", "name", builder)
+
+        self.assertIn("Warning", status)
+        self.assertIn("\u2705 Dataset saved", status)
+        builder.save_dataset.assert_called_once_with("path.json", "name")
+        self.assertEqual("path.json", update["value"])
+
 
 if __name__ == "__main__":
     unittest.main()

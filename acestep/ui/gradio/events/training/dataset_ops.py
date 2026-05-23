@@ -413,10 +413,14 @@ def save_dataset(
         save_path = save_path + ".json"
 
     labeled_count = builder_state.get_labeled_count()
+    status_prefix = ""
     if labeled_count == 0:
-        return (
-            "⚠️ Warning: No samples have been labeled. Consider auto-labeling first.\nSaving anyway...",
-            gr.update(value=save_path),
+        status_prefix = (
+            "⚠️ Warning: No samples have been labeled. Consider auto-labeling first.\n"
+            "Saving anyway..."
         )
 
-    return builder_state.save_dataset(save_path, dataset_name), gr.update(value=save_path)
+    status = builder_state.save_dataset(save_path, dataset_name)
+    if status_prefix:
+        status = f"{status_prefix}\n{status}"
+    return status, gr.update(value=save_path)

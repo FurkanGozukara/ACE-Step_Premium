@@ -22,6 +22,9 @@ _TRAINING_DATASET_BUILDER_WIRING_PATH = Path(__file__).resolve().with_name(
 _TRAINING_DATASET_PREPROCESS_WIRING_PATH = Path(__file__).resolve().with_name(
     "training_dataset_preprocess_wiring.py"
 )
+_TRAINING_DATASET_SAVE_WIRING_PATH = Path(__file__).resolve().with_name(
+    "training_dataset_save_wiring.py"
+)
 _TRAINING_RUN_WIRING_PATH = Path(__file__).resolve().with_name("training_run_wiring.py")
 _TRAINING_LOKR_WIRING_PATH = Path(__file__).resolve().with_name("training_lokr_wiring.py")
 _TRAINING_LORA_RUN_WRAPPER_PATH = Path(__file__).resolve().with_name(
@@ -130,6 +133,13 @@ def load_training_dataset_builder_wiring_module() -> ast.Module:
     """Return the parsed AST module for training dataset-builder wiring."""
 
     source = _TRAINING_DATASET_BUILDER_WIRING_PATH.read_text(encoding="utf-8")
+    return ast.parse(source)
+
+
+def load_training_dataset_save_wiring_module() -> ast.Module:
+    """Return the parsed AST module for training dataset save wiring."""
+
+    source = _TRAINING_DATASET_SAVE_WIRING_PATH.read_text(encoding="utf-8")
     return ast.parse(source)
 
 

@@ -10,7 +10,9 @@ _MODULE_PATHS = [
     Path(__file__).resolve().with_name("generation_metadata_file_wiring.py"),
     Path(__file__).resolve().with_name("results_display_wiring.py"),
     Path(__file__).resolve().with_name("training_dataset_builder_wiring.py"),
+    Path(__file__).resolve().with_name("training_dataset_load_outputs.py"),
     Path(__file__).resolve().with_name("training_dataset_preprocess_wiring.py"),
+    Path(__file__).resolve().with_name("training_dataset_save_wiring.py"),
     Path(__file__).resolve().with_name("training_run_wiring.py"),
     Path(__file__).resolve().with_name("training_lokr_wiring.py"),
 ]

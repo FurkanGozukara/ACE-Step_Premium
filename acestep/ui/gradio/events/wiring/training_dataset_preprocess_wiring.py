@@ -1,6 +1,6 @@
 """Training dataset-load and preprocess wiring helpers."""
 
-from typing import Any, Mapping
+from typing import Any
 
 import gradio as gr
 
@@ -16,71 +16,10 @@ from .training_dataset_vram_payloads import (
     build_preprocess_dit_init_payload,
     should_run_dataset_action_in_subprocess,
 )
-
-
-_DATASET_LOAD_SHARED_OUTPUT_KEYS = (
-    "audio_files_table",
-    "sample_selector",
-    "dataset_builder_state",
-    "preview_audio",
-    "preview_filename",
-    "edit_caption",
-    "edit_genre",
-    "prompt_override",
-    "edit_lyrics",
-    "edit_bpm",
-    "edit_keyscale",
-    "edit_timesig",
-    "edit_duration",
-    "edit_language",
-    "edit_instrumental",
-    "raw_lyrics_display",
-    "has_raw_lyrics_state",
-    "dataset_name",
-    "custom_tag",
-    "tag_position",
-    "all_instrumental",
-    "genre_ratio",
+from .training_dataset_load_outputs import (
+    build_dataset_load_outputs,
+    no_dataset_load_outputs,
 )
-
-
-def _build_dataset_load_outputs(
-    training_section: Mapping[str, Any],
-    status_key: str,
-) -> list[Any]:
-    """Return the ordered output list for dataset-load button wiring."""
-
-    return [training_section[status_key]] + [
-        training_section[key] for key in _DATASET_LOAD_SHARED_OUTPUT_KEYS
-    ]
-
-
-def _no_dataset_load_outputs(status: str) -> tuple[Any, ...]:
-    """Return no-op updates for a canceled dataset picker action."""
-
-    return (status, *[gr.update() for _ in _DATASET_LOAD_SHARED_OUTPUT_KEYS])
-
-
-def _register_dataset_load_event(
-    event: Any,
-    training_section: Mapping[str, Any],
-    path_key: str,
-    status_key: str,
-) -> None:
-    """Attach shared dataset-load and raw-lyrics visibility updates to an event."""
-
-    event.then(
-        fn=train_h.load_existing_dataset_for_preprocess,
-        inputs=[
-            training_section[path_key],
-            training_section["dataset_builder_state"],
-        ],
-        outputs=_build_dataset_load_outputs(training_section, status_key),
-    ).then(
-        fn=lambda has_raw: gr.update(visible=has_raw),
-        inputs=[training_section["has_raw_lyrics_state"]],
-        outputs=[training_section["raw_lyrics_display"]],
-    )
 
 
 def _browse_and_load_dataset_json(
@@ -91,7 +30,7 @@ def _browse_and_load_dataset_json(
 
     selected = select_optional_json_file_path(current_path)
     if selected is None:
-        return (gr.update(), *_no_dataset_load_outputs("No dataset JSON selected."))
+        return (gr.update(), *no_dataset_load_outputs("No dataset JSON selected."))
 
     load_outputs = train_h.load_existing_dataset_for_preprocess(selected, builder_state)
     return (gr.update(value=selected), *load_outputs)
@@ -109,16 +48,23 @@ def register_training_dataset_load_handler(
 
     training_section = context.training_section
     load_event = training_section[button_key].click(
-        fn=None,
-        inputs=None,
-        outputs=None,
+        fn=train_h.load_existing_dataset_for_preprocess,
+        inputs=[
+            training_section[path_key],
+            training_section["dataset_builder_state"],
+        ],
+        outputs=build_dataset_load_outputs(training_section, status_key),
     )
-    _register_dataset_load_event(load_event, training_section, path_key, status_key)
+    load_event.then(
+        fn=lambda has_raw: gr.update(visible=has_raw),
+        inputs=[training_section["has_raw_lyrics_state"]],
+        outputs=[training_section["raw_lyrics_display"]],
+    )
 
     if browse_key:
         browse_outputs = [
             training_section[path_key],
-            *_build_dataset_load_outputs(training_section, status_key),
+            *build_dataset_load_outputs(training_section, status_key),
         ]
         training_section[browse_key].click(
             fn=_browse_and_load_dataset_json,
@@ -144,6 +90,7 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
         inputs=[training_section["preprocess_output_dir"]],
         outputs=[training_section["preprocess_output_dir"]],
     )
+
     def run_preprocess(
         output_dir,
         mode,

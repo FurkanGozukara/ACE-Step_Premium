@@ -4,17 +4,14 @@ from typing import Any, Mapping
 
 import gradio as gr
 
-from acestep.ui.gradio.events.local_path_dialogs import (
-    normalize_dialog_path,
-    select_folder_path,
-    select_json_save_path,
-)
+from acestep.ui.gradio.events.local_path_dialogs import select_folder_path
 
 from .. import training_handlers as train_h
 from ..training.dataset_ops import select_sample_from_table
 from ..training.subprocess_dataset import run_auto_label_subprocess
 from .context import TrainingWiringContext
 from .training_dataset_status import append_preview_refresh_status
+from .training_dataset_save_wiring import register_training_dataset_save_handlers
 from .training_dataset_vram_payloads import (
     build_auto_label_init_payloads,
     should_run_dataset_action_in_subprocess,
@@ -59,14 +56,6 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
     dit_handler = context.dit_handler
     llm_handler = context.llm_handler
     sample_preview_outputs = _build_sample_preview_outputs(training_section)
-
-    def browse_and_save_dataset(save_path, dataset_name, state):
-        """Pick a dataset JSON path and immediately save the current dataset."""
-
-        selected = select_json_save_path(save_path)
-        if not selected or selected == normalize_dialog_path(save_path):
-            return "No save path selected.", gr.update()
-        return train_h.save_dataset(selected, dataset_name, state)
 
     def run_auto_label(
         state,
@@ -259,28 +248,4 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             outputs=[training_section["dataset_builder_state"]],
         )
 
-    training_section["save_dataset_btn"].click(
-        fn=train_h.save_dataset,
-        inputs=[
-            training_section["save_path"],
-            training_section["dataset_name"],
-            training_section["dataset_builder_state"],
-        ],
-        outputs=[
-            training_section["save_status"],
-            training_section["save_path"],
-        ],
-    )
-
-    training_section["save_path_browse_btn"].click(
-        fn=browse_and_save_dataset,
-        inputs=[
-            training_section["save_path"],
-            training_section["dataset_name"],
-            training_section["dataset_builder_state"],
-        ],
-        outputs=[
-            training_section["save_status"],
-            training_section["save_path"],
-        ],
-    )
+    register_training_dataset_save_handlers(context)

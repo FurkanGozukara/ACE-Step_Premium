@@ -14,6 +14,7 @@ from typing import Any, Iterator
 
 from acestep.core.generation.subprocess_termination import terminate_generation_process
 
+from .subprocess_console import write_console_text
 from .subprocess_control import (
     consume_training_subprocess_stop_requested,
     register_training_subprocess,
@@ -121,11 +122,10 @@ def _read_worker_events(process: subprocess.Popen) -> Iterator[dict[str, Any]]:
             if event is not None:
                 console_text = event.get("console")
                 if console_text:
-                    print(console_text, flush=True)
+                    write_console_text(str(console_text), end="\n")
                 yield event
             else:
-                sys.stdout.write(line)
-                sys.stdout.flush()
+                write_console_text(line)
                 yield {"kind": "status", "message": line.rstrip()}
             continue
         if process.poll() is not None:
@@ -138,8 +138,7 @@ def _read_worker_events(process: subprocess.Popen) -> Iterator[dict[str, Any]]:
             if event is not None:
                 yield event
             else:
-                sys.stdout.write(line)
-                sys.stdout.flush()
+                write_console_text(line)
 
 
 def _parse_event_line(line: str) -> dict[str, Any] | None:

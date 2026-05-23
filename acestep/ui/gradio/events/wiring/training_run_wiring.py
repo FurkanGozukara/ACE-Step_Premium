@@ -42,6 +42,7 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
         context.dit_handler,
         normalize_training_state=_normalize_training_state,
         sample_setting_keys=sample_setting_keys,
+        llm_handler=context.llm_handler,
     )
 
     # ========== Training Tab Handlers ==========

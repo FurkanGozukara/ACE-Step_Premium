@@ -712,7 +712,7 @@ class LoRATrainer:
                     0,
                     0.0,
                     (
-                        "âŒ LoRA training requires a non-quantized DiT model. "
+                        "❌ LoRA training requires a non-quantized DiT model. "
                         f"Current quantization: {quantization_mode}. "
                         "Re-initialize service with INT8 Quantization disabled, then retry training."
                     ),
@@ -723,10 +723,10 @@ class LoRATrainer:
             try:
                 tensor_dir = safe_path(tensor_dir)
             except ValueError:
-                yield 0, 0.0, f"âŒ Rejected unsafe tensor directory: {tensor_dir}"
+                yield 0, 0.0, f"❌ Rejected unsafe tensor directory: {tensor_dir}"
                 return
             if not os.path.isdir(tensor_dir):
-                yield 0, 0.0, f"âŒ Tensor directory not found: {tensor_dir}"
+                yield 0, 0.0, f"❌ Tensor directory not found: {tensor_dir}"
                 return
 
             # Create training module
@@ -811,27 +811,27 @@ class LoRATrainer:
             data_module.setup("fit")
 
             if len(data_module.train_dataset) == 0:
-                yield 0, 0.0, "âŒ No valid samples found in tensor directory"
+                yield 0, 0.0, "❌ No valid samples found in tensor directory"
                 return
 
             yield (
                 0,
                 0.0,
-                f"ðŸ“‚ Loaded {len(data_module.train_dataset)} preprocessed samples",
+                f"📂 Loaded {len(data_module.train_dataset)} preprocessed samples",
             )
             if ckpt_enabled:
-                yield 0, 0.0, "ðŸ§  Gradient checkpointing enabled for decoder"
+                yield 0, 0.0, "🧠 Gradient checkpointing enabled for decoder"
             elif getattr(self.training_config, "gradient_checkpointing", True):
                 yield (
                     0,
                     0.0,
-                    "âš ï¸ Gradient checkpointing not enabled (model wrapper did not expose it)",
+                    "⚠️ Gradient checkpointing not enabled (model wrapper did not expose it)",
                 )
             if not input_grads_enabled:
                 yield (
                     0,
                     0.0,
-                    "â„¹ï¸ Input-grad hook not available on this DiT; using explicit checkpointing fallback",
+                    "ℹ️ Input-grad hook not available on this DiT; using explicit checkpointing fallback",
                 )
 
             reset_cuda_peak()
@@ -844,7 +844,7 @@ class LoRATrainer:
 
         except Exception as e:
             logger.exception("Training failed")
-            yield 0, 0.0, f"âŒ Training failed: {str(e)}"
+            yield 0, 0.0, f"❌ Training failed: {str(e)}"
         finally:
             self.is_training = False
 
@@ -876,7 +876,7 @@ class LoRATrainer:
         yield (
             0,
             0.0,
-            f"ðŸš€ Starting training (device: {device_type}, precision: {precision})...",
+            f"🚀 Starting training (device: {device_type}, precision: {precision})...",
         )
 
         # Keep trainable adapter tensors in fp32, but avoid promoting the
@@ -938,13 +938,13 @@ class LoRATrainer:
         ]
 
         if not trainable_params:
-            yield 0, 0.0, "âŒ No trainable parameters found!"
+            yield 0, 0.0, "❌ No trainable parameters found!"
             return
 
         yield (
             0,
             0.0,
-            f"ðŸŽ¯ Training {sum(p.numel() for p in trainable_params):,} parameters",
+            f"🎯 Training {sum(p.numel() for p in trainable_params):,} parameters",
         )
 
         optimizer_kwargs = {
@@ -1018,12 +1018,12 @@ class LoRATrainer:
                 yield (
                     0,
                     0.0,
-                    f"âš ï¸ Rejected unsafe checkpoint path: {resume_from}, starting fresh",
+                    f"⚠️ Rejected unsafe checkpoint path: {resume_from}, starting fresh",
                 )
                 resume_from = None
         if resume_from and os.path.exists(resume_from):
             try:
-                yield 0, 0.0, f"ðŸ”„ Loading checkpoint from {resume_from}..."
+                yield 0, 0.0, f"🔄 Loading checkpoint from {resume_from}..."
 
                 # Load checkpoint using utility function
                 checkpoint_info = load_training_checkpoint(
@@ -1059,15 +1059,15 @@ class LoRATrainer:
                         status_parts.append("scheduler ✓")
                     yield 0, 0.0, ", ".join(status_parts)
                 else:
-                    yield 0, 0.0, f"âš ï¸ No valid checkpoint found in {resume_from}"
+                    yield 0, 0.0, f"⚠️ No valid checkpoint found in {resume_from}"
 
             except Exception as e:
                 logger.exception("Failed to load checkpoint")
-                yield 0, 0.0, f"âš ï¸ Failed to load checkpoint: {e}, starting fresh"
+                yield 0, 0.0, f"⚠️ Failed to load checkpoint: {e}, starting fresh"
                 start_epoch = 0
                 global_step = 0
         elif resume_from:
-            yield 0, 0.0, f"âš ï¸ Checkpoint path not found: {resume_from}, starting fresh"
+            yield 0, 0.0, f"⚠️ Checkpoint path not found: {resume_from}, starting fresh"
 
         # Training loop
         accumulation_step = 0
@@ -1087,7 +1087,7 @@ class LoRATrainer:
                     yield (
                         global_step,
                         accumulated_loss / max(accumulation_step, 1),
-                        "â¹ï¸ Training stopped by user",
+                        "⏹️ Training stopped by user",
                     )
                     return
 
@@ -1114,7 +1114,7 @@ class LoRATrainer:
                             global_step,
                             float("nan"),
                             (
-                                f"âš ï¸ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
+                                f"⚠️ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
                                 "skipping optimizer step"
                             ),
                         )
@@ -1179,7 +1179,7 @@ class LoRATrainer:
                         global_step,
                         float("nan"),
                         (
-                            f"âš ï¸ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
+                            f"⚠️ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
                             "skipping optimizer remainder step"
                         ),
                     )
@@ -1288,7 +1288,7 @@ class LoRATrainer:
                 yield (
                     global_step,
                     avg_epoch_loss,
-                    f"ðŸ’¾ Checkpoint saved at epoch {epoch + 1}",
+                    f"💾 Checkpoint saved at epoch {epoch + 1}",
                 )
 
             sample_every = int(
@@ -1327,7 +1327,7 @@ class LoRATrainer:
         yield (
             global_step,
             final_loss,
-            f"âœ… Training complete! LoRA saved to {final_path}{peak_suffix}",
+            f"✅ Training complete! LoRA saved to {final_path}{peak_suffix}",
         )
 
     def _generate_checkpoint_sample(
@@ -1392,7 +1392,7 @@ class LoRATrainer:
         training_state: Optional[Dict],
     ) -> Generator[Tuple[int, float, str], None, None]:
         """Basic training loop without Fabric."""
-        yield 0, 0.0, "ðŸš€ Starting basic training loop..."
+        yield 0, 0.0, "🚀 Starting basic training loop..."
 
         os.makedirs(self.training_config.output_dir, exist_ok=True)
 
@@ -1403,7 +1403,7 @@ class LoRATrainer:
         ]
 
         if not trainable_params:
-            yield 0, 0.0, "âŒ No trainable parameters found!"
+            yield 0, 0.0, "❌ No trainable parameters found!"
             return
 
         cast_training_parameter_dtypes(
@@ -1473,7 +1473,7 @@ class LoRATrainer:
                     yield (
                         global_step,
                         accumulated_loss / max(accumulation_step, 1),
-                        "â¹ï¸ Training stopped",
+                        "⏹️ Training stopped",
                     )
                     return
 
@@ -1547,7 +1547,7 @@ class LoRATrainer:
             yield (
                 global_step,
                 avg_epoch_loss,
-                f"âœ… Epoch {epoch + 1}/{self.training_config.max_epochs} in {epoch_time:.1f}s",
+                f"✅ Epoch {epoch + 1}/{self.training_config.max_epochs} in {epoch_time:.1f}s",
             )
 
             if _should_save_epoch_checkpoint(self.training_config, epoch + 1):
@@ -1559,7 +1559,7 @@ class LoRATrainer:
                     epoch + 1,
                     global_step,
                 )
-                yield global_step, avg_epoch_loss, "ðŸ’¾ Checkpoint saved"
+                yield global_step, avg_epoch_loss, "💾 Checkpoint saved"
 
             sample_every = int(
                 getattr(self.training_config, "sample_every_n_epochs", 0) or 0
@@ -1594,7 +1594,7 @@ class LoRATrainer:
         yield (
             global_step,
             final_loss,
-            f"âœ… Training complete! LoRA saved to {final_path}{peak_suffix}",
+            f"✅ Training complete! LoRA saved to {final_path}{peak_suffix}",
         )
 
     def stop(self):
@@ -1743,7 +1743,7 @@ class LoKRTrainer:
                     0,
                     0.0,
                     (
-                        "âŒ LoKr training requires a non-quantized DiT model. "
+                        "❌ LoKr training requires a non-quantized DiT model. "
                         f"Current quantization: {quantization_mode}. "
                         "Re-initialize service with INT8 Quantization disabled, then retry training."
                     ),
@@ -1753,17 +1753,17 @@ class LoKRTrainer:
             try:
                 tensor_dir = safe_path(tensor_dir)
             except ValueError:
-                yield 0, 0.0, f"âŒ Rejected unsafe tensor directory: {tensor_dir}"
+                yield 0, 0.0, f"❌ Rejected unsafe tensor directory: {tensor_dir}"
                 return
             if not os.path.isdir(tensor_dir):
-                yield 0, 0.0, f"âŒ Tensor directory not found: {tensor_dir}"
+                yield 0, 0.0, f"❌ Tensor directory not found: {tensor_dir}"
                 return
 
             if not check_lycoris_available():
                 yield (
                     0,
                     0.0,
-                    "âŒ LyCORIS not installed. Install lycoris-lora to train LoKr.",
+                    "❌ LyCORIS not installed. Install lycoris-lora to train LoKr.",
                 )
                 return
 
@@ -1807,7 +1807,7 @@ class LoKRTrainer:
             data_module.setup("fit")
 
             if len(data_module.train_dataset) == 0:
-                yield 0, 0.0, "âŒ No valid samples found in tensor directory"
+                yield 0, 0.0, "❌ No valid samples found in tensor directory"
                 return
 
             self.run_metadata = {
@@ -1819,21 +1819,21 @@ class LoKRTrainer:
             yield (
                 0,
                 0.0,
-                f"ðŸ“‚ Loaded {len(data_module.train_dataset)} preprocessed samples",
+                f"📂 Loaded {len(data_module.train_dataset)} preprocessed samples",
             )
             if ckpt_enabled:
-                yield 0, 0.0, "ðŸ§  Gradient checkpointing enabled for decoder"
+                yield 0, 0.0, "🧠 Gradient checkpointing enabled for decoder"
             else:
                 yield (
                     0,
                     0.0,
-                    "âš ï¸ Gradient checkpointing not enabled (model wrapper did not expose it)",
+                    "⚠️ Gradient checkpointing not enabled (model wrapper did not expose it)",
                 )
             if not input_grads_enabled:
                 yield (
                     0,
                     0.0,
-                    "â„¹ï¸ Input-grad hook not available on this DiT; using explicit checkpointing fallback",
+                    "ℹ️ Input-grad hook not available on this DiT; using explicit checkpointing fallback",
                 )
 
             if LIGHTNING_AVAILABLE:
@@ -1843,7 +1843,7 @@ class LoKRTrainer:
 
         except Exception as e:
             logger.exception("LoKr training failed")
-            yield 0, 0.0, f"âŒ Training failed: {str(e)}"
+            yield 0, 0.0, f"❌ Training failed: {str(e)}"
         finally:
             if self.module is not None and hasattr(self.module, "model"):
                 _unwrap_stale_fabric_decoder(self.module.model)
@@ -1892,7 +1892,7 @@ class LoKRTrainer:
         yield (
             0,
             0.0,
-            f"ðŸš€ Starting training (device: {device_type}, precision: {precision})...",
+            f"🚀 Starting training (device: {device_type}, precision: {precision})...",
         )
         if not manual_nonfinite_check:
             logger.info(
@@ -1935,7 +1935,7 @@ class LoKRTrainer:
         )
 
         if not trainable_params:
-            yield 0, 0.0, "âŒ No trainable parameters found!"
+            yield 0, 0.0, "❌ No trainable parameters found!"
             return
         if total_trainable_tensors == 0:
             logger.warning(
@@ -1946,7 +1946,7 @@ class LoKRTrainer:
         yield (
             0,
             0.0,
-            f"ðŸŽ¯ Training {sum(p.numel() for p in trainable_params):,} parameters",
+            f"🎯 Training {sum(p.numel() for p in trainable_params):,} parameters",
         )
 
         optimizer_kwargs = {
@@ -2009,7 +2009,7 @@ class LoKRTrainer:
                     yield (
                         global_step,
                         accumulated_loss / max(accumulation_step, 1),
-                        "â¹ï¸ Training stopped by user",
+                        "⏹️ Training stopped by user",
                     )
                     return
 
@@ -2044,7 +2044,7 @@ class LoKRTrainer:
                                 global_step,
                                 float("nan"),
                                 (
-                                    f"âš ï¸ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
+                                    f"⚠️ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
                                     "skipping optimizer step (see logs for tensor names)"
                                 ),
                             )
@@ -2105,7 +2105,7 @@ class LoKRTrainer:
                             global_step,
                             float("nan"),
                             (
-                                f"âš ï¸ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
+                                f"⚠️ Non-finite gradients ({nonfinite_grads}/{grad_tensors}); "
                                 "skipping optimizer remainder step (see logs for tensor names)"
                             ),
                         )
@@ -2152,7 +2152,7 @@ class LoKRTrainer:
                 global_step,
                 avg_epoch_loss,
                 (
-                    f"âœ… Epoch {epoch + 1}/{self.training_config.max_epochs} "
+                    f"✅ Epoch {epoch + 1}/{self.training_config.max_epochs} "
                     f"in {epoch_time:.1f}s, Loss: {avg_epoch_loss:.4f}"
                 ),
             )
@@ -2174,7 +2174,7 @@ class LoKRTrainer:
                 yield (
                     global_step,
                     avg_epoch_loss,
-                    f"ðŸ’¾ Checkpoint saved at epoch {epoch + 1}",
+                    f"💾 Checkpoint saved at epoch {epoch + 1}",
                 )
 
         final_path = os.path.join(self.training_config.output_dir, "final")
@@ -2192,7 +2192,7 @@ class LoKRTrainer:
         yield (
             global_step,
             final_loss,
-            f"âœ… Training complete! LoKr saved to {final_path}",
+            f"✅ Training complete! LoKr saved to {final_path}",
         )
 
     def _train_basic(
@@ -2200,7 +2200,7 @@ class LoKRTrainer:
         data_module: PreprocessedDataModule,
         training_state: Optional[Dict],
     ) -> Generator[Tuple[int, float, str], None, None]:
-        yield 0, 0.0, "ðŸš€ Starting basic training loop..."
+        yield 0, 0.0, "🚀 Starting basic training loop..."
         os.makedirs(self.training_config.output_dir, exist_ok=True)
 
         train_loader = data_module.train_dataloader()
@@ -2209,7 +2209,7 @@ class LoKRTrainer:
             getattr(self.module, "lycoris_net", None),
         )
         if not trainable_params:
-            yield 0, 0.0, "âŒ No trainable parameters found!"
+            yield 0, 0.0, "❌ No trainable parameters found!"
             return
 
         optimizer = AdamW(
@@ -2257,7 +2257,7 @@ class LoKRTrainer:
                     yield (
                         global_step,
                         accumulated_loss / max(accumulation_step, 1),
-                        "â¹ï¸ Training stopped",
+                        "⏹️ Training stopped",
                     )
                     return
 
@@ -2319,7 +2319,7 @@ class LoKRTrainer:
             yield (
                 global_step,
                 avg_epoch_loss,
-                f"âœ… Epoch {epoch + 1}/{self.training_config.max_epochs} in {epoch_time:.1f}s",
+                f"✅ Epoch {epoch + 1}/{self.training_config.max_epochs} in {epoch_time:.1f}s",
             )
 
             if _should_save_epoch_checkpoint(self.training_config, epoch + 1):
@@ -2336,7 +2336,7 @@ class LoKRTrainer:
                     lokr_config=self.lokr_config,
                     run_metadata=self.run_metadata,
                 )
-                yield global_step, avg_epoch_loss, "ðŸ’¾ Checkpoint saved"
+                yield global_step, avg_epoch_loss, "💾 Checkpoint saved"
 
         final_path = os.path.join(self.training_config.output_dir, "final")
         final_metadata: Dict[str, Any] = {"lokr_config": self.lokr_config.to_dict()}
@@ -2353,7 +2353,7 @@ class LoKRTrainer:
         yield (
             global_step,
             final_loss,
-            f"âœ… Training complete! LoKr saved to {final_path}",
+            f"✅ Training complete! LoKr saved to {final_path}",
         )
 
     def stop(self):

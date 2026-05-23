@@ -9,6 +9,7 @@ try:
         load_setup_training_event_handlers_node,
         load_training_dataset_builder_wiring_module,
         load_training_dataset_preprocess_wiring_module,
+        load_training_dataset_save_wiring_module,
         load_training_lora_run_wrapper_module,
         load_training_lokr_wiring_module,
         load_training_run_wiring_module,
@@ -19,6 +20,7 @@ except ImportError:  # pragma: no cover - supports direct file execution
         load_setup_training_event_handlers_node,
         load_training_dataset_builder_wiring_module,
         load_training_dataset_preprocess_wiring_module,
+        load_training_dataset_save_wiring_module,
         load_training_lora_run_wrapper_module,
         load_training_lokr_wiring_module,
         load_training_run_wiring_module,
@@ -84,6 +86,7 @@ class DecompositionContractTrainingTests(unittest.TestCase):
         """Dataset-builder wiring should call scan/label/edit/settings/save handlers."""
 
         wiring_node = load_training_dataset_builder_wiring_module()
+        save_wiring_node = load_training_dataset_save_wiring_module()
         call_names = []
         attribute_names = []
         for node in ast.walk(wiring_node):
@@ -93,12 +96,18 @@ class DecompositionContractTrainingTests(unittest.TestCase):
                     call_names.append(name)
             if isinstance(node, ast.Attribute):
                 attribute_names.append(node.attr)
+        save_attribute_names = []
+        for node in ast.walk(save_wiring_node):
+            if isinstance(node, ast.Attribute):
+                save_attribute_names.append(node.attr)
 
         self.assertIn("scan_directory", call_names)
         self.assertIn("auto_label_all", call_names)
+        self.assertIn("register_training_dataset_save_handlers", call_names)
         self.assertIn("save_sample_edit", attribute_names)
         self.assertIn("update_settings", attribute_names)
-        self.assertIn("save_dataset", attribute_names)
+        self.assertIn("save_dataset", save_attribute_names)
+        self.assertIn("load_existing_dataset_for_preprocess", save_attribute_names)
 
     def test_training_dataset_preprocess_wiring_calls_expected_handlers(self):
         """Dataset/preprocess wiring should call existing training handler entry points."""
