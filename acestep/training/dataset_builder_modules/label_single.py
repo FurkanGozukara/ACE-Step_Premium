@@ -70,7 +70,8 @@ def _apply_audio_metadata(
 ) -> None:
     """Apply audio-inferred metadata while preserving user/CSV overrides."""
 
-    sample.caption = metadata.get("caption", "")
+    if not _has_lyrics_file_caption(sample):
+        sample.caption = metadata.get("caption", "")
     sample.genre = metadata.get("genres", "")
 
     if not skip_metas:
@@ -83,6 +84,15 @@ def _apply_audio_metadata(
     sample.language = metadata.get(
         "language",
         metadata.get("vocal_language", sample.language or "unknown"),
+    )
+
+
+def _has_lyrics_file_caption(sample: AudioSample) -> bool:
+    """Return whether the sample has an explicit caption from a lyric sidecar."""
+
+    return (
+        getattr(sample, "caption_source", "") == "lyrics_file"
+        and bool(str(getattr(sample, "caption", "") or "").strip())
     )
 
 
@@ -144,9 +154,14 @@ class LabelSingleMixin:
             if format_lyrics and has_preloaded_lyrics:
                 from acestep.inference import format_sample
 
+                format_caption = ""
+                if _has_lyrics_file_caption(sample):
+                    format_caption = sample.caption
+                elif metadata:
+                    format_caption = metadata.get("caption", "")
                 result = format_sample(
                     llm_handler=llm_handler,
-                    caption=metadata.get("caption", "") if metadata else "",
+                    caption=format_caption,
                     lyrics=sample.raw_lyrics,
                     user_metadata=_format_language_metadata(
                         lm_lyrics_language,
@@ -171,7 +186,8 @@ class LabelSingleMixin:
                         has_csv_key=has_csv_key,
                     )
                 else:
-                    sample.caption = result.caption or ""
+                    if not _has_lyrics_file_caption(sample):
+                        sample.caption = result.caption or ""
                     if not skip_metas:
                         if not has_csv_bpm:
                             sample.bpm = result.bpm

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 import unittest
 from unittest.mock import patch
 
@@ -67,6 +68,16 @@ class _BatchLlm:
         return "[Verse]\nBatch lyrics"
 
 
+class _SlowBatchLlm(_BatchLlm):
+    """LLM test double that keeps the batch call open long enough for progress."""
+
+    def generate_from_formatted_prompt(self, formatted_prompt, **kwargs):
+        """Delay the synthetic generation call before returning outputs."""
+
+        time.sleep(0.04)
+        return super().generate_from_formatted_prompt(formatted_prompt, **kwargs)
+
+
 class LabelBatchTests(unittest.TestCase):
     """Verify batch_size performs grouped LM work instead of being ignored."""
 
@@ -83,8 +94,19 @@ class LabelBatchTests(unittest.TestCase):
 
         builder = _Builder(
             [
-                AudioSample(audio_path=f"{idx}.wav", filename=f"{idx}.wav")
-                for idx in range(4)
+                AudioSample(
+                    audio_path="0.wav",
+                    filename="0.wav",
+                    caption="user caption from lyric file",
+                    caption_source="lyrics_file",
+                    raw_lyrics="[Verse]\nuser lyric",
+                    lyrics="[Verse]\nuser lyric",
+                    is_instrumental=False,
+                ),
+                *[
+                    AudioSample(audio_path=f"{idx}.wav", filename=f"{idx}.wav")
+                    for idx in range(1, 4)
+                ],
             ]
         )
         llm_handler = _BatchLlm()
@@ -103,8 +125,54 @@ class LabelBatchTests(unittest.TestCase):
         self.assertEqual([0, 1, 2, 3], callback_indexes)
         self.assertEqual(4, save_sidecar.call_count)
         self.assertIn("Labeled 4/4 samples; left 0", status)
-        self.assertEqual("caption codes-0.wav", builder.samples[0].caption)
+        self.assertEqual("user caption from lyric file", builder.samples[0].caption)
+        self.assertEqual("caption codes-1.wav", builder.samples[1].caption)
         self.assertFalse(builder.samples[0].is_instrumental)
+
+    @patch(
+        "acestep.training.dataset_builder_modules.label_batch_persistence."
+        "save_sample_label_metadata"
+    )
+    @patch(
+        "acestep.training.dataset_builder_modules.label_batch.get_audio_codes",
+        side_effect=lambda audio_path, _handler: f"codes-{audio_path}",
+    )
+    @patch(
+        "acestep.training.dataset_builder_modules.label_batch_generation."
+        "METADATA_BATCH_HEARTBEAT_SECONDS",
+        0.01,
+    )
+    def test_batch_metadata_generation_reports_heartbeat(
+        self,
+        _get_codes,
+        _save_sidecar,
+    ) -> None:
+        """Batched metadata generation should emit elapsed progress while blocked."""
+
+        builder = _Builder(
+            [
+                AudioSample(audio_path="0.wav", filename="0.wav"),
+                AudioSample(audio_path="1.wav", filename="1.wav"),
+            ]
+        )
+        progress_messages: list[str] = []
+
+        builder.label_all_samples(
+            dit_handler=object(),
+            llm_handler=_SlowBatchLlm(),
+            batch_size=2,
+            progress_callback=progress_messages.append,
+        )
+
+        heartbeat_messages = [
+            message for message in progress_messages if " | elapsed " in message
+        ]
+        self.assertTrue(
+            any(
+                message.startswith("Generating metadata batch (2 files)...")
+                for message in heartbeat_messages
+            )
+        )
 
 
 if __name__ == "__main__":

@@ -144,6 +144,7 @@ class ScanMixinTests(unittest.TestCase):
             self.assertEqual(1, len(samples))
             sample = samples[0]
             self.assertEqual("Bright funk hip-hop with a talkbox hook.", sample.caption)
+            self.assertEqual("lyrics_file", sample.caption_source)
             self.assertIn("[Intro - talkbox hook]", sample.raw_lyrics)
             self.assertIn("Now let me welcome everybody", sample.lyrics)
             self.assertNotIn("# Caption", sample.lyrics)

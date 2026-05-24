@@ -71,6 +71,7 @@ class LabelPersistenceTests(unittest.TestCase):
                 audio_path=str(audio_path),
                 filename=audio_path.name,
                 caption="processed caption",
+                caption_source="lyrics_file",
                 lyrics="[Verse]\nprocessed lyrics",
                 raw_lyrics="original lyrics",
                 labeled=True,
@@ -88,6 +89,7 @@ class LabelPersistenceTests(unittest.TestCase):
             data = json.loads(Path(label_path).read_text(encoding="utf-8"))
             self.assertEqual(str(audio_path), data["audio_path"])
             self.assertEqual("processed caption", data["caption"])
+            self.assertEqual("lyrics_file", data["caption_source"])
             self.assertEqual("[Verse]\nprocessed lyrics", data["lyrics"])
 
 

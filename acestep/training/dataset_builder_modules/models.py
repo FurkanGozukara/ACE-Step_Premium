@@ -32,6 +32,7 @@ class AudioSample:
     custom_tag: str = ""
     labeled: bool = False
     prompt_override: Optional[str] = None  # None=use global ratio, "caption" or "genre"
+    caption_source: str = ""  # Tracks user-provided captions such as lyric sidecar captions.
 
     def __post_init__(self):
         if not self.id:

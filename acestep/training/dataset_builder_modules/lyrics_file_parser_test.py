@@ -61,6 +61,32 @@ class LyricsFileParserTests(unittest.TestCase):
         self.assertEqual("", parsed.caption)
         self.assertEqual({}, parsed.metadata)
 
+    def test_caption_header_tolerates_extra_space_and_blank_lines(self) -> None:
+        """Caption parsing should tolerate common Markdown spacing variation."""
+
+        parsed = parse_lyrics_text_file(
+            "\n".join(
+                [
+                    "   #      Caption     ",
+                    "",
+                    "  First caption line with extra spaces.   ",
+                    "",
+                    "Second caption line after a blank line.",
+                    "",
+                    " #     Lyric",
+                    "",
+                    "[Verse]",
+                    "actual lyric line",
+                ]
+            )
+        )
+
+        self.assertEqual(
+            "First caption line with extra spaces. Second caption line after a blank line.",
+            parsed.caption,
+        )
+        self.assertEqual("[Verse]\nactual lyric line", parsed.lyrics)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -107,6 +107,11 @@ class ScanMixin:
                     is_instrumental = False
 
                 caption_from_lyrics = lyrics_data.caption if has_lyrics_file else ""
+                caption_source = ""
+                if has_caption_file:
+                    caption_source = "caption_file"
+                elif caption_from_lyrics:
+                    caption_source = "lyrics_file"
                 sample = AudioSample(
                     audio_path=audio_path,
                     filename=os.path.basename(audio_path),
@@ -114,6 +119,7 @@ class ScanMixin:
                     is_instrumental=is_instrumental,
                     custom_tag=self.metadata.custom_tag,
                     caption=caption_content if has_caption_file else caption_from_lyrics,
+                    caption_source=caption_source,
                     lyrics=lyrics_content if has_lyrics_file else "[Instrumental]",
                     raw_lyrics=lyrics_content if has_lyrics_file else "",
                 )
@@ -126,6 +132,7 @@ class ScanMixin:
                     if json_meta.get("caption"):
                         sample.caption = json_meta["caption"]
                         sample.labeled = True
+                        sample.caption_source = str(json_meta.get("caption_source") or "")
                     genre = json_meta.get("genre") or json_meta.get("genres")
                     if genre:
                         sample.genre = genre
@@ -154,6 +161,8 @@ class ScanMixin:
                         sample.is_instrumental = bool(json_meta["instrumental"])
                     if "prompt_override" in json_meta:
                         sample.prompt_override = json_meta["prompt_override"]
+                    if "caption_source" in json_meta and not json_meta.get("caption"):
+                        sample.caption_source = str(json_meta.get("caption_source") or "")
                     if json_meta.get("labeled"):
                         sample.labeled = True
 
@@ -165,6 +174,7 @@ class ScanMixin:
                         sample.keyscale = meta["key"]
                     if meta.get("caption"):
                         sample.caption = meta["caption"]
+                        sample.caption_source = "csv"
                         sample.labeled = True
                     csv_count += 1
 

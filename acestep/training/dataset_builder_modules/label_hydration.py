@@ -97,6 +97,7 @@ def _apply_label(sample: AudioSample, label: dict[str, Any]) -> None:
         "formatted_lyrics",
         "keyscale",
         "timesignature",
+        "caption_source",
     )
     for field_name in string_fields:
         if field_name in label:

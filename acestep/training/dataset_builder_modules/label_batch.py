@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Callable
 
 from .label_batch_apply import apply_understood_metadata, requires_single_label_path
+from .label_batch_generation import _BatchEntry, generate_metadata_batch
 from .label_batch_persistence import (
     cancelled_batch_status,
     common_audio_source_root,
@@ -15,19 +15,9 @@ from .label_batch_persistence import (
 )
 from .label_batch_progress import complete_batch_item, start_batch_item
 from .label_batch_single import label_single_fallback
-from .label_batch_understanding import understand_audio_codes_batch
-from .label_progress import LabelProgressTracker, replay_progress_after_llm_load
+from .label_progress import LabelProgressTracker
 from .label_utils import get_audio_codes
 from .models import AudioSample
-
-
-@dataclass
-class _BatchEntry:
-    """Audio-code payload for one sample inside a batched LM request."""
-
-    sample_idx: int
-    filename: str
-    audio_codes: str
 
 
 def label_samples_in_batches(
@@ -147,16 +137,13 @@ def label_samples_in_batches(
                 return builder.samples, cancelled_batch_status(
                     success_count, total_to_label, total_to_label - processed_count
                 )
-            batch_msg = f"Generating metadata batch ({len(entries)} files)..."
-            if progress_callback:
-                progress_callback(batch_msg)
-            with replay_progress_after_llm_load(llm_handler, progress_callback, batch_msg):
-                metadata_results = understand_audio_codes_batch(
-                    llm_handler,
-                    [entry.audio_codes for entry in entries],
-                    transcribe_lyrics=transcribe_lyrics,
-                    lm_lyrics_language=lm_lyrics_language,
-                )
+            metadata_results = generate_metadata_batch(
+                llm_handler,
+                [entry.audio_codes for entry in entries],
+                transcribe_lyrics=transcribe_lyrics,
+                lm_lyrics_language=lm_lyrics_language,
+                progress_callback=progress_callback,
+            )
             for entry, (metadata, status) in zip(entries, metadata_results):
                 sidecar_failed = False
                 if metadata:

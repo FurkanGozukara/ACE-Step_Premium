@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import threading
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Callable, Iterator
@@ -112,6 +113,45 @@ def replay_progress_after_llm_load(
             delattr(llm_handler, attr_name)
         else:
             setattr(llm_handler, attr_name, previous)
+
+
+@contextmanager
+def progress_heartbeat(
+    progress_callback: ProgressCallback | None,
+    message: str,
+    *,
+    interval_seconds: float = 5.0,
+) -> Iterator[None]:
+    """Emit periodic progress while a blocking model call is running."""
+
+    if progress_callback is None or interval_seconds <= 0:
+        yield
+        return
+
+    stop_event = threading.Event()
+    started_at = time.monotonic()
+
+    def emit_until_stopped() -> None:
+        """Emit elapsed-time progress until the guarded operation finishes."""
+
+        while not stop_event.wait(interval_seconds):
+            elapsed = _format_duration(time.monotonic() - started_at)
+            try:
+                progress_callback(f"{message} | elapsed {elapsed}")
+            except Exception:
+                pass
+
+    thread = threading.Thread(
+        target=emit_until_stopped,
+        name="auto-label-progress-heartbeat",
+        daemon=True,
+    )
+    thread.start()
+    try:
+        yield
+    finally:
+        stop_event.set()
+        thread.join(timeout=min(interval_seconds, 1.0))
 
 
 def _format_duration(seconds: float) -> str:

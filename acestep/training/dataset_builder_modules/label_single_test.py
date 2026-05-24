@@ -112,6 +112,95 @@ class LabelSingleMixinTests(unittest.TestCase):
         self.assertNotIn("hallucinated", sample.lyrics)
         self.assertIn("using raw lyrics", status)
 
+    def test_lyric_file_caption_overrides_lm_metadata_caption(self) -> None:
+        """A caption from a lyric sidecar should survive audio metadata generation."""
+
+        raw_lyrics = "[Verse]\nsource lyric from the formatted file"
+        builder = _Builder(
+            [
+                AudioSample(
+                    audio_path="song.wav",
+                    filename="song.wav",
+                    caption="user caption from lyric file",
+                    caption_source="lyrics_file",
+                    raw_lyrics=raw_lyrics,
+                    lyrics=raw_lyrics,
+                    is_instrumental=False,
+                )
+            ]
+        )
+        llm_handler = MagicMock()
+        llm_handler.understand_audio_from_codes.return_value = (
+            {
+                "caption": "model generated caption",
+                "genres": "west coast hip hop",
+                "bpm": "92",
+                "keyscale": "G minor",
+                "timesignature": "4",
+                "language": "en",
+            },
+            "ok",
+        )
+
+        with patch(
+            "acestep.training.dataset_builder_modules.label_single.get_audio_codes",
+            return_value="<|audio_code_1|>",
+        ):
+            sample, _status = builder.label_sample(
+                0,
+                dit_handler=MagicMock(),
+                llm_handler=llm_handler,
+            )
+
+        self.assertEqual("user caption from lyric file", sample.caption)
+        self.assertEqual("west coast hip hop", sample.genre)
+        self.assertEqual(92, sample.bpm)
+        self.assertEqual(raw_lyrics, sample.lyrics)
+
+    @patch("acestep.inference.format_sample")
+    def test_format_lyrics_uses_lyric_file_caption_as_input(self, format_sample) -> None:
+        """Lyric-sidecar captions should guide formatting and remain the final caption."""
+
+        raw_lyrics = "hello world\nsing it loud"
+        builder = _Builder(
+            [
+                AudioSample(
+                    audio_path="song.wav",
+                    filename="song.wav",
+                    caption="user caption from lyric file",
+                    caption_source="lyrics_file",
+                    raw_lyrics=raw_lyrics,
+                    lyrics=raw_lyrics,
+                    is_instrumental=False,
+                )
+            ]
+        )
+        format_sample.return_value = SimpleNamespace(
+            success=True,
+            error="",
+            caption="model generated caption",
+            lyrics="[Verse]\nhello world\nsing it loud",
+            bpm=120,
+            keyscale="C major",
+            timesignature="4",
+            language="en",
+        )
+
+        with patch(
+            "acestep.training.dataset_builder_modules.label_single.get_audio_codes",
+            return_value="<|audio_code_1|>",
+        ):
+            sample, _status = builder.label_sample(
+                0,
+                dit_handler=MagicMock(),
+                llm_handler=MagicMock(),
+                format_lyrics=True,
+            )
+
+        self.assertEqual("user caption from lyric file", format_sample.call_args.kwargs["caption"])
+        self.assertEqual("user caption from lyric file", sample.caption)
+        self.assertEqual("[Verse]\nhello world\nsing it loud", sample.lyrics)
+
     def test_instrumental_default_still_applies_without_transcription(self) -> None:
         """Existing instrumental behavior should remain unchanged by default."""
 
