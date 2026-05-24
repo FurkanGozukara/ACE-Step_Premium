@@ -35,10 +35,19 @@
 - Auto labeling is taking massive time, therefore I have implemented true batch size to this process
 - Cancel auto labelling process and tensor generation process implemented
 	- Now you can immediately cancel both processes when running in isolated subprocess
+- Now your lyric txt files can also contain style / caption 
+	- e.g. a.mp3 and a.txt in same folder
+	- Format is like below
+	- # Caption
+		- Your caption
+	- # Lyrics
+		- Your lyrics
+	- I tried to make it as much as possible robust so it should work fairly well see below example
 - Just run installer to update
 
 <img height="600" alt="image" src="https://github.com/user-attachments/assets/4e46ed9c-4bb1-4590-8998-329963a00f3b" />
 <img height="600" alt="image" src="https://github.com/user-attachments/assets/e70ad9e3-ccdb-4f4e-a94e-5009b2efd0e0" />
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/ac420e7e-d84a-4f8c-85b3-00c6c05f27ee" />
 
 
 <h3>24 May 2026 V3.0 Update</h3>
