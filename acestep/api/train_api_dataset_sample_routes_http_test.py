@@ -44,6 +44,7 @@ class _Sample:
         self.timesignature = "4/4"
         self.language = "unknown"
         self.is_instrumental = True
+        self.custom_tag = ""
         self.labeled = True
 
     def to_dict(self) -> dict[str, Any]:
@@ -62,6 +63,7 @@ class _Sample:
             "timesignature": self.timesignature,
             "language": self.language,
             "is_instrumental": self.is_instrumental,
+            "custom_tag": self.custom_tag,
             "labeled": self.labeled,
         }
 
@@ -88,6 +90,7 @@ class _Builder:
         self.metadata = _Metadata()
         self.samples = [_Sample()]
         self.saved_args: tuple[str, str] | None = None
+        self.set_custom_tag_calls: list[tuple[str, str]] = []
 
     def get_labeled_count(self) -> int:
         """Return deterministic labeled count."""
@@ -99,6 +102,22 @@ class _Builder:
 
         self.saved_args = (save_path, dataset_name)
         return "✅ saved"
+
+    def set_custom_tag(self, tag: str, position: str) -> None:
+        """Apply custom tag settings to metadata and samples."""
+
+        self.metadata.custom_tag = tag
+        self.metadata.tag_position = position if tag else "prepend"
+        for sample in self.samples:
+            sample.custom_tag = tag
+        self.set_custom_tag_calls.append((tag, position))
+
+    def set_all_instrumental(self, is_instrumental: bool) -> None:
+        """Apply instrumental flag to metadata and samples."""
+
+        self.metadata.all_instrumental = is_instrumental
+        for sample in self.samples:
+            sample.is_instrumental = is_instrumental
 
     def update_sample(self, sample_idx: int, **_kwargs: Any) -> tuple[_Sample, str]:
         """Return selected sample with success status."""
@@ -138,6 +157,27 @@ class TrainApiDatasetSampleRoutesHttpTests(unittest.TestCase):
         self.assertEqual("✅ saved", payload["data"]["message"])
         self.assertEqual(("x.json", "ds"), builder.saved_args)
         self.assertEqual("x.json", client.app.state.dataset_json_path)
+
+    def test_save_dataset_applies_custom_tag_to_samples(self) -> None:
+        """POST /v1/dataset/save should keep metadata and sample trigger tags aligned."""
+
+        client, builder = self._build_client()
+        response = client.post(
+            "/v1/dataset/save",
+            json={
+                "save_path": "x.json",
+                "dataset_name": "ds",
+                "custom_tag": "ohwx",
+                "tag_position": "append",
+            },
+            headers={"Authorization": "Bearer test-token"},
+        )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual("ohwx", builder.metadata.custom_tag)
+        self.assertEqual("append", builder.metadata.tag_position)
+        self.assertEqual("ohwx", builder.samples[0].custom_tag)
+        self.assertEqual([("ohwx", "append")], builder.set_custom_tag_calls)
 
     def test_get_sample_returns_404_when_index_out_of_range(self) -> None:
         """GET /v1/dataset/sample/{sample_idx} should return 404 for out-of-range index."""

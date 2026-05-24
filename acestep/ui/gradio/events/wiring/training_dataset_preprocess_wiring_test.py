@@ -107,6 +107,29 @@ class TrainingDatasetPreprocessWiringTests(unittest.TestCase):
         self.assertFalse(click_kwargs["queue"])
         self.assertIn("confirm", click_kwargs["js"])
 
+    def test_preprocess_click_reads_current_dataset_settings(self) -> None:
+        """Preprocess should not depend on pending dataset-setting change events."""
+
+        section = _preprocess_section(_FakeComponent())
+        preprocess_button = section["preprocess_btn"]
+        context = SimpleNamespace(training_section=section, dit_handler=object())
+
+        training_dataset_preprocess_wiring.register_training_preprocess_handler(context)
+
+        self.assertEqual(
+            [
+                section["custom_tag"],
+                section["tag_position"],
+                section["all_instrumental"],
+                section["genre_ratio"],
+            ],
+            preprocess_button.click_kwargs["inputs"][-4:],
+        )
+        self.assertEqual(
+            section["preprocess_debug_text"],
+            preprocess_button.click_kwargs["inputs"][2],
+        )
+
 
 class _FakeEvent:
     """Minimal event object for asserting chained Gradio wiring."""
@@ -156,10 +179,15 @@ def _preprocess_section(cancel_button):
         "preprocess_output_dir": object(),
         "preprocess_btn": _FakeComponent(),
         "preprocess_mode": object(),
+        "preprocess_debug_text": object(),
         "dataset_builder_state": object(),
         "dataset_model_config": object(),
         "dataset_vram_preset": object(),
         "preprocess_subprocess": object(),
+        "custom_tag": object(),
+        "tag_position": object(),
+        "all_instrumental": object(),
+        "genre_ratio": object(),
         "preprocess_progress": object(),
         "cancel_preprocess_btn": cancel_button,
     }

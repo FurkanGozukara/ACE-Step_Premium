@@ -23,6 +23,8 @@ class TrainingDatasetSavePreprocessTests(unittest.TestCase):
         self.assertEqual("Cancel Preprocess", controls["cancel_preprocess_btn"].value)
         self.assertFalse(controls["preprocess_progress"].interactive)
         self.assertTrue(controls["preprocess_subprocess"].value)
+        self.assertFalse(controls["preprocess_debug_text"].value)
+        self.assertEqual("Debug: save text prompts", controls["preprocess_debug_text"].label)
 
 
 if __name__ == "__main__":

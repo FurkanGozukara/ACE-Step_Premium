@@ -25,12 +25,20 @@ def register_training_dataset_sample_routes(
             raise HTTPException(status_code=400, detail="No dataset to save")
 
         try:
-            if request.custom_tag is not None:
-                builder.metadata.custom_tag = request.custom_tag
-            if request.tag_position is not None:
-                builder.metadata.tag_position = request.tag_position
+            if request.custom_tag is not None or request.tag_position is not None:
+                current_tag = (
+                    builder.metadata.custom_tag
+                    if request.custom_tag is None
+                    else request.custom_tag
+                )
+                current_position = (
+                    builder.metadata.tag_position
+                    if request.tag_position is None
+                    else request.tag_position
+                )
+                builder.set_custom_tag(current_tag, current_position)
             if request.all_instrumental is not None:
-                builder.metadata.all_instrumental = request.all_instrumental
+                builder.set_all_instrumental(request.all_instrumental)
             if request.genre_ratio is not None:
                 builder.metadata.genre_ratio = request.genre_ratio
 

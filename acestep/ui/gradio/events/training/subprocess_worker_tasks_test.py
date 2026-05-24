@@ -135,8 +135,9 @@ class SubprocessWorkerTaskTests(unittest.TestCase):
             _save_dataset(dataset_path, audio_path=audio_path)
             events: list[dict] = []
 
-            def fake_preprocess(output_dir_arg, _mode, _dit, builder, **_kwargs):
+            def fake_preprocess(output_dir_arg, _mode, _dit, builder, **kwargs):
                 self.assertEqual(str(output_dir.resolve()), safe_path(output_dir_arg))
+                self.assertTrue(kwargs["save_debug_text"])
                 self.assertEqual(
                     str(audio_path.resolve()),
                     safe_path(builder.samples[0].audio_path),
@@ -148,6 +149,7 @@ class SubprocessWorkerTaskTests(unittest.TestCase):
                 "output_dir": str(output_dir),
                 "dit_init_params": {},
                 "safe_roots": [project_dir, audio_dir],
+                "save_debug_text": True,
             }
             with patch(
                 "acestep.ui.gradio.events.training.subprocess_worker_tasks.preprocess_dataset",

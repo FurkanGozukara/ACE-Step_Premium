@@ -31,6 +31,10 @@ class TrainingDatasetSaveWiringTests(unittest.TestCase):
             result = training_dataset_save_wiring._save_dataset_and_load_saved_path(
                 "datasets/my_lora",
                 "my_lora",
+                "ohwx",
+                "prepend",
+                False,
+                0,
                 builder_state,
             )
 
@@ -38,7 +42,15 @@ class TrainingDatasetSaveWiringTests(unittest.TestCase):
         self.assertEqual(save_update, result[1])
         self.assertEqual(saved_path, result[2]["value"])
         self.assertEqual(("loaded", "table"), result[3:])
-        save_dataset.assert_called_once_with("datasets/my_lora", "my_lora", builder_state)
+        save_dataset.assert_called_once_with(
+            "datasets/my_lora",
+            "my_lora",
+            builder_state,
+            custom_tag="ohwx",
+            tag_position="prepend",
+            all_instrumental=False,
+            genre_ratio=0,
+        )
         load_dataset.assert_called_once_with(
             saved_path,
             builder_state,
@@ -58,6 +70,10 @@ class TrainingDatasetSaveWiringTests(unittest.TestCase):
             result = training_dataset_save_wiring._save_dataset_and_load_saved_path(
                 "bad.json",
                 "my_lora",
+                "ohwx",
+                "prepend",
+                False,
+                0,
                 object(),
             )
 
@@ -86,11 +102,23 @@ class TrainingDatasetSaveWiringTests(unittest.TestCase):
             result = training_dataset_save_wiring._browse_save_dataset_and_load_saved_path(
                 current_path,
                 "my_lora",
+                "ohwx",
+                "prepend",
+                False,
+                0,
                 object(),
             )
 
         self.assertEqual(("saved",), result)
-        save_and_load.assert_called_once_with(current_path, "my_lora", ANY)
+        save_and_load.assert_called_once_with(
+            current_path,
+            "my_lora",
+            "ohwx",
+            "prepend",
+            False,
+            0,
+            ANY,
+        )
 
 
 if __name__ == "__main__":

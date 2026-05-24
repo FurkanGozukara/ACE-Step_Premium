@@ -7,6 +7,7 @@ from typing import Any
 from .label_single import _apply_audio_metadata, _clean_llm_lyrics, _normalize_language_hint
 from .lyrics_quality import select_training_lyrics
 from .models import AudioSample
+from .vocal_detection import metadata_suggests_vocals, vocal_without_lyrics_status
 
 
 _SUCCESS = "\u2705"
@@ -50,6 +51,7 @@ def apply_understood_metadata(
     status_suffix = _apply_lyrics(
         sample,
         _clean_llm_lyrics(metadata.get("lyrics", "")),
+        metadata=metadata,
         transcribe_lyrics=transcribe_lyrics,
         lm_lyrics_language=lm_lyrics_language,
         has_preloaded_lyrics=has_preloaded_lyrics,
@@ -68,6 +70,7 @@ def _apply_lyrics(
     sample: AudioSample,
     llm_lyrics: str,
     *,
+    metadata: dict[str, Any],
     transcribe_lyrics: bool,
     lm_lyrics_language: str,
     has_preloaded_lyrics: bool,
@@ -83,6 +86,7 @@ def _apply_lyrics(
         return _apply_transcribed_lyrics(
             sample,
             llm_lyrics,
+            metadata=metadata,
             lm_lyrics_language=lm_lyrics_language,
             has_preloaded_lyrics=has_preloaded_lyrics,
         )
@@ -96,8 +100,11 @@ def _apply_lyrics(
         sample.is_instrumental = False
         return ""
     sample.lyrics = "[Instrumental]"
-    sample.language = "unknown"
     sample.formatted_lyrics = ""
+    if metadata_suggests_vocals(metadata):
+        sample.is_instrumental = False
+        return "(vocal metadata; no lyrics transcribed)"
+    sample.language = "unknown"
     sample.is_instrumental = True
     return "(instrumental)"
 
@@ -106,6 +113,7 @@ def _apply_transcribed_lyrics(
     sample: AudioSample,
     llm_lyrics: str,
     *,
+    metadata: dict[str, Any],
     lm_lyrics_language: str,
     has_preloaded_lyrics: bool,
 ) -> str:
@@ -135,8 +143,14 @@ def _apply_transcribed_lyrics(
         sample.is_instrumental = False
         return _rejected_transcription_status(lyrics_selection.rejection_reason)
     sample.lyrics = "[Instrumental]"
-    sample.language = "unknown"
     sample.formatted_lyrics = ""
+    if metadata_suggests_vocals(metadata):
+        language_hint = _normalize_language_hint(lm_lyrics_language)
+        if language_hint:
+            sample.language = language_hint
+        sample.is_instrumental = False
+        return vocal_without_lyrics_status(lyrics_selection.rejection_reason)
+    sample.language = "unknown"
     sample.is_instrumental = True
     if lyrics_selection.rejection_reason:
         return f"(LM transcription rejected: {lyrics_selection.rejection_reason})"

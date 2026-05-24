@@ -82,6 +82,8 @@ class SerializationMixin:
             self.samples = []
             for sample_dict in data.get("samples", []):
                 sample = AudioSample.from_dict(sample_dict)
+                if self.metadata.custom_tag and not sample.custom_tag:
+                    sample.custom_tag = self.metadata.custom_tag
                 self.samples.append(sample)
 
             return self.samples, f"✅ Loaded {len(self.samples)} samples from {dataset_path}"

@@ -170,6 +170,7 @@ def preprocess_dataset(
     builder_state: Optional[DatasetBuilder],
     progress=None,
     model_config: str | None = None,
+    save_debug_text: bool = False,
 ) -> str:
     """Preprocess dataset to tensor files for fast training.
 
@@ -182,6 +183,8 @@ def preprocess_dataset(
         builder_state: Dataset builder state containing labeled samples.
         progress: Optional progress callback.
         model_config: Optional DiT model name selected for dataset actions.
+        save_debug_text: Save final text prompts as readable files during
+            tensor generation.
 
     Returns:
         Status message.
@@ -238,6 +241,7 @@ def preprocess_dataset(
             preprocess_mode=mode,
             progress_callback=progress_callback,
             cancel_callback=is_preprocess_cancel_requested,
+            save_debug_text=save_debug_text,
         )
     finally:
         mark_inline_preprocess_finished()

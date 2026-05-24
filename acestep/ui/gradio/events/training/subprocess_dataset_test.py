@@ -287,6 +287,7 @@ class SubprocessDatasetTests(unittest.TestCase):
                 status = run_preprocess_subprocess(
                     output_dir=str(Path(project_dir) / "tensors"),
                     preprocess_mode="lora",
+                    save_debug_text=True,
                     builder_state=_builder_for_paths("caption", audio_paths),
                     model_config="model-a",
                     dit_init_params={"project_root": project_dir},
@@ -299,6 +300,7 @@ class SubprocessDatasetTests(unittest.TestCase):
             str(Path(root).resolve()) for root in captured_payloads[0]["safe_roots"]
         }
         self.assertIn(str(Path(audio_dir).resolve()), safe_roots)
+        self.assertTrue(captured_payloads[0]["save_debug_text"])
 
     def test_preprocess_subprocess_stop_result_uses_preprocess_status(self) -> None:
         """Cancelled preprocess workers should show preprocess-specific wording."""

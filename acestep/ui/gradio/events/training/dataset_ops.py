@@ -33,6 +33,40 @@ _SUCCESS = "\u2705"
 _LABEL_POSITION_RE = re.compile(r"^Labeling (\d+)/(\d+)")
 
 
+def _apply_current_settings(
+    builder_state: Optional[DatasetBuilder],
+    custom_tag: Optional[str] = None,
+    tag_position: Optional[str] = None,
+    all_instrumental: Optional[bool] = None,
+    genre_ratio: Optional[int] = None,
+) -> Optional[DatasetBuilder]:
+    """Apply current dataset settings to the builder state."""
+
+    if builder_state is None:
+        return None
+
+    if custom_tag is not None or tag_position is not None:
+        current_tag = (
+            builder_state.metadata.custom_tag
+            if custom_tag is None
+            else custom_tag
+        )
+        current_position = (
+            builder_state.metadata.tag_position
+            if tag_position is None
+            else tag_position
+        )
+        builder_state.set_custom_tag(current_tag, current_position)
+
+    if all_instrumental is not None:
+        builder_state.set_all_instrumental(all_instrumental)
+
+    if genre_ratio is not None:
+        builder_state.metadata.genre_ratio = int(genre_ratio)
+
+    return builder_state
+
+
 def scan_directory(
     audio_dir: str,
     dataset_name: str,
@@ -416,21 +450,23 @@ def update_settings(
     Returns:
         Updated builder_state.
     """
-    if builder_state is None:
-        return builder_state
-
-    builder_state.set_custom_tag(custom_tag, tag_position)
-
-    builder_state.set_all_instrumental(all_instrumental)
-    builder_state.metadata.genre_ratio = int(genre_ratio)
-
-    return builder_state
+    return _apply_current_settings(
+        builder_state,
+        custom_tag,
+        tag_position,
+        all_instrumental,
+        genre_ratio,
+    )
 
 
 def save_dataset(
     save_path: str,
     dataset_name: str,
     builder_state: Optional[DatasetBuilder],
+    custom_tag: Optional[str] = None,
+    tag_position: Optional[str] = None,
+    all_instrumental: Optional[bool] = None,
+    genre_ratio: Optional[int] = None,
 ) -> Tuple[str, Any]:
     """Save the dataset to a JSON file.
 
@@ -442,6 +478,14 @@ def save_dataset(
 
     if not builder_state.samples:
         return "❌ No samples in dataset.", gr.update()
+
+    builder_state = _apply_current_settings(
+        builder_state,
+        custom_tag,
+        tag_position,
+        all_instrumental,
+        genre_ratio,
+    )
 
     save_path = normalize_user_path(save_path)
     if not save_path:

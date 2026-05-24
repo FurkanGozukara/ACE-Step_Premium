@@ -51,6 +51,10 @@ def _save_and_load_outputs(training_section: Mapping[str, Any]) -> list[Any]:
 def _save_dataset_and_load_saved_path(
     save_path: str,
     dataset_name: str,
+    custom_tag: str,
+    tag_position: str,
+    all_instrumental: bool,
+    genre_ratio: int,
     builder_state: Any,
 ) -> tuple[Any, ...]:
     """Save the dataset, then load the saved JSON into Step 5 controls."""
@@ -59,6 +63,10 @@ def _save_dataset_and_load_saved_path(
         save_path,
         dataset_name,
         builder_state,
+        custom_tag=custom_tag,
+        tag_position=tag_position,
+        all_instrumental=all_instrumental,
+        genre_ratio=genre_ratio,
     )
     saved_path = _update_value(save_path_update)
     if not saved_path or not _is_successful_save(save_status):
@@ -81,6 +89,10 @@ def _save_dataset_and_load_saved_path(
 def _browse_save_dataset_and_load_saved_path(
     save_path: str,
     dataset_name: str,
+    custom_tag: str,
+    tag_position: str,
+    all_instrumental: bool,
+    genre_ratio: int,
     builder_state: Any,
 ) -> tuple[Any, ...]:
     """Pick a JSON save path, save the dataset, and load the saved JSON."""
@@ -94,7 +106,15 @@ def _browse_save_dataset_and_load_saved_path(
             gr.update(),
             *no_dataset_load_outputs("No save path selected."),
         )
-    return _save_dataset_and_load_saved_path(selected, dataset_name, builder_state)
+    return _save_dataset_and_load_saved_path(
+        selected,
+        dataset_name,
+        custom_tag,
+        tag_position,
+        all_instrumental,
+        genre_ratio,
+        builder_state,
+    )
 
 
 def register_training_dataset_save_handlers(context: TrainingWiringContext) -> None:
@@ -108,6 +128,10 @@ def register_training_dataset_save_handlers(context: TrainingWiringContext) -> N
         inputs=[
             training_section["save_path"],
             training_section["dataset_name"],
+            training_section["custom_tag"],
+            training_section["tag_position"],
+            training_section["all_instrumental"],
+            training_section["genre_ratio"],
             training_section["dataset_builder_state"],
         ],
         outputs=outputs,
@@ -118,6 +142,10 @@ def register_training_dataset_save_handlers(context: TrainingWiringContext) -> N
         inputs=[
             training_section["save_path"],
             training_section["dataset_name"],
+            training_section["custom_tag"],
+            training_section["tag_position"],
+            training_section["all_instrumental"],
+            training_section["genre_ratio"],
             training_section["dataset_builder_state"],
         ],
         outputs=outputs,

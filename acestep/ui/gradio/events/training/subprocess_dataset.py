@@ -97,6 +97,7 @@ def run_preprocess_subprocess(
     builder_state: DatasetBuilder | None,
     model_config: str | None,
     dit_init_params: dict[str, Any],
+    save_debug_text: bool = False,
     progress: Any = None,
 ) -> str:
     """Run tensor preprocessing in a worker process and return its final status."""
@@ -119,6 +120,7 @@ def run_preprocess_subprocess(
         "dataset_path": str(dataset_path),
         "output_dir": output_dir,
         "preprocess_mode": preprocess_mode,
+        "save_debug_text": bool(save_debug_text),
         "model_config": model_config,
         "safe_roots": safe_roots,
     }

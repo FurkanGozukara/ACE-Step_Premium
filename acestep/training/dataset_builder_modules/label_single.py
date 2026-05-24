@@ -7,6 +7,7 @@ from loguru import logger
 from .label_utils import get_audio_codes, parse_int
 from .lyrics_quality import select_training_lyrics
 from .models import AudioSample
+from .vocal_detection import metadata_suggests_vocals, vocal_without_lyrics_status
 
 
 _FORMAT_LYRICS_REPETITION_PENALTY = 1.18
@@ -271,15 +272,24 @@ class LabelSingleMixin:
                             )
                         else:
                             sample.lyrics = "[Instrumental]"
-                            sample.language = "unknown"
                             sample.formatted_lyrics = ""
-                            sample.is_instrumental = True
-                            status_suffix = (
-                                "(LM transcription rejected: "
-                                f"{lyrics_selection.rejection_reason})"
-                                if lyrics_selection.rejection_reason
-                                else "(no lyrics transcribed)"
-                            )
+                            if metadata_suggests_vocals(metadata):
+                                language_hint = _normalize_language_hint(lm_lyrics_language)
+                                if language_hint:
+                                    sample.language = language_hint
+                                sample.is_instrumental = False
+                                status_suffix = vocal_without_lyrics_status(
+                                    lyrics_selection.rejection_reason
+                                )
+                            else:
+                                sample.language = "unknown"
+                                sample.is_instrumental = True
+                                status_suffix = (
+                                    "(LM transcription rejected: "
+                                    f"{lyrics_selection.rejection_reason})"
+                                    if lyrics_selection.rejection_reason
+                                    else "(no lyrics transcribed)"
+                                )
                 elif has_preloaded_lyrics:
                     sample.lyrics = sample.raw_lyrics
                     sample.formatted_lyrics = ""
@@ -292,10 +302,14 @@ class LabelSingleMixin:
                         status_suffix = ""
                     else:
                         sample.lyrics = "[Instrumental]"
-                        sample.language = "unknown"
                         sample.formatted_lyrics = ""
-                        sample.is_instrumental = True
-                        status_suffix = "(instrumental)"
+                        if metadata_suggests_vocals(metadata):
+                            sample.is_instrumental = False
+                            status_suffix = "(vocal metadata; no lyrics transcribed)"
+                        else:
+                            sample.language = "unknown"
+                            sample.is_instrumental = True
+                            status_suffix = "(instrumental)"
 
             sample.labeled = True
             self.samples[sample_idx] = sample

@@ -69,13 +69,21 @@ def build_dataset_save_and_preprocess_controls() -> dict[str, object]:
     gr.Markdown(t("training.step5_details"))
 
     with gr.Row():
-        preprocess_mode = gr.Dropdown(
-            label="Preprocess For",
-            choices=["LoRA", "LoKr"],
-            value="LoRA",
-            info="LoRA keeps compatibility mode; LoKr uses per-sample source-style context.",
-            elem_classes=["has-info-container"],
-        )
+        with gr.Column(scale=2):
+            preprocess_mode = gr.Dropdown(
+                label="Preprocess For",
+                choices=["LoRA", "LoKr"],
+                value="LoRA",
+                info="LoRA keeps compatibility mode; LoKr uses per-sample source-style context.",
+                elem_classes=["has-info-container"],
+            )
+        with gr.Column(scale=1):
+            preprocess_debug_text = gr.Checkbox(
+                label="Debug: save text prompts",
+                value=False,
+                info="Writes exact text and lyrics encoder inputs to debug_text_prompts/*.txt.",
+                elem_classes=["has-info-container"],
+            )
 
     with gr.Row():
         with gr.Column(scale=3):
@@ -127,6 +135,7 @@ def build_dataset_save_and_preprocess_controls() -> dict[str, object]:
         "load_existing_dataset_btn": load_existing_dataset_btn,
         "load_existing_status": load_existing_status,
         "preprocess_mode": preprocess_mode,
+        "preprocess_debug_text": preprocess_debug_text,
         "preprocess_output_dir": preprocess_output_dir,
         "preprocess_output_dir_browse_btn": preprocess_output_dir_browse_btn,
         "preprocess_subprocess": preprocess_subprocess,

@@ -74,6 +74,40 @@ class SerializationMixinTests(unittest.TestCase):
             self.assertEqual("song.flac", samples[0].filename)
             self.assertEqual("single caption", samples[0].caption)
 
+    def test_load_dataset_applies_metadata_custom_tag_fallback(self) -> None:
+        """Dataset-level custom_tag should fill samples that omit the field."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            dataset_path = Path(tmpdir) / "dataset.json"
+            dataset_path.write_text(
+                json.dumps(
+                    {
+                        "metadata": {
+                            "name": "tagged",
+                            "custom_tag": "ohwx",
+                            "tag_position": "prepend",
+                        },
+                        "samples": [
+                            {
+                                "audio_path": "song.wav",
+                                "filename": "song.wav",
+                                "caption": "bright pop",
+                                "labeled": True,
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            builder = DatasetBuilder()
+            samples, _status = builder.load_dataset(str(dataset_path))
+
+            self.assertEqual("ohwx", builder.metadata.custom_tag)
+            self.assertEqual("ohwx", samples[0].custom_tag)
+            self.assertEqual("ohwx, bright pop", samples[0].get_training_prompt("prepend"))
+
 
 def _write_label(label_path: Path, audio_path: Path, caption: str) -> None:
     """Write a minimal processed-label JSON file."""

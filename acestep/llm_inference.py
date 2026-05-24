@@ -46,6 +46,26 @@ def _warn_if_prerelease_python():
         )
 
 
+def _truncate_after_stop_token(
+    generated_ids: torch.Tensor,
+    *,
+    eos_token_id: Optional[int],
+    pad_token_id: Optional[int],
+) -> torch.Tensor:
+    """Trim batched generation padding while preserving the first EOS token."""
+
+    token_ids = generated_ids.tolist()
+    if eos_token_id is not None:
+        for index, token_id in enumerate(token_ids):
+            if int(token_id) == eos_token_id:
+                return generated_ids[: index + 1]
+    if pad_token_id is not None:
+        for index, token_id in enumerate(token_ids):
+            if int(token_id) == pad_token_id:
+                return generated_ids[:index]
+    return generated_ids
+
+
 class LLMHandler:
     """5Hz LM Handler for audio code generation"""
 
@@ -1145,6 +1165,78 @@ class LLMHandler:
         output_text = self.llm_tokenizer.decode(generated_ids, skip_special_tokens=False)
         return output_text
 
+    def _run_pt_batch_native(
+        self,
+        formatted_prompts: List[str],
+        temperature: float,
+        top_k: Optional[int],
+        top_p: Optional[float],
+        repetition_penalty: float,
+        target_duration: Optional[float],
+        generation_phase: str,
+    ) -> List[str]:
+        """Run unconstrained PyTorch generation for multiple prompts in one forward batch."""
+
+        if getattr(self.llm_tokenizer, "pad_token_id", None) is None:
+            eos_token = getattr(self.llm_tokenizer, "eos_token", None)
+            if eos_token is not None and hasattr(self.llm_tokenizer, "pad_token"):
+                self.llm_tokenizer.pad_token = eos_token
+
+        original_padding_side = getattr(self.llm_tokenizer, "padding_side", None)
+        if original_padding_side is not None:
+            self.llm_tokenizer.padding_side = "left"
+        try:
+            inputs = self.llm_tokenizer(
+                formatted_prompts,
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+            )
+        finally:
+            if original_padding_side is not None:
+                self.llm_tokenizer.padding_side = original_padding_side
+
+        input_length = inputs["input_ids"].shape[1]
+        with self._load_model_context():
+            inputs = {key: value.to(self.device) for key, value in inputs.items()}
+            max_new_tokens = self._compute_max_new_tokens(
+                target_duration=target_duration,
+                generation_phase=generation_phase,
+                fallback_max=getattr(self.llm.config, "max_new_tokens", 4096),
+            )
+            logits_processor = self._build_logits_processor(repetition_penalty)
+
+            with torch.inference_mode():
+                outputs = self.llm.generate(
+                    **inputs,
+                    max_new_tokens=max_new_tokens,
+                    temperature=temperature if temperature > 0 else 1.0,
+                    do_sample=True if temperature > 0 else False,
+                    top_k=top_k if top_k is not None and top_k > 0 else None,
+                    top_p=top_p if top_p is not None and 0.0 < top_p < 1.0 else None,
+                    logits_processor=logits_processor if len(logits_processor) > 0 else None,
+                    pad_token_id=self.llm_tokenizer.pad_token_id
+                    or self.llm_tokenizer.eos_token_id,
+                    streamer=None,
+                )
+
+        eos_token_id = self.llm_tokenizer.eos_token_id
+        pad_token_id = self.llm_tokenizer.pad_token_id
+        output_texts = []
+        for row in outputs:
+            generated_ids = row[input_length:]
+            generated_ids = _truncate_after_stop_token(
+                generated_ids,
+                eos_token_id=eos_token_id,
+                pad_token_id=pad_token_id,
+            )
+            if generated_ids.device.type != "cpu":
+                generated_ids = generated_ids.cpu()
+            output_texts.append(
+                self.llm_tokenizer.decode(generated_ids, skip_special_tokens=False)
+            )
+        return output_texts
+
     def _run_pt(
         self,
         formatted_prompts: Union[str, List[str]],
@@ -1172,10 +1264,31 @@ class LLMHandler:
         Unified PyTorch generation function supporting both single and batch modes.
         Accepts either a single formatted prompt (str) or a list of formatted prompts (List[str]).
         Returns a single string for single mode, or a list of strings for batch mode.
-        Note: PyTorch backend processes batch items sequentially (doesn't support true batching efficiently).
+        Uses native batching for simple unconstrained prompt batches; falls back to
+        sequential processing for constrained decoding, CFG, or per-item seeds.
         """
         # Determine if batch mode
         formatted_prompt_list, is_batch = self._normalize_batch_input(formatted_prompts)
+
+        if (
+            is_batch
+            and not use_constrained_decoding
+            and cfg_scale <= 1.0
+            and not seeds
+        ):
+            logger.info(
+                f"PyTorch native batch generation for {len(formatted_prompt_list)} prompts "
+                f"(phase={generation_phase})"
+            )
+            return self._run_pt_batch_native(
+                formatted_prompt_list,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                repetition_penalty=repetition_penalty,
+                target_duration=target_duration,
+                generation_phase=generation_phase,
+            )
 
         # For batch mode, process each item sequentially with different seeds.
         # Wrap the entire loop in a single _load_model_context() so the model

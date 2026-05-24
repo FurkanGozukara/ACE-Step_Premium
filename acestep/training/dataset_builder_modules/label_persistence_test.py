@@ -44,6 +44,7 @@ class LabelPersistenceTests(unittest.TestCase):
                 timesignature="4",
                 language="en",
                 is_instrumental=False,
+                custom_tag="ohwx",
                 labeled=True,
             )
 
@@ -53,6 +54,7 @@ class LabelPersistenceTests(unittest.TestCase):
             self.assertEqual(str(audio_path), data["audio_path"])
             self.assertEqual("warm piano ballad", data["caption"])
             self.assertEqual("piano", data["genre"])
+            self.assertEqual("ohwx", data["custom_tag"])
             self.assertTrue(data["labeled"])
 
     def test_save_sample_label_metadata_writes_processed_label_folder(self) -> None:

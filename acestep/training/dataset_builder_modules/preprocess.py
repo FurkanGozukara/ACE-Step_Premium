@@ -16,6 +16,7 @@ from loguru import logger
 from .models import AudioSample
 from .preprocess_audio import load_audio_stereo
 from .preprocess_context import build_context_latents
+from .preprocess_debug_text import DEBUG_TEXT_PROMPT_DIRNAME, save_debug_text_prompt
 from .preprocess_encoder import run_encoder
 from .preprocess_lyrics import encode_lyrics
 from .preprocess_manifest import save_manifest
@@ -55,6 +56,7 @@ class PreprocessMixin:
         progress_callback=None,
         skip_existing: bool = False,
         cancel_callback=None,
+        save_debug_text: bool = False,
     ) -> Tuple[List[str], str]:
         """Preprocess all labeled samples to tensor files for efficient training.
 
@@ -70,6 +72,8 @@ class PreprocessMixin:
             progress_callback: Optional ``(message) -> None`` callback.
             skip_existing: Skip samples whose tensor file already exists.
             cancel_callback: Optional callback returning whether to stop early.
+            save_debug_text: Save exact text-encoder prompts as readable
+                ``.txt`` files beside the tensor output.
 
         Returns:
             ``(output_paths, status_message)`` tuple.
@@ -183,6 +187,9 @@ class PreprocessMixin:
                 # -- Text / lyric encode (with CPU offloading) -----------------
                 caption = sample.get_training_prompt(self.metadata.tag_position, use_genre=use_genre)
                 text_prompt = build_text_prompt(sample, self.metadata.tag_position, use_genre)
+                lyrics = sample.lyrics if sample.lyrics else "[Instrumental]"
+                if save_debug_text:
+                    save_debug_text_prompt(output_dir, sample.id, text_prompt, lyrics)
 
                 if i == 0:
                     logger.info(f"\n{'='*70}")
@@ -203,7 +210,6 @@ class PreprocessMixin:
                         f"text_attention_mask shape={tuple(text_attention_mask.shape)}",
                     )
 
-                    lyrics = sample.lyrics if sample.lyrics else "[Instrumental]"
                     t0 = debug_start_verbose_for("dataset", f"encode_lyrics[{i}]")
                     lyric_hidden_states, lyric_attention_mask = encode_lyrics(
                         text_encoder, text_tokenizer, lyrics, device, dtype
@@ -333,11 +339,22 @@ class PreprocessMixin:
             )
             if output_paths:
                 status += f"\nSaved completed tensors to {output_dir}"
+            if save_debug_text:
+                status += (
+                    "\nDebug text prompts saved to "
+                    f"{os.path.join(output_dir, DEBUG_TEXT_PROMPT_DIRNAME)}"
+                )
             return output_paths, status
 
         status = f"✅ Preprocessed {success_count}/{len(labeled_samples)} samples to {output_dir}"
         if fail_count > 0:
             status += f" ({fail_count} failed)"
+
+        if save_debug_text:
+            status += (
+                "\nDebug text prompts saved to "
+                f"{os.path.join(output_dir, DEBUG_TEXT_PROMPT_DIRNAME)}"
+            )
 
         return output_paths, status
 

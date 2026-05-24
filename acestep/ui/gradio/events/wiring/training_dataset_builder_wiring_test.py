@@ -65,6 +65,41 @@ class TrainingDatasetBuilderWiringTests(unittest.TestCase):
         self.assertEqual([], dependency["inputs"])
         self.assertEqual([progress_id], dependency["outputs"])
 
+    def test_auto_label_click_reads_current_dataset_settings(self):
+        """Auto-label should not depend on pending dataset-setting change events."""
+
+        with gr.Blocks() as demo:
+            training_section = _minimal_training_section()
+            context = TrainingWiringContext(
+                demo=demo,
+                dit_handler=MagicMock(),
+                llm_handler=MagicMock(),
+                training_section=training_section,
+            )
+            with patch(
+                "acestep.ui.gradio.events.wiring.training_dataset_builder_wiring."
+                "register_training_dataset_save_handlers"
+            ):
+                register_training_dataset_builder_handlers(context)
+
+        auto_label_id = training_section["auto_label_btn"]._id
+        setting_ids = [
+            training_section["custom_tag"]._id,
+            training_section["tag_position"]._id,
+            training_section["all_instrumental"]._id,
+            training_section["genre_ratio"]._id,
+        ]
+        auto_label_dependencies = [
+            dependency
+            for dependency in demo.config["dependencies"]
+            if dependency["targets"] == [(auto_label_id, "click")]
+            and dependency["backend_fn"]
+        ]
+
+        self.assertEqual(1, len(auto_label_dependencies))
+        for setting_id in setting_ids:
+            self.assertIn(setting_id, auto_label_dependencies[0]["inputs"])
+
 
 def _minimal_training_section() -> dict[str, object]:
     """Build enough Gradio controls to register dataset-builder handlers."""

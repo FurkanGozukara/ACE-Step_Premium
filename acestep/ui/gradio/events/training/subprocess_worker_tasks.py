@@ -68,6 +68,7 @@ def run_preprocess_task(payload: dict[str, Any], emit: Emit) -> dict[str, Any]:
         builder,
         progress=progress,
         model_config=payload.get("model_config"),
+        save_debug_text=bool(payload.get("save_debug_text")),
     )
     status_text = str(status)
     emit({"kind": "status", "message": status_text, "console": status_text})

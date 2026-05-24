@@ -233,8 +233,8 @@ class LabelSingleMixinTests(unittest.TestCase):
         self.assertEqual("", sample.formatted_lyrics)
         self.assertIn("instrumental", status)
 
-    def test_transcribe_lyrics_rejects_repetitive_output_without_raw_lyrics(self) -> None:
-        """Repetitive transcription output should not be accepted as training lyrics."""
+    def test_transcribe_lyrics_rejects_repetitive_output_without_marking_instrumental(self) -> None:
+        """Rejected lyrics should not mark clear vocal metadata as instrumental."""
 
         builder = _Builder(
             [AudioSample(audio_path="song.wav", filename="song.wav", is_instrumental=True)]
@@ -262,10 +262,47 @@ class LabelSingleMixinTests(unittest.TestCase):
                 lm_lyrics_language="en",
             )
 
-        self.assertTrue(sample.is_instrumental)
+        self.assertFalse(sample.is_instrumental)
         self.assertEqual("[Instrumental]", sample.lyrics)
         self.assertEqual("", sample.formatted_lyrics)
+        self.assertEqual("en", sample.language)
+        self.assertIn("vocal metadata", status)
         self.assertIn("LM transcription rejected", status)
+
+    def test_no_transcribed_lyrics_keeps_vocal_metadata_non_instrumental(self) -> None:
+        """Empty transcription should not override a caption that describes rappers."""
+
+        builder = _Builder(
+            [AudioSample(audio_path="song.wav", filename="song.wav", is_instrumental=False)]
+        )
+        llm_handler = MagicMock()
+        llm_handler.understand_audio_from_codes.return_value = (
+            {
+                "caption": "Multiple male rappers deliver confident rhythmic verses.",
+                "genres": "G-funk",
+                "lyrics": "",
+                "language": "en",
+            },
+            "ok",
+        )
+
+        with patch(
+            "acestep.training.dataset_builder_modules.label_single.get_audio_codes",
+            return_value="<|audio_code_1|>",
+        ):
+            sample, status = builder.label_sample(
+                0,
+                dit_handler=MagicMock(),
+                llm_handler=llm_handler,
+                transcribe_lyrics=True,
+                lm_lyrics_language="en",
+            )
+
+        self.assertFalse(sample.is_instrumental)
+        self.assertEqual("[Instrumental]", sample.lyrics)
+        self.assertEqual("", sample.formatted_lyrics)
+        self.assertEqual("en", sample.language)
+        self.assertIn("vocal metadata", status)
 
     @patch("acestep.inference.format_sample")
     def test_format_lyrics_uses_raw_lyrics_file_content(self, format_sample) -> None:

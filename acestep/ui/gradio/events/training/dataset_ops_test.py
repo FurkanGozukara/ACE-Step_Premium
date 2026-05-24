@@ -578,6 +578,33 @@ class TestSaveDataset(unittest.TestCase):
         builder.save_dataset.assert_called_once_with("path.json", "name")
         self.assertEqual("path.json", update["value"])
 
+    def test_save_applies_current_tag_settings_before_writing(self):
+        """Save should persist current controls even if change events are pending."""
+
+        builder = MagicMock()
+        builder.samples = [MagicMock()]
+        builder.metadata.custom_tag = ""
+        builder.metadata.tag_position = "prepend"
+        builder.get_labeled_count.return_value = 1
+        builder.save_dataset.return_value = "\u2705 Dataset saved"
+
+        status, update = save_dataset(
+            "path.json",
+            "name",
+            builder,
+            custom_tag="ohwx",
+            tag_position="append",
+            all_instrumental=False,
+            genre_ratio=20,
+        )
+
+        self.assertIn("\u2705 Dataset saved", status)
+        builder.set_custom_tag.assert_called_once_with("ohwx", "append")
+        builder.set_all_instrumental.assert_called_once_with(False)
+        self.assertEqual(20, builder.metadata.genre_ratio)
+        builder.save_dataset.assert_called_once_with("path.json", "name")
+        self.assertEqual("path.json", update["value"])
+
 
 if __name__ == "__main__":
     unittest.main()

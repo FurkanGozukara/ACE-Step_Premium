@@ -75,9 +75,21 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
         label_output_dir,
         batch_size,
         subprocess_mode,
+        custom_tag,
+        tag_position,
+        all_instrumental,
+        genre_ratio,
         progress=gr.Progress(track_tqdm=True),
     ):
         """Run automatic dataset labeling with the selected model and save path."""
+
+        state = train_h.update_settings(
+            custom_tag,
+            tag_position,
+            all_instrumental,
+            genre_ratio,
+            state,
+        )
 
         if should_run_dataset_action_in_subprocess(vram_preset, subprocess_mode):
             dit_init_params, llm_init_params = build_auto_label_init_payloads(
@@ -166,6 +178,10 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             training_section["auto_label_output_dir"],
             training_section["auto_label_batch_size"],
             training_section["auto_label_subprocess"],
+            training_section["custom_tag"],
+            training_section["tag_position"],
+            training_section["all_instrumental"],
+            training_section["genre_ratio"],
         ],
         outputs=[
             training_section["audio_files_table"],

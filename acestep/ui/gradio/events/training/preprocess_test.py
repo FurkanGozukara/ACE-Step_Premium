@@ -212,6 +212,7 @@ class TestPreprocessDataset(unittest.TestCase):
                     dit_handler,
                     builder,
                     model_config="model-b",
+                    save_debug_text=True,
                 )
             finally:
                 set_safe_root(original_safe_root)
@@ -220,6 +221,7 @@ class TestPreprocessDataset(unittest.TestCase):
         self.assertIn("Preprocessed", result)
         self.assertEqual(dit_handler.initialize_calls[0]["config_path"], "model-b")
         self.assertIn("cancel_callback", builder.preprocess_to_tensors.call_args.kwargs)
+        self.assertTrue(builder.preprocess_to_tensors.call_args.kwargs["save_debug_text"])
 
 
 if __name__ == "__main__":

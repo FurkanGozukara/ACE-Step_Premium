@@ -7,6 +7,9 @@ import unittest
 from unittest.mock import patch
 
 from acestep.training.dataset_builder_modules.label_all import LabelAllMixin
+from acestep.training.dataset_builder_modules.label_batch_apply import (
+    apply_understood_metadata,
+)
 from acestep.training.dataset_builder_modules.models import AudioSample
 
 
@@ -173,6 +176,34 @@ class LabelBatchTests(unittest.TestCase):
                 for message in heartbeat_messages
             )
         )
+
+    def test_batch_empty_transcription_keeps_vocal_metadata_non_instrumental(self) -> None:
+        """Batched auto-labeling should not mark clear vocal metadata instrumental."""
+
+        sample = AudioSample(
+            audio_path="song.wav",
+            filename="song.wav",
+            is_instrumental=False,
+        )
+        metadata = {
+            "caption": "Multiple male rappers deliver confident rhythmic verses.",
+            "genres": "G-funk",
+            "lyrics": "",
+            "language": "en",
+        }
+
+        sample, status = apply_understood_metadata(
+            sample,
+            metadata,
+            transcribe_lyrics=True,
+            lm_lyrics_language="en",
+            skip_metas=False,
+        )
+
+        self.assertFalse(sample.is_instrumental)
+        self.assertEqual("[Instrumental]", sample.lyrics)
+        self.assertEqual("", sample.formatted_lyrics)
+        self.assertIn("vocal metadata", status)
 
 
 if __name__ == "__main__":

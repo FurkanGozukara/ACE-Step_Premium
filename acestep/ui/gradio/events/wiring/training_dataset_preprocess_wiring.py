@@ -89,18 +89,32 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
     def run_preprocess(
         output_dir,
         mode,
+        save_debug_text,
         state,
         model,
         vram_preset,
         subprocess_mode,
+        custom_tag,
+        tag_position,
+        all_instrumental,
+        genre_ratio,
         progress=gr.Progress(track_tqdm=True),
     ):
         """Run preprocessing in-process or in an isolated worker."""
+
+        state = train_h.update_settings(
+            custom_tag,
+            tag_position,
+            all_instrumental,
+            genre_ratio,
+            state,
+        )
 
         if should_run_dataset_action_in_subprocess(vram_preset, subprocess_mode):
             return run_preprocess_subprocess(
                 output_dir=output_dir,
                 preprocess_mode=mode,
+                save_debug_text=save_debug_text,
                 builder_state=state,
                 model_config=model,
                 dit_init_params=build_preprocess_dit_init_payload(
@@ -116,6 +130,7 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
             dit_handler,
             state,
             model_config=model,
+            save_debug_text=save_debug_text,
         )
 
     training_section["preprocess_btn"].click(
@@ -123,10 +138,15 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
         inputs=[
             training_section["preprocess_output_dir"],
             training_section["preprocess_mode"],
+            training_section["preprocess_debug_text"],
             training_section["dataset_builder_state"],
             training_section["dataset_model_config"],
             training_section["dataset_vram_preset"],
             training_section["preprocess_subprocess"],
+            training_section["custom_tag"],
+            training_section["tag_position"],
+            training_section["all_instrumental"],
+            training_section["genre_ratio"],
         ],
         outputs=[training_section["preprocess_progress"]],
     )

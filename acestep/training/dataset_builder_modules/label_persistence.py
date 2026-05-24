@@ -63,6 +63,7 @@ def build_sample_label_metadata(sample: AudioSample) -> dict[str, Any]:
         "duration": sample.duration,
         "language": sample.language,
         "is_instrumental": sample.is_instrumental,
+        "custom_tag": sample.custom_tag,
         "labeled": sample.labeled,
         "prompt_override": sample.prompt_override,
         "caption_source": sample.caption_source,
