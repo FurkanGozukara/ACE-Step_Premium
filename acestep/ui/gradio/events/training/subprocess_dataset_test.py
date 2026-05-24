@@ -9,7 +9,16 @@ from unittest.mock import patch
 
 from acestep.training.dataset_builder import AudioSample, DatasetBuilder
 from acestep.training.path_safety import get_safe_roots, set_safe_roots
+from acestep.ui.gradio.events.training.auto_label_control import (
+    clear_auto_label_cancel_request,
+    mark_inline_auto_label_finished,
+    mark_inline_auto_label_started,
+)
 from acestep.ui.gradio.events.training.subprocess_dataset import (
+    AUTO_LABEL_CANCEL_REQUESTED_STATUS,
+    INLINE_AUTO_LABEL_CANCEL_REQUESTED_STATUS,
+    NO_ACTIVE_AUTO_LABEL_STATUS,
+    request_auto_label_cancel_from_ui,
     run_auto_label_subprocess,
     run_preprocess_subprocess,
 )
@@ -73,6 +82,92 @@ class SubprocessDatasetTests(unittest.TestCase):
         self.assertEqual("done", status_update["value"])
         self.assertEqual("new caption", returned.samples[0].caption)
         self.assertIn("sample.wav", table_update["value"][0])
+
+    def test_auto_label_subprocess_stop_result_keeps_existing_builder(self) -> None:
+        """Cancelled auto-label workers should not require a result dataset path."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            job = TrainingSubprocessJob(
+                work_dir=Path(tmpdir),
+                request_path=Path(tmpdir) / "request.json",
+                result_path=Path(tmpdir) / "result.json",
+            )
+            builder = _builder("old caption")
+
+            def fake_stream(_payload, _job):
+                yield {
+                    "kind": "result",
+                    "result": {
+                        "success": True,
+                        "status": "Isolated training subprocess stopped.",
+                    },
+                }
+
+            with patch(
+                "acestep.ui.gradio.events.training.subprocess_dataset."
+                "create_training_subprocess_job",
+                return_value=job,
+            ), patch(
+                "acestep.ui.gradio.events.training.subprocess_dataset."
+                "stream_training_subprocess_job",
+                side_effect=fake_stream,
+            ):
+                table_update, status_update, returned = run_auto_label_subprocess(
+                    builder_state=builder,
+                    settings={"dataset_name": "worker-test"},
+                    dit_init_params={"project_root": tmpdir},
+                    llm_init_params={},
+                )
+
+        self.assertEqual("Isolated auto-label subprocess stopped.", status_update["value"])
+        self.assertIs(builder, returned)
+        self.assertIn("sample.wav", table_update["value"][0])
+
+    def test_auto_label_cancel_requests_training_subprocess_stop(self) -> None:
+        """Confirmed cancel should terminate the active isolated worker."""
+
+        with patch(
+            "acestep.ui.gradio.events.training.subprocess_dataset."
+            "request_training_subprocess_stop",
+            return_value=True,
+        ) as request_stop:
+            status = request_auto_label_cancel_from_ui()
+
+        request_stop.assert_called_once_with()
+        self.assertEqual(AUTO_LABEL_CANCEL_REQUESTED_STATUS, status)
+
+    def test_auto_label_cancel_reports_no_active_subprocess(self) -> None:
+        """Cancel should leave the UI explicit when no worker is registered."""
+
+        with patch(
+            "acestep.ui.gradio.events.training.subprocess_dataset."
+            "request_training_subprocess_stop",
+            return_value=False,
+        ) as request_stop:
+            status = request_auto_label_cancel_from_ui(True)
+
+        request_stop.assert_called_once_with()
+        self.assertEqual(NO_ACTIVE_AUTO_LABEL_STATUS, status)
+
+    def test_auto_label_cancel_reports_inline_request(self) -> None:
+        """Cancel should also set a visible status for in-process auto-labeling."""
+
+        clear_auto_label_cancel_request()
+        mark_inline_auto_label_started()
+        try:
+            with patch(
+                "acestep.ui.gradio.events.training.subprocess_dataset."
+                "request_training_subprocess_stop",
+                return_value=False,
+            ) as request_stop:
+                status = request_auto_label_cancel_from_ui()
+        finally:
+            mark_inline_auto_label_finished()
+            clear_auto_label_cancel_request()
+
+        request_stop.assert_called_once_with()
+        self.assertEqual(INLINE_AUTO_LABEL_CANCEL_REQUESTED_STATUS, status)
 
     def test_auto_label_subprocess_sends_safe_roots_and_uses_one_worker(self) -> None:
         """A full auto-label batch should use one worker with source-audio roots."""

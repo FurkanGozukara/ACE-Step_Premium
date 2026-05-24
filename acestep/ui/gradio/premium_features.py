@@ -34,6 +34,10 @@ from acestep.core.generation.handler.lora.folder_scan import (
     lora_dropdown_choices,
     resolve_loadable_lora_adapter_path,
 )
+from acestep.training.dataset_vram_presets import (
+    DEFAULT_DATASET_VRAM_PRESET,
+    default_dataset_vram_preset_name,
+)
 from acestep.ui.gradio.events.generation.model_config import (
     get_ui_control_config_for_path,
 )
@@ -243,6 +247,21 @@ PRESET_COMPONENT_KEYS: tuple[str, ...] = (
     "auto_lrc",
     "lm_batch_chunk_size",
     "subprocess_mode_checkbox",
+    "dataset_model_config",
+    "dataset_vram_preset",
+    "dataset_name",
+    "all_instrumental",
+    "format_lyrics",
+    "transcribe_lyrics",
+    "lm_lyrics_language",
+    "custom_tag",
+    "tag_position",
+    "genre_ratio",
+    "skip_metas",
+    "only_unlabeled",
+    "auto_label_output_dir",
+    "auto_label_subprocess",
+    "auto_label_batch_size",
 )
 
 DEFAULT_PRESET_VALUES: dict[str, Any] = {
@@ -288,6 +307,21 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "auto_lrc": False,
     "autogen_checkbox": False,
     "subprocess_mode_checkbox": False,
+    "dataset_model_config": DEFAULT_TURBO_DIT_MODEL,
+    "dataset_vram_preset": DEFAULT_DATASET_VRAM_PRESET,
+    "dataset_name": "my_lora_dataset",
+    "all_instrumental": False,
+    "format_lyrics": False,
+    "transcribe_lyrics": True,
+    "lm_lyrics_language": "en",
+    "custom_tag": "",
+    "tag_position": "prepend",
+    "genre_ratio": 0,
+    "skip_metas": False,
+    "only_unlabeled": True,
+    "auto_label_output_dir": "",
+    "auto_label_subprocess": True,
+    "auto_label_batch_size": 1,
 }
 
 def normalize_simple_model_dropdown_value(value: Any) -> str:
@@ -352,6 +386,7 @@ def _runtime_default_values(base_values: dict[str, Any] | None = None) -> dict[s
 
     values = dict(base_values or DEFAULT_PRESET_VALUES)
     values["lm_model_path"] = _runtime_lm_model_default()
+    values["dataset_vram_preset"] = default_dataset_vram_preset_name()
     return {
         **values,
         "checkpoint_dropdown": str(get_models_dir(project_root=_project_root())),
@@ -518,6 +553,11 @@ def _apply_runtime_defaults(
     if not config_path or config_simple_model:
         merged["config_path"] = simple_model
     quality_model = str(merged.get("config_path") or "").strip() or simple_model
+    if (
+        "dataset_model_config" not in provided_keys
+        or merged.get("dataset_model_config") in (None, "")
+    ):
+        merged["dataset_model_config"] = quality_model
     quality_defaults = model_quality_defaults(quality_model)
     for key, value in quality_defaults.items():
         if key not in provided_keys or merged.get(key) in (None, ""):

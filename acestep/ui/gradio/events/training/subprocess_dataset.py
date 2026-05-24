@@ -6,9 +6,15 @@ from pathlib import Path
 from typing import Any
 
 import gradio as gr
+from loguru import logger
 
 from acestep.training.dataset_builder import DatasetBuilder
 
+from .auto_label_control import (
+    has_active_inline_auto_label,
+    request_auto_label_cancel,
+)
+from .subprocess_control import request_training_subprocess_stop
 from .subprocess_runner import (
     TrainingSubprocessJob,
     create_training_subprocess_job,
@@ -18,6 +24,40 @@ from .subprocess_safe_roots import build_worker_safe_roots
 
 
 _SUCCESS = "\u2705"
+AUTO_LABEL_CANCEL_CONFIRM_JS = (
+    "() => { if (!confirm('Are you sure you want to cancel the current "
+    "auto-label run?')) { throw new Error('Auto-label cancel aborted.'); } "
+    "return []; }"
+)
+AUTO_LABEL_CANCEL_REQUESTED_STATUS = (
+    "Stopping isolated auto-label subprocess..."
+)
+NO_ACTIVE_AUTO_LABEL_STATUS = "No active isolated auto-label subprocess is currently running."
+INLINE_AUTO_LABEL_CANCEL_REQUESTED_STATUS = (
+    "Auto-label cancellation requested. In-process labeling will stop after the "
+    "current file or batch step."
+)
+_GENERIC_STOPPED_STATUS = "Isolated training subprocess stopped."
+_AUTO_LABEL_STOPPED_STATUS = "Isolated auto-label subprocess stopped."
+
+
+def request_auto_label_cancel_from_ui(confirmed: bool = True) -> str | Any:
+    """Request cancellation for the active isolated auto-label worker."""
+
+    if not confirmed:
+        return gr.skip()
+
+    request_auto_label_cancel()
+    stopped_subprocess = request_training_subprocess_stop()
+    if not stopped_subprocess:
+        if has_active_inline_auto_label():
+            logger.info("In-process auto-label cancellation requested from UI.")
+            return INLINE_AUTO_LABEL_CANCEL_REQUESTED_STATUS
+        logger.info("Auto-label cancel requested from UI, but no subprocess is active.")
+        return NO_ACTIVE_AUTO_LABEL_STATUS
+
+    logger.info("Auto-label subprocess cancellation requested from UI.")
+    return AUTO_LABEL_CANCEL_REQUESTED_STATUS
 
 
 def run_auto_label_subprocess(
@@ -65,10 +105,17 @@ def run_auto_label_subprocess(
                 _report_progress(progress, status)
             elif event.get("kind") == "result":
                 result = event["result"]
+                if not result.get("dataset_path"):
+                    status = _auto_label_status_from_result(result, status)
+                    return (
+                        gr.update(value=builder_state.get_samples_dataframe_data()),
+                        gr.update(value=status),
+                        builder_state,
+                    )
                 builder = _load_result_builder(result["dataset_path"])
                 return (
                     gr.update(value=builder.get_samples_dataframe_data()),
-                    gr.update(value=result.get("status") or status),
+                    gr.update(value=_auto_label_status_from_result(result, status)),
                     builder,
                 )
     except Exception as exc:
@@ -147,6 +194,15 @@ def _load_result_builder(dataset_path: str) -> DatasetBuilder:
     if not samples:
         raise RuntimeError(status)
     return builder
+
+
+def _auto_label_status_from_result(result: dict[str, Any], fallback: str) -> str:
+    """Return auto-label wording for a subprocess result status."""
+
+    status = str(result.get("status") or fallback)
+    if status == _GENERIC_STOPPED_STATUS:
+        return _AUTO_LABEL_STOPPED_STATUS
+    return status
 
 
 def _report_progress(progress: Any, message: str) -> None:

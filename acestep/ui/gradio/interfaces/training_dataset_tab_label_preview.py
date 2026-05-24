@@ -34,12 +34,25 @@ def build_dataset_label_and_preview_controls() -> dict[str, object]:
                 info=t("training.auto_label_output_dir_info"),
                 elem_classes=["has-info-container"],
             )
-            auto_label_subprocess = gr.Checkbox(
-                label="Run in isolated subprocess",
-                value=True,
-                info="Frees VRAM/RAM when the auto-label worker exits.",
-                elem_classes=["has-info-container"],
-            )
+            with gr.Row(equal_height=True):
+                auto_label_subprocess = gr.Checkbox(
+                    label="Run in isolated subprocess",
+                    value=True,
+                    info="Frees VRAM/RAM when the auto-label worker exits.",
+                    elem_classes=["has-info-container"],
+                )
+                auto_label_batch_size = gr.Slider(
+                    minimum=1,
+                    maximum=99,
+                    step=1,
+                    value=1,
+                    label="Auto-label batch size",
+                    info=(
+                        "Higher values group LM metadata requests for faster "
+                        "labeling on high-VRAM GPUs."
+                    ),
+                    elem_classes=["has-info-container"],
+                )
             with gr.Row(equal_height=True):
                 auto_label_output_dir_browse_btn = gr.Button(
                     t("training.browse_label_folder_btn"),
@@ -52,11 +65,15 @@ def build_dataset_label_and_preview_controls() -> dict[str, object]:
                     size="lg",
                 )
 
-    label_progress = gr.Textbox(
-        label=t("training.label_progress"),
-        interactive=False,
-        lines=2,
-    )
+    with gr.Row(equal_height=True):
+        with gr.Column(scale=1, min_width=220):
+            cancel_auto_label_btn = gr.Button("Cancel Auto-Label", variant="stop", size="lg")
+        with gr.Column(scale=3):
+            label_progress = gr.Textbox(
+                label=t("training.label_progress"),
+                interactive=False,
+                lines=2,
+            )
 
     gr.HTML(f"<hr><h3>👀 {t('training.step3_title')}</h3>")
 
@@ -174,7 +191,9 @@ def build_dataset_label_and_preview_controls() -> dict[str, object]:
         "auto_label_output_dir": auto_label_output_dir,
         "auto_label_output_dir_browse_btn": auto_label_output_dir_browse_btn,
         "auto_label_subprocess": auto_label_subprocess,
+        "auto_label_batch_size": auto_label_batch_size,
         "auto_label_btn": auto_label_btn,
+        "cancel_auto_label_btn": cancel_auto_label_btn,
         "label_progress": label_progress,
         "sample_selector": sample_selector,
         "preview_audio": preview_audio,

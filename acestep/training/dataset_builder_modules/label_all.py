@@ -9,6 +9,8 @@ from loguru import logger
 
 from acestep.training.path_safety import safe_path
 
+from .label_batch import label_samples_in_batches
+from .label_batch_progress import normalize_auto_label_batch_size
 from .label_persistence import save_sample_label_metadata
 from .label_progress import LabelProgressTracker, replay_progress_after_llm_load
 from .models import AudioSample
@@ -17,6 +19,7 @@ from .models import AudioSample
 _SUCCESS = "\u2705"
 _FAILURE = "\u274c"
 _WARNING = "\u26a0\ufe0f"
+_CANCELLED = "\u26a0\ufe0f"
 
 
 def _needs_label(sample: AudioSample) -> bool:
@@ -44,10 +47,12 @@ class LabelAllMixin:
         persist_labels: bool = True,
         label_output_dir: str | None = None,
         label_source_root: str | None = None,
+        cancel_callback: Optional[Callable[[], bool]] = None,
     ) -> Tuple[List[AudioSample], str]:
         """Label samples and persist each successful label immediately."""
 
-        _ = (chunk_size, batch_size)
+        _ = chunk_size
+        resolved_batch_size = normalize_auto_label_batch_size(batch_size)
         if not self.samples:
             return [], f"{_FAILURE} No samples to label. Please scan a directory first."
 
@@ -64,6 +69,27 @@ class LabelAllMixin:
             return self.samples, status
 
         initial_labeled_count = self.get_labeled_count() if only_unlabeled else 0
+        if resolved_batch_size > 1:
+            return label_samples_in_batches(
+                self,
+                dit_handler=dit_handler,
+                llm_handler=llm_handler,
+                samples_to_label=samples_to_label,
+                batch_size=resolved_batch_size,
+                format_lyrics=format_lyrics,
+                transcribe_lyrics=transcribe_lyrics,
+                lm_lyrics_language=lm_lyrics_language,
+                skip_metas=skip_metas,
+                only_unlabeled=only_unlabeled,
+                progress_callback=progress_callback,
+                sample_labeled_callback=sample_labeled_callback,
+                persist_labels=persist_labels,
+                label_output_dir=label_output_dir,
+                label_source_root=label_source_root,
+                initial_labeled_count=initial_labeled_count,
+                cancel_callback=cancel_callback,
+            )
+
         success_count = 0
         fail_count = 0
         sidecar_fail_count = 0
@@ -78,6 +104,9 @@ class LabelAllMixin:
         progress_tracker = LabelProgressTracker(display_total)
 
         for idx, (sample_idx, sample) in enumerate(samples_to_label):
+            if cancel_callback and cancel_callback():
+                left_count = total_to_label - idx
+                return self.samples, _cancelled_status(success_count, total_to_label, left_count)
             labeled_before = initial_labeled_count + success_count
             left_before = total_to_label - idx
             progress_tracker.begin_item()
@@ -143,6 +172,15 @@ class LabelAllMixin:
             status_msg += f" ({skipped_count} already labeled, {len(self.samples)} total)"
 
         return self.samples, status_msg
+
+
+def _cancelled_status(success_count: int, total_to_label: int, left_count: int) -> str:
+    """Build the status line for a user-cancelled auto-label run."""
+
+    return (
+        f"{_CANCELLED} Auto-label cancelled after {success_count}/{total_to_label} "
+        f"samples; left {left_count}"
+    )
 
 
 def _common_audio_source_root(samples: list[AudioSample]) -> str | None:

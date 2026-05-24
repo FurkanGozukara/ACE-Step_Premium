@@ -36,6 +36,7 @@ def run_auto_label_task(payload: dict[str, Any], emit: Emit) -> dict[str, Any]:
         bool(settings.get("transcribe_lyrics")),
         str(settings.get("lm_lyrics_language") or "unknown"),
         bool(settings.get("only_unlabeled", True)),
+        int(settings.get("batch_size") or 1),
         progress=progress,
         model_config=settings.get("model_config"),
         save_path=settings.get("save_path"),

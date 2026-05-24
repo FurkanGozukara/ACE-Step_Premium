@@ -698,6 +698,24 @@ def create_gradio_interface(
             "simple_lora_scale_slider"
         ]
         generation_section["simple_quantization"] = simple_page["simple_quantization"]
+        for key in (
+            "dataset_model_config",
+            "dataset_vram_preset",
+            "dataset_name",
+            "all_instrumental",
+            "format_lyrics",
+            "transcribe_lyrics",
+            "lm_lyrics_language",
+            "custom_tag",
+            "tag_position",
+            "genre_ratio",
+            "skip_metas",
+            "only_unlabeled",
+            "auto_label_output_dir",
+            "auto_label_subprocess",
+            "auto_label_batch_size",
+        ):
+            generation_section[key] = training_section[key]
 
         setup_event_handlers(
             demo=demo,

@@ -8,7 +8,11 @@ from acestep.ui.gradio.events.local_path_dialogs import select_folder_path
 
 from .. import training_handlers as train_h
 from ..training.dataset_ops import select_sample_from_table
-from ..training.subprocess_dataset import run_auto_label_subprocess
+from ..training.subprocess_dataset import (
+    AUTO_LABEL_CANCEL_CONFIRM_JS,
+    request_auto_label_cancel_from_ui,
+    run_auto_label_subprocess,
+)
 from .context import TrainingWiringContext
 from .training_dataset_status import append_preview_refresh_status
 from .training_dataset_save_wiring import register_training_dataset_save_handlers
@@ -69,6 +73,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
         save_path,
         dataset_name,
         label_output_dir,
+        batch_size,
         subprocess_mode,
         progress=gr.Progress(track_tqdm=True),
     ):
@@ -94,6 +99,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
                     "save_path": save_path,
                     "dataset_name": dataset_name,
                     "label_output_dir": label_output_dir,
+                    "batch_size": batch_size,
                 },
                 dit_init_params=dit_init_params,
                 llm_init_params=llm_init_params,
@@ -115,6 +121,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             dataset_name=dataset_name,
             label_output_dir=label_output_dir,
             label_source_root=getattr(state, "_current_dir", None),
+            batch_size=batch_size,
         )
 
     training_section["scan_directory_browse_btn"].click(
@@ -143,7 +150,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
         ],
     )
 
-    training_section["auto_label_btn"].click(
+    auto_label_event = training_section["auto_label_btn"].click(
         fn=run_auto_label,
         inputs=[
             training_section["dataset_builder_state"],
@@ -157,6 +164,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             training_section["save_path"],
             training_section["dataset_name"],
             training_section["auto_label_output_dir"],
+            training_section["auto_label_batch_size"],
             training_section["auto_label_subprocess"],
         ],
         outputs=[
@@ -164,17 +172,28 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             training_section["label_progress"],
             training_section["dataset_builder_state"],
         ],
-    ).then(
+    )
+    auto_label_preview_event = auto_label_event.then(
         fn=train_h.get_sample_preview,
         inputs=[
             training_section["sample_selector"],
             training_section["dataset_builder_state"],
         ],
         outputs=sample_preview_outputs,
-    ).then(
+    )
+    auto_label_preview_event.then(
         fn=append_preview_refresh_status,
         inputs=[training_section["label_progress"]],
         outputs=[training_section["label_progress"]],
+    )
+    training_section["cancel_auto_label_btn"].click(
+        fn=request_auto_label_cancel_from_ui,
+        inputs=None,
+        outputs=[training_section["label_progress"]],
+        js=AUTO_LABEL_CANCEL_CONFIRM_JS,
+        queue=False,
+        concurrency_limit=None,
+        show_progress="hidden",
     )
 
     training_section["auto_label_output_dir_browse_btn"].click(

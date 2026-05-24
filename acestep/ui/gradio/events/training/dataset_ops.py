@@ -18,6 +18,12 @@ from acestep.training.dataset_builder_modules.label_hydration import (
 )
 from acestep.training.path_inputs import normalize_user_path
 from acestep.training.path_safety import safe_path
+from .auto_label_control import (
+    clear_auto_label_cancel_request,
+    is_auto_label_cancel_requested,
+    mark_inline_auto_label_finished,
+    mark_inline_auto_label_started,
+)
 from .raw_lyrics_preview import raw_lyrics_preview_update
 from .service_auto_init import ensure_training_services_ready
 from .training_utils import _safe_slider
@@ -75,6 +81,7 @@ def auto_label_all(
     transcribe_lyrics: bool = False,
     lm_lyrics_language: str = "unknown",
     only_unlabeled: bool = True,
+    batch_size: int = 1,
     progress=None,
     model_config: str | None = None,
     save_path: str | None = None,
@@ -93,6 +100,7 @@ def auto_label_all(
         transcribe_lyrics: Use LLM to transcribe lyrics from audio.
         lm_lyrics_language: Optional language hint for LM lyric generation.
         only_unlabeled: Only label samples without caption.
+        batch_size: Number of samples per auto-label LM metadata batch.
         progress: Progress callback.
         model_config: Optional DiT model name selected for dataset actions.
         save_path: Optional dataset JSON path for per-sample checkpoint saves.
@@ -143,17 +151,24 @@ def auto_label_all(
                     pass
 
         if not has_unlabeled_samples(builder_state.samples):
-            _samples, status = builder_state.label_all_samples(
-                dit_handler=dit_handler,
-                llm_handler=llm_handler,
-                format_lyrics=format_lyrics,
-                transcribe_lyrics=transcribe_lyrics,
-                lm_lyrics_language=lm_lyrics_language,
-                skip_metas=skip_metas,
-                only_unlabeled=only_unlabeled,
-                label_output_dir=resolved_label_output_dir,
-                label_source_root=label_source_root,
-            )
+            clear_auto_label_cancel_request()
+            mark_inline_auto_label_started()
+            try:
+                _samples, status = builder_state.label_all_samples(
+                    dit_handler=dit_handler,
+                    llm_handler=llm_handler,
+                    format_lyrics=format_lyrics,
+                    transcribe_lyrics=transcribe_lyrics,
+                    lm_lyrics_language=lm_lyrics_language,
+                    skip_metas=skip_metas,
+                    only_unlabeled=only_unlabeled,
+                    batch_size=batch_size,
+                    label_output_dir=resolved_label_output_dir,
+                    label_source_root=label_source_root,
+                    cancel_callback=is_auto_label_cancel_requested,
+                )
+            finally:
+                mark_inline_auto_label_finished()
             if status_prefixes:
                 status = "\n".join([*status_prefixes, status])
             table_data = builder_state.get_samples_dataframe_data()
@@ -203,19 +218,26 @@ def auto_label_all(
         if not save_status.startswith(_SUCCESS):
             logger.warning(f"Auto-label dataset checkpoint save failed: {save_status}")
 
-    _samples, status = builder_state.label_all_samples(
-        dit_handler=dit_handler,
-        llm_handler=llm_handler,
-        format_lyrics=format_lyrics,
-        transcribe_lyrics=transcribe_lyrics,
-        lm_lyrics_language=lm_lyrics_language,
-        skip_metas=skip_metas,
-        only_unlabeled=only_unlabeled,
-        progress_callback=progress_callback,
-        sample_labeled_callback=sample_labeled_callback,
-        label_output_dir=resolved_label_output_dir,
-        label_source_root=label_source_root,
-    )
+    clear_auto_label_cancel_request()
+    mark_inline_auto_label_started()
+    try:
+        _samples, status = builder_state.label_all_samples(
+            dit_handler=dit_handler,
+            llm_handler=llm_handler,
+            format_lyrics=format_lyrics,
+            transcribe_lyrics=transcribe_lyrics,
+            lm_lyrics_language=lm_lyrics_language,
+            skip_metas=skip_metas,
+            only_unlabeled=only_unlabeled,
+            batch_size=batch_size,
+            progress_callback=progress_callback,
+            sample_labeled_callback=sample_labeled_callback,
+            label_output_dir=resolved_label_output_dir,
+            label_source_root=label_source_root,
+            cancel_callback=is_auto_label_cancel_requested,
+        )
+    finally:
+        mark_inline_auto_label_finished()
     if auto_init_status:
         status = f"{auto_init_status}\n{status}" if status else auto_init_status
     if status_prefixes:

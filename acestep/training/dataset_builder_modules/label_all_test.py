@@ -72,6 +72,33 @@ class LabelAllMixinTests(unittest.TestCase):
         self.assertTrue(any("ETA" in message for message in progress_messages))
 
     @patch("acestep.training.dataset_builder_modules.label_all.save_sample_label_metadata")
+    def test_cancel_callback_stops_before_next_sample(self, save_sidecar) -> None:
+        """Auto-label cancellation should stop the local loop between files."""
+
+        builder = _Builder(
+            [
+                AudioSample(audio_path="a.wav", filename="a.wav"),
+                AudioSample(audio_path="b.wav", filename="b.wav"),
+            ]
+        )
+        checks = 0
+
+        def cancel_after_first_check() -> bool:
+            nonlocal checks
+            checks += 1
+            return checks > 1
+
+        _samples, status = builder.label_all_samples(
+            dit_handler=None,
+            llm_handler=None,
+            cancel_callback=cancel_after_first_check,
+        )
+
+        self.assertEqual([0], builder.labeled_indexes)
+        self.assertEqual(1, save_sidecar.call_count)
+        self.assertIn("Auto-label cancelled after 1/2 samples; left 1", status)
+
+    @patch("acestep.training.dataset_builder_modules.label_all.save_sample_label_metadata")
     def test_skips_already_labeled_samples_by_default(self, save_sidecar) -> None:
         """Already labeled samples should not be relabeled on continuation runs."""
 

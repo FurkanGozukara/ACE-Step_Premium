@@ -46,7 +46,7 @@ class AutoLabelRequest(BaseModel):
     )
 
     chunk_size: int = Field(default=16, ge=1, description="Chunk size for batch audio encoding")
-    batch_size: int = Field(default=1, ge=1, description="Batch size for batch audio encoding")
+    batch_size: int = Field(default=1, ge=1, le=99, description="Auto-label batch size")
 
     @root_validator(pre=True)
     def _backward_compatible_field_names(cls, values: Dict[str, Any]):
