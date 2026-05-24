@@ -28,13 +28,18 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
-<h3>24 May 2026 V3.1 Update</h3>
+<h3>24 May 2026 V3.2 Update</h3>
 
 - When auto labeling, even though process finished it was still showing as processing at Raw Lyrics (from .txt file) and this bug fixed
 - The training speed display fixed and now it shows training speed accurately after first 20 steps completed like below
+- Auto labeling is taking massive time, therefore I have implemented true batch size to this process
+- Cancel auto labelling process and tensor generation process implemented
+	- Now you can immediately cancel both processes when running in isolated subprocess
 - Just run installer to update
 
 <img height="600" alt="image" src="https://github.com/user-attachments/assets/4e46ed9c-4bb1-4590-8998-329963a00f3b" />
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/e70ad9e3-ccdb-4f4e-a94e-5009b2efd0e0" />
+
 
 <h3>24 May 2026 V3.0 Update</h3>
 
