@@ -15,6 +15,12 @@ from acestep.debug_utils import debug_end_for, debug_log_for, debug_start_for
 from acestep.training.dataset_builder import DatasetBuilder
 from acestep.training.path_inputs import normalize_user_path
 from acestep.training.path_safety import safe_path
+from .preprocess_control import (
+    clear_preprocess_cancel_request,
+    is_preprocess_cancel_requested,
+    mark_inline_preprocess_finished,
+    mark_inline_preprocess_started,
+)
 from .raw_lyrics_preview import raw_lyrics_preview_update
 from .service_auto_init import ensure_training_services_ready
 from .training_utils import _safe_slider
@@ -222,14 +228,20 @@ def preprocess_dataset(
     if mode not in {"lora", "lokr"}:
         mode = "lora"
 
+    clear_preprocess_cancel_request()
+    mark_inline_preprocess_started()
     t0 = debug_start_for("dataset", "preprocess_to_tensors")
-    output_paths, status = builder_state.preprocess_to_tensors(
-        dit_handler=dit_handler,
-        output_dir=output_dir,
-        preprocess_mode=mode,
-        progress_callback=progress_callback,
-    )
-    debug_end_for("dataset", "preprocess_to_tensors", t0)
+    try:
+        output_paths, status = builder_state.preprocess_to_tensors(
+            dit_handler=dit_handler,
+            output_dir=output_dir,
+            preprocess_mode=mode,
+            progress_callback=progress_callback,
+            cancel_callback=is_preprocess_cancel_requested,
+        )
+    finally:
+        mark_inline_preprocess_finished()
+        debug_end_for("dataset", "preprocess_to_tensors", t0)
 
     if auto_init_status:
         return f"{auto_init_status}\n{status}" if status else auto_init_status

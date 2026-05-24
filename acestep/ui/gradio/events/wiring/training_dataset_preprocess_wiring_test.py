@@ -88,6 +88,25 @@ class TrainingDatasetPreprocessWiringTests(unittest.TestCase):
         self.assertEqual("No dataset JSON selected.", result[1])
         load_dataset.assert_not_called()
 
+    def test_cancel_preprocess_click_runs_backend_directly(self) -> None:
+        """Preprocess cancel should be a direct unqueued backend event."""
+
+        cancel_button = _FakeComponent()
+        section = _preprocess_section(cancel_button)
+        context = SimpleNamespace(training_section=section, dit_handler=object())
+
+        training_dataset_preprocess_wiring.register_training_preprocess_handler(context)
+
+        click_kwargs = cancel_button.click_kwargs
+        self.assertIs(
+            training_dataset_preprocess_wiring.request_preprocess_cancel_from_ui,
+            click_kwargs["fn"],
+        )
+        self.assertIsNone(click_kwargs["inputs"])
+        self.assertEqual([section["preprocess_progress"]], click_kwargs["outputs"])
+        self.assertFalse(click_kwargs["queue"])
+        self.assertIn("confirm", click_kwargs["js"])
+
 
 class _FakeEvent:
     """Minimal event object for asserting chained Gradio wiring."""
@@ -127,6 +146,23 @@ def _training_section(button):
     for key in DATASET_LOAD_SHARED_OUTPUT_KEYS:
         section.setdefault(key, object())
     return section
+
+
+def _preprocess_section(cancel_button):
+    """Return a component map for preprocess wiring tests."""
+
+    return {
+        "preprocess_output_dir_browse_btn": _FakeComponent(),
+        "preprocess_output_dir": object(),
+        "preprocess_btn": _FakeComponent(),
+        "preprocess_mode": object(),
+        "dataset_builder_state": object(),
+        "dataset_model_config": object(),
+        "dataset_vram_preset": object(),
+        "preprocess_subprocess": object(),
+        "preprocess_progress": object(),
+        "cancel_preprocess_btn": cancel_button,
+    }
 
 
 if __name__ == "__main__":

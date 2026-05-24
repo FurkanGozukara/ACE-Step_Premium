@@ -10,6 +10,10 @@ from acestep.ui.gradio.events.local_path_dialogs import (
 )
 
 from .. import training_handlers as train_h
+from ..training.subprocess_cancel import (
+    PREPROCESS_CANCEL_CONFIRM_JS,
+    request_preprocess_cancel_from_ui,
+)
 from ..training.subprocess_dataset import run_preprocess_subprocess
 from .context import TrainingWiringContext
 from .training_dataset_vram_payloads import (
@@ -125,4 +129,14 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
             training_section["preprocess_subprocess"],
         ],
         outputs=[training_section["preprocess_progress"]],
+    )
+
+    training_section["cancel_preprocess_btn"].click(
+        fn=request_preprocess_cancel_from_ui,
+        inputs=None,
+        outputs=[training_section["preprocess_progress"]],
+        js=PREPROCESS_CANCEL_CONFIRM_JS,
+        queue=False,
+        concurrency_limit=None,
+        show_progress="hidden",
     )

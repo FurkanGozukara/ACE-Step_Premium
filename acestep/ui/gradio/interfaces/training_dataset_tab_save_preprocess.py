@@ -103,11 +103,19 @@ def build_dataset_save_and_preprocess_controls() -> dict[str, object]:
                 size="lg",
             )
 
-    preprocess_progress = gr.Textbox(
-        label=t("training.preprocess_progress"),
-        interactive=False,
-        lines=3,
-    )
+    with gr.Row(equal_height=True):
+        with gr.Column(scale=1, min_width=220):
+            cancel_preprocess_btn = gr.Button(
+                "Cancel Preprocess",
+                variant="stop",
+                size="lg",
+            )
+        with gr.Column(scale=3):
+            preprocess_progress = gr.Textbox(
+                label=t("training.preprocess_progress"),
+                interactive=False,
+                lines=3,
+            )
 
     return {
         "save_path": save_path,
@@ -123,5 +131,6 @@ def build_dataset_save_and_preprocess_controls() -> dict[str, object]:
         "preprocess_output_dir_browse_btn": preprocess_output_dir_browse_btn,
         "preprocess_subprocess": preprocess_subprocess,
         "preprocess_btn": preprocess_btn,
+        "cancel_preprocess_btn": cancel_preprocess_btn,
         "preprocess_progress": preprocess_progress,
     }

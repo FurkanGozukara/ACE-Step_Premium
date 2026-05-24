@@ -8,11 +8,11 @@ from acestep.ui.gradio.events.local_path_dialogs import select_folder_path
 
 from .. import training_handlers as train_h
 from ..training.dataset_ops import select_sample_from_table
-from ..training.subprocess_dataset import (
+from ..training.subprocess_cancel import (
     AUTO_LABEL_CANCEL_CONFIRM_JS,
     request_auto_label_cancel_from_ui,
-    run_auto_label_subprocess,
 )
+from ..training.subprocess_dataset import run_auto_label_subprocess
 from .context import TrainingWiringContext
 from .training_dataset_status import append_preview_refresh_status
 from .training_dataset_save_wiring import register_training_dataset_save_handlers

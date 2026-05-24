@@ -14,11 +14,22 @@ from acestep.ui.gradio.events.training.auto_label_control import (
     mark_inline_auto_label_finished,
     mark_inline_auto_label_started,
 )
-from acestep.ui.gradio.events.training.subprocess_dataset import (
+from acestep.ui.gradio.events.training.preprocess_control import (
+    clear_preprocess_cancel_request,
+    mark_inline_preprocess_finished,
+    mark_inline_preprocess_started,
+)
+from acestep.ui.gradio.events.training.subprocess_cancel import (
     AUTO_LABEL_CANCEL_REQUESTED_STATUS,
     INLINE_AUTO_LABEL_CANCEL_REQUESTED_STATUS,
+    INLINE_PREPROCESS_CANCEL_REQUESTED_STATUS,
     NO_ACTIVE_AUTO_LABEL_STATUS,
+    NO_ACTIVE_PREPROCESS_STATUS,
+    PREPROCESS_CANCEL_REQUESTED_STATUS,
     request_auto_label_cancel_from_ui,
+    request_preprocess_cancel_from_ui,
+)
+from acestep.ui.gradio.events.training.subprocess_dataset import (
     run_auto_label_subprocess,
     run_preprocess_subprocess,
 )
@@ -128,7 +139,7 @@ class SubprocessDatasetTests(unittest.TestCase):
         """Confirmed cancel should terminate the active isolated worker."""
 
         with patch(
-            "acestep.ui.gradio.events.training.subprocess_dataset."
+            "acestep.ui.gradio.events.training.subprocess_cancel."
             "request_training_subprocess_stop",
             return_value=True,
         ) as request_stop:
@@ -141,7 +152,7 @@ class SubprocessDatasetTests(unittest.TestCase):
         """Cancel should leave the UI explicit when no worker is registered."""
 
         with patch(
-            "acestep.ui.gradio.events.training.subprocess_dataset."
+            "acestep.ui.gradio.events.training.subprocess_cancel."
             "request_training_subprocess_stop",
             return_value=False,
         ) as request_stop:
@@ -157,7 +168,7 @@ class SubprocessDatasetTests(unittest.TestCase):
         mark_inline_auto_label_started()
         try:
             with patch(
-                "acestep.ui.gradio.events.training.subprocess_dataset."
+                "acestep.ui.gradio.events.training.subprocess_cancel."
                 "request_training_subprocess_stop",
                 return_value=False,
             ) as request_stop:
@@ -288,6 +299,90 @@ class SubprocessDatasetTests(unittest.TestCase):
             str(Path(root).resolve()) for root in captured_payloads[0]["safe_roots"]
         }
         self.assertIn(str(Path(audio_dir).resolve()), safe_roots)
+
+    def test_preprocess_subprocess_stop_result_uses_preprocess_status(self) -> None:
+        """Cancelled preprocess workers should show preprocess-specific wording."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            job = TrainingSubprocessJob(
+                work_dir=Path(tmpdir),
+                request_path=Path(tmpdir) / "request.json",
+                result_path=Path(tmpdir) / "result.json",
+            )
+
+            def fake_stream(_payload, _job):
+                yield {
+                    "kind": "result",
+                    "result": {
+                        "success": True,
+                        "status": "Isolated training subprocess stopped.",
+                    },
+                }
+
+            with patch(
+                "acestep.ui.gradio.events.training.subprocess_dataset."
+                "create_training_subprocess_job",
+                return_value=job,
+            ), patch(
+                "acestep.ui.gradio.events.training.subprocess_dataset."
+                "stream_training_subprocess_job",
+                side_effect=fake_stream,
+            ):
+                status = run_preprocess_subprocess(
+                    output_dir=str(Path(tmpdir) / "tensors"),
+                    preprocess_mode="lora",
+                    builder_state=_builder("caption"),
+                    model_config="model-a",
+                    dit_init_params={"project_root": tmpdir},
+                )
+
+        self.assertEqual("Isolated tensor preprocess subprocess stopped.", status)
+
+    def test_preprocess_cancel_requests_training_subprocess_stop(self) -> None:
+        """Confirmed preprocess cancel should terminate the active worker."""
+
+        with patch(
+            "acestep.ui.gradio.events.training.subprocess_cancel."
+            "request_training_subprocess_stop",
+            return_value=True,
+        ) as request_stop:
+            status = request_preprocess_cancel_from_ui()
+
+        request_stop.assert_called_once_with()
+        self.assertEqual(PREPROCESS_CANCEL_REQUESTED_STATUS, status)
+
+    def test_preprocess_cancel_reports_no_active_subprocess(self) -> None:
+        """Preprocess cancel should be explicit when no worker is registered."""
+
+        with patch(
+            "acestep.ui.gradio.events.training.subprocess_cancel."
+            "request_training_subprocess_stop",
+            return_value=False,
+        ) as request_stop:
+            status = request_preprocess_cancel_from_ui()
+
+        request_stop.assert_called_once_with()
+        self.assertEqual(NO_ACTIVE_PREPROCESS_STATUS, status)
+
+    def test_preprocess_cancel_reports_inline_request(self) -> None:
+        """Cancel should also set a visible status for in-process preprocessing."""
+
+        clear_preprocess_cancel_request()
+        mark_inline_preprocess_started()
+        try:
+            with patch(
+                "acestep.ui.gradio.events.training.subprocess_cancel."
+                "request_training_subprocess_stop",
+                return_value=False,
+            ) as request_stop:
+                status = request_preprocess_cancel_from_ui()
+        finally:
+            mark_inline_preprocess_finished()
+            clear_preprocess_cancel_request()
+
+        request_stop.assert_called_once_with()
+        self.assertEqual(INLINE_PREPROCESS_CANCEL_REQUESTED_STATUS, status)
 
 
 def _builder(caption: str) -> DatasetBuilder:

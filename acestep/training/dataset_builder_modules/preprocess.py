@@ -54,6 +54,7 @@ class PreprocessMixin:
         preprocess_mode: str = "lora",
         progress_callback=None,
         skip_existing: bool = False,
+        cancel_callback=None,
     ) -> Tuple[List[str], str]:
         """Preprocess all labeled samples to tensor files for efficient training.
 
@@ -68,6 +69,7 @@ class PreprocessMixin:
             preprocess_mode: ``"lora"`` or ``"lokr"``.
             progress_callback: Optional ``(message) -> None`` callback.
             skip_existing: Skip samples whose tensor file already exists.
+            cancel_callback: Optional callback returning whether to stop early.
 
         Returns:
             ``(output_paths, status_message)`` tuple.
@@ -95,6 +97,8 @@ class PreprocessMixin:
         output_paths: List[str] = []
         success_count = 0
         fail_count = 0
+        cancelled = False
+        cancelled_left_count = 0
 
         model = dit_handler.model
         vae = dit_handler.vae
@@ -110,6 +114,10 @@ class PreprocessMixin:
         debug_log_verbose_for("dataset", f"selected genre indices: count={len(genre_indices)}")
 
         for i, sample in enumerate(labeled_samples):
+            if _should_cancel_preprocess(cancel_callback):
+                cancelled = True
+                cancelled_left_count = len(labeled_samples) - i
+                break
             try:
                 debug_log_verbose_for("dataset", f"sample[{i}] id={sample.id} file={sample.filename}")
 
@@ -124,6 +132,10 @@ class PreprocessMixin:
 
                 if progress_callback:
                     progress_callback(f"Preprocessing {i+1}/{len(labeled_samples)}: {sample.filename}")
+                if _should_cancel_preprocess(cancel_callback):
+                    cancelled = True
+                    cancelled_left_count = len(labeled_samples) - i
+                    break
 
                 use_genre = i in genre_indices
 
@@ -133,6 +145,10 @@ class PreprocessMixin:
                 debug_end_verbose_for("dataset", f"load_audio_stereo[{i}]", t0)
                 debug_log_verbose_for("dataset", f"audio shape={tuple(audio.shape)} dtype={audio.dtype}")
                 audio = audio.unsqueeze(0)
+                if _should_cancel_preprocess(cancel_callback):
+                    cancelled = True
+                    cancelled_left_count = len(labeled_samples) - i
+                    break
 
                 # -- VAE encode (tiled, with CPU offloading) -------------------
                 with dit_handler._load_model_context("vae"):
@@ -152,6 +168,10 @@ class PreprocessMixin:
                     del audio_gpu
 
                 _empty_gpu_cache()
+                if _should_cancel_preprocess(cancel_callback):
+                    cancelled = True
+                    cancelled_left_count = len(labeled_samples) - i
+                    break
 
                 latent_length = target_latents.shape[1]
                 attention_mask = torch.ones(1, latent_length, device=device, dtype=dtype)
@@ -196,6 +216,10 @@ class PreprocessMixin:
                     )
 
                 _empty_gpu_cache()
+                if _should_cancel_preprocess(cancel_callback):
+                    cancelled = True
+                    cancelled_left_count = len(labeled_samples) - i
+                    break
 
                 # -- DiT condition encoder (with CPU offloading) ---------------
                 t0 = debug_start_verbose_for("dataset", f"run_encoder[{i}]")
@@ -247,6 +271,10 @@ class PreprocessMixin:
                 )
 
                 _empty_gpu_cache()
+                if _should_cancel_preprocess(cancel_callback):
+                    cancelled = True
+                    cancelled_left_count = len(labeled_samples) - i
+                    break
 
                 t0 = debug_start_verbose_for("dataset", f"build_context_latents[{i}]")
                 context_src = target_latents if mode == "lokr" else None
@@ -297,8 +325,29 @@ class PreprocessMixin:
         save_manifest(output_dir, self.metadata, output_paths)
         debug_end_verbose_for("dataset", "save_manifest", t0)
 
+        if cancelled:
+            status = (
+                f"\u26a0\ufe0f Tensor preprocess cancelled after "
+                f"{success_count}/{len(labeled_samples)} samples; "
+                f"left {cancelled_left_count}"
+            )
+            if output_paths:
+                status += f"\nSaved completed tensors to {output_dir}"
+            return output_paths, status
+
         status = f"✅ Preprocessed {success_count}/{len(labeled_samples)} samples to {output_dir}"
         if fail_count > 0:
             status += f" ({fail_count} failed)"
 
         return output_paths, status
+
+
+def _should_cancel_preprocess(cancel_callback) -> bool:
+    """Return whether preprocessing should stop early."""
+
+    if cancel_callback is None:
+        return False
+    try:
+        return bool(cancel_callback())
+    except Exception:
+        return False
