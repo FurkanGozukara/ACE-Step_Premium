@@ -38,9 +38,9 @@
 - Now your lyric txt files can also contain style / caption 
 	- e.g. a.mp3 and a.txt in same folder
 	- Format is like below
-	- # Caption
+	- ```# Caption```
 		- Your caption
-	- # Lyrics
+	- ```# Lyrics```
 		- Your lyrics
 	- I tried to make it as much as possible robust so it should work fairly well see below example
 - Just run installer to update
