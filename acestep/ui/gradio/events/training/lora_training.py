@@ -25,7 +25,7 @@ from acestep.ui.gradio.i18n import t
 from .service_auto_init import ensure_dit_ready
 from .subprocess_control import request_training_subprocess_stop
 from .step_estimate import estimate_lora_total_steps
-from .training_progress_stats import build_training_progress_text
+from .training_progress_stats import TrainingProgressTimer, build_training_progress_text
 from .training_utils import (
     _format_duration,
     _training_loss_figure,
@@ -367,6 +367,7 @@ def start_training(
         )
         initial_plot = _training_loss_figure(training_state, step_list, loss_list)
         start_time = time.time()
+        progress_timer = TrainingProgressTimer(start_time)
 
         yield f"🚀 Starting training from {tensor_dir}...", "", initial_plot, training_state
 
@@ -402,14 +403,23 @@ def start_training(
                 training_failed = True
                 failure_message = status_text
 
-            elapsed_seconds = time.time() - start_time
+            now = time.time()
+            timing = progress_timer.update(
+                status,
+                step=step,
+                total_steps=total_steps,
+                now=now,
+            )
             display_status = build_training_progress_text(
                 status,
                 step=step,
                 total_epochs=int(train_epochs or 0),
-                elapsed_seconds=elapsed_seconds,
+                elapsed_seconds=timing.elapsed_seconds,
                 loss=loss,
                 total_steps=total_steps,
+                elapsed_label=timing.elapsed_label,
+                speed=timing.speed,
+                eta_seconds=timing.eta_seconds,
             )
             log_lines.append(display_status)
             if len(log_lines) > 15:

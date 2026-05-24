@@ -175,10 +175,6 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
         fn=append_preview_refresh_status,
         inputs=[training_section["label_progress"]],
         outputs=[training_section["label_progress"]],
-    ).then(
-        fn=lambda has_raw: gr.update(visible=bool(has_raw)),
-        inputs=[training_section["has_raw_lyrics_state"]],
-        outputs=[training_section["raw_lyrics_display"]],
     )
 
     training_section["auto_label_output_dir_browse_btn"].click(
@@ -194,10 +190,6 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             training_section["dataset_builder_state"],
         ],
         outputs=sample_preview_outputs,
-    ).then(
-        fn=lambda has_raw: gr.update(visible=has_raw),
-        inputs=[training_section["has_raw_lyrics_state"]],
-        outputs=[training_section["raw_lyrics_display"]],
     )
 
     training_section["audio_files_table"].select(
@@ -207,10 +199,6 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             training_section["sample_selector"],
             *sample_preview_outputs,
         ],
-    ).then(
-        fn=lambda has_raw: gr.update(visible=has_raw),
-        inputs=[training_section["has_raw_lyrics_state"]],
-        outputs=[training_section["raw_lyrics_display"]],
     )
 
     training_section["save_edit_btn"].click(

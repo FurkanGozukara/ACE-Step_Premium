@@ -47,18 +47,13 @@ def register_training_dataset_load_handler(
     """Register one dataset JSON load button with shared output/update contracts."""
 
     training_section = context.training_section
-    load_event = training_section[button_key].click(
+    training_section[button_key].click(
         fn=train_h.load_existing_dataset_for_preprocess,
         inputs=[
             training_section[path_key],
             training_section["dataset_builder_state"],
         ],
         outputs=build_dataset_load_outputs(training_section, status_key),
-    )
-    load_event.then(
-        fn=lambda has_raw: gr.update(visible=has_raw),
-        inputs=[training_section["has_raw_lyrics_state"]],
-        outputs=[training_section["raw_lyrics_display"]],
     )
 
     if browse_key:
@@ -73,10 +68,6 @@ def register_training_dataset_load_handler(
                 training_section["dataset_builder_state"],
             ],
             outputs=browse_outputs,
-        ).then(
-            fn=lambda has_raw: gr.update(visible=has_raw),
-            inputs=[training_section["has_raw_lyrics_state"]],
-            outputs=[training_section["raw_lyrics_display"]],
         )
 
 

@@ -64,6 +64,17 @@ def _builder_with_samples():
 class TestAutoLabelAll(unittest.TestCase):
     """Tests for dataset auto-label service readiness."""
 
+    def setUp(self) -> None:
+        """Anchor relative auto-label paths to the repository during each test."""
+
+        self._safe_roots = get_safe_roots()
+        set_safe_roots([os.getcwd()])
+
+    def tearDown(self) -> None:
+        """Restore the process-wide path-safety roots."""
+
+        set_safe_roots(self._safe_roots)
+
     @patch(
         "acestep.ui.gradio.events.training.service_auto_init.get_global_gpu_config",
         return_value=_gpu_defaults(),
@@ -397,6 +408,21 @@ class TestGetSamplePreview(unittest.TestCase):
         self.assertEqual(result[0], "/path/to/audio.wav")
         self.assertEqual(result[1], "audio.wav")
         self.assertEqual(result[4], "Genre")  # prompt_override converted
+
+    def test_raw_lyrics_preview_updates_value_and_visibility(self):
+        """Raw lyrics textbox should receive value and visibility together."""
+
+        sample = _sample("song.wav")
+        sample.raw_lyrics = "original lyric from txt"
+        sample.has_raw_lyrics.return_value = True
+        builder = MagicMock()
+        builder.samples = [sample]
+
+        result = get_sample_preview(0, builder)
+
+        self.assertEqual("original lyric from txt", result[12]["value"])
+        self.assertTrue(result[12]["visible"])
+        self.assertTrue(result[13])
 
 
 class TestSelectSampleFromTable(unittest.TestCase):

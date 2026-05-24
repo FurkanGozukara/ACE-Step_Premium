@@ -18,6 +18,7 @@ from acestep.training.dataset_builder_modules.label_hydration import (
 )
 from acestep.training.path_inputs import normalize_user_path
 from acestep.training.path_safety import safe_path
+from .raw_lyrics_preview import raw_lyrics_preview_update
 from .service_auto_init import ensure_training_services_ready
 from .training_utils import _safe_slider
 
@@ -238,9 +239,24 @@ def get_sample_preview(
     Returns:
         Tuple of (audio_path, filename, caption, genre, prompt_override, lyrics,
                   bpm, keyscale, timesig, duration, language, instrumental,
-                  raw_lyrics, raw_lyrics_visible).
+                  raw_lyrics_update, raw_lyrics_visible).
     """
-    empty = (None, "", "", "", "Use Global Ratio", "", None, "", "", 0.0, "instrumental", True, "", False)
+    empty = (
+        None,
+        "",
+        "",
+        "",
+        "Use Global Ratio",
+        "",
+        None,
+        "",
+        "",
+        0.0,
+        "instrumental",
+        True,
+        raw_lyrics_preview_update("", False),
+        False,
+    )
 
     if builder_state is None or not builder_state.samples:
         return empty
@@ -277,7 +293,7 @@ def get_sample_preview(
         sample.duration,
         sample.language,
         sample.is_instrumental,
-        sample.raw_lyrics if has_raw else "",
+        raw_lyrics_preview_update(sample.raw_lyrics, has_raw),
         has_raw,
     )
 

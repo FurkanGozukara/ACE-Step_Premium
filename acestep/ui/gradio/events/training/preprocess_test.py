@@ -137,6 +137,7 @@ class TestLoadTrainingDataset(unittest.TestCase):
                         "filename": "song.flac",
                         "caption": "loaded caption",
                         "lyrics": "[Verse]\nwords",
+                        "raw_lyrics": "raw lyric from txt",
                         "language": "en",
                         "is_instrumental": False,
                         "labeled": True,
@@ -151,6 +152,9 @@ class TestLoadTrainingDataset(unittest.TestCase):
         self.assertEqual(audio_path, result[4])
         self.assertEqual("song.flac", result[5])
         self.assertEqual("loaded caption", result[6])
+        self.assertEqual("raw lyric from txt", result[16]["value"])
+        self.assertTrue(result[16]["visible"])
+        self.assertTrue(result[17])
 
 
 class TestPreprocessDataset(unittest.TestCase):

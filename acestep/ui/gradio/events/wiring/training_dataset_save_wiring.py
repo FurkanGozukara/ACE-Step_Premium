@@ -111,10 +111,6 @@ def register_training_dataset_save_handlers(context: TrainingWiringContext) -> N
             training_section["dataset_builder_state"],
         ],
         outputs=outputs,
-    ).then(
-        fn=lambda has_raw: gr.update(visible=has_raw),
-        inputs=[training_section["has_raw_lyrics_state"]],
-        outputs=[training_section["raw_lyrics_display"]],
     )
 
     training_section["save_path_browse_btn"].click(
@@ -125,8 +121,4 @@ def register_training_dataset_save_handlers(context: TrainingWiringContext) -> N
             training_section["dataset_builder_state"],
         ],
         outputs=outputs,
-    ).then(
-        fn=lambda has_raw: gr.update(visible=has_raw),
-        inputs=[training_section["has_raw_lyrics_state"]],
-        outputs=[training_section["raw_lyrics_display"]],
     )

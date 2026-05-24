@@ -15,6 +15,7 @@ from acestep.debug_utils import debug_end_for, debug_log_for, debug_start_for
 from acestep.training.dataset_builder import DatasetBuilder
 from acestep.training.path_inputs import normalize_user_path
 from acestep.training.path_safety import safe_path
+from .raw_lyrics_preview import raw_lyrics_preview_update
 from .service_auto_init import ensure_training_services_ready
 from .training_utils import _safe_slider
 
@@ -32,13 +33,25 @@ def load_existing_dataset_for_preprocess(
         Tuple of (status, table_data, slider_update, builder_state,
                   audio_path, filename, caption, genre, prompt_override,
                   lyrics, bpm, keyscale, timesig, duration, language,
-                  instrumental, raw_lyrics, has_raw,
+                  instrumental, raw_lyrics_update, has_raw,
                   name_update, tag_update, pos_update, instr_update,
                   ratio_update).
     """
     empty_preview = (
-        None, "", "", "", "Use Global Ratio", "",
-        None, "", "", 0.0, "instrumental", True, "", False,
+        None,
+        "",
+        "",
+        "",
+        "Use Global Ratio",
+        "",
+        None,
+        "",
+        "",
+        0.0,
+        "instrumental",
+        True,
+        raw_lyrics_preview_update("", False),
+        False,
     )
 
     dataset_path = normalize_user_path(dataset_path)
@@ -124,7 +137,7 @@ def load_existing_dataset_for_preprocess(
         first_sample.duration,
         first_sample.language,
         first_sample.is_instrumental,
-        first_sample.raw_lyrics if has_raw else "",
+        raw_lyrics_preview_update(first_sample.raw_lyrics, has_raw),
         has_raw,
     )
 
