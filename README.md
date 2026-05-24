@@ -34,8 +34,8 @@
 - The training speed display fixed and now it shows training speed accurately after first 20 steps completed like below
 - Auto labeling is taking massive time, therefore I have implemented true batch size to this process
 
-<img width="1644" height="334" alt="image" src="https://github.com/user-attachments/assets/33e728ca-949d-4ffc-9a21-bc68e41a1a15" />
- 
+<img width="1097" height="334" alt="image" src="https://github.com/user-attachments/assets/316430ca-bcb1-46a1-8f37-95d7e49dc5f5" />
+
 - Cancel auto labelling process and tensor generation process implemented
 	- Now you can immediately cancel both processes when running in isolated subprocess
 - Now your lyric txt files can also contain style / caption 
