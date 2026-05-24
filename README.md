@@ -28,6 +28,23 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+<h3>24 May 2026 V3.1 Update</h3>
+
+- When auto labeling, even though process finished it was still showing as processing at Raw Lyrics (from .txt file) and this bug fixed
+- The training speed display fixed and now it shows training speed accurately after first 20 steps completed like below
+- Just run installer to update
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/4e46ed9c-4bb1-4590-8998-329963a00f3b" />
+
+<h3>24 May 2026 V3.0 Update</h3>
+
+- V3 is an important update for LoRA training
+- Some LoRA training bugs fixed and the training made more smoother
+- I also have compiled Flash Attention 2.8.4 latest version for Windows and Linux with massive GPU support for Torch 2.11 and CUDA 13
+- The reason is that we have upgraded our installer to Torch 2.11, CUDA 13 and Torchao 0.17.0 thus training is now even faster
+- This Flash Attention compile costed me like 50$ on RunPod for Linux and over 14 hours on Windows you can read more info here : https://www.patreon.com/posts/159064759
+- Download latest zip file, overwrite older files, delete ACE-Step_Premium\venv and run Windows_Install_or_Update.bat again to update or install
+
 <h3>20 May 2026 V2.1 Update</h3>
 
 - Please read V2.0 update first
