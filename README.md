@@ -33,6 +33,9 @@
 - When auto labeling, even though process finished it was still showing as processing at Raw Lyrics (from .txt file) and this bug fixed
 - The training speed display fixed and now it shows training speed accurately after first 20 steps completed like below
 - Auto labeling is taking massive time, therefore I have implemented true batch size to this process
+
+<img width="1644" height="334" alt="image" src="https://github.com/user-attachments/assets/33e728ca-949d-4ffc-9a21-bc68e41a1a15" />
+ 
 - Cancel auto labelling process and tensor generation process implemented
 	- Now you can immediately cancel both processes when running in isolated subprocess
 - Now your lyric txt files can also contain style / caption 
@@ -43,6 +46,8 @@
 	- ```# Lyrics```
 		- Your lyrics
 	- I tried to make it as much as possible robust so it should work fairly well see below example
+- Custom Trigger Tag was not working properly and this issue fixed
+- New feature Debug: save text prompts added so that you can see what is exactly used to generate Preprocessed tensor files which are actually used for training
 - Just run installer to update
 
 <img height="600" alt="image" src="https://github.com/user-attachments/assets/4e46ed9c-4bb1-4590-8998-329963a00f3b" />
