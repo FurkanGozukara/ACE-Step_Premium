@@ -28,7 +28,39 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
-<h3>24 May 2026 V3.2 Update</h3>
+<h3>25 May 2026 V3.6 Update</h3>
+
+- Brings some massive improvements for training and LoRA usage
+- In Generate Song tab now Latest Song section will display status
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/e0a9436e-ca22-4777-941c-494f15c9bcb5" />
+
+- Dataset tab completey remade and now when you load your generated dataset.json file, it will  show caption statistics as word n-grams
+- You can select word-ngrams and it will list songs containing them
+- Then you can select songs to see their full details
+- Useful to see your dataset composition
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/70f3efd9-a5bb-41e4-830a-7f1e2ca7e73f" />
+
+- Now there is Use Only Custom Trigger checkbox which will make all Caption / Style data to be only as your custom trigger
+- I am gonna test this approach to see if works better on training hopefully
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/89ba13d0-87fa-403a-8a75-c60f62a918ee" />
+
+- We have a full new Grid Testing tab which lets you to generate songs with selected LoRAs to compare them very easy and quickly 
+- So that you can compare your LoRA training checkpoints properly
+- You can select multiple LoRAs, any LoRAs you want with filter LoRAs extra feature to make selection easier
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/c7d5e90e-ffec-4c76-807e-45eb9678a6c7" />
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/692ee3ba-510b-4765-a28e-11d06d3001e4" />
+
+- Grid results will have special naming and save to make them easier to compare e.g. like below
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/442f2267-62a7-4593-85c0-d8913f6f6719" />
+
+- Just run installer to update
+
+<h3>24 May 2026 V3.5 Update</h3>
 
 - When auto labeling, even though process finished it was still showing as processing at Raw Lyrics (from .txt file) and this bug fixed
 - The training speed display fixed and now it shows training speed accurately after first 20 steps completed like below
