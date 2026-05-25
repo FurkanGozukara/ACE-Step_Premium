@@ -167,7 +167,8 @@ class TrainingRunWiringTests(unittest.TestCase):
             "acestep.ui.gradio.events.wiring.training_lora_run_wrapper.build_dit_init_payload",
             return_value={"project_root": "."},
         ) as build_init, patch(
-            "acestep.ui.gradio.events.wiring.training_lora_run_wrapper.stream_lora_training_subprocess",
+            "acestep.ui.gradio.events.wiring.training_lora_run_wrapper."
+            "stream_lora_training_subprocess",
             return_value=iter([("subprocess", "log", None, {"is_training": False})]),
         ) as stream:
             outputs = list(
@@ -210,10 +211,25 @@ class TrainingRunWiringTests(unittest.TestCase):
 
         self.assertEqual("subprocess", outputs[0][0])
         build_init.assert_called_once()
-        self.assertTrue(stream.call_args.kwargs["training_args"]["gradient_checkpointing"])
+        training_args = stream.call_args.kwargs["training_args"]
+        self.assertEqual("my-awesome-song", training_args["lora_name"])
+        self.assertEqual(64, training_args["lora_rank"])
+        self.assertEqual(128, training_args["lora_alpha"])
+        self.assertEqual(0.1, training_args["lora_dropout"])
+        self.assertEqual(0.0003, training_args["learning_rate"])
+        self.assertEqual(10, training_args["train_epochs"])
+        self.assertEqual(1, training_args["train_batch_size"])
+        self.assertEqual(1, training_args["gradient_accumulation"])
+        self.assertEqual(10, training_args["save_every_n_epochs"])
+        self.assertTrue(training_args["gradient_checkpointing"])
+        self.assertFalse(training_args["activation_cpu_offload"])
+        self.assertTrue(training_args["offload_non_decoder"])
+        self.assertTrue(training_args["keep_frozen_base_in_compute_dtype"])
+        self.assertTrue(training_args["use_8bit_adam"])
+        self.assertEqual("Disabled", training_args["base_quantization"])
         self.assertEqual(
             8,
-            stream.call_args.kwargs["training_args"]["training_num_inference_steps"],
+            training_args["training_num_inference_steps"],
         )
 
 

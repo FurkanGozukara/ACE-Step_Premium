@@ -42,6 +42,10 @@ from acestep.ui.gradio.pages import (
     create_studio_page,
     create_training_page,
 )
+from acestep.ui.gradio.premium_preset_components import (
+    build_preset_component_map,
+    preset_components_for_keys,
+)
 from acestep.ui.gradio.premium_features import (
     delete_preset_action,
     get_preset_component_keys,
@@ -751,7 +755,15 @@ def create_gradio_interface(
         )
         register_library_handlers(library_page, demo=demo)
 
-        preset_components = [generation_section[key] for key in get_preset_component_keys()]
+        preset_keys = get_preset_component_keys()
+        preset_component_map = build_preset_component_map(
+            generation_section=generation_section,
+            simple_page=simple_page,
+            training_section=training_section,
+            dataset_section=dataset_section,
+            batch_folder_section=batch_folder_section,
+        )
+        preset_components = preset_components_for_keys(preset_component_map, preset_keys)
         demo.load(
             fn=startup_preset_updates,
             outputs=preset_components

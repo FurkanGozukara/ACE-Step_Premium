@@ -44,6 +44,11 @@ from acestep.ui.gradio.events.generation.model_config import (
 from acestep.ui.gradio.events.dcw_defaults import get_dcw_defaults_for_think
 from acestep.ui.gradio.events.generation.quantization import default_quantization_value
 from acestep.ui.gradio.events.results.output_manager import get_results_dir
+from acestep.ui.gradio.premium_preset_defaults import ADDITIONAL_DEFAULT_PRESET_VALUES
+from acestep.ui.gradio.premium_preset_schema import (
+    ADDITIONAL_PRESET_COMPONENT_KEYS,
+    FILE_UPLOAD_PRESET_KEYS,
+)
 
 
 GPU_OPTIMIZATION_PRESET_NAME = "GPU Optimization Preset"
@@ -262,6 +267,7 @@ PRESET_COMPONENT_KEYS: tuple[str, ...] = (
     "auto_label_output_dir",
     "auto_label_subprocess",
     "auto_label_batch_size",
+    *ADDITIONAL_PRESET_COMPONENT_KEYS,
 )
 
 DEFAULT_PRESET_VALUES: dict[str, Any] = {
@@ -322,6 +328,7 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "auto_label_output_dir": "",
     "auto_label_subprocess": True,
     "auto_label_batch_size": 1,
+    **ADDITIONAL_DEFAULT_PRESET_VALUES,
 }
 
 def normalize_simple_model_dropdown_value(value: Any) -> str:
@@ -387,6 +394,11 @@ def _runtime_default_values(base_values: dict[str, Any] | None = None) -> dict[s
     values = dict(base_values or DEFAULT_PRESET_VALUES)
     values["lm_model_path"] = _runtime_lm_model_default()
     values["dataset_vram_preset"] = default_dataset_vram_preset_name()
+    values["lora_output_dir"] = str(_project_root() / "Loras")
+    try:
+        values["mlx_vae_chunk_size"] = get_global_gpu_config().mlx_vae_chunk_size
+    except Exception:
+        pass
     return {
         **values,
         "checkpoint_dropdown": str(get_models_dir(project_root=_project_root())),
@@ -540,7 +552,7 @@ def _apply_runtime_defaults(
     merged = dict(payload)
     defaults = _runtime_default_values(base_values)
     for key, value in defaults.items():
-        if merged.get(key) in (None, ""):
+        if key not in provided_keys or merged.get(key) is None:
             merged[key] = value
     config_path = str(merged.get("config_path") or "").strip()
     raw_simple_model = str(payload.get("simple_model_dropdown") or "").strip()
@@ -560,8 +572,9 @@ def _apply_runtime_defaults(
         merged["dataset_model_config"] = quality_model
     quality_defaults = model_quality_defaults(quality_model)
     for key, value in quality_defaults.items():
-        if key not in provided_keys or merged.get(key) in (None, ""):
+        if key not in provided_keys or merged.get(key) is None:
             merged[key] = value
+    _apply_cross_tab_defaults(merged, provided_keys)
     raw_quantization = payload.get("quantization_checkbox")
     raw_simple_quantization = payload.get("simple_quantization")
     if raw_quantization in (None, "") and raw_simple_quantization not in (None, ""):
@@ -586,6 +599,95 @@ def _apply_runtime_defaults(
     elif raw_lora_scale in (None, "") and raw_simple_lora_scale not in (None, ""):
         merged["lora_scale_slider"] = merged.get("simple_lora_scale_slider", 1.0)
     return merged
+
+
+def _apply_cross_tab_defaults(merged: dict[str, Any], provided_keys: set[str]) -> None:
+    """Backfill newly tracked tab-specific fields without overwriting saved blanks."""
+
+    _copy_missing_value(
+        merged,
+        provided_keys,
+        "simple_create_caption",
+        "captions",
+        DEFAULT_PRESET_CAPTION,
+    )
+    _copy_missing_value(
+        merged,
+        provided_keys,
+        "simple_create_lyrics",
+        "lyrics",
+        DEFAULT_PRESET_LYRICS,
+    )
+    _copy_missing_value(
+        merged,
+        provided_keys,
+        "simple_create_tier_dropdown",
+        "tier_dropdown",
+    )
+    _copy_missing_value(
+        merged,
+        provided_keys,
+        "simple_create_vocal_language",
+        "vocal_language",
+        "en",
+    )
+    _copy_missing_value(
+        merged,
+        provided_keys,
+        "simple_create_instrumental",
+        "instrumental_checkbox",
+        False,
+    )
+    _copy_missing_value(
+        merged,
+        provided_keys,
+        "simple_create_duration",
+        "audio_duration",
+        -1,
+    )
+    _copy_missing_value(
+        merged,
+        provided_keys,
+        "simple_create_batch_size",
+        "batch_size_input",
+        1,
+    )
+    _copy_missing_value(
+        merged,
+        provided_keys,
+        "simple_create_random_seed",
+        "random_seed_checkbox",
+        True,
+    )
+    _copy_missing_value(merged, provided_keys, "simple_create_seed", "seed", "-1")
+    _copy_missing_value(
+        merged,
+        provided_keys,
+        "lora_sample_prompt",
+        "captions",
+        DEFAULT_PRESET_CAPTION,
+    )
+    _copy_missing_value(
+        merged,
+        provided_keys,
+        "lora_sample_lyrics",
+        "lyrics",
+        DEFAULT_PRESET_LYRICS,
+    )
+
+
+def _copy_missing_value(
+    merged: dict[str, Any],
+    provided_keys: set[str],
+    target_key: str,
+    source_key: str,
+    fallback: Any = "",
+) -> None:
+    """Copy a source value to a missing target preset key."""
+
+    if target_key in provided_keys and merged.get(target_key) is not None:
+        return
+    merged[target_key] = merged.get(source_key, fallback)
 
 
 def _load_resolved_preset_payload(name: str | None) -> tuple[str, bool, dict[str, Any]]:
@@ -621,6 +723,8 @@ def _payload_to_component_updates(payload: dict[str, Any]) -> list[Any]:
     for key in PRESET_COMPONENT_KEYS:
         if key in payload:
             value = payload[key]
+            if key in FILE_UPLOAD_PRESET_KEYS:
+                value = _safe_file_upload_value(value)
             if key in {"quantization_checkbox", "simple_quantization"}:
                 value = default_quantization_value(value)
             if key in {"lora_dropdown", "simple_lora_dropdown"}:
@@ -704,6 +808,31 @@ def _payload_to_component_updates(payload: dict[str, Any]) -> list[Any]:
         else:
             updates.append(gr.skip())
     return updates
+
+
+def _safe_file_upload_value(value: Any) -> Any:
+    """Return a Gradio-safe value for file, image, and audio upload controls."""
+
+    if value in (None, ""):
+        return None
+    if isinstance(value, dict):
+        candidate = value.get("path") or value.get("name")
+        return value if _is_existing_file(candidate) else None
+    if isinstance(value, (str, os.PathLike)):
+        path = Path(value)
+        return str(path) if _is_existing_file(path) else None
+    return None
+
+
+def _is_existing_file(value: Any) -> bool:
+    """Return whether a value points at a readable filesystem file."""
+
+    if value in (None, ""):
+        return False
+    try:
+        return Path(value).expanduser().is_file()
+    except (OSError, TypeError, ValueError):
+        return False
 
 
 def _lora_status_from_payload(payload: dict[str, Any]) -> tuple[str, Any]:

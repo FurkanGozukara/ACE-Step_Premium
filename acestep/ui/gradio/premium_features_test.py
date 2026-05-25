@@ -349,6 +349,128 @@ class PremiumFeaturesTests(unittest.TestCase):
         )
         self.assertIn("Next run will use LoRA:", updates[len(keys)])
 
+    def test_user_preset_saves_and_loads_lora_training_parameters(self) -> None:
+        """LoRA training tab controls should round-trip through user presets."""
+
+        expected = {
+            "training_tensor_dir": r"G:\data\tensors",
+            "lora_model_config": DEFAULT_PREMIUM_DIT_MODEL,
+            "lora_vram_preset": "Manual",
+            "lora_name": "voice-style",
+            "lora_rank": 36,
+            "lora_alpha": 72,
+            "lora_dropout": 0.15,
+            "learning_rate": 0.00022,
+            "train_epochs": 321,
+            "train_batch_size": 3,
+            "gradient_accumulation": 5,
+            "save_every_n_epochs": 7,
+            "training_shift": 4.25,
+            "training_num_inference_steps": 37,
+            "training_seed": 12345,
+            "lora_output_dir": r"G:\loras",
+            "resume_checkpoint_dir": r"G:\loras\voice-style\epoch-7-training_resume_state.pt",
+            "lora_gradient_checkpointing": False,
+            "lora_activation_cpu_offload": True,
+            "lora_offload_non_decoder": False,
+            "lora_keep_frozen_bf16": True,
+            "lora_use_8bit_adam": True,
+            "lora_base_quantization": "FP8 scaled",
+            "lora_empty_cache_every_n_steps": 19,
+            "lora_sample_enabled": True,
+            "lora_sample_every_n_epochs": 4,
+            "lora_sample_prompt": "training sample prompt",
+            "lora_sample_lyrics": "[verse]\ntraining sample lyrics",
+            "lora_sample_seed": 9876,
+            "lora_sample_offload_training_model": True,
+            "lora_sample_offload_generation": False,
+            "training_subprocess": False,
+        }
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            for key, value in expected.items():
+                values[keys.index(key)] = value
+            try:
+                premium_features.save_preset_action("lora training", None, *values)
+                loaded = premium_features.load_named_preset("lora training")
+                updates = premium_features.load_preset_action("lora training")
+            finally:
+                self._restore_project_root(original)
+
+        for key, value in expected.items():
+            with self.subTest(key=key):
+                self.assertEqual(loaded[key], value)
+                self.assertEqual(updates[keys.index(key)].get("value"), value)
+
+    def test_user_preset_preserves_saved_blank_text_values(self) -> None:
+        """Saved empty text fields should not be replaced by built-in defaults."""
+
+        blank_keys = (
+            "captions",
+            "lyrics",
+            "simple_create_caption",
+            "simple_create_lyrics",
+            "lora_sample_prompt",
+            "lora_sample_lyrics",
+            "flow_edit_source_caption",
+            "flow_edit_source_lyrics",
+        )
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            for key in blank_keys:
+                values[keys.index(key)] = ""
+            try:
+                premium_features.save_preset_action("blank text", None, *values)
+                loaded = premium_features.load_named_preset("blank text")
+                updates = premium_features.load_preset_action("blank text")
+            finally:
+                self._restore_project_root(original)
+
+        for key in blank_keys:
+            with self.subTest(key=key):
+                self.assertEqual(loaded[key], "")
+                self.assertEqual(updates[keys.index(key)].get("value"), "")
+
+    def test_user_preset_file_upload_fields_are_gradio_safe(self) -> None:
+        """Empty or directory upload values should load as empty file components."""
+
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            reference_file = Path(tmp_dir) / "reference.wav"
+            reference_file.write_bytes(b"RIFF")
+            values[keys.index("reference_audio")] = str(reference_file)
+            values[keys.index("src_audio")] = tmp_dir
+            values[keys.index("lm_codes_audio_upload")] = ""
+            values[keys.index("simple_create_cover_image")] = ""
+            try:
+                premium_features.save_preset_action("file fields", None, *values)
+                updates = premium_features.load_preset_action("file fields")
+            finally:
+                self._restore_project_root(original)
+
+        self.assertEqual(
+            updates[keys.index("reference_audio")].get("value"),
+            str(reference_file),
+        )
+        self.assertIsNone(updates[keys.index("src_audio")].get("value"))
+        self.assertIsNone(updates[keys.index("lm_codes_audio_upload")].get("value"))
+        self.assertIsNone(updates[keys.index("simple_create_cover_image")].get("value"))
+
 
 if __name__ == "__main__":
     unittest.main()
