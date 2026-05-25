@@ -15,9 +15,8 @@ from acestep.core.generation.cancellation import (
     generation_cancel_scope,
     is_generation_cancelled,
 )
-from acestep.ui.gradio.events.generation.generation_count import normalize_generation_count
 from acestep.ui.gradio.events.grid_testing_args import (
-    BATCH_SIZE_ARG_INDEX,
+    apply_grid_generation_count,
     apply_grid_seed,
     args_for_grid_lora,
     prepare_grid_generation_args,
@@ -51,9 +50,10 @@ def run_grid_testing(
     mp3_only: bool,
     generation_args: Sequence[Any],
     *,
+    generations_per_lora: Any = 1,
     generation_runner: GenerationRunner | None = None,
 ) -> Iterator[tuple[str, Any]]:
-    """Generate the current quick settings once for each selected LoRA.
+    """Generate the current quick settings for each selected LoRA.
 
     Args:
         dit_handler: Active DiT handler.
@@ -62,6 +62,7 @@ def run_grid_testing(
         output_folder: Optional custom final output folder.
         mp3_only: Whether to keep only MP3 outputs.
         generation_args: Current generation settings from the quick/advanced controls.
+        generations_per_lora: Number of examples to generate for each selected LoRA.
         generation_runner: Optional replacement for the standard generation runner.
 
     Yields:
@@ -72,6 +73,7 @@ def run_grid_testing(
     final_paths: list[str] = []
     try:
         args = prepare_grid_generation_args(generation_args, mp3_only=bool(mp3_only))
+        generation_count = apply_grid_generation_count(args, generations_per_lora)
         jobs = resolve_grid_lora_jobs(selected_loras)
         target_folder = resolve_grid_output_folder(output_folder)
     except ValueError as exc:
@@ -82,7 +84,7 @@ def run_grid_testing(
     temp_parent = target_folder / ".grid_work"
     temp_root = temp_parent / f"{int(time.time() * 1000)}"
     rows: list[dict[str, Any]] = []
-    total_songs = len(jobs) * normalize_generation_count(args[BATCH_SIZE_ARG_INDEX])
+    total_songs = len(jobs) * generation_count
 
     with generation_cancel_scope():
         try:
@@ -124,7 +126,7 @@ def run_grid_testing(
                     mp3_only=bool(mp3_only),
                 )
                 final_paths.extend(flattened)
-                processed += normalize_generation_count(current_args[BATCH_SIZE_ARG_INDEX])
+                processed += generation_count
                 rows.append(grid_manifest_row(job, generation_status, flattened))
                 if not mp3_only:
                     manifest_path = write_grid_manifest(target_folder, rows)

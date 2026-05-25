@@ -33,7 +33,7 @@ def register_grid_testing_handlers(
 ) -> None:
     """Register Grid Testing button and picker handlers."""
 
-    def grid_wrapper(selected_loras, output_folder, mp3_only, *args):
+    def grid_wrapper(selected_loras, output_folder, mp3_only, generations_per_lora, *args):
         """Stream Grid Testing status while processing selected LoRAs."""
 
         yield from run_grid_testing(
@@ -43,6 +43,7 @@ def register_grid_testing_handlers(
             output_folder,
             mp3_only,
             args,
+            generations_per_lora=generations_per_lora,
         )
 
     grid_section["grid_lora_filter"].input(
@@ -80,6 +81,7 @@ def register_grid_testing_handlers(
             grid_section["grid_lora_dropdown"],
             grid_section["grid_output_folder"],
             grid_section["grid_mp3_only"],
+            grid_section["grid_generation_count"],
             *build_generation_run_inputs(generation_section, results_section),
         ],
         outputs=[

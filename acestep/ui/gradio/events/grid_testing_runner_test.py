@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 from acestep.ui.gradio.events.grid_testing_args import (
     AUDIO_FORMAT_ARG_INDEX,
+    BATCH_SIZE_ARG_INDEX,
     LORA_DROPDOWN_ARG_INDEX,
     RANDOM_SEED_ARG_INDEX,
     SEED_ARG_INDEX,
@@ -30,7 +31,7 @@ class GridTestingRunnerTests(unittest.TestCase):
             output_dir = Path(tmpdir) / "grid"
             lora_path = Path(tmpdir) / "voice.safetensors"
             lora_path.write_bytes(b"placeholder")
-            captured_args: list[tuple[bool, str, str, bool, str]] = []
+            captured_args: list[tuple[bool, str, str, bool, str, int]] = []
 
             def fake_runner(_dit_handler, _llm_handler, *args):
                 captured_args.append(
@@ -40,6 +41,7 @@ class GridTestingRunnerTests(unittest.TestCase):
                         str(args[LORA_DROPDOWN_ARG_INDEX] or ""),
                         bool(args[USE_LORA_ARG_INDEX]),
                         str(args[AUDIO_FORMAT_ARG_INDEX]),
+                        int(args[BATCH_SIZE_ARG_INDEX]),
                     )
                 )
                 paths = _write_fake_generated_run("0001")
@@ -60,6 +62,7 @@ class GridTestingRunnerTests(unittest.TestCase):
                         str(output_dir),
                         True,
                         _generation_args(),
+                        generations_per_lora=3,
                         generation_runner=fake_runner,
                     )
                 )
@@ -70,11 +73,12 @@ class GridTestingRunnerTests(unittest.TestCase):
         self.assertIn("Grid complete", final_status)
         self.assertEqual(
             [
-                (False, "12345", "", False, "mp3"),
-                (False, "12345", str(lora_path.resolve()), True, "mp3"),
+                (False, "12345", "", False, "mp3", 3),
+                (False, "12345", str(lora_path.resolve()), True, "mp3", 3),
             ],
             captured_args,
         )
+        self.assertIn("Grid jobs: 2 LoRA(s), 6 song(s) total.", final_status)
         self.assertIn("base-model-0001.mp3", " ".join(final_paths))
         self.assertIn("voice-0001.mp3", " ".join(final_paths))
         self.assertFalse((output_dir / ".grid_work").exists())

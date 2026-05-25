@@ -66,11 +66,21 @@ def create_grid_testing_page() -> dict[str, Any]:
                     scale=1,
                     min_width=130,
                 )
-            grid_mp3_only = gr.Checkbox(
-                label="Save only MP3 files",
-                value=True,
-                info="When checked, grid output is limited to MP3 files.",
-            )
+            with gr.Row():
+                grid_mp3_only = gr.Checkbox(
+                    label="Save only MP3 files",
+                    value=True,
+                    info="When checked, grid output is limited to MP3 files.",
+                    scale=2,
+                )
+                grid_generation_count = gr.Number(
+                    label="Generations per LoRA",
+                    value=1,
+                    minimum=1,
+                    step=1,
+                    info="Number of examples to generate for each selected LoRA.",
+                    scale=1,
+                )
             with gr.Row(equal_height=True):
                 grid_generate_btn = gr.Button(
                     "Generate Grid",
@@ -111,6 +121,7 @@ def create_grid_testing_page() -> dict[str, Any]:
         "grid_output_folder": grid_output_folder,
         "grid_output_folder_browse_btn": grid_output_folder_browse_btn,
         "grid_mp3_only": grid_mp3_only,
+        "grid_generation_count": grid_generation_count,
         "grid_generate_btn": grid_generate_btn,
         "grid_cancel_btn": grid_cancel_btn,
         "grid_generated_files": grid_generated_files,

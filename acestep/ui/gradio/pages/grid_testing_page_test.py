@@ -26,6 +26,7 @@ class GridTestingPageTests(unittest.TestCase):
         self.assertEqual([""], controls["grid_lora_dropdown"].value)
         self.assertEqual("", controls["grid_lora_filter"].value)
         self.assertTrue(controls["grid_mp3_only"].value)
+        self.assertEqual(1, controls["grid_generation_count"].value)
 
 
 if __name__ == "__main__":
