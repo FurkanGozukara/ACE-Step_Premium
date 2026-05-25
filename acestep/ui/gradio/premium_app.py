@@ -58,7 +58,7 @@ from acestep.ui.gradio.premium_features import (
 )
 
 
-APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v3.4"
+APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v3.5"
 APP_RELEASE_URL = "https://www.patreon.com/posts/157675060"
 APP_HEADER_MARKDOWN = f"# {APP_BROWSER_TITLE} : [{APP_RELEASE_URL}]({APP_RELEASE_URL})"
 _FAVICON_PATH = Path(__file__).resolve().parent / "assets" / "ace_step_premium_favicon.svg"
@@ -255,7 +255,11 @@ _BUTTON_PERSONALIZATION_SCRIPT = """
 
     function isCancelButton(button) {
         return button instanceof HTMLButtonElement
-            && Boolean(button.closest(".action-btn-cancel"));
+            && Boolean(
+                button.closest(".action-btn-cancel-simple")
+                || button.closest(".action-btn-cancel-advanced")
+                || button.closest(".action-btn-cancel-batch")
+            );
     }
 
     function subprocessModeEnabled() {
@@ -518,6 +522,15 @@ button.action-btn-cancel {
 button.action-btn-cancel:hover {
     box-shadow: 0 10px 24px rgba(220, 38, 38, 0.32) !important;
 }
+.action-btn-delete-preset button,
+button.action-btn-delete-preset {
+    background: linear-gradient(135deg, #dc2626 0%, #f43f5e 100%) !important;
+    box-shadow: 0 8px 20px rgba(220, 38, 38, 0.24) !important;
+}
+.action-btn-delete-preset button:hover,
+button.action-btn-delete-preset:hover {
+    box-shadow: 0 10px 24px rgba(220, 38, 38, 0.32) !important;
+}
 .action-btn-cancel-simple button,
 button.action-btn-cancel-simple {
     background: linear-gradient(135deg, #991b1b 0%, #e11d48 100%) !important;
@@ -764,6 +777,9 @@ def create_gradio_interface(
             batch_folder_section=batch_folder_section,
         )
         preset_components = preset_components_for_keys(preset_component_map, preset_keys)
+        preset_default_values = gr.State(
+            [getattr(component, "value", None) for component in preset_components]
+        )
         demo.load(
             fn=startup_preset_updates,
             outputs=preset_components
@@ -807,12 +823,12 @@ def create_gradio_interface(
         )
         studio_page["delete_preset_btn"].click(
             fn=delete_preset_action,
-            inputs=[studio_page["preset_dropdown"]],
-            outputs=[
+            inputs=[
                 studio_page["preset_dropdown"],
-                studio_page["preset_status"],
-                studio_page["studio_overview"],
+                preset_default_values,
+                studio_page["preset_name_input"],
             ],
+            outputs=preset_load_outputs,
         )
         studio_page["refresh_dashboard_btn"].click(
             fn=refresh_dashboard,

@@ -1034,24 +1034,100 @@ def load_preset_action(preset_name: str | None) -> tuple[Any, ...]:
     )
 
 
-def delete_preset_action(preset_name: str | None) -> tuple[Any, ...]:
-    """Delete a user preset and fall back to GPU optimization defaults."""
-    selected = str(preset_name or "").strip()
+def delete_preset_action(
+    preset_name: str | None,
+    default_values: list[Any] | tuple[Any, ...] | None = None,
+    preset_name_input: str | None = None,
+) -> tuple[Any, ...]:
+    """Delete a preset, then load the next preset or restore Gradio defaults."""
+
+    selected = str(preset_name or preset_name_input or "").strip()
     if not selected:
         return (
+            *[gr.skip() for _ in PRESET_COMPONENT_KEYS],
+            "No LoRA will be used.",
+            gr.update(value=False),
             gr.update(choices=list_preset_names(), value=None),
             "Select a user preset to delete.",
             _build_dashboard_markdown(None, None),
         )
 
+    choices_before = list_preset_names()
     target = _user_preset_path(selected)
+    deleted = target.exists()
     if target.exists():
         target.unlink()
 
     if get_last_used_preset_name() == selected:
         _clear_last_used_preset_name()
+
+    choices_after = list_preset_names()
+    next_preset = _next_preset_after_delete(selected, choices_before, choices_after)
+    if next_preset:
+        payload = load_named_preset(next_preset)
+        set_last_used_preset_name(next_preset)
+        lora_status, use_lora_update = _lora_status_from_payload(payload)
+        delete_status = (
+            f"Deleted preset: {selected}. Loaded next preset: {next_preset}"
+            if deleted
+            else f"Preset `{selected}` was missing. Loaded preset: {next_preset}"
+        )
+        return (
+            *_payload_to_component_updates(payload),
+            lora_status,
+            use_lora_update,
+            gr.update(choices=choices_after, value=next_preset),
+            delete_status,
+            _build_dashboard_markdown(
+                next_preset,
+                payload.get("subprocess_mode_checkbox"),
+            ),
+        )
+
+    _clear_last_used_preset_name()
+    status = (
+        f"Deleted preset: {selected}. Using {GPU_OPTIMIZATION_PRESET_NAME}."
+        if deleted
+        else f"Preset `{selected}` was missing. Using {GPU_OPTIMIZATION_PRESET_NAME}."
+    )
     return (
-        gr.update(choices=list_preset_names(), value=None),
-        f"Deleted preset: {selected}",
+        *_default_preset_component_updates(default_values),
+        "No LoRA will be used.",
+        gr.update(value=False),
+        gr.update(choices=choices_after, value=None),
+        status,
         _build_dashboard_markdown(None, None),
     )
+
+
+def _next_preset_after_delete(
+    deleted_name: str,
+    choices_before: list[str],
+    choices_after: list[str],
+) -> str:
+    """Return the next dropdown preset after deleting a selected preset."""
+
+    if not choices_after:
+        return ""
+    try:
+        deleted_index = choices_before.index(deleted_name)
+    except ValueError:
+        return choices_after[0]
+    return choices_after[min(deleted_index, len(choices_after) - 1)]
+
+
+def _default_preset_component_updates(
+    default_values: list[Any] | tuple[Any, ...] | None,
+) -> list[Any]:
+    """Return component updates that restore the no-user-preset Gradio defaults."""
+
+    if default_values and len(default_values) == len(PRESET_COMPONENT_KEYS):
+        payload = _values_to_payload(tuple(default_values))
+        return _payload_to_component_updates(payload)
+
+    fallback_payload = _apply_runtime_defaults({})
+    fallback_updates = _payload_to_component_updates(fallback_payload)
+    return [
+        fallback_updates[index] if key in fallback_payload else gr.skip()
+        for index, key in enumerate(PRESET_COMPONENT_KEYS)
+    ]

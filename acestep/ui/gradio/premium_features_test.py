@@ -174,6 +174,108 @@ class PremiumFeaturesTests(unittest.TestCase):
         self.assertIsNone(remembered)
         self.assertIn("missing", updates[len(keys) + 3])
 
+    def test_delete_preset_selects_next_available_preset(self) -> None:
+        """Deleting the current preset should load the next preset in dropdown order."""
+
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            default_values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            alpha_values = list(default_values)
+            beta_values = list(default_values)
+            gamma_values = list(default_values)
+            alpha_values[keys.index("captions")] = "alpha caption"
+            beta_values[keys.index("captions")] = "beta caption"
+            gamma_values[keys.index("captions")] = "gamma caption"
+            try:
+                premium_features.save_preset_action("alpha", None, *alpha_values)
+                premium_features.save_preset_action("beta", None, *beta_values)
+                premium_features.save_preset_action("gamma", None, *gamma_values)
+                updates = premium_features.delete_preset_action(
+                    "beta",
+                    default_values,
+                )
+                names = premium_features.list_preset_names()
+                remembered = premium_features.get_last_used_preset_name()
+            finally:
+                self._restore_project_root(original)
+
+        dropdown_update = updates[len(keys) + 2]
+        self.assertEqual(names, ["alpha", "gamma"])
+        self.assertEqual(dropdown_update.get("choices"), ["alpha", "gamma"])
+        self.assertEqual(dropdown_update.get("value"), "gamma")
+        self.assertEqual(remembered, "gamma")
+        self.assertEqual(updates[keys.index("captions")].get("value"), "gamma caption")
+        self.assertIn("Loaded next preset: gamma", updates[len(keys) + 3])
+
+    def test_delete_preset_falls_back_to_typed_name(self) -> None:
+        """Delete should still work if the browser sends no dropdown value."""
+
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            default_values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            try:
+                premium_features.save_preset_action("typed only", None, *default_values)
+                updates = premium_features.delete_preset_action(
+                    None,
+                    default_values,
+                    "typed only",
+                )
+                names = premium_features.list_preset_names()
+            finally:
+                self._restore_project_root(original)
+
+        dropdown_update = updates[len(keys) + 2]
+        self.assertEqual(names, [])
+        self.assertEqual(dropdown_update.get("choices"), [])
+        self.assertIsNone(dropdown_update.get("value"))
+        self.assertIn("Deleted preset: typed only", updates[len(keys) + 3])
+
+    def test_delete_last_preset_restores_gradio_defaults(self) -> None:
+        """Deleting the final preset should clear selection and reset all fields."""
+
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            default_values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            default_values[keys.index("captions")] = "default caption"
+            default_values[keys.index("training_tensor_dir")] = "./datasets/preprocessed_tensors"
+            preset_values = list(default_values)
+            preset_values[keys.index("captions")] = "custom caption"
+            preset_values[keys.index("training_tensor_dir")] = r"G:\custom\tensors"
+            try:
+                premium_features.save_preset_action("only", None, *preset_values)
+                updates = premium_features.delete_preset_action(
+                    "only",
+                    default_values,
+                )
+                names = premium_features.list_preset_names()
+                remembered = premium_features.get_last_used_preset_name()
+            finally:
+                self._restore_project_root(original)
+
+        dropdown_update = updates[len(keys) + 2]
+        self.assertEqual(names, [])
+        self.assertEqual(dropdown_update.get("choices"), [])
+        self.assertIsNone(dropdown_update.get("value"))
+        self.assertIsNone(remembered)
+        self.assertEqual(updates[keys.index("captions")].get("value"), "default caption")
+        self.assertEqual(
+            updates[keys.index("training_tensor_dir")].get("value"),
+            "./datasets/preprocessed_tensors",
+        )
+        self.assertIn("Using GPU Optimization Preset", updates[len(keys) + 3])
+
     def test_previous_system_names_are_allowed_as_user_presets(self) -> None:
         """Removed system preset names should behave like ordinary user names."""
         with self._with_project_root() as tmp_dir:

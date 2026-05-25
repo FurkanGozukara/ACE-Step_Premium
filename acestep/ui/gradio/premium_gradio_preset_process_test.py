@@ -17,6 +17,7 @@ from acestep.ui.gradio.premium_app import create_gradio_interface
 from acestep.ui.gradio.premium_features import (
     DEFAULT_PRESET_VALUES,
     get_preset_component_keys,
+    list_preset_names,
     save_preset_action,
 )
 from acestep.ui.gradio.premium_preset_schema import FILE_UPLOAD_PRESET_KEYS
@@ -78,6 +79,33 @@ class _FakeDatasetHandler:
 class PremiumGradioPresetProcessTests(unittest.IsolatedAsyncioTestCase):
     """Verify preset callbacks survive Gradio component postprocessing."""
 
+    def _create_demo_with_presets(
+        self,
+        preset_captions: dict[str, str],
+    ) -> tuple[Any, tuple[str, ...], int]:
+        """Create the real premium Gradio app with saved test presets."""
+
+        keys = get_preset_component_keys()
+        for preset_name, caption in preset_captions.items():
+            values = [DEFAULT_PRESET_VALUES.get(key, "") for key in keys]
+            values[keys.index("captions")] = caption
+            save_preset_action(preset_name, None, *values)
+
+        demo = create_gradio_interface(
+            dit_handler=_FakeDitHandler(),
+            llm_handler=_FakeLlmHandler(),
+            dataset_handler=_FakeDatasetHandler(),
+            init_params=None,
+            language="en",
+        )
+        delete_id = next(
+            key for key, block_fn in demo.fns.items()
+            if getattr(block_fn.fn, "__name__", "") == "delete_preset_action"
+        )
+        names = list_preset_names()
+        demo.fns[delete_id].inputs[0].choices = [(name, name) for name in names]
+        return demo, keys, delete_id
+
     async def test_load_preset_process_api_accepts_empty_upload_values(self) -> None:
         """Loading a preset should not make Gradio cache empty upload paths."""
 
@@ -112,6 +140,76 @@ class PremiumGradioPresetProcessTests(unittest.IsolatedAsyncioTestCase):
                     os.environ["ACESTEP_PROJECT_ROOT"] = original
 
         self.assertEqual(len(result.get("data", [])), len(keys) + 5)
+
+    async def test_delete_preset_process_api_selects_next_available_preset(self) -> None:
+        """Deleting the selected preset should refresh and load the next preset."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            original = os.environ.get("ACESTEP_PROJECT_ROOT")
+            os.environ["ACESTEP_PROJECT_ROOT"] = tmp_dir
+            try:
+                demo, keys, delete_id = self._create_demo_with_presets(
+                    {"alpha": "alpha caption", "beta": "beta caption"}
+                )
+                delete_button = next(
+                    block for block in demo.blocks.values()
+                    if getattr(block, "value", None) == "Delete Preset"
+                )
+                self.assertIn("action-btn-delete-preset", delete_button.elem_classes)
+                self.assertNotIn("action-btn-cancel", delete_button.elem_classes)
+
+                default_state = demo.fns[delete_id].inputs[1]
+                result = await demo.process_api(
+                    delete_id,
+                    ["alpha", default_state.value, ""],
+                )
+                remaining = list_preset_names()
+            finally:
+                if original is None:
+                    os.environ.pop("ACESTEP_PROJECT_ROOT", None)
+                else:
+                    os.environ["ACESTEP_PROJECT_ROOT"] = original
+
+        data = result.get("data", [])
+        self.assertEqual(len(data), len(keys) + 5)
+        self.assertEqual(["beta"], remaining)
+        self.assertEqual("beta caption", data[keys.index("captions")].get("value"))
+        self.assertEqual("beta", data[len(keys) + 2].get("value"))
+        self.assertIn("Deleted preset: alpha", data[len(keys) + 3])
+
+    async def test_delete_last_preset_process_api_restores_defaults(self) -> None:
+        """Deleting the final preset should clear choices and restore defaults."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            original = os.environ.get("ACESTEP_PROJECT_ROOT")
+            os.environ["ACESTEP_PROJECT_ROOT"] = tmp_dir
+            try:
+                demo, keys, delete_id = self._create_demo_with_presets(
+                    {"only": "last preset caption"}
+                )
+                default_state = demo.fns[delete_id].inputs[1]
+                result = await demo.process_api(
+                    delete_id,
+                    ["only", default_state.value, ""],
+                )
+                remaining = list_preset_names()
+            finally:
+                if original is None:
+                    os.environ.pop("ACESTEP_PROJECT_ROOT", None)
+                else:
+                    os.environ["ACESTEP_PROJECT_ROOT"] = original
+
+        data = result.get("data", [])
+        dropdown_update = data[len(keys) + 2]
+        self.assertEqual(len(data), len(keys) + 5)
+        self.assertEqual([], remaining)
+        self.assertEqual([], dropdown_update.get("choices"))
+        self.assertIsNone(dropdown_update.get("value"))
+        self.assertNotEqual(
+            "last preset caption",
+            data[keys.index("captions")].get("value"),
+        )
+        self.assertIn("Using GPU Optimization Preset", data[len(keys) + 3])
 
 
 if __name__ == "__main__":

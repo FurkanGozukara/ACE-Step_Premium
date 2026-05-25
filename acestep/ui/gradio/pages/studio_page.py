@@ -50,12 +50,6 @@ def create_studio_page() -> dict[str, gr.components.Component]:
                         size="lg",
                         elem_classes=["action-btn", "action-btn-upscale"],
                     )
-                    delete_preset_btn = gr.Button(
-                        "Delete Preset",
-                        variant="stop",
-                        size="lg",
-                        elem_classes=["action-btn", "action-btn-cancel"],
-                    )
                 preset_status = gr.Markdown(
                     "Preset system ready.",
                     elem_classes=["ace-status-markdown"],
@@ -97,6 +91,12 @@ def create_studio_page() -> dict[str, gr.components.Component]:
                       <p>All ACE-Step assets stay under the local <code>models</code> folder instead of the Hugging Face cache.</p>
                     </div>
                     """
+                )
+                delete_preset_btn = gr.Button(
+                    "Delete Preset",
+                    variant="stop",
+                    size="lg",
+                    elem_classes=["action-btn", "action-btn-delete-preset"],
                 )
         with gr.Row(elem_classes=["ace-workspace-row"]):
             with gr.Column(scale=6, elem_classes=["ace-panel"]):
