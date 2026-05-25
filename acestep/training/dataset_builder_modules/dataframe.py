@@ -37,13 +37,19 @@ class DataframeMixin:
         """Convert dataset to format suitable for training."""
         training_samples = []
 
+        tag_position = (
+            "replace"
+            if getattr(self.metadata, "use_only_custom_trigger", False)
+            else self.metadata.tag_position
+        )
+
         for sample in self.samples:
             if not sample.labeled:
                 continue
 
             training_sample = {
                 "audio_path": sample.audio_path,
-                "caption": sample.get_full_caption(self.metadata.tag_position),
+                "caption": sample.get_full_caption(tag_position),
                 "lyrics": sample.lyrics,
                 "bpm": sample.bpm,
                 "keyscale": sample.keyscale,

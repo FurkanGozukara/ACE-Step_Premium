@@ -401,6 +401,8 @@
     "all_instrumental_info": "Check if all tracks are instrumental (no vocals).",
     "custom_tag": "Custom Trigger Tag",
     "custom_tag_info": "Unique tag to activate this LoRA style. Leave empty to disable tag insertion.",
+    "use_only_custom_trigger": "Use Only Custom Trigger",
+    "use_only_custom_trigger_info": "When enabled, saved auto-label captions are exactly the Custom Trigger Tag.",
     "tag_position": "Tag Position",
     "tag_position_info": "Used only when Custom Trigger Tag is filled. Prepend is the safest default.",
     "genre_ratio": "Genre Ratio (%)",

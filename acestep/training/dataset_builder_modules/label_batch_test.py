@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from acestep.training.dataset_builder_modules.label_all import LabelAllMixin
@@ -20,6 +21,11 @@ class _Builder(LabelAllMixin):
         """Store samples for the mixin under test."""
 
         self.samples = samples
+        self.metadata = SimpleNamespace(
+            custom_tag="",
+            tag_position="prepend",
+            use_only_custom_trigger=False,
+        )
 
     def get_labeled_count(self) -> int:
         """Return the number of samples already labeled."""
@@ -176,6 +182,44 @@ class LabelBatchTests(unittest.TestCase):
                 for message in heartbeat_messages
             )
         )
+
+    @patch(
+        "acestep.training.dataset_builder_modules.label_batch_persistence."
+        "save_sample_label_metadata"
+    )
+    @patch(
+        "acestep.training.dataset_builder_modules.label_batch.get_audio_codes",
+        side_effect=lambda audio_path, _handler: f"codes-{audio_path}",
+    )
+    def test_batch_use_only_custom_trigger_overwrites_captions(
+        self,
+        _get_codes,
+        save_sidecar,
+    ) -> None:
+        """Batch labeling should persist only the trigger when requested."""
+
+        builder = _Builder(
+            [
+                AudioSample(audio_path="0.wav", filename="0.wav"),
+                AudioSample(audio_path="1.wav", filename="1.wav"),
+            ]
+        )
+        builder.metadata.custom_tag = "ohwx"
+
+        _samples, status = builder.label_all_samples(
+            dit_handler=object(),
+            llm_handler=_BatchLlm(),
+            batch_size=2,
+            use_only_custom_trigger=True,
+        )
+
+        self.assertIn("Labeled 2/2 samples; left 0", status)
+        self.assertEqual(["ohwx", "ohwx"], [sample.caption for sample in builder.samples])
+        self.assertEqual(["", ""], [sample.custom_tag for sample in builder.samples])
+        self.assertEqual("replace", builder.metadata.tag_position)
+        self.assertTrue(builder.metadata.use_only_custom_trigger)
+        self.assertEqual("ohwx", save_sidecar.call_args_list[0].args[0].caption)
+        self.assertEqual("", save_sidecar.call_args_list[0].args[0].custom_tag)
 
     def test_batch_empty_transcription_keeps_vocal_metadata_non_instrumental(self) -> None:
         """Batched auto-labeling should not mark clear vocal metadata instrumental."""

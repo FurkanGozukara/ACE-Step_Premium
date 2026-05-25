@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Callable
 
+from .custom_trigger_caption import apply_custom_trigger_caption_only
 from .label_batch_persistence import persist_successful_label
 from .label_progress import replay_progress_after_llm_load
 from .models import AudioSample
@@ -24,6 +25,7 @@ def label_single_fallback(
     label_output_dir: str | None,
     label_source_root: str | None,
     sample_labeled_callback: Callable[[int, AudioSample, str], None] | None,
+    custom_trigger_caption: str = "",
 ) -> tuple[str, bool]:
     """Run the existing per-item label path and persist a success."""
 
@@ -37,6 +39,11 @@ def label_single_fallback(
             lm_lyrics_language,
             skip_metas,
             progress_callback,
+        )
+    if custom_trigger_caption:
+        apply_custom_trigger_caption_only(
+            builder.samples[sample_idx],
+            custom_trigger_caption,
         )
     sidecar_failed = persist_successful_label(
         builder.samples[sample_idx],

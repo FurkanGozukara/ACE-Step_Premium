@@ -41,6 +41,7 @@ _SAMPLE_PREVIEW_OUTPUT_KEYS = (
 
 _SETTINGS_TRIGGER_KEYS = (
     "custom_tag",
+    "use_only_custom_trigger",
     "tag_position",
     "all_instrumental",
     "genre_ratio",
@@ -76,6 +77,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
         batch_size,
         subprocess_mode,
         custom_tag,
+        use_only_custom_trigger,
         tag_position,
         all_instrumental,
         genre_ratio,
@@ -89,6 +91,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             all_instrumental,
             genre_ratio,
             state,
+            use_only_custom_trigger,
         )
 
         if should_run_dataset_action_in_subprocess(vram_preset, subprocess_mode):
@@ -112,6 +115,9 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
                     "dataset_name": dataset_name,
                     "label_output_dir": label_output_dir,
                     "batch_size": batch_size,
+                    "custom_tag": custom_tag,
+                    "tag_position": tag_position,
+                    "use_only_custom_trigger": use_only_custom_trigger,
                 },
                 dit_init_params=dit_init_params,
                 llm_init_params=llm_init_params,
@@ -134,6 +140,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             label_output_dir=label_output_dir,
             label_source_root=getattr(state, "_current_dir", None),
             batch_size=batch_size,
+            use_only_custom_trigger=use_only_custom_trigger,
         )
 
     training_section["scan_directory_browse_btn"].click(
@@ -179,6 +186,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             training_section["auto_label_batch_size"],
             training_section["auto_label_subprocess"],
             training_section["custom_tag"],
+            training_section["use_only_custom_trigger"],
             training_section["tag_position"],
             training_section["all_instrumental"],
             training_section["genre_ratio"],
@@ -267,6 +275,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
                 training_section["all_instrumental"],
                 training_section["genre_ratio"],
                 training_section["dataset_builder_state"],
+                training_section["use_only_custom_trigger"],
             ],
             outputs=[training_section["dataset_builder_state"]],
         )

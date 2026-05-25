@@ -55,6 +55,7 @@ def _save_dataset_and_load_saved_path(
     tag_position: str,
     all_instrumental: bool,
     genre_ratio: int,
+    use_only_custom_trigger: bool,
     builder_state: Any,
 ) -> tuple[Any, ...]:
     """Save the dataset, then load the saved JSON into Step 5 controls."""
@@ -67,6 +68,7 @@ def _save_dataset_and_load_saved_path(
         tag_position=tag_position,
         all_instrumental=all_instrumental,
         genre_ratio=genre_ratio,
+        use_only_custom_trigger=use_only_custom_trigger,
     )
     saved_path = _update_value(save_path_update)
     if not saved_path or not _is_successful_save(save_status):
@@ -93,6 +95,7 @@ def _browse_save_dataset_and_load_saved_path(
     tag_position: str,
     all_instrumental: bool,
     genre_ratio: int,
+    use_only_custom_trigger: bool,
     builder_state: Any,
 ) -> tuple[Any, ...]:
     """Pick a JSON save path, save the dataset, and load the saved JSON."""
@@ -113,6 +116,7 @@ def _browse_save_dataset_and_load_saved_path(
         tag_position,
         all_instrumental,
         genre_ratio,
+        use_only_custom_trigger,
         builder_state,
     )
 
@@ -132,6 +136,7 @@ def register_training_dataset_save_handlers(context: TrainingWiringContext) -> N
             training_section["tag_position"],
             training_section["all_instrumental"],
             training_section["genre_ratio"],
+            training_section["use_only_custom_trigger"],
             training_section["dataset_builder_state"],
         ],
         outputs=outputs,
@@ -146,6 +151,7 @@ def register_training_dataset_save_handlers(context: TrainingWiringContext) -> N
             training_section["tag_position"],
             training_section["all_instrumental"],
             training_section["genre_ratio"],
+            training_section["use_only_custom_trigger"],
             training_section["dataset_builder_state"],
         ],
         outputs=outputs,

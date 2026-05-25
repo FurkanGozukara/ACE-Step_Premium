@@ -26,6 +26,7 @@ def run_auto_label_task(payload: dict[str, Any], emit: Emit) -> dict[str, Any]:
     dit_handler = _new_dit_handler(payload.get("dit_init_params"))
     llm_handler = _new_llm_handler(payload.get("llm_init_params"))
     settings = dict(payload.get("settings") or {})
+    _apply_auto_label_settings(builder, settings)
     progress = _worker_progress(emit)
     table, status, builder = auto_label_all(
         dit_handler,
@@ -37,6 +38,7 @@ def run_auto_label_task(payload: dict[str, Any], emit: Emit) -> dict[str, Any]:
         str(settings.get("lm_lyrics_language") or "unknown"),
         bool(settings.get("only_unlabeled", True)),
         int(settings.get("batch_size") or 1),
+        use_only_custom_trigger=bool(settings.get("use_only_custom_trigger")),
         progress=progress,
         model_config=settings.get("model_config"),
         save_path=settings.get("save_path"),
@@ -52,6 +54,18 @@ def run_auto_label_task(payload: dict[str, Any], emit: Emit) -> dict[str, Any]:
     status_text = _update_value(status, str(status))
     emit({"kind": "status", "message": status_text, "console": status_text})
     return {"success": True, "status": status_text, "dataset_path": dataset_path}
+
+
+def _apply_auto_label_settings(builder: DatasetBuilder, settings: dict[str, Any]) -> None:
+    """Apply UI-only auto-label settings that may not survive temp JSON saves."""
+
+    if "custom_tag" in settings:
+        builder.set_custom_tag(
+            str(settings.get("custom_tag") or ""),
+            str(settings.get("tag_position") or builder.metadata.tag_position),
+        )
+    if settings.get("use_only_custom_trigger"):
+        builder.set_use_only_custom_trigger(True)
 
 
 def run_preprocess_task(payload: dict[str, Any], emit: Emit) -> dict[str, Any]:

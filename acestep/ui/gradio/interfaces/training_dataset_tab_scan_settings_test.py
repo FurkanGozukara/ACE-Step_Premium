@@ -27,6 +27,8 @@ class TrainingDatasetScanSettingsTests(unittest.TestCase):
         self.assertFalse(controls["all_instrumental"].value)
         self.assertFalse(controls["format_lyrics"].value)
         self.assertTrue(controls["transcribe_lyrics"].value)
+        self.assertFalse(controls["use_only_custom_trigger"].value)
+        self.assertEqual("Use Only Custom Trigger", controls["use_only_custom_trigger"].label)
         self.assertEqual("en", controls["lm_lyrics_language"].value)
         self.assertIn(("English", "en"), controls["lm_lyrics_language"].choices)
         self.assertEqual("prepend", controls["tag_position"].value)

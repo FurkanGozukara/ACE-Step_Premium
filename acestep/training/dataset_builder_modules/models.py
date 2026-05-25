@@ -108,6 +108,7 @@ class DatasetMetadata:
     num_samples: int = 0
     all_instrumental: bool = True
     genre_ratio: int = 0  # 0-100, percentage of samples using genre
+    use_only_custom_trigger: bool = False
 
     def __post_init__(self):
         if not self.created_at:
@@ -115,4 +116,8 @@ class DatasetMetadata:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
-        return asdict(self)
+        data = asdict(self)
+        if self.use_only_custom_trigger:
+            data["custom_tag"] = ""
+            data["tag_position"] = "replace"
+        return data

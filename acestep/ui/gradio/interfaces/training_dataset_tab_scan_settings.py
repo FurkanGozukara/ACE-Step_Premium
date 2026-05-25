@@ -10,6 +10,9 @@ from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.interfaces.training_dataset_model_selector import (
     build_dataset_model_selector,
 )
+from acestep.ui.gradio.interfaces.training_dataset_trigger_controls import (
+    build_custom_trigger_controls,
+)
 from acestep.ui.gradio.interfaces.training_dataset_vram_presets import (
     build_dataset_vram_preset_dropdown,
 )
@@ -96,12 +99,25 @@ def build_dataset_scan_and_settings_controls(
                 placeholder=t("training.dataset_name_placeholder"),
             )
 
-            all_instrumental = gr.Checkbox(
-                label=t("training.all_instrumental"),
-                value=False,
-                info=t("training.all_instrumental_info"),
-                elem_classes=["has-info-container"],
-            )
+            with gr.Row():
+                with gr.Column(scale=1):
+                    all_instrumental = gr.Checkbox(
+                        label=t("training.all_instrumental"),
+                        value=False,
+                        info=t("training.all_instrumental_info"),
+                        elem_classes=["has-info-container"],
+                    )
+                with gr.Column(scale=1):
+                    lm_lyrics_language = gr.Dropdown(
+                        choices=language_dropdown_choices(),
+                        value="en",
+                        label="LM Lyrics Language",
+                        info=(
+                            "Optional language hint for LM lyric formatting/transcription. "
+                            "Use Instrumental / auto when the language is unknown."
+                        ),
+                        elem_classes=["has-info-container"],
+                    )
 
             format_lyrics = gr.Checkbox(
                 label="Format Lyrics (LM)",
@@ -126,23 +142,9 @@ def build_dataset_scan_and_settings_controls(
                 interactive=True,
             )
 
-            lm_lyrics_language = gr.Dropdown(
-                choices=language_dropdown_choices(),
-                value="en",
-                label="LM Lyrics Language",
-                info=(
-                    "Optional language hint for LM lyric formatting/transcription. "
-                    "Use Instrumental / auto when the language is unknown."
-                ),
-                elem_classes=["has-info-container"],
-            )
-
-            custom_tag = gr.Textbox(
-                label=t("training.custom_tag"),
-                placeholder="e.g., 8bit_retro, my_style",
-                info=t("training.custom_tag_info"),
-                elem_classes=["has-info-container"],
-            )
+            trigger_controls = build_custom_trigger_controls()
+            custom_tag = trigger_controls["custom_tag"]
+            use_only_custom_trigger = trigger_controls["use_only_custom_trigger"]
 
             tag_position = gr.Radio(
                 choices=[
@@ -184,6 +186,7 @@ def build_dataset_scan_and_settings_controls(
         "transcribe_lyrics": transcribe_lyrics,
         "lm_lyrics_language": lm_lyrics_language,
         "custom_tag": custom_tag,
+        "use_only_custom_trigger": use_only_custom_trigger,
         "tag_position": tag_position,
         "genre_ratio": genre_ratio,
     }

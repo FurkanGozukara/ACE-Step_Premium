@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from .custom_trigger_caption import apply_custom_trigger_caption_only
 from .label_batch_apply import apply_understood_metadata, requires_single_label_path
 from .label_batch_generation import _BatchEntry, generate_metadata_batch
 from .label_batch_persistence import (
@@ -18,7 +19,6 @@ from .label_batch_single import label_single_fallback
 from .label_progress import LabelProgressTracker
 from .label_utils import get_audio_codes
 from .models import AudioSample
-
 
 def label_samples_in_batches(
     builder: Any,
@@ -39,6 +39,7 @@ def label_samples_in_batches(
     label_source_root: str | None,
     initial_labeled_count: int,
     cancel_callback: Callable[[], bool] | None = None,
+    custom_trigger_caption: str = "",
 ) -> tuple[list[AudioSample], str]:
     """Label samples using grouped LM metadata requests when possible."""
 
@@ -91,6 +92,7 @@ def label_samples_in_batches(
                     label_output_dir,
                     resolved_source_root,
                     sample_labeled_callback,
+                    custom_trigger_caption,
                 )
                 processed_count, success_count, fail_count, sidecar_fail_count = (
                     finish_label_counts(
@@ -154,6 +156,8 @@ def label_samples_in_batches(
                         lm_lyrics_language=lm_lyrics_language,
                         skip_metas=skip_metas,
                     )
+                    if custom_trigger_caption:
+                        apply_custom_trigger_caption_only(sample, custom_trigger_caption)
                     builder.samples[entry.sample_idx] = sample
                     sidecar_failed = persist_successful_label(
                         sample,

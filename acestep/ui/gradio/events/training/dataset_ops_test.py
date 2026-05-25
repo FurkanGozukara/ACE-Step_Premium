@@ -605,6 +605,49 @@ class TestSaveDataset(unittest.TestCase):
         builder.save_dataset.assert_called_once_with("path.json", "name")
         self.assertEqual("path.json", update["value"])
 
+    def test_save_use_only_custom_trigger_overwrites_saved_captions(self):
+        """Use-only trigger saves the trigger tag as the sole sample caption."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            previous_roots = get_safe_roots()
+            set_safe_roots([tmpdir])
+            try:
+                save_path = Path(tmpdir) / "dataset.json"
+                builder = DatasetBuilder()
+                builder.samples = [
+                    AudioSample(
+                        audio_path=str(Path(tmpdir) / "song.wav"),
+                        filename="song.wav",
+                        caption="generated caption",
+                        lyrics="[Verse]\nwords",
+                        labeled=True,
+                    )
+                ]
+
+                status, update = save_dataset(
+                    str(save_path),
+                    "trigger-only",
+                    builder,
+                    custom_tag="ohwx",
+                    tag_position="prepend",
+                    all_instrumental=False,
+                    genre_ratio=20,
+                    use_only_custom_trigger=True,
+                )
+            finally:
+                set_safe_roots(previous_roots)
+
+            data = json.loads(save_path.read_text(encoding="utf-8"))
+
+        self.assertIn("\u2705", status)
+        self.assertEqual(str(save_path), update["value"])
+        self.assertTrue(data["metadata"]["use_only_custom_trigger"])
+        self.assertEqual("replace", data["metadata"]["tag_position"])
+        self.assertEqual("", data["metadata"]["custom_tag"])
+        self.assertEqual("ohwx", data["samples"][0]["caption"])
+        self.assertEqual("", data["samples"][0]["custom_tag"])
+        self.assertEqual("[Verse]\nwords", data["samples"][0]["lyrics"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -98,6 +98,7 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
         tag_position,
         all_instrumental,
         genre_ratio,
+        use_only_custom_trigger,
         progress=gr.Progress(track_tqdm=True),
     ):
         """Run preprocessing in-process or in an isolated worker."""
@@ -108,6 +109,7 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
             all_instrumental,
             genre_ratio,
             state,
+            use_only_custom_trigger,
         )
 
         if should_run_dataset_action_in_subprocess(vram_preset, subprocess_mode):
@@ -147,6 +149,7 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
             training_section["tag_position"],
             training_section["all_instrumental"],
             training_section["genre_ratio"],
+            training_section["use_only_custom_trigger"],
         ],
         outputs=[training_section["preprocess_progress"]],
     )

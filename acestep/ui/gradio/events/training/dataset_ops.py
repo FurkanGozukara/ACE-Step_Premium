@@ -33,12 +33,36 @@ _SUCCESS = "\u2705"
 _LABEL_POSITION_RE = re.compile(r"^Labeling (\d+)/(\d+)")
 
 
+def _save_auto_label_checkpoint(
+    builder_state: DatasetBuilder,
+    save_path: str | None,
+    dataset_name: str | None,
+) -> None:
+    """Persist an auto-label checkpoint when a save path is configured."""
+
+    if not save_path:
+        return
+    save_status = builder_state.save_dataset(save_path, dataset_name)
+    if not save_status.startswith(_SUCCESS):
+        logger.warning(f"Auto-label dataset checkpoint save failed: {save_status}")
+
+
+def _resolve_dataset_json_path(save_path: str | None) -> str:
+    """Return a normalized JSON save path for auto-label checkpoints."""
+
+    resolved_save_path = normalize_user_path(save_path)
+    if resolved_save_path and not resolved_save_path.lower().endswith(".json"):
+        resolved_save_path = f"{resolved_save_path}.json"
+    return resolved_save_path
+
+
 def _apply_current_settings(
     builder_state: Optional[DatasetBuilder],
     custom_tag: Optional[str] = None,
     tag_position: Optional[str] = None,
     all_instrumental: Optional[bool] = None,
     genre_ratio: Optional[int] = None,
+    use_only_custom_trigger: Optional[bool] = None,
 ) -> Optional[DatasetBuilder]:
     """Apply current dataset settings to the builder state."""
 
@@ -63,6 +87,9 @@ def _apply_current_settings(
 
     if genre_ratio is not None:
         builder_state.metadata.genre_ratio = int(genre_ratio)
+
+    if use_only_custom_trigger is not None:
+        builder_state.set_use_only_custom_trigger(use_only_custom_trigger)
 
     return builder_state
 
@@ -116,6 +143,7 @@ def auto_label_all(
     lm_lyrics_language: str = "unknown",
     only_unlabeled: bool = True,
     batch_size: int = 1,
+    use_only_custom_trigger: bool = False,
     progress=None,
     model_config: str | None = None,
     save_path: str | None = None,
@@ -135,6 +163,7 @@ def auto_label_all(
         lm_lyrics_language: Optional language hint for LM lyric generation.
         only_unlabeled: Only label samples without caption.
         batch_size: Number of samples per auto-label LM metadata batch.
+        use_only_custom_trigger: Save custom trigger tag as the only caption.
         progress: Progress callback.
         model_config: Optional DiT model name selected for dataset actions.
         save_path: Optional dataset JSON path for per-sample checkpoint saves.
@@ -150,6 +179,15 @@ def auto_label_all(
 
     if not builder_state.samples:
         return [], "❌ No samples to label. Please scan a directory first.", builder_state
+
+    if use_only_custom_trigger:
+        if not str(builder_state.metadata.custom_tag or "").strip():
+            return (
+                builder_state.get_samples_dataframe_data(),
+                "\u274c Use Only Custom Trigger requires a Custom Trigger Tag.",
+                builder_state,
+            )
+        builder_state.set_use_only_custom_trigger(True)
 
     resolved_label_output_dir = normalize_user_path(label_output_dir)
     if not resolved_label_output_dir:
@@ -200,11 +238,17 @@ def auto_label_all(
                     label_output_dir=resolved_label_output_dir,
                     label_source_root=label_source_root,
                     cancel_callback=is_auto_label_cancel_requested,
+                    use_only_custom_trigger=use_only_custom_trigger,
                 )
             finally:
                 mark_inline_auto_label_finished()
             if status_prefixes:
                 status = "\n".join([*status_prefixes, status])
+            _save_auto_label_checkpoint(
+                builder_state,
+                _resolve_dataset_json_path(save_path),
+                dataset_name,
+            )
             table_data = builder_state.get_samples_dataframe_data()
             return gr.update(value=table_data), gr.update(value=status), builder_state
 
@@ -241,16 +285,15 @@ def auto_label_all(
             except Exception:
                 pass
 
-    resolved_save_path = normalize_user_path(save_path)
-    if resolved_save_path and not resolved_save_path.lower().endswith(".json"):
-        resolved_save_path = f"{resolved_save_path}.json"
+    resolved_save_path = _resolve_dataset_json_path(save_path)
+    checkpoint_saved = False
 
     def sample_labeled_callback(_sample_idx: int, _sample: Any, _status: str) -> None:
+        nonlocal checkpoint_saved
         if not resolved_save_path:
             return
-        save_status = builder_state.save_dataset(resolved_save_path, dataset_name)
-        if not save_status.startswith(_SUCCESS):
-            logger.warning(f"Auto-label dataset checkpoint save failed: {save_status}")
+        _save_auto_label_checkpoint(builder_state, resolved_save_path, dataset_name)
+        checkpoint_saved = True
 
     clear_auto_label_cancel_request()
     mark_inline_auto_label_started()
@@ -269,6 +312,7 @@ def auto_label_all(
             label_output_dir=resolved_label_output_dir,
             label_source_root=label_source_root,
             cancel_callback=is_auto_label_cancel_requested,
+            use_only_custom_trigger=use_only_custom_trigger,
         )
     finally:
         mark_inline_auto_label_finished()
@@ -276,6 +320,8 @@ def auto_label_all(
         status = f"{auto_init_status}\n{status}" if status else auto_init_status
     if status_prefixes:
         status = "\n".join([*status_prefixes, status])
+    if not checkpoint_saved:
+        _save_auto_label_checkpoint(builder_state, resolved_save_path, dataset_name)
     if progress:
         try:
             progress(1.0, desc=status)
@@ -444,6 +490,7 @@ def update_settings(
     all_instrumental: bool,
     genre_ratio: int,
     builder_state: Optional[DatasetBuilder],
+    use_only_custom_trigger: Optional[bool] = None,
 ) -> DatasetBuilder:
     """Update dataset settings.
 
@@ -456,6 +503,7 @@ def update_settings(
         tag_position,
         all_instrumental,
         genre_ratio,
+        use_only_custom_trigger,
     )
 
 
@@ -467,6 +515,7 @@ def save_dataset(
     tag_position: Optional[str] = None,
     all_instrumental: Optional[bool] = None,
     genre_ratio: Optional[int] = None,
+    use_only_custom_trigger: Optional[bool] = None,
 ) -> Tuple[str, Any]:
     """Save the dataset to a JSON file.
 
@@ -479,12 +528,18 @@ def save_dataset(
     if not builder_state.samples:
         return "❌ No samples in dataset.", gr.update()
 
+    if use_only_custom_trigger:
+        active_tag = custom_tag if custom_tag is not None else builder_state.metadata.custom_tag
+        if not str(active_tag or "").strip():
+            return "\u274c Use Only Custom Trigger requires a Custom Trigger Tag.", gr.update()
+
     builder_state = _apply_current_settings(
         builder_state,
         custom_tag,
         tag_position,
         all_instrumental,
         genre_ratio,
+        use_only_custom_trigger,
     )
 
     save_path = normalize_user_path(save_path)

@@ -19,6 +19,11 @@ class _Builder(LabelAllMixin):
         self.samples = samples
         self.labeled_indexes: list[int] = []
         self.post_load_messages: list[str] = []
+        self.metadata = SimpleNamespace(
+            custom_tag="",
+            tag_position="prepend",
+            use_only_custom_trigger=False,
+        )
 
     def get_labeled_count(self) -> int:
         """Return the number of samples already marked labeled."""
@@ -211,6 +216,41 @@ class LabelAllMixinTests(unittest.TestCase):
         save_sidecar.assert_called_once()
         self.assertEqual("labels", save_sidecar.call_args.kwargs["output_dir"])
         self.assertEqual("source", save_sidecar.call_args.kwargs["source_root"])
+
+    @patch("acestep.training.dataset_builder_modules.label_all.save_sample_label_metadata")
+    def test_use_only_custom_trigger_overwrites_caption_before_persistence(
+        self,
+        save_sidecar,
+    ) -> None:
+        """Trigger-only mode should persist the trigger as the only caption."""
+
+        builder = _Builder(
+            [
+                AudioSample(
+                    audio_path="todo.wav",
+                    filename="todo.wav",
+                    raw_lyrics="[Verse]\nsource lyrics",
+                    lyrics="[Verse]\nsource lyrics",
+                    is_instrumental=False,
+                )
+            ]
+        )
+        builder.metadata.custom_tag = "ohwx"
+
+        _samples, status = builder.label_all_samples(
+            dit_handler=None,
+            llm_handler=None,
+            use_only_custom_trigger=True,
+        )
+
+        self.assertIn("Labeled 1/1", status)
+        self.assertTrue(builder.metadata.use_only_custom_trigger)
+        self.assertEqual("replace", builder.metadata.tag_position)
+        self.assertEqual("ohwx", builder.samples[0].caption)
+        self.assertEqual("", builder.samples[0].custom_tag)
+        self.assertEqual("[Verse]\nsource lyrics", builder.samples[0].lyrics)
+        self.assertEqual("ohwx", save_sidecar.call_args.args[0].caption)
+        self.assertEqual("", save_sidecar.call_args.args[0].custom_tag)
 
     @patch(
         "acestep.training.dataset_builder_modules.label_all.save_sample_label_metadata",

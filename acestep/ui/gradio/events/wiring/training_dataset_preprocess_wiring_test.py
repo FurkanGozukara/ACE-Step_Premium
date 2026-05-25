@@ -122,8 +122,9 @@ class TrainingDatasetPreprocessWiringTests(unittest.TestCase):
                 section["tag_position"],
                 section["all_instrumental"],
                 section["genre_ratio"],
+                section["use_only_custom_trigger"],
             ],
-            preprocess_button.click_kwargs["inputs"][-4:],
+            preprocess_button.click_kwargs["inputs"][-5:],
         )
         self.assertEqual(
             section["preprocess_debug_text"],
@@ -188,6 +189,7 @@ def _preprocess_section(cancel_button):
         "tag_position": object(),
         "all_instrumental": object(),
         "genre_ratio": object(),
+        "use_only_custom_trigger": object(),
         "preprocess_progress": object(),
         "cancel_preprocess_btn": cancel_button,
     }

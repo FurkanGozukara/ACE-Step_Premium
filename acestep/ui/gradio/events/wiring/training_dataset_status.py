@@ -5,10 +5,12 @@ from typing import Any
 
 _CHECKMARK = "\u2705"
 _PREVIEW_REFRESH_FAILURE_MARKERS = (
+    "\u274c",
     "error",
     "failed to",
     "not initialized",
     "unavailable",
+    "requires",
     "please scan",
     "no samples",
 )

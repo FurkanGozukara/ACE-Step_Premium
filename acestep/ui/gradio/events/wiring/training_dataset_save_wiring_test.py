@@ -35,6 +35,7 @@ class TrainingDatasetSaveWiringTests(unittest.TestCase):
                 "prepend",
                 False,
                 0,
+                False,
                 builder_state,
             )
 
@@ -50,6 +51,7 @@ class TrainingDatasetSaveWiringTests(unittest.TestCase):
             tag_position="prepend",
             all_instrumental=False,
             genre_ratio=0,
+            use_only_custom_trigger=False,
         )
         load_dataset.assert_called_once_with(
             saved_path,
@@ -74,6 +76,7 @@ class TrainingDatasetSaveWiringTests(unittest.TestCase):
                 "prepend",
                 False,
                 0,
+                False,
                 object(),
             )
 
@@ -106,6 +109,7 @@ class TrainingDatasetSaveWiringTests(unittest.TestCase):
                 "prepend",
                 False,
                 0,
+                False,
                 object(),
             )
 
@@ -117,6 +121,7 @@ class TrainingDatasetSaveWiringTests(unittest.TestCase):
             "prepend",
             False,
             0,
+            False,
             ANY,
         )
 

@@ -115,6 +115,11 @@ class PreprocessMixin:
         target_sample_rate = 48000
 
         genre_indices = select_genre_indices(labeled_samples, self.metadata.genre_ratio)
+        tag_position = (
+            "replace"
+            if getattr(self.metadata, "use_only_custom_trigger", False)
+            else self.metadata.tag_position
+        )
         debug_log_verbose_for("dataset", f"selected genre indices: count={len(genre_indices)}")
 
         for i, sample in enumerate(labeled_samples):
@@ -185,8 +190,8 @@ class PreprocessMixin:
                 )
 
                 # -- Text / lyric encode (with CPU offloading) -----------------
-                caption = sample.get_training_prompt(self.metadata.tag_position, use_genre=use_genre)
-                text_prompt = build_text_prompt(sample, self.metadata.tag_position, use_genre)
+                caption = sample.get_training_prompt(tag_position, use_genre=use_genre)
+                text_prompt = build_text_prompt(sample, tag_position, use_genre)
                 lyrics = sample.lyrics if sample.lyrics else "[Instrumental]"
                 if save_debug_text:
                     save_debug_text_prompt(output_dir, sample.id, text_prompt, lyrics)

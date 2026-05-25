@@ -1,4 +1,7 @@
-from .models import AudioSample
+from .custom_trigger_caption import (
+    apply_custom_trigger_caption_only_to_samples,
+    normalize_custom_trigger,
+)
 
 
 class MetadataMixin:
@@ -28,3 +31,17 @@ class MetadataMixin:
                 if is_instrumental:
                     sample.lyrics = "[Instrumental]"
                     sample.language = "unknown"
+
+    def set_use_only_custom_trigger(self, enabled: bool):
+        """Store whether saved captions should contain only the custom trigger."""
+
+        self.metadata.use_only_custom_trigger = bool(enabled)
+        if not enabled:
+            return
+
+        custom_tag = normalize_custom_trigger(self.metadata.custom_tag)
+        if not custom_tag:
+            return
+
+        self.metadata.tag_position = "replace"
+        apply_custom_trigger_caption_only_to_samples(self.samples, custom_tag)

@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-import os
 from typing import Callable, List, Optional, Tuple
 
 from loguru import logger
 
-from acestep.training.path_safety import safe_path
-
+from .custom_trigger_caption import (
+    apply_custom_trigger_caption_only,
+    custom_trigger_caption_for_builder,
+    enable_custom_trigger_caption_only,
+)
 from .label_batch import label_samples_in_batches
+from .label_batch_persistence import common_audio_source_root
 from .label_batch_progress import normalize_auto_label_batch_size
 from .label_persistence import save_sample_label_metadata
 from .label_progress import LabelProgressTracker, replay_progress_after_llm_load
@@ -48,6 +51,7 @@ class LabelAllMixin:
         label_output_dir: str | None = None,
         label_source_root: str | None = None,
         cancel_callback: Optional[Callable[[], bool]] = None,
+        use_only_custom_trigger: bool = False,
     ) -> Tuple[List[AudioSample], str]:
         """Label samples and persist each successful label immediately."""
 
@@ -55,6 +59,13 @@ class LabelAllMixin:
         resolved_batch_size = normalize_auto_label_batch_size(batch_size)
         if not self.samples:
             return [], f"{_FAILURE} No samples to label. Please scan a directory first."
+
+        custom_trigger_caption = custom_trigger_caption_for_builder(
+            self,
+            use_only_custom_trigger,
+        )
+        if custom_trigger_caption:
+            enable_custom_trigger_caption_only(self, custom_trigger_caption)
 
         if only_unlabeled:
             samples_to_label = [
@@ -64,6 +75,9 @@ class LabelAllMixin:
             samples_to_label = [(i, sample) for i, sample in enumerate(self.samples)]
 
         if not samples_to_label:
+            if custom_trigger_caption:
+                for sample in self.samples:
+                    apply_custom_trigger_caption_only(sample, custom_trigger_caption)
             labeled_count = self.get_labeled_count()
             status = f"{_SUCCESS} All samples already labeled ({labeled_count} labeled, 0 left)"
             return self.samples, status
@@ -88,6 +102,7 @@ class LabelAllMixin:
                 label_source_root=label_source_root,
                 initial_labeled_count=initial_labeled_count,
                 cancel_callback=cancel_callback,
+                custom_trigger_caption=custom_trigger_caption,
             )
 
         success_count = 0
@@ -99,7 +114,7 @@ class LabelAllMixin:
         resolved_label_source_root = (
             label_source_root
             or getattr(self, "_current_dir", None)
-            or _common_audio_source_root(self.samples)
+            or common_audio_source_root(self.samples)
         )
         progress_tracker = LabelProgressTracker(display_total)
 
@@ -132,6 +147,8 @@ class LabelAllMixin:
                 )
 
             sample = self.samples[sample_idx]
+            if custom_trigger_caption:
+                apply_custom_trigger_caption_only(sample, custom_trigger_caption)
             if sample.labeled and sample.caption:
                 success_count += 1
                 if persist_labels:
@@ -181,20 +198,3 @@ def _cancelled_status(success_count: int, total_to_label: int, left_count: int) 
         f"{_CANCELLED} Auto-label cancelled after {success_count}/{total_to_label} "
         f"samples; left {left_count}"
     )
-
-
-def _common_audio_source_root(samples: list[AudioSample]) -> str | None:
-    """Return the common source-audio directory for processed-label naming."""
-
-    directories: list[str] = []
-    for sample in samples:
-        try:
-            directories.append(os.path.dirname(safe_path(sample.audio_path)))
-        except (OSError, ValueError):
-            continue
-    if not directories:
-        return None
-    try:
-        return os.path.commonpath(directories)
-    except ValueError:
-        return None

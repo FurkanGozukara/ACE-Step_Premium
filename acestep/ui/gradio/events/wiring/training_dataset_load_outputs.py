@@ -30,6 +30,7 @@ DATASET_LOAD_SHARED_OUTPUT_KEYS = (
     "tag_position",
     "all_instrumental",
     "genre_ratio",
+    "use_only_custom_trigger",
 )
 
 

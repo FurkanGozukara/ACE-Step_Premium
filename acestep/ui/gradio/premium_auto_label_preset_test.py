@@ -41,6 +41,7 @@ class PremiumAutoLabelPresetTests(unittest.TestCase):
             values[keys.index("auto_label_batch_size")] = 8
             values[keys.index("transcribe_lyrics")] = True
             values[keys.index("lm_lyrics_language")] = "en"
+            values[keys.index("use_only_custom_trigger")] = True
             try:
                 premium_features.save_preset_action("auto label", None, *values)
                 loaded = premium_features.load_named_preset("auto label")
@@ -52,11 +53,13 @@ class PremiumAutoLabelPresetTests(unittest.TestCase):
         self.assertFalse(loaded["auto_label_subprocess"])
         self.assertTrue(loaded["skip_metas"])
         self.assertFalse(loaded["only_unlabeled"])
+        self.assertTrue(loaded["use_only_custom_trigger"])
         self.assertEqual(
             8,
             updates[keys.index("auto_label_batch_size")].get("value"),
         )
         self.assertFalse(updates[keys.index("auto_label_subprocess")].get("value"))
+        self.assertTrue(updates[keys.index("use_only_custom_trigger")].get("value"))
 
 
 if __name__ == "__main__":

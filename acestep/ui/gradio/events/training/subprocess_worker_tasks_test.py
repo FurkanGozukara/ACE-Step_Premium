@@ -68,6 +68,55 @@ class SubprocessWorkerTaskTests(unittest.TestCase):
         self.assertEqual("labeled", result["status"])
         self.assertTrue(events)
 
+    def test_auto_label_task_reapplies_trigger_only_tag_from_settings(self) -> None:
+        """Worker should keep the live trigger tag even when temp JSON clears it."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            dataset_path = Path(tmpdir) / "dataset.json"
+            result_path = Path(tmpdir) / "result.json"
+            builder = DatasetBuilder()
+            builder.samples = [
+                AudioSample(
+                    audio_path=str(Path(tmpdir) / "sample.wav"),
+                    filename="sample.wav",
+                    caption="old caption",
+                    labeled=True,
+                )
+            ]
+            builder.metadata.custom_tag = "ohwx"
+            builder.metadata.use_only_custom_trigger = True
+            builder.save_dataset(str(dataset_path), "worker-test")
+            events: list[dict] = []
+
+            def fake_auto_label(_dit, _llm, loaded_builder, *args, **kwargs):
+                self.assertEqual("ohwx", loaded_builder.metadata.custom_tag)
+                self.assertTrue(loaded_builder.metadata.use_only_custom_trigger)
+                self.assertEqual("ohwx", loaded_builder.samples[0].caption)
+                self.assertEqual("", loaded_builder.samples[0].custom_tag)
+                self.assertTrue(kwargs["use_only_custom_trigger"])
+                return [], {"value": "labeled"}, loaded_builder
+
+            payload = {
+                "dataset_path": str(dataset_path),
+                "result_dataset_path": str(result_path),
+                "dit_init_params": {},
+                "llm_init_params": {},
+                "settings": {
+                    "dataset_name": "worker-test",
+                    "custom_tag": "ohwx",
+                    "tag_position": "prepend",
+                    "use_only_custom_trigger": True,
+                },
+            }
+            with patch(
+                "acestep.ui.gradio.events.training.subprocess_worker_tasks.auto_label_all",
+                side_effect=fake_auto_label,
+            ):
+                result = run_auto_label_task(payload, events.append)
+
+        self.assertTrue(result["success"])
+
     def test_auto_label_task_applies_payload_safe_roots_for_processed_labels(self) -> None:
         """Auto-label worker should write labels outside the source audio folder."""
 

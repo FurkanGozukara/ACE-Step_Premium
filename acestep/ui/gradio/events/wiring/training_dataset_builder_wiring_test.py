@@ -32,6 +32,15 @@ class TrainingDatasetBuilderWiringTests(unittest.TestCase):
 
         self.assertEqual("ERROR: Failed to initialize", status)
 
+    def test_validation_status_does_not_append_preview_refresh(self):
+        """Validation errors should not add a misleading preview success line."""
+
+        status = append_preview_refresh_status(
+            "\u274c Use Only Custom Trigger requires a Custom Trigger Tag."
+        )
+
+        self.assertEqual("\u274c Use Only Custom Trigger requires a Custom Trigger Tag.", status)
+
     def test_cancel_auto_label_click_runs_backend_directly(self):
         """Cancel should not depend on a delayed chained event."""
 
@@ -85,6 +94,7 @@ class TrainingDatasetBuilderWiringTests(unittest.TestCase):
         auto_label_id = training_section["auto_label_btn"]._id
         setting_ids = [
             training_section["custom_tag"]._id,
+            training_section["use_only_custom_trigger"]._id,
             training_section["tag_position"]._id,
             training_section["all_instrumental"]._id,
             training_section["genre_ratio"]._id,
@@ -132,6 +142,7 @@ def _minimal_training_section() -> dict[str, object]:
         "only_unlabeled",
         "auto_label_subprocess",
         "all_instrumental",
+        "use_only_custom_trigger",
         "edit_instrumental",
     ):
         section[key] = gr.Checkbox()

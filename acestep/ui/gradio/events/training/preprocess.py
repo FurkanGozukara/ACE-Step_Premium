@@ -41,7 +41,7 @@ def load_existing_dataset_for_preprocess(
                   lyrics, bpm, keyscale, timesig, duration, language,
                   instrumental, raw_lyrics_update, has_raw,
                   name_update, tag_update, pos_update, instr_update,
-                  ratio_update).
+                  ratio_update, trigger_only_update).
     """
     empty_preview = (
         None,
@@ -62,7 +62,7 @@ def load_existing_dataset_for_preprocess(
 
     dataset_path = normalize_user_path(dataset_path)
     if not dataset_path:
-        updates = (gr.update(), gr.update(), gr.update(), gr.update(), gr.update())
+        updates = tuple(gr.update() for _ in range(6))
         return (
             "❌ Please enter a dataset path",
             [],
@@ -73,7 +73,7 @@ def load_existing_dataset_for_preprocess(
     try:
         dataset_path = safe_path(dataset_path)
     except ValueError:
-        updates = (gr.update(), gr.update(), gr.update(), gr.update(), gr.update())
+        updates = tuple(gr.update() for _ in range(6))
         return (
             f"❌ Rejected unsafe dataset path: {dataset_path}",
             [],
@@ -84,7 +84,7 @@ def load_existing_dataset_for_preprocess(
     debug_log_for("dataset", f"UI load_existing_dataset_for_preprocess: path='{dataset_path}'")
 
     if not os.path.exists(dataset_path):
-        updates = (gr.update(), gr.update(), gr.update(), gr.update(), gr.update())
+        updates = tuple(gr.update() for _ in range(6))
         return (
             f"❌ Dataset not found: {dataset_path}",
             [],
@@ -99,7 +99,7 @@ def load_existing_dataset_for_preprocess(
     debug_end_for("dataset", "load_dataset", t0)
 
     if not samples:
-        updates = (gr.update(), gr.update(), gr.update(), gr.update(), gr.update())
+        updates = tuple(gr.update() for _ in range(6))
         return (
             status,
             [],
@@ -153,6 +153,7 @@ def load_existing_dataset_for_preprocess(
         gr.update(value=builder.metadata.tag_position),
         gr.update(value=builder.metadata.all_instrumental),
         gr.update(value=builder.metadata.genre_ratio),
+        gr.update(value=builder.metadata.use_only_custom_trigger),
     )
 
     return (

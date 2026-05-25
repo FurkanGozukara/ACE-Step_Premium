@@ -77,6 +77,7 @@ class SerializationMixin:
                     num_samples=meta_dict.get("num_samples", 0),
                     all_instrumental=meta_dict.get("all_instrumental", True),
                     genre_ratio=meta_dict.get("genre_ratio", 0),
+                    use_only_custom_trigger=meta_dict.get("use_only_custom_trigger", False),
                 )
 
             self.samples = []
@@ -85,6 +86,9 @@ class SerializationMixin:
                 if self.metadata.custom_tag and not sample.custom_tag:
                     sample.custom_tag = self.metadata.custom_tag
                 self.samples.append(sample)
+
+            if self.metadata.use_only_custom_trigger:
+                self.set_use_only_custom_trigger(True)
 
             return self.samples, f"✅ Loaded {len(self.samples)} samples from {dataset_path}"
         except Exception as e:

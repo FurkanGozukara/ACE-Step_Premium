@@ -195,6 +195,7 @@ def load_dataset_metadata(dataset_json: Optional[str]) -> Dict[str, Any]:
         "tag_position": "prepend",
         "genre_ratio": 0,
         "custom_tag": "",
+        "use_only_custom_trigger": False,
     }
     if not dataset_json or not Path(dataset_json).is_file():
         return defaults
@@ -208,10 +209,14 @@ def load_dataset_metadata(dataset_json: Optional[str]) -> Dict[str, Any]:
         return defaults
 
     meta = raw["metadata"]
+    use_only_custom_trigger = bool(meta.get("use_only_custom_trigger", False))
     return {
-        "tag_position": meta.get("tag_position", "prepend"),
+        "tag_position": (
+            "replace" if use_only_custom_trigger else meta.get("tag_position", "prepend")
+        ),
         "genre_ratio": meta.get("genre_ratio", 0),
         "custom_tag": meta.get("custom_tag", ""),
+        "use_only_custom_trigger": use_only_custom_trigger,
     }
 
 
