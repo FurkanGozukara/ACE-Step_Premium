@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+import inspect
 from typing import Any
 
 import gradio as gr
@@ -54,10 +56,16 @@ def register_simple_create_handlers(
 ) -> None:
     """Wire the simple Create tab to the existing generation backend."""
 
-    def generation_wrapper(*args: Any):
-        for outputs in res_h.generate_with_batch_management(dit_handler, llm_handler, *args):
-            status = _extract_generation_status(outputs)
-            yield (*outputs, status)
+    def generation_wrapper(*args: Any) -> Iterator[tuple[Any, ...]]:
+        """Stream generation outputs and route Gradio progress to the simple tab."""
+
+        yield from _stream_simple_generation(
+            dit_handler,
+            llm_handler,
+            args,
+        )
+
+    generation_wrapper.__signature__ = build_simple_generation_wrapper_signature()
 
     simple_page["simple_open_outputs_btn"].click(
         fn=open_outputs_folder,
@@ -154,24 +162,12 @@ def register_simple_create_handlers(
 
     simple_page["simple_generate_btn"].click(
         fn=prepare_simple_generation,
-        inputs=[
-            simple_page["simple_caption"],
-            simple_page["simple_lyrics"],
-            simple_page["simple_vocal_language"],
-            simple_page["simple_instrumental"],
-            simple_page["simple_vocal_gender"],
-            simple_page["simple_duration"],
-            simple_page["simple_batch_size"],
-            simple_page["simple_random_seed"],
-            simple_page["simple_seed"],
-            simple_page["simple_quantization"],
-            simple_page["simple_model_dropdown"],
-            simple_page["simple_bpm_state"],
-            simple_page["simple_key_scale_state"],
-            simple_page["simple_time_signature_state"],
-            simple_page["simple_is_format_caption_state"],
-        ],
-        outputs=_simple_prepare_outputs(generation_section, results_section, simple_page),
+        inputs=build_simple_prepare_inputs(simple_page),
+        outputs=build_simple_prepare_outputs(
+            generation_section,
+            results_section,
+            simple_page["simple_status"],
+        ),
     ).then(
         fn=res_h.clear_audio_outputs_for_new_generation,
         outputs=build_clear_audio_outputs(results_section),
@@ -194,6 +190,7 @@ def register_simple_create_handlers(
             *build_generation_run_outputs(generation_section, results_section),
             simple_page["simple_status"],
         ],
+        show_progress_on=build_simple_generation_progress_targets(simple_page),
     ).then(
         fn=sync_inline_result_preview,
         inputs=[
@@ -241,10 +238,66 @@ def register_simple_create_handlers(
     )
 
 
-def _simple_prepare_outputs(
+def build_simple_prepare_inputs(simple_page: dict[str, Any]) -> list[Any]:
+    """Return simple-tab inputs used to prepare a generation request."""
+
+    return [
+        simple_page["simple_caption"],
+        simple_page["simple_lyrics"],
+        simple_page["simple_vocal_language"],
+        simple_page["simple_instrumental"],
+        simple_page["simple_vocal_gender"],
+        simple_page["simple_duration"],
+        simple_page["simple_batch_size"],
+        simple_page["simple_random_seed"],
+        simple_page["simple_seed"],
+        simple_page["simple_quantization"],
+        simple_page["simple_model_dropdown"],
+        simple_page["simple_bpm_state"],
+        simple_page["simple_key_scale_state"],
+        simple_page["simple_time_signature_state"],
+        simple_page["simple_is_format_caption_state"],
+    ]
+
+
+def build_simple_generation_progress_targets(simple_page: dict[str, Any]) -> list[Any]:
+    """Return simple-tab components that should display generation progress."""
+
+    return [
+        simple_page["simple_latest_audio"],
+        simple_page["simple_status"],
+    ]
+
+
+def build_simple_generation_wrapper_signature() -> inspect.Signature:
+    """Return the simple generation wrapper signature with handlers pre-bound."""
+
+    parameters = list(
+        inspect.signature(res_h.generate_with_batch_management).parameters.values()
+    )
+    return inspect.Signature(parameters=parameters[2:])
+
+
+def _stream_simple_generation(
+    dit_handler: Any,
+    llm_handler: Any,
+    args: tuple[Any, ...],
+) -> Iterator[tuple[Any, ...]]:
+    """Stream backend generation outputs with compact simple-tab status."""
+
+    for outputs in res_h.generate_with_batch_management(
+        dit_handler,
+        llm_handler,
+        *args,
+    ):
+        status = _extract_generation_status(outputs)
+        yield (*outputs, status)
+
+
+def build_simple_prepare_outputs(
     generation_section: dict[str, Any],
     results_section: dict[str, Any],
-    simple_page: dict[str, Any],
+    status_output: Any,
 ) -> list[Any]:
     """Return outputs updated before simple generation starts."""
 
@@ -275,7 +328,7 @@ def _simple_prepare_outputs(
         generation_section["key_scale"],
         generation_section["time_signature"],
         results_section["is_format_caption_state"],
-        simple_page["simple_status"],
+        status_output,
         generation_section["inference_steps"],
         generation_section["guidance_scale"],
         generation_section["use_adg"],

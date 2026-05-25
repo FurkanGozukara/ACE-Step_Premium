@@ -8,12 +8,16 @@ from acestep.model_downloader import (
     DEFAULT_PREMIUM_DIT_MODEL,
     DEFAULT_TURBO_DIT_MODEL,
 )
+from acestep.ui.gradio.events.wiring import simple_create_wiring
 from acestep.ui.gradio.events.wiring.simple_create_wiring import (
     _apply_simple_model_change,
     _apply_simple_tier_change,
     _extract_generation_status,
     _format_enhancement_status,
     _format_simple_status,
+    _stream_simple_generation,
+    build_simple_generation_progress_targets,
+    build_simple_generation_wrapper_signature,
 )
 
 
@@ -30,6 +34,61 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
             _extract_generation_status(outputs),
             "Generation complete. Outputs are saved.",
         )
+
+    def test_stream_simple_generation_forwards_injected_progress_arg(self):
+        """Simple-tab generation should forward live Gradio progress."""
+
+        calls = []
+        backend_outputs = [None] * 55
+        backend_outputs[10] = "Preparing generation..."
+
+        def fake_backend(*args, **kwargs):
+            calls.append((args, kwargs))
+            yield tuple(backend_outputs)
+
+        with patch.object(
+            simple_create_wiring.res_h,
+            "generate_with_batch_management",
+            side_effect=fake_backend,
+        ):
+            outputs = list(
+                _stream_simple_generation(
+                    "dit",
+                    "llm",
+                    ("caption", "lyrics", "progress-sentinel"),
+                )
+            )
+
+        self.assertEqual(
+            calls[0][0],
+            ("dit", "llm", "caption", "lyrics", "progress-sentinel"),
+        )
+        self.assertEqual(calls[0][1], {})
+        self.assertEqual(outputs[0][-1], "Preparing generated audio files...")
+
+    def test_simple_generation_progress_targets_latest_song_panel(self):
+        """Progress should render on the latest-song preview and status."""
+
+        simple_page = {
+            "simple_latest_audio": "latest-audio",
+            "simple_status": "latest-status",
+        }
+
+        self.assertEqual(
+            build_simple_generation_progress_targets(simple_page),
+            ["latest-audio", "latest-status"],
+        )
+
+    def test_simple_generation_wrapper_signature_exposes_progress(self):
+        """Gradio should detect and inject backend progress for the wrapper."""
+
+        signature = build_simple_generation_wrapper_signature()
+        parameters = signature.parameters
+
+        self.assertNotIn("dit_handler", parameters)
+        self.assertNotIn("llm_handler", parameters)
+        self.assertIn("progress", parameters)
+        self.assertTrue(hasattr(parameters["progress"].default, "track_tqdm"))
 
     def test_format_status_compacts_initialization_messages(self):
         """Long init logs should keep the phase and final backend line."""

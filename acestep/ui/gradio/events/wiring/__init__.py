@@ -14,6 +14,7 @@ from .context import (
 from .batch_folder_wiring import register_batch_folder_handlers
 from .generation_metadata_wiring import register_generation_metadata_handlers
 from .generation_metadata_file_wiring import register_generation_metadata_file_handlers
+from .grid_testing_wiring import register_grid_testing_handlers
 from .generation_batch_navigation_wiring import register_generation_batch_navigation_handlers
 from .generation_mode_wiring import register_generation_mode_handlers
 from .generation_run_wiring import register_generation_run_handlers
@@ -51,6 +52,7 @@ __all__ = [
     "register_results_restore_and_lrc_handlers",
     "register_results_save_button_handlers",
     "register_generation_service_handlers",
+    "register_grid_testing_handlers",
     "register_simple_create_handlers",
     "register_training_dataset_builder_handlers",
     "register_training_dataset_load_handler",

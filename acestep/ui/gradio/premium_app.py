@@ -20,6 +20,7 @@ from acestep.ui.gradio.events.generation.cancel_api import (
 )
 from acestep.ui.gradio.events.wiring import (
     register_batch_folder_handlers,
+    register_grid_testing_handlers,
     register_library_handlers,
     register_simple_create_handlers,
 )
@@ -37,6 +38,7 @@ from acestep.ui.gradio.pages import (
     create_batch_folder_page,
     create_dataset_page,
     create_generation_workspace_page,
+    create_grid_testing_page,
     create_library_page,
     create_simple_create_page,
     create_studio_page,
@@ -698,6 +700,9 @@ def create_gradio_interface(
             with gr.Tab("Batch Folder Processing", visible=not service_mode, render_children=True):
                 batch_folder_section = create_batch_folder_page()
 
+            with gr.Tab("Grid Testing", visible=not service_mode, render_children=True):
+                grid_section = create_grid_testing_page()
+
         generation_section: dict[str, Any] = {}
         generation_section.update(create_page["settings_section"])
         generation_section.update(create_page["generation_section"])
@@ -755,6 +760,14 @@ def create_gradio_interface(
             dit_handler=dit_handler,
             llm_handler=llm_handler,
             batch_section=batch_folder_section,
+            generation_section=generation_section,
+            results_section=results_section,
+        )
+        register_grid_testing_handlers(
+            dit_handler=dit_handler,
+            llm_handler=llm_handler,
+            grid_section=grid_section,
+            simple_page=simple_page,
             generation_section=generation_section,
             results_section=results_section,
         )

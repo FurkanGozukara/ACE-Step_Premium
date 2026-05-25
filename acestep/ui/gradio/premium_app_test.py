@@ -51,6 +51,13 @@ class PremiumAppTests(unittest.TestCase):
         self.assertIn("Batch Folder Processing", source)
         self.assertIn("register_batch_folder_handlers", source)
 
+    def test_grid_testing_tab_is_registered(self):
+        """Premium shell should expose and wire the Grid Testing tab."""
+
+        source = Path(premium_app.__file__).read_text(encoding="utf-8")
+        self.assertIn("Grid Testing", source)
+        self.assertIn("register_grid_testing_handlers", source)
+
     def test_generate_song_tab_and_preset_dropdown_autoload_are_registered(self):
         """The simple tab name and preset dropdown auto-load wiring should be present."""
 
