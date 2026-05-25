@@ -38,6 +38,9 @@
 
 - Cancel auto labelling process and tensor generation process implemented
 	- Now you can immediately cancel both processes when running in isolated subprocess
+- User / Custom preset system now will save and load every field exists in training tab properly
+- Delete preset button now deletes the selected preset and loads the next custom preset
+	- If all user custom presets get deleted, it will load default vram preset
 - Now your lyric txt files can also contain style / caption 
 	- e.g. a.mp3 and a.txt in same folder
 	- Format is like below
