@@ -2,17 +2,25 @@
 
 from __future__ import annotations
 
-import json
 import random
 from pathlib import Path
 from typing import Any, Tuple
 
+from acestep.dataset_ngrams import (
+    build_ngram_tables,
+    selected_ngram_from_event,
+    selected_song_index_from_event,
+    song_rows_for_ngram,
+)
+from acestep.dataset_preview import EMPTY_DATASET_PREVIEW, preview_sample, sample_title
 from acestep.training.dataset_builder import DatasetBuilder
 from acestep.training.dataset_builder_modules.models import AudioSample
 from acestep.training.path_inputs import normalize_user_path
 
 
-_EMPTY_PREVIEW = ("", "{}", None, None, None)
+_EMPTY_NGRAM_BROWSER = (
+    [], [], [], [], [], [], "Import a dataset JSON to populate the gram columns.", [], "", 0
+)
 
 
 class DatasetHandler:
@@ -69,22 +77,60 @@ class DatasetHandler:
 
         status = self.import_dataset(dataset_type, dataset_path)
         if not self.dataset_imported:
-            return (status, *_EMPTY_PREVIEW)
-        return (status, *self._preview_sample(self.dataset[0], 0))
+            return (status, *EMPTY_DATASET_PREVIEW, *_EMPTY_NGRAM_BROWSER)
+        return (status, *preview_sample(self.dataset[0], 0), *self._ngram_browser_values())
 
     def get_item_for_ui(self, search_type: str, search_value: str = "") -> tuple[Any, ...]:
         """Return a selected dataset item preview for the Dataset page."""
 
         if not self.dataset:
-            return ("No dataset imported.", *_EMPTY_PREVIEW)
+            return ("No dataset imported.", *EMPTY_DATASET_PREVIEW)
 
         index = self._resolve_sample_index(search_type, search_value)
         if index is None:
-            return (f"No item found for {search_type}: {search_value}", *_EMPTY_PREVIEW)
+            return (f"No item found for {search_type}: {search_value}", *EMPTY_DATASET_PREVIEW)
 
         sample = self.dataset[index]
-        status = f"Loaded item {index + 1}/{len(self.dataset)}: {sample.filename}"
-        return (status, *self._preview_sample(sample, index))
+        status = f"Loaded item {index + 1}/{len(self.dataset)}: {sample_title(sample)}"
+        return (status, *preview_sample(sample, index))
+
+    def select_ngram_for_ui(self, gram_size: int, event: Any) -> tuple[Any, ...]:
+        """Return song rows for the selected top word n-gram."""
+
+        if not self.dataset:
+            return ("Import a dataset JSON to browse n-grams.", [], "", 0)
+
+        gram = selected_ngram_from_event(self.dataset, gram_size, event)
+        if not gram:
+            return ("Select a gram from one of the six columns.", [], "", 0)
+
+        rows = song_rows_for_ngram(self.dataset, gram_size, gram)
+        summary = f"{gram_size}-gram: {gram} | {len(rows)} song(s)"
+        return summary, rows, gram, int(gram_size)
+
+    def select_ngram_song_for_ui(
+        self,
+        selected_gram: str,
+        selected_gram_size: int,
+        event: Any,
+    ) -> tuple[Any, ...]:
+        """Return playable preview data for a song selected from gram matches."""
+
+        if not self.dataset:
+            return ("No dataset imported.", *EMPTY_DATASET_PREVIEW)
+
+        sample_index = selected_song_index_from_event(
+            self.dataset,
+            int(selected_gram_size or 0),
+            selected_gram,
+            event,
+        )
+        if sample_index is None:
+            return ("Select a song from the gram matches table.", *EMPTY_DATASET_PREVIEW)
+
+        sample = self.dataset[sample_index]
+        status = f"Loaded song {sample_index + 1}/{len(self.dataset)}: {sample_title(sample)}"
+        return (status, *preview_sample(sample, sample_index))
 
     def get_item_data(self, *args, **kwargs) -> Tuple:
         """Return placeholder dataset item data for the explorer UI."""
@@ -138,16 +184,13 @@ class DatasetHandler:
                 return index
         return None
 
-    def _preview_sample(self, sample: AudioSample, index: int) -> tuple[str, str, str, None, None]:
-        """Return instruction, JSON metadata, and audio preview values for a sample."""
+    def _ngram_browser_values(self) -> tuple[Any, ...]:
+        """Return n-gram tables plus cleared gram selection outputs."""
 
-        payload = sample.to_dict()
-        payload["index"] = index
-        instruction = sample.caption or sample.genre or sample.filename
         return (
-            instruction,
-            json.dumps(payload, indent=2, ensure_ascii=False),
-            sample.audio_path,
-            None,
-            None,
+            *build_ngram_tables(self.dataset),
+            "Select a gram from the columns above.",
+            [],
+            "",
+            0,
         )
