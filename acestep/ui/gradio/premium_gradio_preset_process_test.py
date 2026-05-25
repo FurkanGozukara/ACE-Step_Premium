@@ -141,6 +141,60 @@ class PremiumGradioPresetProcessTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(result.get("data", [])), len(keys) + 5)
 
+    async def test_load_preset_process_api_sanitizes_strict_control_values(self) -> None:
+        """Loading malformed saved values should keep later Gradio events valid."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            original = os.environ.get("ACESTEP_PROJECT_ROOT")
+            os.environ["ACESTEP_PROJECT_ROOT"] = tmp_dir
+            try:
+                keys = get_preset_component_keys()
+                values = [DEFAULT_PRESET_VALUES.get(key, "") for key in keys]
+                values[keys.index("train_epochs")] = 100200
+                values[keys.index("lokr_export_epoch")] = "Latest (Auto)"
+                save_preset_action("malformed", None, *values)
+
+                demo = create_gradio_interface(
+                    dit_handler=_FakeDitHandler(),
+                    llm_handler=_FakeLlmHandler(),
+                    dataset_handler=_FakeDatasetHandler(),
+                    init_params=None,
+                    language="en",
+                )
+                load_id = next(
+                    key for key, block_fn in demo.fns.items()
+                    if getattr(block_fn.fn, "__name__", "") == "load_preset_action"
+                )
+                save_id = next(
+                    key for key, block_fn in demo.fns.items()
+                    if getattr(block_fn.fn, "__name__", "") == "save_preset_action"
+                )
+                demo.fns[load_id].inputs[0].choices = [("malformed", "malformed")]
+                demo.fns[save_id].inputs[1].choices = [("malformed", "malformed")]
+
+                load_result = await demo.process_api(load_id, ["malformed"])
+                loaded_values = [
+                    item.get("value") if isinstance(item, dict) else item
+                    for item in load_result.get("data", [])[:len(keys)]
+                ]
+                save_result = await demo.process_api(
+                    save_id,
+                    ["sanitized-copy", "malformed", *loaded_values],
+                )
+            finally:
+                if original is None:
+                    os.environ.pop("ACESTEP_PROJECT_ROOT", None)
+                else:
+                    os.environ["ACESTEP_PROJECT_ROOT"] = original
+
+        data = load_result.get("data", [])
+        self.assertEqual(data[keys.index("train_epochs")].get("value"), 4000)
+        self.assertEqual(
+            data[keys.index("lokr_export_epoch")].get("value"),
+            "Latest (auto)",
+        )
+        self.assertIn("Saved preset: sanitized-copy", save_result.get("data", [])[1])
+
     async def test_delete_preset_process_api_selects_next_available_preset(self) -> None:
         """Deleting the selected preset should refresh and load the next preset."""
 

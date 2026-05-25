@@ -87,7 +87,7 @@ ADDITIONAL_DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "lokr_training_seed": 42,
     "lokr_output_dir": "./lokr_output",
     "lokr_export_path": "./lokr_output/final_lokr",
-    "lokr_export_epoch": "Latest (Auto)",
+    "lokr_export_epoch": "Latest (auto)",
     "batch_input_folder": "",
     "batch_output_folder": "",
     "batch_auto_improve_lyrics": False,

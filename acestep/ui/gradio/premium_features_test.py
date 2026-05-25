@@ -573,6 +573,49 @@ class PremiumFeaturesTests(unittest.TestCase):
         self.assertIsNone(updates[keys.index("lm_codes_audio_upload")].get("value"))
         self.assertIsNone(updates[keys.index("simple_create_cover_image")].get("value"))
 
+    def test_user_preset_values_are_sanitized_for_gradio_components(self) -> None:
+        """Malformed saved values should not be pushed back into strict controls."""
+
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            values[keys.index("train_epochs")] = 100200
+            values[keys.index("lokr_export_epoch")] = "Latest (Auto)"
+            component_specs = {
+                "train_epochs": {
+                    "component_type": "Slider",
+                    "minimum": 1,
+                    "maximum": 4000,
+                    "value": 100,
+                },
+                "lokr_export_epoch": {
+                    "component_type": "Dropdown",
+                    "choices": ["Latest (auto)"],
+                    "value": "Latest (auto)",
+                },
+            }
+            try:
+                premium_features.save_preset_action("malformed", None, *values)
+                loaded = premium_features.load_named_preset("malformed")
+                updates = premium_features.load_preset_action(
+                    "malformed",
+                    component_specs,
+                )
+            finally:
+                self._restore_project_root(original)
+
+        self.assertEqual(loaded["train_epochs"], 100200)
+        self.assertEqual(loaded["lokr_export_epoch"], "Latest (Auto)")
+        self.assertEqual(updates[keys.index("train_epochs")].get("value"), 4000)
+        self.assertEqual(
+            updates[keys.index("lokr_export_epoch")].get("value"),
+            "Latest (auto)",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

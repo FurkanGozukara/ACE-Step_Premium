@@ -48,6 +48,9 @@ from acestep.ui.gradio.premium_preset_components import (
     build_preset_component_map,
     preset_components_for_keys,
 )
+from acestep.ui.gradio.premium_preset_value_safety import (
+    component_specs_from_components,
+)
 from acestep.ui.gradio.premium_features import (
     delete_preset_action,
     get_preset_component_keys,
@@ -791,11 +794,44 @@ def create_gradio_interface(
             batch_folder_section=batch_folder_section,
         )
         preset_components = preset_components_for_keys(preset_component_map, preset_keys)
+        preset_component_specs = component_specs_from_components(
+            preset_keys,
+            preset_components,
+        )
         preset_default_values = gr.State(
             [getattr(component, "value", None) for component in preset_components]
         )
+
+        def startup_preset_updates_with_specs() -> tuple[Any, ...]:
+            """Load startup preset values sanitized for this Gradio app."""
+
+            return startup_preset_updates(preset_component_specs)
+
+        def load_preset_action_with_specs(preset_name: str | None) -> tuple[Any, ...]:
+            """Load preset values sanitized for this Gradio app."""
+
+            return load_preset_action(preset_name, preset_component_specs)
+
+        def delete_preset_action_with_specs(
+            preset_name: str | None,
+            default_values: list[Any] | tuple[Any, ...] | None = None,
+            preset_name_input: str | None = None,
+        ) -> tuple[Any, ...]:
+            """Delete a preset and sanitize replacement values for this Gradio app."""
+
+            return delete_preset_action(
+                preset_name,
+                default_values,
+                preset_name_input,
+                preset_component_specs,
+            )
+
+        startup_preset_updates_with_specs.__name__ = "startup_preset_updates"
+        load_preset_action_with_specs.__name__ = "load_preset_action"
+        delete_preset_action_with_specs.__name__ = "delete_preset_action"
+
         demo.load(
-            fn=startup_preset_updates,
+            fn=startup_preset_updates_with_specs,
             outputs=preset_components
             + [
                 generation_section["lora_status"],
@@ -813,12 +849,12 @@ def create_gradio_interface(
             studio_page["studio_overview"],
         ]
         studio_page["preset_dropdown"].change(
-            fn=load_preset_action,
+            fn=load_preset_action_with_specs,
             inputs=[studio_page["preset_dropdown"]],
             outputs=preset_load_outputs,
         )
         studio_page["load_preset_btn"].click(
-            fn=load_preset_action,
+            fn=load_preset_action_with_specs,
             inputs=[studio_page["preset_dropdown"]],
             outputs=preset_load_outputs,
         )
@@ -836,7 +872,7 @@ def create_gradio_interface(
             ],
         )
         studio_page["delete_preset_btn"].click(
-            fn=delete_preset_action,
+            fn=delete_preset_action_with_specs,
             inputs=[
                 studio_page["preset_dropdown"],
                 preset_default_values,

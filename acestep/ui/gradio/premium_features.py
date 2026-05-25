@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +50,7 @@ from acestep.ui.gradio.premium_preset_schema import (
     ADDITIONAL_PRESET_COMPONENT_KEYS,
     FILE_UPLOAD_PRESET_KEYS,
 )
+from acestep.ui.gradio.premium_preset_value_safety import coerce_preset_value
 
 
 GPU_OPTIMIZATION_PRESET_NAME = "GPU Optimization Preset"
@@ -718,7 +720,10 @@ def _values_to_payload(values: tuple[Any, ...]) -> dict[str, Any]:
     }
 
 
-def _payload_to_component_updates(payload: dict[str, Any]) -> list[Any]:
+def _payload_to_component_updates(
+    payload: dict[str, Any],
+    component_specs: Mapping[str, Mapping[str, Any]] | None = None,
+) -> list[Any]:
     updates: list[Any] = []
     selected_model = payload.get("simple_model_dropdown") or payload.get("config_path")
     ui_config = get_ui_control_config_for_path(selected_model or DEFAULT_TURBO_DIT_MODEL)
@@ -745,6 +750,14 @@ def _payload_to_component_updates(payload: dict[str, Any]) -> list[Any]:
                     )
                 )
             elif key == "inference_steps":
+                value = coerce_preset_value(
+                    key,
+                    value,
+                    component_specs,
+                    minimum=ui_config["inference_steps_minimum"],
+                    maximum=ui_config["inference_steps_maximum"],
+                    default=ui_config["inference_steps_value"],
+                )
                 updates.append(
                     gr.update(
                         value=value,
@@ -754,6 +767,14 @@ def _payload_to_component_updates(payload: dict[str, Any]) -> list[Any]:
                     )
                 )
             elif key == "guidance_scale":
+                value = coerce_preset_value(
+                    key,
+                    value,
+                    component_specs,
+                    minimum=ui_config["guidance_scale_minimum"],
+                    maximum=ui_config["guidance_scale_maximum"],
+                    default=ui_config["guidance_scale_value"],
+                )
                 updates.append(
                     gr.update(
                         value=value,
@@ -768,6 +789,14 @@ def _payload_to_component_updates(payload: dict[str, Any]) -> list[Any]:
                     gr.update(value=value, visible=ui_config["use_adg_visible"])
                 )
             elif key == "shift":
+                value = coerce_preset_value(
+                    key,
+                    value,
+                    component_specs,
+                    minimum=ui_config["shift_minimum"],
+                    maximum=ui_config["shift_maximum"],
+                    default=ui_config["shift_value"],
+                )
                 updates.append(
                     gr.update(
                         value=value,
@@ -778,6 +807,14 @@ def _payload_to_component_updates(payload: dict[str, Any]) -> list[Any]:
                     )
                 )
             elif key == "cfg_interval_start":
+                value = coerce_preset_value(
+                    key,
+                    value,
+                    component_specs,
+                    minimum=ui_config["cfg_interval_start_minimum"],
+                    maximum=ui_config["cfg_interval_start_maximum"],
+                    default=ui_config["cfg_interval_start_value"],
+                )
                 updates.append(
                     gr.update(
                         value=value,
@@ -788,6 +825,14 @@ def _payload_to_component_updates(payload: dict[str, Any]) -> list[Any]:
                     )
                 )
             elif key == "cfg_interval_end":
+                value = coerce_preset_value(
+                    key,
+                    value,
+                    component_specs,
+                    minimum=ui_config["cfg_interval_end_minimum"],
+                    maximum=ui_config["cfg_interval_end_maximum"],
+                    default=ui_config["cfg_interval_end_value"],
+                )
                 updates.append(
                     gr.update(
                         value=value,
@@ -799,13 +844,21 @@ def _payload_to_component_updates(payload: dict[str, Any]) -> list[Any]:
                 )
             elif key == "generation_mode":
                 choices = ui_config["generation_mode_choices"]
+                value = coerce_preset_value(
+                    key,
+                    value,
+                    component_specs,
+                    choices=choices,
+                    default="Custom",
+                )
                 updates.append(
                     gr.update(
                         choices=choices,
-                        value=value if value in choices else "Custom",
+                        value=value,
                     )
                 )
             else:
+                value = coerce_preset_value(key, value, component_specs)
                 updates.append(gr.update(value=value))
         else:
             updates.append(gr.skip())
@@ -947,7 +1000,9 @@ def open_outputs_folder() -> str:
     return open_folder_in_system(get_results_dir())
 
 
-def startup_preset_updates() -> tuple[Any, ...]:
+def startup_preset_updates(
+    component_specs: Mapping[str, Mapping[str, Any]] | None = None,
+) -> tuple[Any, ...]:
     """Return startup preset updates plus dropdown, status, and dashboard."""
     remembered = get_last_used_preset_name()
     selected, fell_back, payload = _load_resolved_preset_payload(remembered)
@@ -972,7 +1027,7 @@ def startup_preset_updates() -> tuple[Any, ...]:
 
     lora_status, use_lora_update = _lora_status_from_payload(payload)
     return (
-        *_payload_to_component_updates(payload),
+        *_payload_to_component_updates(payload, component_specs),
         lora_status,
         use_lora_update,
         gr.update(choices=choices, value=selected),
@@ -1003,7 +1058,10 @@ def save_preset_action(
     )
 
 
-def load_preset_action(preset_name: str | None) -> tuple[Any, ...]:
+def load_preset_action(
+    preset_name: str | None,
+    component_specs: Mapping[str, Mapping[str, Any]] | None = None,
+) -> tuple[Any, ...]:
     """Load a preset and return updates for all tracked components."""
     requested = str(preset_name or "").strip()
     selected, fell_back, payload = _load_resolved_preset_payload(requested)
@@ -1027,7 +1085,7 @@ def load_preset_action(preset_name: str | None) -> tuple[Any, ...]:
     set_last_used_preset_name(selected)
     lora_status, use_lora_update = _lora_status_from_payload(payload)
     return (
-        *_payload_to_component_updates(payload),
+        *_payload_to_component_updates(payload, component_specs),
         lora_status,
         use_lora_update,
         gr.update(choices=list_preset_names(), value=selected),
@@ -1040,6 +1098,7 @@ def delete_preset_action(
     preset_name: str | None,
     default_values: list[Any] | tuple[Any, ...] | None = None,
     preset_name_input: str | None = None,
+    component_specs: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> tuple[Any, ...]:
     """Delete a preset, then load the next preset or restore Gradio defaults."""
 
@@ -1075,7 +1134,7 @@ def delete_preset_action(
             else f"Preset `{selected}` was missing. Loaded preset: {next_preset}"
         )
         return (
-            *_payload_to_component_updates(payload),
+            *_payload_to_component_updates(payload, component_specs),
             lora_status,
             use_lora_update,
             gr.update(choices=choices_after, value=next_preset),
@@ -1093,7 +1152,7 @@ def delete_preset_action(
         else f"Preset `{selected}` was missing. Using {GPU_OPTIMIZATION_PRESET_NAME}."
     )
     return (
-        *_default_preset_component_updates(default_values),
+        *_default_preset_component_updates(default_values, component_specs),
         "No LoRA will be used.",
         gr.update(value=False),
         gr.update(choices=choices_after, value=None),
@@ -1120,15 +1179,16 @@ def _next_preset_after_delete(
 
 def _default_preset_component_updates(
     default_values: list[Any] | tuple[Any, ...] | None,
+    component_specs: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> list[Any]:
     """Return component updates that restore the no-user-preset Gradio defaults."""
 
     if default_values and len(default_values) == len(PRESET_COMPONENT_KEYS):
         payload = _values_to_payload(tuple(default_values))
-        return _payload_to_component_updates(payload)
+        return _payload_to_component_updates(payload, component_specs)
 
     fallback_payload = _apply_runtime_defaults({})
-    fallback_updates = _payload_to_component_updates(fallback_payload)
+    fallback_updates = _payload_to_component_updates(fallback_payload, component_specs)
     return [
         fallback_updates[index] if key in fallback_payload else gr.skip()
         for index, key in enumerate(PRESET_COMPONENT_KEYS)
