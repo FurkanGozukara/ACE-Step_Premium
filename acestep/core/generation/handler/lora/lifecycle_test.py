@@ -89,6 +89,23 @@ class _FakePeftModel:
         return decoder
 
 
+class _FakePeftWrapper:
+    """PEFT wrapper stand-in with tuner-level unload support."""
+
+    def __init__(self, unloaded_decoder):
+        self.base_model = SimpleNamespace(unload=Mock(return_value=unloaded_decoder))
+        self.get_base_model = Mock(side_effect=AssertionError("get_base_model must not be used"))
+
+
+class _MismatchDecoder(_DummyDecoder):
+    """Decoder whose state restore reports key mismatches."""
+
+    def load_state_dict(self, state_dict, strict=False):
+        """Report mismatched keys to simulate an unsafe restore."""
+        _ = state_dict, strict
+        return SimpleNamespace(missing_keys=["wrapped.base_layer.weight"], unexpected_keys=["w"])
+
+
 class LifecycleTests(unittest.TestCase):
     """Coverage for LoKr path detection and load branching."""
 
@@ -279,6 +296,41 @@ class LifecycleTests(unittest.TestCase):
         self.assertIsNone(handler.model.decoder._lycoris_net)
         self.assertFalse(handler.lora_loaded)
         self.assertFalse(handler.use_lora)
+
+    def test_unload_lora_uses_peft_tuner_unload_before_state_restore(self):
+        """PEFT unload should remove wrapper modules before restoring base keys."""
+        handler = _DummyHandler()
+        handler.lora_loaded = True
+        handler.use_lora = True
+        handler._base_decoder = {"w": torch.ones(1)}
+        unloaded_decoder = _DummyDecoder()
+        wrapper = _FakePeftWrapper(unloaded_decoder)
+        handler.model.decoder = wrapper
+
+        with patch.dict("sys.modules", {"peft": SimpleNamespace(PeftModel=_FakePeftWrapper)}):
+            message = lifecycle.unload_lora(handler)
+
+        self.assertIn("LoRA unloaded, using base model", message)
+        wrapper.base_model.unload.assert_called_once_with()
+        wrapper.get_base_model.assert_not_called()
+        self.assertIs(handler.model.decoder, unloaded_decoder)
+        self.assertFalse(handler.lora_loaded)
+        self.assertFalse(handler.use_lora)
+
+    def test_unload_lora_fails_on_base_restore_key_mismatch(self):
+        """Unload must not report success when base state keys do not restore."""
+        handler = _DummyHandler()
+        handler.lora_loaded = True
+        handler.use_lora = True
+        handler._base_decoder = {"w": torch.ones(1)}
+        handler.model.decoder = _MismatchDecoder()
+
+        message = lifecycle.unload_lora(handler)
+
+        self.assertIn("Failed to unload LoRA", message)
+        self.assertIn("Base decoder restore mismatch", message)
+        self.assertTrue(handler.lora_loaded)
+        self.assertTrue(handler.use_lora)
 
     def test_unload_lora_fails_when_lokr_restore_raises(self):
         """Unload should fail fast if LyCORIS restore() raises an exception."""

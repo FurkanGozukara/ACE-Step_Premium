@@ -196,6 +196,27 @@ def _default_adapter_name_from_path(lora_path: str) -> str:
     return name if name else "default"
 
 
+def _unwrap_peft_decoder(decoder: Any) -> Any:
+    """Return the original decoder module after removing PEFT adapter wrappers."""
+    base_model = getattr(decoder, "base_model", None)
+    unload = getattr(base_model, "unload", None)
+    if callable(unload):
+        return unload()
+    return decoder.get_base_model()
+
+
+def _restore_base_decoder_state(decoder: Any, base_state: dict[str, Any]) -> None:
+    """Restore the saved base decoder state and fail on key mismatches."""
+    load_result = decoder.load_state_dict(base_state, strict=False)
+    missing_keys = list(getattr(load_result, "missing_keys", []) or [])
+    unexpected_keys = list(getattr(load_result, "unexpected_keys", []) or [])
+    if missing_keys or unexpected_keys:
+        raise RuntimeError(
+            "Base decoder restore mismatch: "
+            f"missing={missing_keys[:5]}, unexpected={unexpected_keys[:5]}"
+        )
+
+
 def add_lora(self, lora_path: str, adapter_name: str | None = None) -> str:
     """Load a LoRA adapter into the decoder under the given name.
 
@@ -424,12 +445,8 @@ def remove_lora(self, adapter_name: str) -> str:
             if hasattr(self, "_memory_allocated"):
                 mem_before = self._memory_allocated() / (1024**3)
                 logger.info(f"VRAM before LoRA unload: {mem_before:.2f}GB")
-            self.model.decoder = decoder.get_base_model()
-            load_result = self.model.decoder.load_state_dict(self._base_decoder, strict=False)
-            if load_result.missing_keys:
-                logger.warning(f"Missing keys when restoring decoder: {load_result.missing_keys[:5]}")
-            if load_result.unexpected_keys:
-                logger.warning(f"Unexpected keys when restoring decoder: {load_result.unexpected_keys[:5]}")
+            self.model.decoder = _unwrap_peft_decoder(decoder)
+            _restore_base_decoder_state(self.model.decoder, self._base_decoder)
             self.model.decoder = self.model.decoder.to(self.device).to(self.dtype)
             self.model.decoder.eval()
             self.lora_loaded = False
@@ -501,20 +518,12 @@ def unload_lora(self) -> str:
             PeftModel = None  # type: ignore[assignment]
 
         if PeftModel is not None and isinstance(self.model.decoder, PeftModel):
-            logger.info("Extracting base model from PEFT wrapper")
-            self.model.decoder = self.model.decoder.get_base_model()
-            load_result = self.model.decoder.load_state_dict(self._base_decoder, strict=False)
-            if load_result.missing_keys:
-                logger.warning(f"Missing keys when restoring decoder: {load_result.missing_keys[:5]}")
-            if load_result.unexpected_keys:
-                logger.warning(f"Unexpected keys when restoring decoder: {load_result.unexpected_keys[:5]}")
+            logger.info("Unloading PEFT wrapper before restoring base decoder")
+            self.model.decoder = _unwrap_peft_decoder(self.model.decoder)
+            _restore_base_decoder_state(self.model.decoder, self._base_decoder)
         else:
             logger.info("Restoring base decoder from state_dict backup")
-            load_result = self.model.decoder.load_state_dict(self._base_decoder, strict=False)
-            if load_result.missing_keys:
-                logger.warning(f"Missing keys when restoring decoder: {load_result.missing_keys[:5]}")
-            if load_result.unexpected_keys:
-                logger.warning(f"Unexpected keys when restoring decoder: {load_result.unexpected_keys[:5]}")
+            _restore_base_decoder_state(self.model.decoder, self._base_decoder)
 
         self.model.decoder = self.model.decoder.to(self.device).to(self.dtype)
         self.model.decoder.eval()
