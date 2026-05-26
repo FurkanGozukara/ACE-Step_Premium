@@ -13,6 +13,7 @@ from acestep.training.lora_vram_presets import (
     LORA_VRAM_PRESET_12_TO_16GB,
     LORA_VRAM_PRESET_16_TO_24GB,
     LORA_VRAM_PRESET_24GB_PLUS,
+    LORA_VRAM_PRESET_32GB_PLUS,
 )
 from acestep.ui.gradio.interfaces.training_lora_tab_dataset import (
     build_lora_dataset_and_adapter_controls,
@@ -42,9 +43,10 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
         self.assertEqual("VRAM Preset", dropdown.label)
         self.assertEqual(LORA_VRAM_PRESET_12_TO_16GB, dropdown.value)
         choice_values = [choice[1] for choice in dropdown.choices]
-        self.assertIn("8-10 GB", choice_values)
-        self.assertIn("16-24 GB", choice_values)
+        self.assertIn("12 GB - saver", choice_values)
+        self.assertIn("16 GB+", choice_values)
         self.assertIn("24GB+", choice_values)
+        self.assertIn("32GB+", choice_values)
 
     def test_default_values_match_selected_dropdown_preset(self) -> None:
         """The startup control values should match the selected default preset."""
@@ -88,12 +90,25 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
         self.assertTrue(vram_controls["lora_use_8bit_adam"].value)
         self.assertEqual(10, vram_controls["lora_empty_cache_every_n_steps"].value)
 
+    def test_rank_and_alpha_render_in_same_row(self) -> None:
+        """LoRA rank and alpha should be grouped side-by-side in the adapter panel."""
+
+        with gr.Blocks():
+            dataset_controls = build_lora_dataset_and_adapter_controls()
+
+        rank_parent = dataset_controls["lora_rank"].parent
+        alpha_parent = dataset_controls["lora_alpha"].parent
+
+        self.assertIs(rank_parent, alpha_parent)
+        self.assertEqual("Row", type(rank_parent.parent).__name__)
+        self.assertTrue(rank_parent.parent.equal_height)
+
     def test_preset_updates_match_output_count(self) -> None:
         """Preset changes should update all controlled VRAM widgets."""
 
         updates = lora_vram_preset_updates(LORA_VRAM_PRESET_10GB_PLUS)
 
-        self.assertEqual(9, len(updates))
+        self.assertEqual(10, len(updates))
         self.assertEqual(32, updates[0]["value"])
         self.assertTrue(updates[3]["value"])
 
@@ -102,19 +117,22 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
 
         expected_values = {
             LORA_VRAM_PRESET_8_TO_10GB: [
-                16, 128, True, True, True, True, True, "FP8 scaled", 5,
+                16, 128, True, True, True, True, True, "adamw8bit", "FP8 scaled", 5,
             ],
             LORA_VRAM_PRESET_10GB_PLUS: [
-                32, 128, True, True, True, True, True, "FP8 scaled", 5,
+                32, 128, True, True, True, True, True, "adamw8bit", "FP8 scaled", 5,
             ],
             LORA_VRAM_PRESET_12_TO_16GB: [
-                64, 128, True, False, True, True, True, "Disabled", 10,
+                64, 128, True, False, True, True, True, "adamw8bit", "Disabled", 10,
             ],
             LORA_VRAM_PRESET_16_TO_24GB: [
-                128, 128, True, False, True, True, False, "Disabled", 0,
+                128, 128, True, False, True, True, False, "adamw", "Disabled", 0,
             ],
             LORA_VRAM_PRESET_24GB_PLUS: [
-                128, 128, True, False, True, False, False, "Disabled", 0,
+                128, 128, True, False, True, True, False, "adamw", "Disabled", 0,
+            ],
+            LORA_VRAM_PRESET_32GB_PLUS: [
+                128, 128, True, False, True, False, False, "adamw", "Disabled", 0,
             ],
         }
 
@@ -125,13 +143,13 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
                 self.assertEqual(expected, actual)
 
     def test_8_to_10gb_preset_updates_to_rank_16(self) -> None:
-        """The 8-10 GB preset should drive the UI to the smallest measured values."""
+        """The 12 GB saver preset should drive the UI to the smallest measured values."""
 
         updates = lora_vram_preset_updates(LORA_VRAM_PRESET_8_TO_10GB)
 
-        self.assertEqual(9, len(updates))
+        self.assertEqual(10, len(updates))
         self.assertEqual(16, updates[0]["value"])
-        self.assertEqual("FP8 scaled", updates[7]["value"])
+        self.assertEqual("FP8 scaled", updates[8]["value"])
 
 
 if __name__ == "__main__":

@@ -20,6 +20,7 @@ ui_verification
 # C extensions
 *.so
 *.png
+Side-Step
 # Distribution / packaging
 .Python
 build/
@@ -28,6 +29,7 @@ dist/
 downloads/
 eggs/
 .eggs/
+verification_runs
 lib/
 lib64/
 parts/

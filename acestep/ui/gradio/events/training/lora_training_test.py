@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 import unittest
+from inspect import signature
 from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
@@ -157,6 +158,13 @@ class LoRATrainingHandlerTests(unittest.TestCase):
         self.assertTrue(_uses_fp8_scaled(" fp8 SCALED "))
         self.assertFalse(_uses_fp8_scaled("Disabled"))
 
+    def test_start_training_defaults_to_save_best_enabled(self) -> None:
+        """Omitted Save best input should still enable best-checkpoint tracking."""
+
+        save_best_default = signature(start_training).parameters["save_best"].default
+
+        self.assertIs(True, save_best_default)
+
     def test_start_training_uses_submitted_values_not_selected_preset(self) -> None:
         """Training configs should use current Gradio values after a preset edit."""
 
@@ -229,6 +237,13 @@ class LoRATrainingHandlerTests(unittest.TestCase):
                         use_8bit_adam=True,
                         base_quantization="FP8 scaled",
                         empty_cache_every_n_steps=17,
+                        adapter_type="dora",
+                        target_mlp=True,
+                        optimizer_type="adafactor",
+                        scheduler_type="linear",
+                        save_best=True,
+                        timestep_mode="discrete",
+                        adaptive_timestep_ratio=0.4,
                         vram_preset=LORA_VRAM_PRESET_24GB_PLUS,
                     )
                 )
@@ -245,12 +260,21 @@ class LoRATrainingHandlerTests(unittest.TestCase):
         self.assertIn("Training completed", outputs[-1][0])
         self.assertEqual(20, lora_config.r)
         self.assertEqual(44, lora_config.alpha)
+        self.assertTrue(lora_config.use_dora)
+        self.assertTrue(lora_config.target_mlp)
+        self.assertIn("gate_proj", lora_config.target_modules)
         self.assertFalse(training_config.gradient_checkpointing)
         self.assertTrue(training_config.activation_cpu_offload)
         self.assertFalse(training_config.offload_non_decoder)
         self.assertFalse(training_config.keep_frozen_base_in_compute_dtype)
         self.assertTrue(training_config.use_8bit_adam)
         self.assertTrue(training_config.use_fp8)
+        self.assertEqual("dora", training_config.adapter_type)
+        self.assertEqual("adafactor", training_config.optimizer_type)
+        self.assertEqual("linear", training_config.scheduler_type)
+        self.assertTrue(training_config.save_best)
+        self.assertEqual("discrete", training_config.timestep_mode)
+        self.assertEqual(0.4, training_config.adaptive_timestep_ratio)
         self.assertEqual(17, training_config.empty_cache_every_n_steps)
         self.assertEqual(37, training_config.num_inference_steps)
         self.assertEqual(0, training_config.save_every_n_epochs)

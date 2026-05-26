@@ -72,9 +72,12 @@ def build_dataset_save_and_preprocess_controls() -> dict[str, object]:
         with gr.Column(scale=2):
             preprocess_mode = gr.Dropdown(
                 label="Preprocess For",
-                choices=["LoRA", "LoKr"],
+                choices=["LoRA", "DoRA", "LoKr"],
                 value="LoRA",
-                info="LoRA keeps compatibility mode; LoKr uses per-sample source-style context.",
+                info=(
+                    "LoRA and DoRA use the same preprocessed tensors. LoKr uses "
+                    "per-sample source-style context."
+                ),
                 elem_classes=["has-info-container"],
             )
         with gr.Column(scale=1):

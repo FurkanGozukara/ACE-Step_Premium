@@ -59,6 +59,22 @@ def build_lora_dataset_and_adapter_controls(
         with gr.Column(scale=1):
             gr.HTML(f"<h3>⚙️ {t('training.train_section_lora')}</h3>")
 
+            lora_adapter_type = gr.Dropdown(
+                label="Adapter type",
+                choices=["lora", "dora"],
+                value="lora",
+                info=(
+                    "LoRA is the standard low-rank adapter. DoRA uses the same "
+                    "rank/alpha/dropout controls plus PEFT weight decomposition "
+                    "for magnitude and direction learning."
+                ),
+                elem_classes=["has-info-container"],
+            )
+
+            lora_adapter_info = gr.Markdown(
+                "LoRA selected: standard PEFT LoRA training."
+            )
+
             lora_name = gr.Textbox(
                 label=t("training.lora_name"),
                 placeholder="my-awesome-song",
@@ -66,25 +82,26 @@ def build_lora_dataset_and_adapter_controls(
                 elem_classes=["has-info-container"],
             )
 
-            lora_rank = gr.Slider(
-                minimum=4,
-                maximum=256,
-                step=4,
-                value=lora_vram_defaults["lora_rank"],
-                label=t("training.lora_rank"),
-                info=t("training.lora_rank_info"),
-                elem_classes=["has-info-container"],
-            )
+            with gr.Row(equal_height=True):
+                lora_rank = gr.Slider(
+                    minimum=4,
+                    maximum=256,
+                    step=4,
+                    value=lora_vram_defaults["lora_rank"],
+                    label=t("training.lora_rank"),
+                    info=t("training.lora_rank_info"),
+                    elem_classes=["has-info-container"],
+                )
 
-            lora_alpha = gr.Slider(
-                minimum=4,
-                maximum=512,
-                step=4,
-                value=lora_vram_defaults["lora_alpha"],
-                label=t("training.lora_alpha"),
-                info=t("training.lora_alpha_info"),
-                elem_classes=["has-info-container"],
-            )
+                lora_alpha = gr.Slider(
+                    minimum=4,
+                    maximum=512,
+                    step=4,
+                    value=lora_vram_defaults["lora_alpha"],
+                    label=t("training.lora_alpha"),
+                    info=t("training.lora_alpha_info"),
+                    elem_classes=["has-info-container"],
+                )
 
             lora_dropout = gr.Slider(
                 minimum=0.0,
@@ -96,6 +113,17 @@ def build_lora_dataset_and_adapter_controls(
                 elem_classes=["has-info-container"],
             )
 
+            lora_target_mlp = gr.Checkbox(
+                label="Target MLP",
+                value=False,
+                info=(
+                    "Also applies LoRA/DoRA to decoder MLP layers "
+                    "(gate_proj, up_proj, down_proj). This increases trainable "
+                    "capacity and VRAM use; leave off for the legacy attention-only path."
+                ),
+                elem_classes=["has-info-container"],
+            )
+
     return {
         "training_tensor_dir": training_tensor_dir,
         "training_tensor_dir_browse_btn": training_tensor_dir_browse_btn,
@@ -103,8 +131,11 @@ def build_lora_dataset_and_adapter_controls(
         "training_dataset_info": training_dataset_info,
         "lora_model_config": model_controls["lora_model_config"],
         "lora_vram_preset": lora_vram_preset,
+        "lora_adapter_type": lora_adapter_type,
+        "lora_adapter_info": lora_adapter_info,
         "lora_name": lora_name,
         "lora_rank": lora_rank,
         "lora_alpha": lora_alpha,
         "lora_dropout": lora_dropout,
+        "lora_target_mlp": lora_target_mlp,
     }

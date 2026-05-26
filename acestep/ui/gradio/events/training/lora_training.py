@@ -64,6 +64,73 @@ def _uses_fp8_scaled(base_quantization: str) -> bool:
     return str(base_quantization or "").strip().casefold() == "fp8 scaled"
 
 
+def _as_float(value, default: float) -> float:
+    """Coerce a Gradio numeric value to float."""
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _normalize_adapter_type(value: object) -> str:
+    """Return the supported PEFT adapter type selected by the UI."""
+
+    selected = str(value or "lora").strip().casefold()
+    if selected == "dora":
+        return "dora"
+    return "lora"
+
+
+def _normalize_optimizer_type(value: object, use_8bit_adam: object) -> str:
+    """Return the optimizer key used by the training config."""
+
+    selected = str(value or "").strip().casefold().replace("-", "")
+    aliases = {
+        "adamw": "adamw",
+        "adamw8bit": "adamw8bit",
+        "8bitadam": "adamw8bit",
+        "8bitadamw": "adamw8bit",
+        "adafactor": "adafactor",
+    }
+    if selected in aliases:
+        return aliases[selected]
+    return "adamw8bit" if _as_bool(use_8bit_adam) else "adamw"
+
+
+def _normalize_scheduler_type(value: object) -> str:
+    """Return the scheduler key used by the training config."""
+
+    selected = str(value or "cosine").strip().casefold().replace("-", "_")
+    if selected in {
+        "cosine",
+        "cosine_restarts",
+        "linear",
+        "constant",
+        "constant_with_warmup",
+    }:
+        return selected
+    return "cosine"
+
+
+def _normalize_timestep_mode(value: object) -> str:
+    """Return the supported timestep sampling mode."""
+
+    selected = str(value or "continuous").strip().casefold()
+    if selected == "discrete":
+        return "discrete"
+    return "continuous"
+
+
+def _target_modules_for_lora(target_mlp: object) -> list[str]:
+    """Return the PEFT target module suffixes selected by the UI."""
+
+    modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
+    if _as_bool(target_mlp):
+        modules.extend(["gate_proj", "up_proj", "down_proj"])
+    return modules
+
+
 def _model_config_token(value: object) -> str:
     """Return a comparable model identifier from a UI model path/name."""
 
@@ -176,6 +243,13 @@ def start_training(
     sample_generation_model_config: str | None = None,
     sample_generation_settings: dict | None = None,
     progress=None,
+    adapter_type: str = "lora",
+    target_mlp: bool = False,
+    optimizer_type: str = "",
+    scheduler_type: str = "cosine",
+    save_best: bool = True,
+    timestep_mode: str = "continuous",
+    adaptive_timestep_ratio: float = 0.0,
 ):
     """Start LoRA training from preprocessed tensors.
 
@@ -289,7 +363,23 @@ def start_training(
         from acestep.training.trainer import LoRATrainer
         from acestep.training.configs import LoRAConfig as LoRAConfigClass, TrainingConfig
 
-        lora_config = LoRAConfigClass(r=lora_rank, alpha=lora_alpha, dropout=lora_dropout)
+        selected_adapter_type = _normalize_adapter_type(adapter_type)
+        selected_optimizer_type = _normalize_optimizer_type(optimizer_type, use_8bit_adam)
+        selected_scheduler_type = _normalize_scheduler_type(scheduler_type)
+        selected_timestep_mode = _normalize_timestep_mode(timestep_mode)
+        selected_target_mlp = _as_bool(target_mlp)
+        selected_adaptive_ratio = min(
+            1.0,
+            max(0.0, _as_float(adaptive_timestep_ratio, 0.0)),
+        )
+        lora_config = LoRAConfigClass(
+            r=lora_rank,
+            alpha=lora_alpha,
+            dropout=lora_dropout,
+            target_modules=_target_modules_for_lora(selected_target_mlp),
+            use_dora=selected_adapter_type == "dora",
+            target_mlp=selected_target_mlp,
+        )
 
         device_attr = getattr(dit_handler, "device", "")
         if hasattr(device_attr, "type"):
@@ -333,12 +423,18 @@ def start_training(
             offload_non_decoder=_as_bool(offload_non_decoder),
             keep_frozen_base_in_compute_dtype=_as_bool(keep_frozen_base_in_compute_dtype),
             use_8bit_adam=_as_bool(use_8bit_adam),
+            optimizer_type=selected_optimizer_type,
+            scheduler_type=selected_scheduler_type,
             empty_cache_every_n_steps=_as_nonnegative_int(
                 empty_cache_every_n_steps, 10
             ),
             num_workers=num_workers, pin_memory=pin_memory,
             prefetch_factor=prefetch_factor, persistent_workers=persistent_workers,
             pin_memory_device=pin_memory_device, mixed_precision=mixed_precision,
+            adapter_type=selected_adapter_type,
+            save_best=_as_bool(save_best),
+            timestep_mode=selected_timestep_mode,
+            adaptive_timestep_ratio=selected_adaptive_ratio,
             sample_every_n_epochs=(
                 _as_positive_int(sample_every_n_epochs, 10)
                 if _as_bool(sample_generation_enabled)
@@ -353,6 +449,18 @@ def start_training(
             sample_offload_training_model=_as_bool(sample_offload_training_model),
             sample_offload_generation=_as_bool(sample_offload_generation),
             sample_generation_settings=dict(sample_generation_settings or {}),
+        )
+        adapter_label = "DoRA" if selected_adapter_type == "dora" else "LoRA"
+        logger.info(
+            "Training options: adapter={}, target_mlp={}, optimizer={}, "
+            "scheduler={}, timestep_mode={}, adaptive_timestep_ratio={}, save_best={}",
+            adapter_label,
+            selected_target_mlp,
+            selected_optimizer_type,
+            selected_scheduler_type,
+            selected_timestep_mode,
+            selected_adaptive_ratio,
+            _as_bool(save_best),
         )
         _save_training_config_snapshot(lora_config, training_config)
 
@@ -369,6 +477,18 @@ def start_training(
         start_time = time.time()
         progress_timer = TrainingProgressTimer(start_time)
 
+        yield (
+            (
+                f"{adapter_label} options: target_mlp={selected_target_mlp}, "
+                f"optimizer={selected_optimizer_type}, scheduler={selected_scheduler_type}, "
+                f"timestep={selected_timestep_mode}, "
+                f"adaptive_timestep_ratio={selected_adaptive_ratio}, "
+                f"save_best={_as_bool(save_best)}"
+            ),
+            "",
+            initial_plot,
+            training_state,
+        )
         yield f"🚀 Starting training from {tensor_dir}...", "", initial_plot, training_state
 
         trainer = LoRATrainer(

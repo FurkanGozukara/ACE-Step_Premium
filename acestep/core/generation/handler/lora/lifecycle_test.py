@@ -182,6 +182,26 @@ class LifecycleTests(unittest.TestCase):
         self.assertTrue(message.startswith("✅"))
         self.assertEqual(_FakePeftModel.loaded_path, str(adapter_dir.resolve()))
 
+    def test_load_lora_detects_peft_dora_config(self):
+        """PEFT adapters with use_dora should be labeled and tracked as DoRA."""
+        handler = _DummyHandler()
+        with tempfile.TemporaryDirectory() as tmp:
+            adapter_dir = Path(tmp) / "adapter"
+            adapter_dir.mkdir(parents=True, exist_ok=True)
+            (adapter_dir / "adapter_config.json").write_text(
+                '{"peft_type": "LORA", "use_dora": true}',
+                encoding="utf-8",
+            )
+
+            fake_peft = SimpleNamespace(PeftModel=_FakePeftModel)
+            _FakePeftModel.loaded_path = None
+            with patch.dict("sys.modules", {"peft": fake_peft}):
+                message = lifecycle.load_lora(handler, str(adapter_dir))
+
+        self.assertTrue(message.startswith("✅"))
+        self.assertIn("DoRA", message)
+        self.assertEqual("dora", handler._adapter_type)
+
     def test_validate_peft_adapter_config_missing_peft_type(self):
         """adapter_config.json without peft_type should return a clear error message."""
         with tempfile.TemporaryDirectory() as tmp:

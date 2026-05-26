@@ -9,6 +9,7 @@ import os
 import time
 import random
 import math
+import shutil
 from typing import Optional, List, Dict, Any, Tuple, Generator
 from loguru import logger
 
@@ -54,9 +55,12 @@ from acestep.training.lokr_utils import (
     check_lycoris_available,
 )
 from acestep.training.data_module import PreprocessedDataModule
+from acestep.training.adaptive_timestep import AdaptiveTimestepSampler
+from acestep.training.optim import build_optimizer, build_scheduler
 from acestep.training.path_safety import safe_path
 from acestep.training.sample_generation_inprocess import run_training_sample_inprocess
 from acestep.training.timestep_schedule import build_shifted_timestep_schedule
+from acestep.training_v2.timestep_sampling import apply_cfg_dropout, sample_timesteps
 from acestep.training.vram_optimizations import (
     apply_training_fp8_scaled,
     cast_training_parameter_dtypes,
@@ -72,6 +76,14 @@ def _named_lora_epoch(training_config: TrainingConfig, epoch: int) -> str:
     """Return the configured LoRA artifact basename for an epoch."""
 
     return lora_epoch_name(getattr(training_config, "lora_name", "lora"), epoch)
+
+
+def _adapter_display_name(training_config: TrainingConfig) -> str:
+    """Return the user-facing adapter type name for training messages."""
+
+    if str(getattr(training_config, "adapter_type", "lora")).lower() == "dora":
+        return "DoRA"
+    return "LoRA"
 
 
 def _checkpoint_save_interval(training_config: TrainingConfig) -> int:
@@ -139,6 +151,33 @@ def _save_lora_epoch_checkpoint(
         training_config.output_dir,
         artifact_name=artifact_name,
         state_suffix=state_suffix,
+    )
+
+
+def _save_best_lora_checkpoint(
+    model: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    scheduler,
+    training_config: TrainingConfig,
+    epoch: int,
+    global_step: int,
+) -> str:
+    """Save the current best adapter, replacing the previous best directory."""
+
+    best_dir = safe_path(os.path.join(training_config.output_dir, "best"))
+    if os.path.isdir(best_dir):
+        shutil.rmtree(best_dir)
+    os.makedirs(best_dir, exist_ok=True)
+    artifact_name = f"{getattr(training_config, 'lora_name', 'lora')}-best"
+    return save_training_checkpoint(
+        model,
+        optimizer,
+        scheduler,
+        epoch,
+        global_step,
+        best_dir,
+        artifact_name=artifact_name,
+        state_suffix="best",
     )
 
 
@@ -491,6 +530,21 @@ class PreprocessedLoRAModule(nn.Module):
         self.device_type = _normalize_device_type(self.device)
         self.dtype = _select_compute_dtype(self.device_type)
         self.transfer_non_blocking = self.device_type in ("cuda", "xpu")
+        self._timestep_mode = str(
+            getattr(training_config, "timestep_mode", "continuous") or "continuous"
+        ).lower()
+        self._cfg_ratio = float(getattr(training_config, "cfg_ratio", 0.15) or 0.0)
+        self._timestep_mu = float(getattr(training_config, "timestep_mu", -0.4))
+        self._timestep_sigma = float(getattr(training_config, "timestep_sigma", 1.0))
+        self._data_proportion = float(getattr(training_config, "data_proportion", 0.5))
+        adaptive_ratio = float(
+            getattr(training_config, "adaptive_timestep_ratio", 0.0) or 0.0
+        )
+        self._adaptive_sampler = (
+            AdaptiveTimestepSampler(ratio=adaptive_ratio)
+            if self._timestep_mode == "continuous" and adaptive_ratio > 0.0
+            else None
+        )
         timestep_schedule = build_shifted_timestep_schedule(
             training_config.num_inference_steps,
             training_config.shift,
@@ -499,8 +553,10 @@ class PreprocessedLoRAModule(nn.Module):
             timestep_schedule, device=self.device, dtype=self.dtype
         )
         logger.info(
-            f"LoRA training timestep schedule: steps={training_config.num_inference_steps}, "
-            f"shift={training_config.shift}"
+            f"LoRA training timestep mode: {self._timestep_mode}, "
+            f"steps={training_config.num_inference_steps}, "
+            f"shift={training_config.shift}, cfg_ratio={self._cfg_ratio:.3f}, "
+            f"adaptive_ratio={adaptive_ratio:.3f}"
         )
         # When gradient checkpointing is enabled via wrapper layers that don't expose
         # enable_input_require_grads(), force at least one forward input to require grad
@@ -518,7 +574,8 @@ class PreprocessedLoRAModule(nn.Module):
 
             self.model, self.lora_info = inject_lora_into_dit(model, lora_config)
             logger.info(
-                f"LoRA injected: {self.lora_info['trainable_params']:,} trainable params"
+                f"{_adapter_display_name(training_config)} injected: "
+                f"{self.lora_info['trainable_params']:,} trainable params"
             )
         else:
             self.model = model
@@ -552,6 +609,9 @@ class PreprocessedLoRAModule(nn.Module):
 
         # Model config for flow matching
         self.config = model.config
+        self._null_cond_emb = getattr(model, "null_condition_emb", None)
+        if self._null_cond_emb is None and self._cfg_ratio > 0.0:
+            logger.warning("model.null_condition_emb not found; CFG dropout disabled.")
 
         # Store training losses
         self.training_losses = []
@@ -563,7 +623,9 @@ class PreprocessedLoRAModule(nn.Module):
     ) -> torch.Tensor:
         """Single training step using preprocessed tensors.
 
-        Note: This is a distilled turbo model, NO CFG is used.
+        Timestep sampling is controlled by ``training_config.timestep_mode``.
+        Continuous mode uses logit-normal training timesteps and CFG dropout;
+        discrete mode keeps the legacy shifted inference schedule.
 
         Args:
             batch: Dictionary containing pre-computed tensors:
@@ -620,8 +682,40 @@ class PreprocessedLoRAModule(nn.Module):
             x1 = torch.randn_like(target_latents)  # Noise
             x0 = target_latents  # Data
 
-            # Sample timesteps from the submitted Gradio/API training schedule.
-            t, _ = sample_discrete_timestep(bsz, self.timesteps_tensor)
+            if self._null_cond_emb is not None and self._cfg_ratio > 0.0:
+                null_cond_emb = self._null_cond_emb.to(
+                    device=encoder_hidden_states.device,
+                    dtype=encoder_hidden_states.dtype,
+                )
+                encoder_hidden_states = apply_cfg_dropout(
+                    encoder_hidden_states,
+                    null_cond_emb,
+                    cfg_ratio=self._cfg_ratio,
+                )
+
+            if self._timestep_mode == "discrete":
+                t, r = sample_discrete_timestep(bsz, self.timesteps_tensor)
+            elif self._adaptive_sampler is not None:
+                t, r = self._adaptive_sampler.sample(
+                    batch_size=bsz,
+                    base_sampler=sample_timesteps,
+                    device=self.device,
+                    dtype=self.dtype,
+                    data_proportion=self._data_proportion,
+                    timestep_mu=self._timestep_mu,
+                    timestep_sigma=self._timestep_sigma,
+                    use_meanflow=False,
+                )
+            else:
+                t, r = sample_timesteps(
+                    batch_size=bsz,
+                    device=self.device,
+                    dtype=self.dtype,
+                    data_proportion=self._data_proportion,
+                    timestep_mu=self._timestep_mu,
+                    timestep_sigma=self._timestep_sigma,
+                    use_meanflow=False,
+                )
             t_ = t.unsqueeze(-1).unsqueeze(-1)
 
             # Interpolate: x_t = t * x1 + (1 - t) * x0
@@ -629,11 +723,11 @@ class PreprocessedLoRAModule(nn.Module):
             if self.force_input_grads_for_checkpointing:
                 xt = xt.requires_grad_(True)
 
-            # Forward through decoder (distilled turbo model, no CFG)
+            # Forward through decoder
             decoder_outputs = self.model.decoder(
                 hidden_states=xt,
                 timestep=t,
-                timestep_r=t,
+                timestep_r=r,
                 attention_mask=attention_mask,
                 encoder_hidden_states=encoder_hidden_states,
                 encoder_attention_mask=encoder_attention_mask,
@@ -642,7 +736,15 @@ class PreprocessedLoRAModule(nn.Module):
 
             # Flow matching loss: predict the flow field v = x1 - x0
             flow = x1 - x0
-            diffusion_loss = F.mse_loss(decoder_outputs[0], flow)
+            per_sample_loss = F.mse_loss(
+                decoder_outputs[0],
+                flow,
+                reduction="none",
+            ).mean(dim=tuple(range(1, flow.ndim)))
+            diffusion_loss = per_sample_loss.mean()
+
+            if self._adaptive_sampler is not None:
+                self._adaptive_sampler.update(t, per_sample_loss)
 
         # Convert loss to float32 for stable backward pass
         diffusion_loss = diffusion_loss.float()
@@ -929,8 +1031,7 @@ class LoRATrainer:
             training_state["plot_best_step"] = None
         ema_loss = None
         ema_alpha = 0.1
-        best_val_loss = float("inf")
-        best_val_step = None
+        best_metric = float("inf")
 
         # Setup optimizer - only LoRA parameters
         trainable_params = [
@@ -947,23 +1048,23 @@ class LoRATrainer:
             f"🎯 Training {sum(p.numel() for p in trainable_params):,} parameters",
         )
 
-        optimizer_kwargs = {
-            "lr": self.training_config.learning_rate,
-            "weight_decay": self.training_config.weight_decay,
-        }
-
-        # Optimizer selection: AdamW 8-bit vs Standard AdamW
-        if (
-            getattr(self.training_config, "use_8bit_adam", True)
-            and HAS_BNB
-            and device_type == "cuda"
-        ):
-            logger.info("train_with_fabric using bitsandbytes 8-bit AdamW optimizer")
-            optimizer = bnb.optim.AdamW8bit(trainable_params, **optimizer_kwargs)
-        else:
-            if self.module.device.type == "cuda":
-                optimizer_kwargs["fused"] = True
-            optimizer = AdamW(trainable_params, **optimizer_kwargs)
+        optimizer_type = str(
+            getattr(self.training_config, "optimizer_type", "") or ""
+        ).lower()
+        if not optimizer_type:
+            optimizer_type = (
+                "adamw8bit"
+                if getattr(self.training_config, "use_8bit_adam", True)
+                else "adamw"
+            )
+        optimizer = build_optimizer(
+            trainable_params,
+            optimizer_type=optimizer_type,
+            lr=self.training_config.learning_rate,
+            weight_decay=self.training_config.weight_decay,
+            device_type=device_type,
+        )
+        yield 0, 0.0, f"Optimizer: {optimizer_type}"
 
         # Calculate total steps
         steps_per_epoch = max(
@@ -974,27 +1075,17 @@ class LoRATrainer:
         )
         total_steps = steps_per_epoch * self.training_config.max_epochs
         warmup_steps = min(self.training_config.warmup_steps, max(1, total_steps // 10))
-
-        # Scheduler
-        warmup_scheduler = LinearLR(
+        scheduler_type = str(
+            getattr(self.training_config, "scheduler_type", "cosine") or "cosine"
+        ).lower()
+        scheduler = build_scheduler(
             optimizer,
-            start_factor=0.1,
-            end_factor=1.0,
-            total_iters=warmup_steps,
+            scheduler_type=scheduler_type,
+            total_steps=total_steps,
+            warmup_steps=warmup_steps,
+            lr=self.training_config.learning_rate,
         )
-
-        main_scheduler = CosineAnnealingWarmRestarts(
-            optimizer,
-            T_0=max(1, total_steps - warmup_steps),
-            T_mult=1,
-            eta_min=self.training_config.learning_rate * 0.01,
-        )
-
-        scheduler = SequentialLR(
-            optimizer,
-            schedulers=[warmup_scheduler, main_scheduler],
-            milestones=[warmup_steps],
-        )
+        yield 0, 0.0, f"Scheduler: {scheduler_type}"
 
         # Setup with Fabric - only the decoder (which has LoRA)
         self.module.model.decoder, optimizer = self.fabric.setup(
@@ -1172,6 +1263,7 @@ class LoRATrainer:
             # Flush remainder to avoid dropping gradients when epoch length is not
             # divisible by gradient_accumulation_steps.
             if accumulation_step > 0:
+                remainder_skipped = False
                 nonfinite_grads, grad_tensors = _count_nonfinite_grads(trainable_params)
                 if nonfinite_grads > 0:
                     optimizer.zero_grad(set_to_none=True)
@@ -1185,6 +1277,7 @@ class LoRATrainer:
                     )
                     accumulated_loss = 0.0
                     accumulation_step = 0
+                    remainder_skipped = True
                 else:
                     self.fabric.clip_gradients(
                         self.module.model.decoder,
@@ -1197,32 +1290,35 @@ class LoRATrainer:
                     scheduler.step()
                     optimizer.zero_grad(set_to_none=True)
 
-                global_step += 1
-                cache_every = getattr(
-                    self.training_config, "empty_cache_every_n_steps", 0
-                )
-                if torch.cuda.is_available() and cache_every > 0:
-                    if global_step % cache_every == 0:
-                        torch.cuda.empty_cache()
-                avg_loss = accumulated_loss / accumulation_step
-                if global_step % self.training_config.log_every_n_steps == 0:
-                    if training_state is not None:
-                        if ema_loss is None:
-                            ema_loss = avg_loss
-                        else:
-                            ema_loss = ema_alpha * avg_loss + (1 - ema_alpha) * ema_loss
-                        training_state["plot_steps"].append(global_step)
-                        training_state["plot_loss"].append(avg_loss)
-                        training_state["plot_ema"].append(ema_loss)
-                    self.fabric.log("train/loss", avg_loss, step=global_step)
-                    self.fabric.log(
-                        "train/lr", scheduler.get_last_lr()[0], step=global_step
+                if not remainder_skipped:
+                    global_step += 1
+                    cache_every = getattr(
+                        self.training_config, "empty_cache_every_n_steps", 0
                     )
-                    yield (
-                        global_step,
-                        avg_loss,
-                        f"Epoch {epoch + 1}/{self.training_config.max_epochs}, Step {global_step}, Loss: {avg_loss:.4f}",
-                    )
+                    if torch.cuda.is_available() and cache_every > 0:
+                        if global_step % cache_every == 0:
+                            torch.cuda.empty_cache()
+                    avg_loss = accumulated_loss / accumulation_step
+                    if global_step % self.training_config.log_every_n_steps == 0:
+                        if training_state is not None:
+                            if ema_loss is None:
+                                ema_loss = avg_loss
+                            else:
+                                ema_loss = ema_alpha * avg_loss + (
+                                    1 - ema_alpha
+                                ) * ema_loss
+                            training_state["plot_steps"].append(global_step)
+                            training_state["plot_loss"].append(avg_loss)
+                            training_state["plot_ema"].append(ema_loss)
+                        self.fabric.log("train/loss", avg_loss, step=global_step)
+                        self.fabric.log(
+                            "train/lr", scheduler.get_last_lr()[0], step=global_step
+                        )
+                        yield (
+                            global_step,
+                            avg_loss,
+                            f"Epoch {epoch + 1}/{self.training_config.max_epochs}, Step {global_step}, Loss: {avg_loss:.4f}",
+                        )
 
                     epoch_loss += avg_loss
                     num_updates += 1
@@ -1245,7 +1341,10 @@ class LoRATrainer:
                     training_state["plot_ema"].append(ema_loss)
             self.fabric.log("train/epoch_loss", avg_epoch_loss, step=epoch + 1)
 
-            # Validation and best checkpoint (if validation set exists)
+            best_candidate = avg_epoch_loss
+            best_candidate_label = "training loss"
+
+            # Validation and best-checkpoint tracking
             if val_loader is not None:
                 self.module.model.decoder.eval()
                 total_val_loss = 0.0
@@ -1257,23 +1356,38 @@ class LoRATrainer:
                         n_val += 1
                 self.module.model.decoder.train()
                 val_loss = total_val_loss / max(n_val, 1)
+                best_candidate = val_loss
+                best_candidate_label = "validation loss"
                 if training_state is not None:
                     training_state["plot_val_steps"].append(global_step)
                     training_state["plot_val_loss"].append(val_loss)
-                if val_loss < best_val_loss:
-                    best_val_loss = val_loss
-                    best_val_step = global_step
-                    if training_state is not None:
-                        training_state["plot_best_step"] = best_val_step
-                    _save_lora_epoch_checkpoint(
-                        self.module.model,
-                        optimizer,
-                        scheduler,
-                        self.training_config,
-                        epoch + 1,
-                        global_step,
-                        state_suffix="best",
-                    )
+
+            if (
+                getattr(self.training_config, "save_best", False)
+                and epoch + 1 >= int(getattr(self.training_config, "save_best_after", 1))
+                and best_candidate < best_metric
+            ):
+                best_metric = best_candidate
+                if training_state is not None:
+                    training_state["plot_best_step"] = global_step
+                self.module.model.decoder.eval()
+                best_path = _save_best_lora_checkpoint(
+                    self.module.model,
+                    optimizer,
+                    scheduler,
+                    self.training_config,
+                    epoch + 1,
+                    global_step,
+                )
+                self.module.model.decoder.train()
+                yield (
+                    global_step,
+                    avg_epoch_loss,
+                    (
+                        f"🏆 New best {_adapter_display_name(self.training_config)} "
+                        f"saved ({best_candidate_label}: {best_metric:.6f}) to {best_path}"
+                    ),
+                )
 
             # Save checkpoint
             if _should_save_epoch_checkpoint(self.training_config, epoch + 1):
@@ -1298,7 +1412,10 @@ class LoRATrainer:
                 yield (
                     global_step,
                     avg_epoch_loss,
-                    f"Generating LoRA sample for epoch {epoch + 1}...",
+                    (
+                        f"Generating {_adapter_display_name(self.training_config)} "
+                        f"sample for epoch {epoch + 1}..."
+                    ),
                 )
                 sample_msg = self._generate_checkpoint_sample(
                     "",
@@ -1327,7 +1444,10 @@ class LoRATrainer:
         yield (
             global_step,
             final_loss,
-            f"✅ Training complete! LoRA saved to {final_path}{peak_suffix}",
+            (
+                f"✅ Training complete! {_adapter_display_name(self.training_config)} "
+                f"saved to {final_path}{peak_suffix}"
+            ),
         )
 
     def _generate_checkpoint_sample(
@@ -1414,23 +1534,23 @@ class LoRATrainer:
             )),
         )
 
-        if (
-            getattr(self.training_config, "use_8bit_adam", True)
-            and HAS_BNB
-            and self.module.device_type == "cuda"
-        ):
-            optimizer = bnb.optim.AdamW8bit(
-                trainable_params,
-                lr=self.training_config.learning_rate,
-                weight_decay=self.training_config.weight_decay,
+        optimizer_type = str(
+            getattr(self.training_config, "optimizer_type", "") or ""
+        ).lower()
+        if not optimizer_type:
+            optimizer_type = (
+                "adamw8bit"
+                if getattr(self.training_config, "use_8bit_adam", True)
+                else "adamw"
             )
-            logger.info("train_basic using bitsandbytes 8-bit AdamW optimizer")
-        else:
-            optimizer = AdamW(
-                trainable_params,
-                lr=self.training_config.learning_rate,
-                weight_decay=self.training_config.weight_decay,
-            )
+        optimizer = build_optimizer(
+            trainable_params,
+            optimizer_type=optimizer_type,
+            lr=self.training_config.learning_rate,
+            weight_decay=self.training_config.weight_decay,
+            device_type=self.module.device_type,
+        )
+        yield 0, 0.0, f"Optimizer: {optimizer_type}"
 
         steps_per_epoch = max(
             1,
@@ -1441,24 +1561,22 @@ class LoRATrainer:
         total_steps = steps_per_epoch * self.training_config.max_epochs
         warmup_steps = min(self.training_config.warmup_steps, max(1, total_steps // 10))
 
-        warmup_scheduler = LinearLR(
-            optimizer, start_factor=0.1, end_factor=1.0, total_iters=warmup_steps
-        )
-        main_scheduler = CosineAnnealingWarmRestarts(
+        scheduler_type = str(
+            getattr(self.training_config, "scheduler_type", "cosine") or "cosine"
+        ).lower()
+        scheduler = build_scheduler(
             optimizer,
-            T_0=max(1, total_steps - warmup_steps),
-            T_mult=1,
-            eta_min=self.training_config.learning_rate * 0.01,
+            scheduler_type=scheduler_type,
+            total_steps=total_steps,
+            warmup_steps=warmup_steps,
+            lr=self.training_config.learning_rate,
         )
-        scheduler = SequentialLR(
-            optimizer,
-            schedulers=[warmup_scheduler, main_scheduler],
-            milestones=[warmup_steps],
-        )
+        yield 0, 0.0, f"Scheduler: {scheduler_type}"
 
         global_step = 0
         accumulation_step = 0
         accumulated_loss = 0.0
+        best_metric = float("inf")
         optimizer.zero_grad(set_to_none=True)
 
         self.module.model.decoder.train()
@@ -1550,6 +1668,33 @@ class LoRATrainer:
                 f"✅ Epoch {epoch + 1}/{self.training_config.max_epochs} in {epoch_time:.1f}s",
             )
 
+            if (
+                getattr(self.training_config, "save_best", False)
+                and epoch + 1 >= int(getattr(self.training_config, "save_best_after", 1))
+                and avg_epoch_loss < best_metric
+            ):
+                best_metric = avg_epoch_loss
+                if training_state is not None:
+                    training_state["plot_best_step"] = global_step
+                self.module.model.decoder.eval()
+                best_path = _save_best_lora_checkpoint(
+                    self.module.model,
+                    optimizer,
+                    scheduler,
+                    self.training_config,
+                    epoch + 1,
+                    global_step,
+                )
+                self.module.model.decoder.train()
+                yield (
+                    global_step,
+                    avg_epoch_loss,
+                    (
+                        f"🏆 New best {_adapter_display_name(self.training_config)} "
+                        f"saved (training loss: {best_metric:.6f}) to {best_path}"
+                    ),
+                )
+
             if _should_save_epoch_checkpoint(self.training_config, epoch + 1):
                 _save_lora_epoch_checkpoint(
                     self.module.model,
@@ -1568,7 +1713,10 @@ class LoRATrainer:
                 yield (
                     global_step,
                     avg_epoch_loss,
-                    f"Generating LoRA sample for epoch {epoch + 1}...",
+                    (
+                        f"Generating {_adapter_display_name(self.training_config)} "
+                        f"sample for epoch {epoch + 1}..."
+                    ),
                 )
                 sample_msg = self._generate_checkpoint_sample(
                     "",
@@ -1594,7 +1742,10 @@ class LoRATrainer:
         yield (
             global_step,
             final_loss,
-            f"✅ Training complete! LoRA saved to {final_path}{peak_suffix}",
+            (
+                f"✅ Training complete! {_adapter_display_name(self.training_config)} "
+                f"saved to {final_path}{peak_suffix}"
+            ),
         )
 
     def stop(self):

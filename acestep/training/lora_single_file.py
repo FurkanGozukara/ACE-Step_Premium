@@ -116,6 +116,12 @@ def _read_single_file_config(path: str | os.PathLike[str]) -> dict:
     return config
 
 
+def read_peft_lora_single_file_config(path: str | os.PathLike[str]) -> dict:
+    """Read embedded PEFT config metadata from a single-file LoRA artifact."""
+
+    return _read_single_file_config(path)
+
+
 @contextmanager
 def materialize_peft_lora_single_file(
     path: str | os.PathLike[str],

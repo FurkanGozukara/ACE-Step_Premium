@@ -18,8 +18,10 @@ class LoRAConfig:
         r: LoRA rank (dimension of low-rank matrices)
         alpha: LoRA scaling factor (alpha/r determines the scaling)
         dropout: Dropout probability for LoRA layers
-        target_modules: List of module names to apply LoRA to
+        target_modules: List of module names to apply LoRA/DoRA to
         bias: Whether to train bias parameters ("none", "all", or "lora_only")
+        use_dora: Whether to enable PEFT DoRA weight decomposition.
+        target_mlp: Whether the target list includes MLP/FFN layers.
     """
     r: int = 8
     alpha: int = 128
@@ -28,6 +30,8 @@ class LoRAConfig:
         "q_proj", "k_proj", "v_proj", "o_proj"
     ])
     bias: str = "none"
+    use_dora: bool = False
+    target_mlp: bool = False
     
     def to_dict(self):
         """Convert to dictionary for PEFT config."""
@@ -37,6 +41,8 @@ class LoRAConfig:
             "lora_dropout": self.dropout,
             "target_modules": self.target_modules,
             "bias": self.bias,
+            "use_dora": self.use_dora,
+            "target_mlp": self.target_mlp,
         }
 
 
@@ -83,7 +89,7 @@ class TrainingConfig:
     
     Training uses:
     - Device-aware mixed precision (bf16 on CUDA/XPU, fp16 on MPS, fp32 on CPU)
-    - Discrete timesteps derived from the submitted shift and step-count values
+    - Continuous logit-normal timesteps by default, with legacy discrete mode available
     - Randomly samples one configured timestep per training step
     
     Attributes:
@@ -119,10 +125,13 @@ class TrainingConfig:
     offload_non_decoder: bool = True
     keep_frozen_base_in_compute_dtype: bool = True
     use_8bit_adam: bool = True
+    optimizer_type: str = "adamw8bit"
+    scheduler_type: str = "cosine"
     empty_cache_every_n_steps: int = 10
     seed: int = 42
     output_dir: str = "./lora_output"
     lora_name: str = "lora"
+    adapter_type: str = "lora"
     
     # Data loading
     num_workers: int = 4
@@ -136,6 +145,16 @@ class TrainingConfig:
 
     # Validation (for loss curve and best-checkpoint tracking)
     val_split: float = 0.0
+    save_best: bool = True
+    save_best_after: int = 1
+
+    # Corrected timestep controls
+    timestep_mode: str = "continuous"
+    cfg_ratio: float = 0.15
+    timestep_mu: float = -0.4
+    timestep_sigma: float = 1.0
+    data_proportion: float = 0.5
+    adaptive_timestep_ratio: float = 0.0
 
     # Optional checkpoint sample generation
     sample_every_n_epochs: int = 0
@@ -152,6 +171,24 @@ class TrainingConfig:
     def __post_init__(self) -> None:
         if not 0.0 <= self.val_split < 1.0:
             raise ValueError("val_split must be in [0.0, 1.0).")
+        if str(self.optimizer_type).lower() not in {"adamw", "adamw8bit", "adafactor"}:
+            raise ValueError("optimizer_type must be adamw, adamw8bit, or adafactor.")
+        if str(self.scheduler_type).lower() not in {
+            "cosine",
+            "cosine_restarts",
+            "linear",
+            "constant",
+            "constant_with_warmup",
+        }:
+            raise ValueError("scheduler_type is not supported.")
+        if str(self.timestep_mode).lower() not in {"continuous", "discrete"}:
+            raise ValueError("timestep_mode must be continuous or discrete.")
+        if not 0.0 <= float(self.cfg_ratio) <= 1.0:
+            raise ValueError("cfg_ratio must be in [0.0, 1.0].")
+        if not 0.0 <= float(self.adaptive_timestep_ratio) <= 1.0:
+            raise ValueError("adaptive_timestep_ratio must be in [0.0, 1.0].")
+        if int(self.save_best_after) < 1:
+            raise ValueError("save_best_after must be >= 1.")
 
     def to_dict(self):
         """Convert to dictionary."""
@@ -173,10 +210,13 @@ class TrainingConfig:
             "offload_non_decoder": self.offload_non_decoder,
             "keep_frozen_base_in_compute_dtype": self.keep_frozen_base_in_compute_dtype,
             "use_8bit_adam": self.use_8bit_adam,
+            "optimizer_type": self.optimizer_type,
+            "scheduler_type": self.scheduler_type,
             "empty_cache_every_n_steps": self.empty_cache_every_n_steps,
             "seed": self.seed,
             "output_dir": self.output_dir,
             "lora_name": self.lora_name,
+            "adapter_type": self.adapter_type,
             "num_workers": self.num_workers,
             "pin_memory": self.pin_memory,
             "prefetch_factor": self.prefetch_factor,
@@ -184,6 +224,14 @@ class TrainingConfig:
             "pin_memory_device": self.pin_memory_device,
             "log_every_n_steps": self.log_every_n_steps,
             "val_split": self.val_split,
+            "save_best": self.save_best,
+            "save_best_after": self.save_best_after,
+            "timestep_mode": self.timestep_mode,
+            "cfg_ratio": self.cfg_ratio,
+            "timestep_mu": self.timestep_mu,
+            "timestep_sigma": self.timestep_sigma,
+            "data_proportion": self.data_proportion,
+            "adaptive_timestep_ratio": self.adaptive_timestep_ratio,
             "sample_every_n_epochs": self.sample_every_n_epochs,
             "sample_prompt": self.sample_prompt,
             "sample_lyrics": self.sample_lyrics,

@@ -10,6 +10,15 @@ from acestep.ui.gradio.events.training.schedule_defaults import (
     training_schedule_defaults_for_model,
 )
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.interfaces.training_lora_tab_paths import (
+    build_lora_path_controls,
+)
+from acestep.ui.gradio.interfaces.training_lora_tab_training_options import (
+    build_lora_training_option_controls,
+)
+from acestep.ui.gradio.interfaces.training_lora_vram_presets import (
+    default_lora_vram_control_values,
+)
 
 
 def default_lora_output_dir() -> str:
@@ -30,6 +39,7 @@ def build_lora_run_and_export_controls(
 
     default_output_dir = default_lora_output_dir()
     schedule_defaults = training_schedule_defaults_for_model(model_config)
+    lora_vram_defaults = default_lora_vram_control_values()
     gr.HTML(f"<hr><h3>🎛️ {t('training.train_section_params')}</h3>")
 
     with gr.Row():
@@ -85,6 +95,17 @@ def build_lora_run_and_export_controls(
             elem_classes=["has-info-container"],
         )
 
+        lora_save_best = gr.Checkbox(
+            label="Save best",
+            value=True,
+            info=(
+                "Keeps one best checkpoint in <output>/best. A lower validation "
+                "loss replaces it; if no validation split exists, epoch training "
+                "loss is used."
+            ),
+            elem_classes=["has-info-container"],
+        )
+
         training_shift = gr.Slider(
             minimum=schedule_defaults["shift_minimum"],
             maximum=schedule_defaults["shift_maximum"],
@@ -111,41 +132,10 @@ def build_lora_run_and_export_controls(
             precision=0,
         )
 
-    with gr.Row():
-        with gr.Column(scale=3):
-            lora_output_dir = gr.Textbox(
-                label=t("training.output_dir"),
-                value=default_output_dir,
-                placeholder=default_output_dir,
-                info=t("training.output_dir_info"),
-                elem_classes=["has-info-container"],
-            )
-        with gr.Column(scale=1):
-            lora_output_dir_browse_btn = gr.Button(
-                "Browse Output Folder",
-                variant="secondary",
-            )
-            lora_open_output_dir_btn = gr.Button(
-                "Open Output Folder",
-                variant="secondary",
-            )
-
-    with gr.Row():
-        with gr.Column(scale=3):
-            resume_checkpoint_dir = gr.Textbox(
-                label="Resume Training State",
-                placeholder="./Loras/my_lora/epoch-200-training_resume_state.pt",
-                info=(
-                    "Path to a saved LoRA training_resume_state .pt file from "
-                    "<Output Directory>/<LoRA Training Name>"
-                ),
-                elem_classes=["has-info-container"],
-            )
-        with gr.Column(scale=1):
-            resume_checkpoint_dir_browse_btn = gr.Button(
-                "Browse Training State",
-                variant="secondary",
-            )
+    option_controls = build_lora_training_option_controls(
+        lora_vram_defaults.get("optimizer_type", "adamw8bit")
+    )
+    path_controls = build_lora_path_controls(default_output_dir)
 
     gr.HTML("<hr>")
 
@@ -195,14 +185,12 @@ def build_lora_run_and_export_controls(
         "gradient_accumulation": gradient_accumulation,
         "training_step_estimate": training_step_estimate,
         "save_every_n_epochs": save_every_n_epochs,
+        "lora_save_best": lora_save_best,
         "training_shift": training_shift,
         "training_num_inference_steps": training_num_inference_steps,
         "training_seed": training_seed,
-        "lora_output_dir": lora_output_dir,
-        "lora_output_dir_browse_btn": lora_output_dir_browse_btn,
-        "lora_open_output_dir_btn": lora_open_output_dir_btn,
-        "resume_checkpoint_dir": resume_checkpoint_dir,
-        "resume_checkpoint_dir_browse_btn": resume_checkpoint_dir_browse_btn,
+        **option_controls,
+        **path_controls,
         "training_subprocess": training_subprocess,
         "start_training_btn": start_training_btn,
         "stop_training_btn": stop_training_btn,

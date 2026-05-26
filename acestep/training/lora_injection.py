@@ -208,6 +208,7 @@ def inject_lora_into_dit(
         target_modules=lora_config.target_modules,
         bias=lora_config.bias,
         task_type=TaskType.FEATURE_EXTRACTION,
+        use_dora=bool(getattr(lora_config, "use_dora", False)),
     )
 
     peft_decoder = get_peft_model(decoder, peft_lora_config)
@@ -226,6 +227,8 @@ def inject_lora_into_dit(
         "trainable_ratio": trainable_params / total_params if total_params > 0 else 0,
         "lora_r": lora_config.r,
         "lora_alpha": lora_config.alpha,
+        "use_dora": bool(getattr(lora_config, "use_dora", False)),
+        "target_mlp": bool(getattr(lora_config, "target_mlp", False)),
         "target_modules": lora_config.target_modules,
     }
 
@@ -234,6 +237,7 @@ def inject_lora_into_dit(
     logger.info(
         f"  Trainable parameters: {trainable_params:,} ({info['trainable_ratio']:.2%})"
     )
-    logger.info(f"  LoRA rank: {lora_config.r}, alpha: {lora_config.alpha}")
+    adapter_label = "DoRA" if bool(getattr(lora_config, "use_dora", False)) else "LoRA"
+    logger.info(f"  {adapter_label} rank: {lora_config.r}, alpha: {lora_config.alpha}")
 
     return model, info

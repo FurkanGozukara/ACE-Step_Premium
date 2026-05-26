@@ -23,6 +23,7 @@ def stream_lora_training_subprocess(
 ) -> Iterator[tuple[Any, Any, Any, dict[str, Any]]]:
     """Run LoRA training in an isolated worker and stream Gradio outputs."""
 
+    dit_init_params = _lora_training_dit_init_params(dit_init_params, training_args)
     state = dict(training_state)
     state["is_training"] = True
     state["should_stop"] = False
@@ -61,6 +62,18 @@ def stream_lora_training_subprocess(
             log_text = str(result.get("log") or log_text)
             plot = _training_loss_figure(state, step_list, loss_list)
             yield status, log_text, plot, state
+
+
+def _lora_training_dit_init_params(
+    dit_init_params: dict[str, Any],
+    training_args: dict[str, Any],
+) -> dict[str, Any]:
+    """Return worker init params tuned for the selected LoRA memory options."""
+
+    params = dict(dit_init_params)
+    if bool(training_args.get("offload_non_decoder")):
+        params["offload_to_cpu"] = True
+    return params
 
 
 def _event_state(event: dict[str, Any], fallback: dict[str, Any]) -> dict[str, Any]:

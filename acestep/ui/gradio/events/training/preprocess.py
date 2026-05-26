@@ -179,7 +179,7 @@ def preprocess_dataset(
 
     Args:
         output_dir: Directory where tensor files should be written.
-        preprocess_mode: Target adapter mode, ``"lora"`` or ``"lokr"``.
+        preprocess_mode: Target adapter mode, ``"lora"``, ``"dora"``, or ``"lokr"``.
         dit_handler: DiT handler used for tensor preprocessing.
         builder_state: Dataset builder state containing labeled samples.
         progress: Optional progress callback.
@@ -229,6 +229,8 @@ def preprocess_dataset(
                 pass
 
     mode = str(preprocess_mode or "lora").strip().lower()
+    if mode == "dora":
+        mode = "lora"
     if mode not in {"lora", "lokr"}:
         mode = "lora"
 

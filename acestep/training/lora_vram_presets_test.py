@@ -10,6 +10,7 @@ from acestep.training.lora_vram_presets import (
     LORA_VRAM_PRESET_12_TO_16GB,
     LORA_VRAM_PRESET_16_TO_24GB,
     LORA_VRAM_PRESET_24GB_PLUS,
+    LORA_VRAM_PRESET_32GB_PLUS,
     LORA_VRAM_PRESET_MANUAL,
     apply_lora_vram_preset,
     get_lora_vram_preset,
@@ -30,7 +31,7 @@ class LoraVramPresetTests(unittest.TestCase):
                 self.assertEqual(values, apply_lora_vram_preset(preset_name, values))
 
     def test_10gb_plus_preset_enables_memory_savers(self) -> None:
-        """The 10 GB+ preset should enable aggressive VRAM-saving settings."""
+        """The 12 GB+ preset should enable aggressive VRAM-saving settings."""
 
         preset = get_lora_vram_preset(LORA_VRAM_PRESET_10GB_PLUS)
 
@@ -41,7 +42,7 @@ class LoraVramPresetTests(unittest.TestCase):
         self.assertEqual("FP8 scaled", preset["base_quantization"])
 
     def test_8_to_10gb_preset_uses_lowest_measured_rank(self) -> None:
-        """The 8-10 GB preset should use the lowest measured working LoRA rank."""
+        """The 12 GB saver preset should use the lowest measured working LoRA rank."""
 
         preset = get_lora_vram_preset(LORA_VRAM_PRESET_8_TO_10GB)
 
@@ -59,12 +60,13 @@ class LoraVramPresetTests(unittest.TestCase):
             LORA_VRAM_PRESET_12_TO_16GB,
             LORA_VRAM_PRESET_16_TO_24GB,
             LORA_VRAM_PRESET_24GB_PLUS,
+            LORA_VRAM_PRESET_32GB_PLUS,
         ):
             with self.subTest(preset_name=preset_name):
                 self.assertEqual(128, get_lora_vram_preset(preset_name)["lora_alpha"])
 
     def test_16_to_24gb_preset_raises_rank_without_cpu_offload(self) -> None:
-        """The 16-24 GB preset should prefer quality and speed."""
+        """The 16 GB+ preset should prefer quality and speed."""
 
         preset = get_lora_vram_preset(LORA_VRAM_PRESET_16_TO_24GB)
 
@@ -73,10 +75,20 @@ class LoraVramPresetTests(unittest.TestCase):
         self.assertTrue(preset["keep_frozen_base_in_compute_dtype"])
         self.assertFalse(preset["use_8bit_adam"])
 
-    def test_24gb_plus_preset_disables_frozen_compute_dtype_saver(self) -> None:
-        """The 24GB+ preset should uncheck frozen-base bf16/fp16."""
+    def test_24gb_plus_preset_keeps_frozen_compute_dtype_saver(self) -> None:
+        """The 24GB+ preset should keep the measured 24 GB-safe memory saver."""
 
         preset = get_lora_vram_preset(LORA_VRAM_PRESET_24GB_PLUS)
+
+        self.assertEqual(128, preset["lora_rank"])
+        self.assertFalse(preset["activation_cpu_offload"])
+        self.assertTrue(preset["keep_frozen_base_in_compute_dtype"])
+        self.assertFalse(preset["use_8bit_adam"])
+
+    def test_32gb_plus_preset_disables_frozen_compute_dtype_saver(self) -> None:
+        """The 32GB+ preset should use the high-capacity quality setting."""
+
+        preset = get_lora_vram_preset(LORA_VRAM_PRESET_32GB_PLUS)
 
         self.assertEqual(128, preset["lora_rank"])
         self.assertFalse(preset["activation_cpu_offload"])
@@ -87,8 +99,16 @@ class LoraVramPresetTests(unittest.TestCase):
         """Runtime defaults should choose the measured preset for the GPU class."""
 
         self.assertEqual(
-            LORA_VRAM_PRESET_24GB_PLUS,
+            LORA_VRAM_PRESET_32GB_PLUS,
             select_lora_vram_preset_for_gpu(31.8),
+        )
+        self.assertEqual(
+            LORA_VRAM_PRESET_32GB_PLUS,
+            select_lora_vram_preset_for_gpu(30.0),
+        )
+        self.assertEqual(
+            LORA_VRAM_PRESET_24GB_PLUS,
+            select_lora_vram_preset_for_gpu(29.99),
         )
         self.assertEqual(
             LORA_VRAM_PRESET_24GB_PLUS,
@@ -103,16 +123,28 @@ class LoraVramPresetTests(unittest.TestCase):
             select_lora_vram_preset_for_gpu(15.5),
         )
         self.assertEqual(
-            LORA_VRAM_PRESET_10GB_PLUS,
+            LORA_VRAM_PRESET_12_TO_16GB,
             select_lora_vram_preset_for_gpu(15.49),
         )
         self.assertEqual(
+            LORA_VRAM_PRESET_12_TO_16GB,
+            select_lora_vram_preset_for_gpu(14.1),
+        )
+        self.assertEqual(
             LORA_VRAM_PRESET_10GB_PLUS,
-            select_lora_vram_preset_for_gpu(10.0),
+            select_lora_vram_preset_for_gpu(12.0),
         )
         self.assertEqual(
             LORA_VRAM_PRESET_8_TO_10GB,
-            select_lora_vram_preset_for_gpu(9.99),
+            select_lora_vram_preset_for_gpu(11.99),
+        )
+
+    def test_legacy_preset_labels_still_load(self) -> None:
+        """Older saved custom preset names should resolve to measured presets."""
+
+        self.assertEqual(
+            get_lora_vram_preset(LORA_VRAM_PRESET_8_TO_10GB),
+            get_lora_vram_preset("8-10 GB"),
         )
 
 

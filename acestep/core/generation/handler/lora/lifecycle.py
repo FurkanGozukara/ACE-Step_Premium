@@ -14,6 +14,7 @@ from acestep.training.configs import LoKRConfig
 from acestep.training.lora_single_file import (
     is_peft_lora_single_file,
     materialize_peft_lora_single_file,
+    read_peft_lora_single_file_config,
 )
 
 LOKR_WEIGHTS_FILENAME = "lokr_weights.safetensors"
@@ -88,6 +89,38 @@ def _validate_peft_adapter_config(config_file: str) -> str | None:
             )
 
     return None
+
+
+def _read_peft_adapter_config(lora_path: str, single_file_lora: bool) -> dict[str, Any]:
+    """Read PEFT adapter config for directory or single-file LoRA/DoRA paths."""
+
+    try:
+        if single_file_lora:
+            return read_peft_lora_single_file_config(lora_path)
+        config_file = os.path.join(lora_path, "adapter_config.json")
+        with open(config_file, "r", encoding="utf-8") as fh:
+            config = json.load(fh)
+        return config if isinstance(config, dict) else {}
+    except Exception as exc:
+        logger.warning(f"Unable to read PEFT adapter config from {lora_path}: {exc}")
+        return {}
+
+
+def _peft_adapter_type(lora_path: str, single_file_lora: bool) -> str:
+    """Return ``dora`` when a PEFT adapter config has ``use_dora`` enabled."""
+
+    config = _read_peft_adapter_config(lora_path, single_file_lora)
+    return "dora" if bool(config.get("use_dora")) else "lora"
+
+
+def _adapter_label(adapter_type: str | None) -> str:
+    """Return a user-facing adapter label."""
+
+    if adapter_type == "dora":
+        return "DoRA"
+    if adapter_type == "lokr":
+        return "LoKr"
+    return "LoRA"
 
 
 def _load_lokr_config(weights_path: str) -> LoKRConfig:
@@ -245,6 +278,11 @@ def add_lora(self, lora_path: str, adapter_name: str | None = None) -> str:
 
     lokr_weights_path = _resolve_lokr_weights_path(lora_path)
     single_file_lora = lokr_weights_path is None and is_peft_lora_single_file(lora_path)
+    peft_adapter_type = (
+        _peft_adapter_type(lora_path, single_file_lora)
+        if lokr_weights_path is None
+        else "lokr"
+    )
     if lokr_weights_path is None and not single_file_lora:
         config_file = os.path.join(lora_path, "adapter_config.json")
         if not os.path.exists(config_file):
@@ -305,7 +343,8 @@ def add_lora(self, lora_path: str, adapter_name: str | None = None) -> str:
                 )
                 with adapter_context as peft_lora_path:
                     logger.info(
-                        f"Loading LoRA adapter from {lora_path} as '{effective_name}'"
+                        f"Loading {_adapter_label(peft_adapter_type)} adapter "
+                        f"from {lora_path} as '{effective_name}'"
                     )
                     self.model.decoder = PeftModel.from_pretrained(
                         decoder,
@@ -313,7 +352,7 @@ def add_lora(self, lora_path: str, adapter_name: str | None = None) -> str:
                         adapter_name=effective_name,
                         is_trainable=False,
                     )
-                self._adapter_type = "lora"
+                self._adapter_type = peft_adapter_type
         else:
             # Already PEFT: load additional adapter (no base restore). LoKr not supported as second adapter.
             if lokr_weights_path is not None:
@@ -325,13 +364,14 @@ def add_lora(self, lora_path: str, adapter_name: str | None = None) -> str:
             )
             with adapter_context as peft_lora_path:
                 logger.info(
-                    f"Loading additional LoRA from {lora_path} as '{effective_name}'"
+                    f"Loading additional {_adapter_label(peft_adapter_type)} "
+                    f"from {lora_path} as '{effective_name}'"
                 )
                 self.model.decoder.load_adapter(
                     peft_lora_path,
                     adapter_name=effective_name,
                 )
-            self._adapter_type = "lora"
+            self._adapter_type = peft_adapter_type
 
         self.model.decoder = self.model.decoder.to(self.device).to(self.dtype)
         self.model.decoder.eval()
@@ -356,8 +396,9 @@ def add_lora(self, lora_path: str, adapter_name: str | None = None) -> str:
             except Exception:
                 pass
 
+        adapter_label = _adapter_label(self._adapter_type)
         logger.info(
-            f"LoRA adapter '{effective_name}' loaded from {lora_path} "
+            f"{adapter_label} adapter '{effective_name}' loaded from {lora_path} "
             f"(adapters={adapters}, targets={target_count})"
         )
         debug_log(
@@ -365,7 +406,7 @@ def add_lora(self, lora_path: str, adapter_name: str | None = None) -> str:
             mode=DEBUG_MODEL_LOADING,
             prefix="lora",
         )
-        return f"✅ LoRA '{effective_name}' loaded from {lora_path}"
+        return f"✅ {adapter_label} '{effective_name}' loaded from {lora_path}"
     except Exception as e:
         logger.exception("Failed to load LoRA adapter")
         return f"❌ Failed to load LoRA: {str(e)}"

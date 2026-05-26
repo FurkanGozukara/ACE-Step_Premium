@@ -32,15 +32,11 @@ def register_generation_metadata_handlers(
 
     # ========== Analyze Source Audio (Remix/Repaint: convert to codes + transcribe) ==========
     generation_section["analyze_btn"].click(
-        fn=lambda src, debug, lm_model_path, backend, device, offload_to_cpu: gen_h.analyze_src_audio(
-            dit_handler,
-            llm_handler,
-            src,
-            debug,
-            lm_model_path,
-            backend,
-            device,
-            offload_to_cpu,
+        fn=lambda *args: gen_h.analyze_src_audio(
+            dit_handler, llm_handler, *args[:6],
+            config_path=args[6], use_flash_attention=args[7],
+            offload_dit_to_cpu=args[8], compile_model=args[9],
+            quantization=args[10], mlx_dit=args[11],
         ),
         inputs=[
             generation_section["src_audio"],
@@ -49,6 +45,12 @@ def register_generation_metadata_handlers(
             generation_section["backend_dropdown"],
             generation_section["device"],
             generation_section["offload_to_cpu_checkbox"],
+            generation_section["config_path"],
+            generation_section["use_flash_attention_checkbox"],
+            generation_section["offload_dit_to_cpu_checkbox"],
+            generation_section["compile_model_checkbox"],
+            generation_section["quantization_checkbox"],
+            generation_section["mlx_dit_checkbox"],
         ],
         outputs=[
             generation_section["text2music_audio_code_string"],

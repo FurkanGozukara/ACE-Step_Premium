@@ -32,6 +32,18 @@ def _normalize_training_state(training_state: Any) -> dict[str, bool]:
     return {"is_training": False, "should_stop": False}
 
 
+def _lora_adapter_info(adapter_type: object) -> str:
+    """Return UI help text for the selected PEFT adapter type."""
+
+    if str(adapter_type or "").strip().casefold() == "dora":
+        return (
+            "DoRA selected: PEFT LoRA with weight decomposition. It uses the "
+            "same tensors and rank/alpha/dropout controls, with an additional "
+            "magnitude vector saved in the adapter."
+        )
+    return "LoRA selected: standard PEFT LoRA training."
+
+
 def register_training_run_handlers(context: TrainingWiringContext) -> None:
     """Register training run-tab handlers with stable IO ordering."""
 
@@ -75,9 +87,16 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
             training_section["lora_offload_non_decoder"],
             training_section["lora_keep_frozen_bf16"],
             training_section["lora_use_8bit_adam"],
+            training_section["lora_optimizer_type"],
             training_section["lora_base_quantization"],
             training_section["lora_empty_cache_every_n_steps"],
         ],
+    )
+
+    training_section["lora_adapter_type"].change(
+        fn=_lora_adapter_info,
+        inputs=[training_section["lora_adapter_type"]],
+        outputs=[training_section["lora_adapter_info"]],
     )
 
     training_section["lora_model_config"].change(
@@ -115,17 +134,24 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
         inputs=[
             training_section["training_tensor_dir"],
             training_section["lora_name"],
+            training_section["lora_adapter_type"],
             training_section["lora_rank"],
             training_section["lora_alpha"],
             training_section["lora_dropout"],
+            training_section["lora_target_mlp"],
             training_section["learning_rate"],
             training_section["train_epochs"],
             training_section["train_batch_size"],
             training_section["gradient_accumulation"],
             training_section["save_every_n_epochs"],
+            training_section["lora_save_best"],
             training_section["training_shift"],
             training_section["training_num_inference_steps"],
             training_section["training_seed"],
+            training_section["lora_optimizer_type"],
+            training_section["lora_scheduler_type"],
+            training_section["lora_timestep_mode"],
+            training_section["lora_adaptive_timestep_ratio"],
             training_section["lora_output_dir"],
             training_section["resume_checkpoint_dir"],
             training_section["lora_gradient_checkpointing"],

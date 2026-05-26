@@ -223,6 +223,36 @@ class TestPreprocessDataset(unittest.TestCase):
         self.assertIn("cancel_callback", builder.preprocess_to_tensors.call_args.kwargs)
         self.assertTrue(builder.preprocess_to_tensors.call_args.kwargs["save_debug_text"])
 
+    @patch(
+        "acestep.ui.gradio.events.training.service_auto_init.get_global_gpu_config",
+        return_value=_gpu_defaults(),
+    )
+    def test_dora_preprocess_uses_lora_tensor_mode(self, _gpu_config):
+        """DoRA preprocessing should reuse LoRA-compatible tensors."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_safe_root = get_safe_root()
+            set_safe_root(tmpdir)
+            builder = MagicMock()
+            builder.samples = [MagicMock()]
+            builder.get_labeled_count.return_value = 5
+            builder.preprocess_to_tensors.return_value = (["sample.pt"], "Preprocessed")
+            dit_handler = _FakeDitHandler()
+
+            try:
+                result = preprocess_dataset(
+                    os.path.join(tmpdir, "out"),
+                    "DoRA",
+                    dit_handler,
+                    builder,
+                    model_config="model-b",
+                )
+            finally:
+                set_safe_root(original_safe_root)
+
+        self.assertIn("Preprocessed", result)
+        self.assertEqual("lora", builder.preprocess_to_tensors.call_args.kwargs["preprocess_mode"])
+
 
 if __name__ == "__main__":
     unittest.main()

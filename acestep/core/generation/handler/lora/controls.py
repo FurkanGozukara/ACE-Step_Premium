@@ -12,6 +12,16 @@ from acestep.debug_utils import debug_log
 LORA_SCALE_MAX = 3.0
 
 
+def _adapter_label(adapter_type: str | None) -> str:
+    """Return a user-facing adapter label."""
+
+    if adapter_type == "dora":
+        return "DoRA"
+    if adapter_type == "lokr":
+        return "LoKr"
+    return "LoRA"
+
+
 def _toggle_lokr(decoder, enable: bool, scale: float = 1.0) -> bool:
     """Toggle a LyCORIS LoKr adapter via its multiplier.
 
@@ -78,7 +88,7 @@ def set_use_lora(self, use_lora: bool) -> str:
             except Exception as e:
                 logger.warning(f"Could not toggle adapter layers: {e}")
 
-    adapter_label = "LoKr" if getattr(self, "_adapter_type", None) == "lokr" else "LoRA"
+    adapter_label = _adapter_label(getattr(self, "_adapter_type", None))
     status = "enabled" if use_lora else "disabled"
     return f"✅ {adapter_label} {status}"
 
@@ -115,7 +125,7 @@ def set_lora_scale(self, adapter_name_or_scale: str | float, scale: float | None
     self._active_loras[effective_name] = scale_value
     self.lora_scale = scale_value  # backward compat: single "current" scale for status/UI
 
-    adapter_label = "LoKr" if getattr(self, "_adapter_type", None) == "lokr" else "LoRA"
+    adapter_label = _adapter_label(getattr(self, "_adapter_type", None))
 
     if not self.use_lora:
         logger.info(f"{adapter_label} scale for '{effective_name}' set to {scale_value:.2f} (will apply when enabled)")
@@ -218,6 +228,7 @@ def get_lora_status(self) -> dict[str, Any]:
         "scale": self.lora_scale,
         "scales": dict(_active_loras),
         "active_adapter": self._lora_active_adapter,
+        "adapter_type": getattr(self, "_adapter_type", None),
         "adapters": list(self._lora_service.registry.keys()),
         "synthetic_default_mode": self._lora_service.synthetic_default_mode,
     }

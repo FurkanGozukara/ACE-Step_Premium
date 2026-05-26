@@ -9,6 +9,7 @@ import gradio as gr
 from acestep.inference import understand_music
 from acestep.ui.gradio.i18n import t
 
+from .dit_auto_init import ensure_dit_ready
 from .llm_auto_init import ensure_llm_ready
 from .validation import _contains_audio_code_tokens, clamp_duration_to_gpu_limit
 
@@ -22,6 +23,7 @@ def analyze_src_audio(
     backend: str | None = None,
     device: str | None = None,
     offload_to_cpu: bool = False,
+    **dit_init_kwargs,
 ):
     """Analyze source audio and optionally transcribe generated audio codes.
 
@@ -30,6 +32,7 @@ def analyze_src_audio(
         llm_handler: LLM handler instance.
         src_audio: Path to source audio file.
         constrained_decoding_debug: Whether constrained-decoding debug logs are enabled.
+        dit_init_kwargs: Selected DiT model/runtime options for on-demand init.
 
     Returns:
         Tuple of ``(audio_codes, status, caption, lyrics, bpm, duration,
@@ -41,8 +44,14 @@ def analyze_src_audio(
         gr.Warning(t("messages.no_source_audio"))
         return error_tuple
 
-    if dit_handler.model is None:
-        gr.Warning(t("messages.model_not_initialized"))
+    dit_ready, dit_status = ensure_dit_ready(
+        dit_handler,
+        device=device,
+        offload_to_cpu=offload_to_cpu,
+        **dit_init_kwargs,
+    )
+    if not dit_ready:
+        gr.Warning(dit_status or t("messages.model_not_initialized"))
         return error_tuple
 
     try:
@@ -74,9 +83,11 @@ def analyze_src_audio(
         offload_to_cpu=offload_to_cpu,
     )
     if not auto_init_ok:
+        lm_fallback = auto_init_status or t("messages.codes_ready_no_lm")
+        status_message = "\n".join(part for part in [dit_status, lm_fallback] if part)
         return (
             codes_string,
-            auto_init_status or t("messages.codes_ready_no_lm"),
+            status_message,
             "",
             "",
             None,
@@ -110,8 +121,9 @@ def analyze_src_audio(
 
     clamped_duration = clamp_duration_to_gpu_limit(result.duration, llm_handler)
     status_message = str(result.status_message or "").strip()
-    if auto_init_status:
-        status_message = f"{auto_init_status}\n{status_message}" if status_message else auto_init_status
+    status_message = "\n".join(
+        part for part in [dit_status, auto_init_status, status_message] if part
+    )
 
     return (
         codes_string,

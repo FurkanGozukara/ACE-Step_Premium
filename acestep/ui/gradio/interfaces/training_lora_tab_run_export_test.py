@@ -30,6 +30,7 @@ class TrainingLoraRunExportControlsTests(unittest.TestCase):
         self.assertEqual(100, controls["train_epochs"].value)
         self.assertEqual(0, controls["save_every_n_epochs"].minimum)
         self.assertEqual(default_lora_output_dir(), controls["lora_output_dir"].value)
+        self.assertTrue(controls["lora_save_best"].value)
         self.assertTrue(os.path.isabs(controls["lora_output_dir"].value))
         self.assertTrue(controls["lora_output_dir"].value.endswith(os.path.join("", "Loras")))
         self.assertEqual("Open Output Folder", controls["lora_open_output_dir_btn"].value)
