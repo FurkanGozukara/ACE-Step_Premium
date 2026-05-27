@@ -163,13 +163,15 @@ def _save_best_lora_checkpoint(
     epoch: int,
     global_step: int,
 ) -> str:
-    """Save the current best adapter, replacing the previous best directory."""
+    """Save the epoch-named best adapter, replacing the previous best directory."""
 
     best_dir = safe_path(os.path.join(training_config.output_dir, "best"))
     if os.path.isdir(best_dir):
         shutil.rmtree(best_dir)
     os.makedirs(best_dir, exist_ok=True)
-    artifact_name = f"{getattr(training_config, 'lora_name', 'lora')}-best"
+    artifact_name = (
+        f"{getattr(training_config, 'lora_name', 'lora')}-best-epoch-{int(epoch)}"
+    )
     return save_training_checkpoint(
         model,
         optimizer,
