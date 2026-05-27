@@ -23,7 +23,13 @@ class TrainingConfigDefaultsTests(unittest.TestCase):
     def test_save_best_defaults_to_enabled(self) -> None:
         """Best-checkpoint tracking should be enabled by default."""
 
-        self.assertTrue(TrainingConfig().save_best)
+        config = TrainingConfig()
+
+        self.assertTrue(config.save_best)
+        self.assertEqual(10, config.save_best_after)
+        self.assertEqual(5, config.save_best_smoothing_window)
+        self.assertEqual(0.001, config.save_best_min_delta)
+        self.assertEqual("constant", config.scheduler_type)
 
 
 if __name__ == "__main__":

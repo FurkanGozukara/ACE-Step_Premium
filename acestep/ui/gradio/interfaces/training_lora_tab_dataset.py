@@ -46,6 +46,7 @@ def build_lora_dataset_and_adapter_controls(
                 interactive=False,
                 lines=3,
             )
+            lora_loaded_tensor_dir = gr.State("")
 
             with gr.Row():
                 with gr.Column(scale=2):
@@ -129,6 +130,7 @@ def build_lora_dataset_and_adapter_controls(
         "training_tensor_dir_browse_btn": training_tensor_dir_browse_btn,
         "load_dataset_btn": load_dataset_btn,
         "training_dataset_info": training_dataset_info,
+        "lora_loaded_tensor_dir": lora_loaded_tensor_dir,
         "lora_model_config": model_controls["lora_model_config"],
         "lora_vram_preset": lora_vram_preset,
         "lora_adapter_type": lora_adapter_type,

@@ -319,7 +319,7 @@ class FixedLoRATrainer:
         steps_per_epoch = max(1, math.ceil(len(train_loader) / cfg.gradient_accumulation_steps))
         total_steps = steps_per_epoch * cfg.max_epochs
 
-        scheduler_type = getattr(cfg, "scheduler_type", "cosine")
+        scheduler_type = getattr(cfg, "scheduler_type", "constant")
         scheduler = build_scheduler(
             optimizer,
             scheduler_type=scheduler_type,

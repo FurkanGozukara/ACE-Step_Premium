@@ -257,13 +257,13 @@ def step_advanced_optimizer(a: dict) -> None:
     a["scheduler_type"] = menu(
         "LR scheduler?",
         [
-            ("cosine", "Cosine Annealing (smooth decay to near-zero, most popular)"),
+            ("cosine", "Cosine Annealing (smooth decay to near-zero)"),
             ("cosine_restarts", "Cosine with Restarts (cyclical decay, LR resets periodically)"),
             ("linear", "Linear (steady decay to near-zero)"),
-            ("constant", "Constant (flat LR after warmup)"),
+            ("constant", "Constant (flat LR after warmup, default)"),
             ("constant_with_warmup", "Constant with Warmup (explicit warmup then flat)"),
         ],
-        default=1,
+        default=4,
         allow_back=True,
     )
 

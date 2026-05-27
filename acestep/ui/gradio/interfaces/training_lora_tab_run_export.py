@@ -80,6 +80,12 @@ def build_lora_run_and_export_controls(
             elem_classes=["has-info-container"],
         )
 
+        training_seed = gr.Number(
+            label=t("training.seed"),
+            value=42,
+            precision=0,
+        )
+
     training_step_estimate = gr.Markdown(
         "Load a tensor dataset to calculate total training steps."
     )
@@ -95,16 +101,45 @@ def build_lora_run_and_export_controls(
             elem_classes=["has-info-container"],
         )
 
-        lora_save_best = gr.Checkbox(
-            label="Save best",
-            value=True,
-            info=(
-                "Keeps one best checkpoint in <output>/best. A lower validation "
-                "loss replaces it; if no validation split exists, epoch training "
-                "loss is used."
-            ),
-            elem_classes=["has-info-container"],
-        )
+        with gr.Column():
+            lora_save_best = gr.Checkbox(
+                label="Save best",
+                value=True,
+                info=(
+                    "Keeps one best checkpoint in <output>/best. A lower "
+                    "smoothed validation loss replaces it; if no validation "
+                    "split exists, smoothed epoch training loss is used."
+                ),
+                elem_classes=["has-info-container"],
+            )
+            lora_save_best_after = gr.Number(
+                label="Start saving best after epoch",
+                value=10,
+                precision=0,
+                info=(
+                    "Delayed activation for best-checkpoint saves. Earlier "
+                    "epochs are ignored to avoid slow noisy checkpoint writes."
+                ),
+                elem_classes=["has-info-container"],
+            )
+
+        with gr.Column():
+            lora_save_best_smoothing_window = gr.Number(
+                label="Best smoothing window",
+                value=5,
+                precision=0,
+                info="Moving-average window for save-best loss; 5 means MA5.",
+                elem_classes=["has-info-container"],
+            )
+            lora_save_best_min_delta = gr.Number(
+                label="Best min delta",
+                value=0.001,
+                info=(
+                    "Minimum smoothed-loss improvement required before "
+                    "replacing the best checkpoint."
+                ),
+                elem_classes=["has-info-container"],
+            )
 
         training_shift = gr.Slider(
             minimum=schedule_defaults["shift_minimum"],
@@ -126,14 +161,9 @@ def build_lora_run_and_export_controls(
             elem_classes=["has-info-container"],
         )
 
-        training_seed = gr.Number(
-            label=t("training.seed"),
-            value=42,
-            precision=0,
-        )
-
     option_controls = build_lora_training_option_controls(
-        lora_vram_defaults.get("optimizer_type", "adamw8bit")
+        lora_vram_defaults.get("optimizer_type", "adamw8bit"),
+        lora_vram_defaults.get("scheduler_type", "constant"),
     )
     path_controls = build_lora_path_controls(default_output_dir)
 
@@ -186,6 +216,9 @@ def build_lora_run_and_export_controls(
         "training_step_estimate": training_step_estimate,
         "save_every_n_epochs": save_every_n_epochs,
         "lora_save_best": lora_save_best,
+        "lora_save_best_after": lora_save_best_after,
+        "lora_save_best_smoothing_window": lora_save_best_smoothing_window,
+        "lora_save_best_min_delta": lora_save_best_min_delta,
         "training_shift": training_shift,
         "training_num_inference_steps": training_num_inference_steps,
         "training_seed": training_seed,

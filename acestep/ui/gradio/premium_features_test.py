@@ -467,16 +467,21 @@ class PremiumFeaturesTests(unittest.TestCase):
             "train_batch_size": 3,
             "gradient_accumulation": 5,
             "save_every_n_epochs": 7,
+            "lora_save_best_after": 12,
+            "lora_save_best_smoothing_window": 3,
+            "lora_save_best_min_delta": 0.002,
             "training_shift": 4.25,
             "training_num_inference_steps": 37,
             "training_seed": 12345,
+            "lora_optimizer_type": "adamw8bit",
+            "lora_scheduler_type": "constant",
+            "lora_validation_split_percent": 15,
             "lora_output_dir": r"G:\loras",
             "resume_checkpoint_dir": r"G:\loras\voice-style\epoch-7-training_resume_state.pt",
             "lora_gradient_checkpointing": False,
             "lora_activation_cpu_offload": True,
             "lora_offload_non_decoder": False,
             "lora_keep_frozen_bf16": True,
-            "lora_use_8bit_adam": True,
             "lora_base_quantization": "FP8 scaled",
             "lora_empty_cache_every_n_steps": 19,
             "lora_sample_enabled": True,
@@ -508,6 +513,22 @@ class PremiumFeaturesTests(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertEqual(loaded[key], value)
                 self.assertEqual(updates[keys.index(key)].get("value"), value)
+
+    def test_legacy_lora_8bit_checkbox_migrates_to_optimizer_dropdown(self) -> None:
+        """Older LoRA presets should map the removed checkbox into optimizer type."""
+
+        migrated = premium_features._apply_runtime_defaults(
+            {"lora_use_8bit_adam": True}
+        )
+        explicit = premium_features._apply_runtime_defaults(
+            {
+                "lora_use_8bit_adam": True,
+                "lora_optimizer_type": "adafactor",
+            }
+        )
+
+        self.assertEqual("adamw8bit", migrated["lora_optimizer_type"])
+        self.assertEqual("adafactor", explicit["lora_optimizer_type"])
 
     def test_user_preset_preserves_saved_blank_text_values(self) -> None:
         """Saved empty text fields should not be replaced by built-in defaults."""

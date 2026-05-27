@@ -126,7 +126,7 @@ class TrainingConfig:
     keep_frozen_base_in_compute_dtype: bool = True
     use_8bit_adam: bool = True
     optimizer_type: str = "adamw8bit"
-    scheduler_type: str = "cosine"
+    scheduler_type: str = "constant"
     empty_cache_every_n_steps: int = 10
     seed: int = 42
     output_dir: str = "./lora_output"
@@ -146,7 +146,9 @@ class TrainingConfig:
     # Validation (for loss curve and best-checkpoint tracking)
     val_split: float = 0.0
     save_best: bool = True
-    save_best_after: int = 1
+    save_best_after: int = 10
+    save_best_smoothing_window: int = 5
+    save_best_min_delta: float = 0.001
 
     # Corrected timestep controls
     timestep_mode: str = "continuous"
@@ -189,6 +191,10 @@ class TrainingConfig:
             raise ValueError("adaptive_timestep_ratio must be in [0.0, 1.0].")
         if int(self.save_best_after) < 1:
             raise ValueError("save_best_after must be >= 1.")
+        if int(self.save_best_smoothing_window) < 1:
+            raise ValueError("save_best_smoothing_window must be >= 1.")
+        if float(self.save_best_min_delta) < 0.0:
+            raise ValueError("save_best_min_delta must be >= 0.")
 
     def to_dict(self):
         """Convert to dictionary."""
@@ -226,6 +232,8 @@ class TrainingConfig:
             "val_split": self.val_split,
             "save_best": self.save_best,
             "save_best_after": self.save_best_after,
+            "save_best_smoothing_window": self.save_best_smoothing_window,
+            "save_best_min_delta": self.save_best_min_delta,
             "timestep_mode": self.timestep_mode,
             "cfg_ratio": self.cfg_ratio,
             "timestep_mu": self.timestep_mu,

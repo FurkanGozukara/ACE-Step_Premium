@@ -6,6 +6,7 @@ import unittest
 
 import torch
 from torch.optim import AdamW
+from torch.optim.lr_scheduler import ConstantLR
 
 from acestep.training.optim import build_optimizer, build_scheduler
 
@@ -69,6 +70,21 @@ class SchedulerFactoryTests(unittest.TestCase):
                 scheduler.step()
 
                 self.assertEqual(1, len(scheduler.get_last_lr()))
+
+    def test_unknown_scheduler_defaults_to_constant(self) -> None:
+        """Unknown scheduler keys should use the constant default."""
+
+        param = torch.nn.Parameter(torch.ones(1))
+        optimizer = AdamW([param], lr=1e-4)
+        scheduler = build_scheduler(
+            optimizer,
+            scheduler_type="unknown",
+            total_steps=10,
+            warmup_steps=1,
+            lr=1e-4,
+        )
+
+        self.assertIsInstance(scheduler, ConstantLR)
 
 
 if __name__ == "__main__":

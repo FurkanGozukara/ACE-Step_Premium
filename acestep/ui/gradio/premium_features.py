@@ -578,6 +578,13 @@ def _apply_runtime_defaults(
     for key, value in quality_defaults.items():
         if key not in provided_keys or merged.get(key) is None:
             merged[key] = value
+    if (
+        "lora_optimizer_type" not in provided_keys
+        and "lora_use_8bit_adam" in payload
+    ):
+        merged["lora_optimizer_type"] = (
+            "adamw8bit" if _legacy_bool(payload.get("lora_use_8bit_adam")) else "adamw"
+        )
     _apply_cross_tab_defaults(merged, provided_keys)
     raw_quantization = payload.get("quantization_checkbox")
     raw_simple_quantization = payload.get("simple_quantization")
@@ -603,6 +610,16 @@ def _apply_runtime_defaults(
     elif raw_lora_scale in (None, "") and raw_simple_lora_scale not in (None, ""):
         merged["lora_scale_slider"] = merged.get("simple_lora_scale_slider", 1.0)
     return merged
+
+
+def _legacy_bool(value: Any) -> bool:
+    """Parse legacy boolean preset fields."""
+
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().casefold() in {"1", "true", "yes", "on"}
+    return bool(value)
 
 
 def _apply_cross_tab_defaults(merged: dict[str, Any], provided_keys: set[str]) -> None:

@@ -60,7 +60,7 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
 
         self.assertEqual(64, defaults["lora_rank"])
         self.assertEqual(128, defaults["lora_alpha"])
-        self.assertTrue(defaults["use_8bit_adam"])
+        self.assertEqual("adamw8bit", defaults["optimizer_type"])
         self.assertEqual(10, defaults["empty_cache_every_n_steps"])
 
     def test_lora_tabs_start_with_default_preset_values(self) -> None:
@@ -87,7 +87,7 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
         )
         self.assertEqual(0.0, dataset_controls["lora_dropout"].value)
         self.assertIn("overfitting", dataset_controls["lora_dropout"].info)
-        self.assertTrue(vram_controls["lora_use_8bit_adam"].value)
+        self.assertNotIn("lora_use_8bit_adam", vram_controls)
         self.assertEqual(10, vram_controls["lora_empty_cache_every_n_steps"].value)
 
     def test_rank_and_alpha_render_in_same_row(self) -> None:
@@ -117,22 +117,28 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
 
         expected_values = {
             LORA_VRAM_PRESET_8_TO_10GB: [
-                16, 128, True, True, True, True, True, "adamw8bit", "FP8 scaled", 5,
+                16, 128, True, True, True, True, "adamw8bit",
+                "constant", "FP8 scaled", 5,
             ],
             LORA_VRAM_PRESET_10GB_PLUS: [
-                32, 128, True, True, True, True, True, "adamw8bit", "FP8 scaled", 5,
+                32, 128, True, True, True, True, "adamw8bit",
+                "constant", "FP8 scaled", 5,
             ],
             LORA_VRAM_PRESET_12_TO_16GB: [
-                64, 128, True, False, True, True, True, "adamw8bit", "Disabled", 10,
+                64, 128, True, False, True, True, "adamw8bit",
+                "constant", "Disabled", 10,
             ],
             LORA_VRAM_PRESET_16_TO_24GB: [
-                128, 128, True, False, True, True, False, "adamw", "Disabled", 0,
+                128, 128, True, False, True, True, "adamw",
+                "constant", "Disabled", 0,
             ],
             LORA_VRAM_PRESET_24GB_PLUS: [
-                128, 128, True, False, True, True, False, "adamw", "Disabled", 0,
+                128, 128, True, False, True, True, "adamw",
+                "constant", "Disabled", 0,
             ],
             LORA_VRAM_PRESET_32GB_PLUS: [
-                128, 128, True, False, True, False, False, "adamw", "Disabled", 0,
+                128, 128, True, False, True, False, "adamw",
+                "constant", "Disabled", 0,
             ],
         }
 

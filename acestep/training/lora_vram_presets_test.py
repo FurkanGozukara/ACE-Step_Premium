@@ -38,7 +38,7 @@ class LoraVramPresetTests(unittest.TestCase):
         self.assertEqual(32, preset["lora_rank"])
         self.assertTrue(preset["gradient_checkpointing"])
         self.assertTrue(preset["activation_cpu_offload"])
-        self.assertTrue(preset["use_8bit_adam"])
+        self.assertEqual("adamw8bit", preset["optimizer_type"])
         self.assertEqual("FP8 scaled", preset["base_quantization"])
 
     def test_8_to_10gb_preset_uses_lowest_measured_rank(self) -> None:
@@ -65,6 +65,23 @@ class LoraVramPresetTests(unittest.TestCase):
             with self.subTest(preset_name=preset_name):
                 self.assertEqual(128, get_lora_vram_preset(preset_name)["lora_alpha"])
 
+    def test_all_presets_use_constant_scheduler(self) -> None:
+        """Every automatic preset should default to the constant scheduler."""
+
+        for preset_name in (
+            LORA_VRAM_PRESET_8_TO_10GB,
+            LORA_VRAM_PRESET_10GB_PLUS,
+            LORA_VRAM_PRESET_12_TO_16GB,
+            LORA_VRAM_PRESET_16_TO_24GB,
+            LORA_VRAM_PRESET_24GB_PLUS,
+            LORA_VRAM_PRESET_32GB_PLUS,
+        ):
+            with self.subTest(preset_name=preset_name):
+                self.assertEqual(
+                    "constant",
+                    get_lora_vram_preset(preset_name)["scheduler_type"],
+                )
+
     def test_16_to_24gb_preset_raises_rank_without_cpu_offload(self) -> None:
         """The 16 GB+ preset should prefer quality and speed."""
 
@@ -73,7 +90,7 @@ class LoraVramPresetTests(unittest.TestCase):
         self.assertEqual(128, preset["lora_rank"])
         self.assertFalse(preset["activation_cpu_offload"])
         self.assertTrue(preset["keep_frozen_base_in_compute_dtype"])
-        self.assertFalse(preset["use_8bit_adam"])
+        self.assertEqual("adamw", preset["optimizer_type"])
 
     def test_24gb_plus_preset_keeps_frozen_compute_dtype_saver(self) -> None:
         """The 24GB+ preset should keep the measured 24 GB-safe memory saver."""
@@ -83,7 +100,7 @@ class LoraVramPresetTests(unittest.TestCase):
         self.assertEqual(128, preset["lora_rank"])
         self.assertFalse(preset["activation_cpu_offload"])
         self.assertTrue(preset["keep_frozen_base_in_compute_dtype"])
-        self.assertFalse(preset["use_8bit_adam"])
+        self.assertEqual("adamw", preset["optimizer_type"])
 
     def test_32gb_plus_preset_disables_frozen_compute_dtype_saver(self) -> None:
         """The 32GB+ preset should use the high-capacity quality setting."""
@@ -93,7 +110,7 @@ class LoraVramPresetTests(unittest.TestCase):
         self.assertEqual(128, preset["lora_rank"])
         self.assertFalse(preset["activation_cpu_offload"])
         self.assertFalse(preset["keep_frozen_base_in_compute_dtype"])
-        self.assertFalse(preset["use_8bit_adam"])
+        self.assertEqual("adamw", preset["optimizer_type"])
 
     def test_default_preset_selection_uses_gpu_vram_class(self) -> None:
         """Runtime defaults should choose the measured preset for the GPU class."""

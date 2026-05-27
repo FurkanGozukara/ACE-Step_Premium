@@ -161,9 +161,13 @@ class LoRATrainingHandlerTests(unittest.TestCase):
     def test_start_training_defaults_to_save_best_enabled(self) -> None:
         """Omitted Save best input should still enable best-checkpoint tracking."""
 
-        save_best_default = signature(start_training).parameters["save_best"].default
+        params = signature(start_training).parameters
 
-        self.assertIs(True, save_best_default)
+        self.assertIs(True, params["save_best"].default)
+        self.assertEqual(10, params["save_best_after"].default)
+        self.assertEqual(5, params["save_best_smoothing_window"].default)
+        self.assertEqual(0.001, params["save_best_min_delta"].default)
+        self.assertEqual("constant", params["scheduler_type"].default)
 
     def test_start_training_uses_submitted_values_not_selected_preset(self) -> None:
         """Training configs should use current Gradio values after a preset edit."""
@@ -242,8 +246,12 @@ class LoRATrainingHandlerTests(unittest.TestCase):
                         optimizer_type="adafactor",
                         scheduler_type="linear",
                         save_best=True,
+                        save_best_after=12,
+                        save_best_smoothing_window=3,
+                        save_best_min_delta=0.002,
                         timestep_mode="discrete",
                         adaptive_timestep_ratio=0.4,
+                        validation_split_percent=15,
                         vram_preset=LORA_VRAM_PRESET_24GB_PLUS,
                     )
                 )
@@ -267,12 +275,16 @@ class LoRATrainingHandlerTests(unittest.TestCase):
         self.assertTrue(training_config.activation_cpu_offload)
         self.assertFalse(training_config.offload_non_decoder)
         self.assertFalse(training_config.keep_frozen_base_in_compute_dtype)
-        self.assertTrue(training_config.use_8bit_adam)
+        self.assertFalse(training_config.use_8bit_adam)
         self.assertTrue(training_config.use_fp8)
         self.assertEqual("dora", training_config.adapter_type)
         self.assertEqual("adafactor", training_config.optimizer_type)
         self.assertEqual("linear", training_config.scheduler_type)
         self.assertTrue(training_config.save_best)
+        self.assertEqual(12, training_config.save_best_after)
+        self.assertEqual(3, training_config.save_best_smoothing_window)
+        self.assertEqual(0.002, training_config.save_best_min_delta)
+        self.assertEqual(0.15, training_config.val_split)
         self.assertEqual("discrete", training_config.timestep_mode)
         self.assertEqual(0.4, training_config.adaptive_timestep_ratio)
         self.assertEqual(17, training_config.empty_cache_every_n_steps)

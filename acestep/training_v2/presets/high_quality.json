@@ -18,7 +18,7 @@
   "shift": 3.0,
   "num_inference_steps": 8,
   "optimizer_type": "adamw",
-  "scheduler_type": "cosine",
+  "scheduler_type": "constant",
   "cfg_ratio": 0.15,
   "save_every": 250,
   "log_every": 10,

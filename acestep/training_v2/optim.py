@@ -114,7 +114,7 @@ def build_optimizer(
 
 def build_scheduler(
     optimizer: torch.optim.Optimizer,
-    scheduler_type: str = "cosine",
+    scheduler_type: str = "constant",
     total_steps: int = 1000,
     warmup_steps: int = 500,
     lr: float = 1e-4,
@@ -170,12 +170,14 @@ def build_scheduler(
             T_mult=1,
             eta_min=lr * 0.01,
         )
-    else:
-        # cosine (default) -- single smooth decay to eta_min, no restarts.
+    elif scheduler_type == "cosine":
+        # cosine -- single smooth decay to eta_min, no restarts.
         main_sched = CosineAnnealingLR(
             optimizer,
             T_max=remaining,
             eta_min=lr * 0.01,
         )
+    else:
+        main_sched = ConstantLR(optimizer, factor=1.0, total_iters=total_steps)
 
     return SequentialLR(optimizer, [warmup_sched, main_sched], milestones=[warmup_steps])

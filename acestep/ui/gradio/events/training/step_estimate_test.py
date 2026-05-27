@@ -11,6 +11,8 @@ from acestep.training.path_safety import get_safe_roots, set_safe_roots
 from acestep.ui.gradio.events.training.step_estimate import (
     estimate_lora_total_steps,
     format_lora_step_estimate,
+    format_lora_validation_split,
+    validation_split_fraction,
 )
 
 
@@ -61,6 +63,24 @@ class LoraStepEstimateTests(unittest.TestCase):
 
         self.assertEqual(700, total_steps)
 
+    def test_total_steps_helper_excludes_validation_samples(self) -> None:
+        """Validation samples should not count toward training step estimates."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            dataset_dir = Path(tmpdir) / "tensors"
+            dataset_dir.mkdir()
+            (dataset_dir / "manifest.json").write_text(
+                json.dumps({"num_samples": 50}),
+                encoding="utf-8",
+            )
+
+            total_steps = estimate_lora_total_steps(dataset_dir, 2, 4, 100, 10)
+            estimate = format_lora_step_estimate(dataset_dir, 2, 4, 100, 10)
+
+        self.assertEqual(600, total_steps)
+        self.assertIn("Training samples after validation split: `45` of `50`", estimate)
+
     def test_estimate_counts_pt_files_without_manifest(self) -> None:
         """Datasets without a manifest should still estimate from .pt files."""
 
@@ -81,6 +101,45 @@ class LoraStepEstimateTests(unittest.TestCase):
         estimate = format_lora_step_estimate("", 1, 1, 100)
 
         self.assertEqual("Load a tensor dataset to calculate total training steps.", estimate)
+
+    def test_validation_split_preview_uses_percent_and_sample_floor(self) -> None:
+        """Validation preview should floor small non-zero splits to one sample."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            dataset_dir = Path(tmpdir) / "tensors"
+            dataset_dir.mkdir()
+            (dataset_dir / "manifest.json").write_text(
+                json.dumps({"num_samples": 50}),
+                encoding="utf-8",
+            )
+
+            estimate = format_lora_validation_split(dataset_dir, 1)
+
+        self.assertIn("Training samples: `49`", estimate)
+        self.assertIn("Validation samples: `1`", estimate)
+
+    def test_validation_split_preview_disables_zero_percent(self) -> None:
+        """A zero validation percentage should reserve no validation samples."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            dataset_dir = Path(tmpdir) / "tensors"
+            dataset_dir.mkdir()
+            (dataset_dir / "manifest.json").write_text(
+                json.dumps({"num_samples": 50}),
+                encoding="utf-8",
+            )
+
+            estimate = format_lora_validation_split(dataset_dir, 0)
+
+        self.assertIn("Training samples: `50`", estimate)
+        self.assertIn("Validation samples: `0`", estimate)
+
+    def test_validation_split_fraction_clamps_ui_percent(self) -> None:
+        """Validation split fractions should stay below 1.0 for config safety."""
+
+        self.assertEqual(0.99, validation_split_fraction(1000))
 
 
 if __name__ == "__main__":

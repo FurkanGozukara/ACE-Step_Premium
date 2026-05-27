@@ -258,7 +258,7 @@ def wizard_preprocess() -> argparse.Namespace:
         log_heavy_every=50,
         sample_every_n_epochs=0,
         optimizer_type="adamw",
-        scheduler_type="cosine",
+        scheduler_type="constant",
         gradient_checkpointing=True,
         offload_encoder=False,
         preprocess=True,

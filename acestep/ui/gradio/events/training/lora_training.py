@@ -24,7 +24,7 @@ from acestep.ui.gradio.events.local_path_dialogs import open_folder_path
 from acestep.ui.gradio.i18n import t
 from .service_auto_init import ensure_dit_ready
 from .subprocess_control import request_training_subprocess_stop
-from .step_estimate import estimate_lora_total_steps
+from .step_estimate import estimate_lora_total_steps, validation_split_fraction
 from .training_progress_stats import TrainingProgressTimer, build_training_progress_text
 from .training_utils import (
     _format_duration,
@@ -82,7 +82,7 @@ def _normalize_adapter_type(value: object) -> str:
     return "lora"
 
 
-def _normalize_optimizer_type(value: object, use_8bit_adam: object) -> str:
+def _normalize_optimizer_type(value: object, use_8bit_adam: object = None) -> str:
     """Return the optimizer key used by the training config."""
 
     selected = str(value or "").strip().casefold().replace("-", "")
@@ -95,13 +95,15 @@ def _normalize_optimizer_type(value: object, use_8bit_adam: object) -> str:
     }
     if selected in aliases:
         return aliases[selected]
-    return "adamw8bit" if _as_bool(use_8bit_adam) else "adamw"
+    if use_8bit_adam is not None:
+        return "adamw8bit" if _as_bool(use_8bit_adam) else "adamw"
+    return "adamw"
 
 
 def _normalize_scheduler_type(value: object) -> str:
     """Return the scheduler key used by the training config."""
 
-    selected = str(value or "cosine").strip().casefold().replace("-", "_")
+    selected = str(value or "constant").strip().casefold().replace("-", "_")
     if selected in {
         "cosine",
         "cosine_restarts",
@@ -110,7 +112,7 @@ def _normalize_scheduler_type(value: object) -> str:
         "constant_with_warmup",
     }:
         return selected
-    return "cosine"
+    return "constant"
 
 
 def _normalize_timestep_mode(value: object) -> str:
@@ -226,7 +228,7 @@ def start_training(
     activation_cpu_offload: bool = False,
     offload_non_decoder: bool = True,
     keep_frozen_base_in_compute_dtype: bool = True,
-    use_8bit_adam: bool = True,
+    use_8bit_adam: bool | None = None,
     base_quantization: str = "Disabled",
     empty_cache_every_n_steps: int = 10,
     sample_generation_enabled: bool = False,
@@ -246,10 +248,14 @@ def start_training(
     adapter_type: str = "lora",
     target_mlp: bool = False,
     optimizer_type: str = "",
-    scheduler_type: str = "cosine",
+    scheduler_type: str = "constant",
     save_best: bool = True,
+    save_best_after: int = 10,
+    save_best_smoothing_window: int = 5,
+    save_best_min_delta: float = 0.001,
     timestep_mode: str = "continuous",
     adaptive_timestep_ratio: float = 0.0,
+    validation_split_percent: float = 0.0,
 ):
     """Start LoRA training from preprocessed tensors.
 
@@ -364,7 +370,10 @@ def start_training(
         from acestep.training.configs import LoRAConfig as LoRAConfigClass, TrainingConfig
 
         selected_adapter_type = _normalize_adapter_type(adapter_type)
-        selected_optimizer_type = _normalize_optimizer_type(optimizer_type, use_8bit_adam)
+        selected_optimizer_type = _normalize_optimizer_type(
+            optimizer_type,
+            use_8bit_adam,
+        )
         selected_scheduler_type = _normalize_scheduler_type(scheduler_type)
         selected_timestep_mode = _normalize_timestep_mode(timestep_mode)
         selected_target_mlp = _as_bool(target_mlp)
@@ -422,9 +431,10 @@ def start_training(
             activation_cpu_offload=_as_bool(activation_cpu_offload),
             offload_non_decoder=_as_bool(offload_non_decoder),
             keep_frozen_base_in_compute_dtype=_as_bool(keep_frozen_base_in_compute_dtype),
-            use_8bit_adam=_as_bool(use_8bit_adam),
+            use_8bit_adam=selected_optimizer_type == "adamw8bit",
             optimizer_type=selected_optimizer_type,
             scheduler_type=selected_scheduler_type,
+            val_split=validation_split_fraction(validation_split_percent),
             empty_cache_every_n_steps=_as_nonnegative_int(
                 empty_cache_every_n_steps, 10
             ),
@@ -433,6 +443,12 @@ def start_training(
             pin_memory_device=pin_memory_device, mixed_precision=mixed_precision,
             adapter_type=selected_adapter_type,
             save_best=_as_bool(save_best),
+            save_best_after=_as_positive_int(save_best_after, 10),
+            save_best_smoothing_window=_as_positive_int(
+                save_best_smoothing_window,
+                5,
+            ),
+            save_best_min_delta=max(0.0, _as_float(save_best_min_delta, 0.001)),
             timestep_mode=selected_timestep_mode,
             adaptive_timestep_ratio=selected_adaptive_ratio,
             sample_every_n_epochs=(
@@ -453,14 +469,20 @@ def start_training(
         adapter_label = "DoRA" if selected_adapter_type == "dora" else "LoRA"
         logger.info(
             "Training options: adapter={}, target_mlp={}, optimizer={}, "
-            "scheduler={}, timestep_mode={}, adaptive_timestep_ratio={}, save_best={}",
+            "scheduler={}, timestep_mode={}, adaptive_timestep_ratio={}, "
+            "val_split={}, save_best={}, save_best_after={}, "
+            "save_best_smoothing_window={}, save_best_min_delta={}",
             adapter_label,
             selected_target_mlp,
             selected_optimizer_type,
             selected_scheduler_type,
             selected_timestep_mode,
             selected_adaptive_ratio,
+            training_config.val_split,
             _as_bool(save_best),
+            training_config.save_best_after,
+            training_config.save_best_smoothing_window,
+            training_config.save_best_min_delta,
         )
         _save_training_config_snapshot(lora_config, training_config)
 
@@ -472,6 +494,7 @@ def start_training(
             train_batch_size,
             gradient_accumulation,
             train_epochs,
+            validation_split_percent,
         )
         initial_plot = _training_loss_figure(training_state, step_list, loss_list)
         start_time = time.time()
@@ -483,7 +506,9 @@ def start_training(
                 f"optimizer={selected_optimizer_type}, scheduler={selected_scheduler_type}, "
                 f"timestep={selected_timestep_mode}, "
                 f"adaptive_timestep_ratio={selected_adaptive_ratio}, "
-                f"save_best={_as_bool(save_best)}"
+                f"validation_split={training_config.val_split:.2f}, "
+                f"save_best={_as_bool(save_best)}, "
+                f"save_best_after={training_config.save_best_after}"
             ),
             "",
             initial_plot,

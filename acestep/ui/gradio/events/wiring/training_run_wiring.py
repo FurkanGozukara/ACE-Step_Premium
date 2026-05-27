@@ -20,7 +20,11 @@ from .training_step_estimate_wiring import (
     attach_lora_step_estimate_update,
     register_lora_step_estimate_handlers,
 )
-from .training_tensor_browse import browse_and_load_training_dataset
+from .training_tensor_browse import (
+    browse_and_load_lora_training_dataset,
+    browse_and_load_training_dataset,
+    load_lora_training_dataset_with_state,
+)
 from ...interfaces.training_lora_vram_presets import lora_vram_preset_updates
 
 
@@ -59,19 +63,23 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
 
     # ========== Training Tab Handlers ==========
     browse_event = training_section["training_tensor_dir_browse_btn"].click(
-        fn=browse_and_load_training_dataset,
+        fn=browse_and_load_lora_training_dataset,
         inputs=[training_section["training_tensor_dir"]],
         outputs=[
             training_section["training_tensor_dir"],
             training_section["training_dataset_info"],
+            training_section["lora_loaded_tensor_dir"],
         ],
     )
     attach_lora_step_estimate_update(browse_event, training_section)
 
     load_event = training_section["load_dataset_btn"].click(
-        fn=train_h.load_training_dataset,
+        fn=load_lora_training_dataset_with_state,
         inputs=[training_section["training_tensor_dir"]],
-        outputs=[training_section["training_dataset_info"]],
+        outputs=[
+            training_section["training_dataset_info"],
+            training_section["lora_loaded_tensor_dir"],
+        ],
     )
     attach_lora_step_estimate_update(load_event, training_section)
     register_lora_step_estimate_handlers(training_section)
@@ -86,8 +94,8 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
             training_section["lora_activation_cpu_offload"],
             training_section["lora_offload_non_decoder"],
             training_section["lora_keep_frozen_bf16"],
-            training_section["lora_use_8bit_adam"],
             training_section["lora_optimizer_type"],
+            training_section["lora_scheduler_type"],
             training_section["lora_base_quantization"],
             training_section["lora_empty_cache_every_n_steps"],
         ],
@@ -145,6 +153,9 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
             training_section["gradient_accumulation"],
             training_section["save_every_n_epochs"],
             training_section["lora_save_best"],
+            training_section["lora_save_best_after"],
+            training_section["lora_save_best_smoothing_window"],
+            training_section["lora_save_best_min_delta"],
             training_section["training_shift"],
             training_section["training_num_inference_steps"],
             training_section["training_seed"],
@@ -152,13 +163,13 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
             training_section["lora_scheduler_type"],
             training_section["lora_timestep_mode"],
             training_section["lora_adaptive_timestep_ratio"],
+            training_section["lora_validation_split_percent"],
             training_section["lora_output_dir"],
             training_section["resume_checkpoint_dir"],
             training_section["lora_gradient_checkpointing"],
             training_section["lora_activation_cpu_offload"],
             training_section["lora_offload_non_decoder"],
             training_section["lora_keep_frozen_bf16"],
-            training_section["lora_use_8bit_adam"],
             training_section["lora_base_quantization"],
             training_section["lora_empty_cache_every_n_steps"],
             training_section["lora_sample_enabled"],

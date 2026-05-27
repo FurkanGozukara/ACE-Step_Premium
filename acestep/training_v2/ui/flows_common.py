@@ -75,7 +75,7 @@ def build_train_namespace(a: dict, mode: str) -> argparse.Namespace:
         shift=a.get("shift", 3.0),
         num_inference_steps=a.get("num_inference_steps", 8),
         optimizer_type=a.get("optimizer_type", "adamw"),
-        scheduler_type=a.get("scheduler_type", "cosine"),
+        scheduler_type=a.get("scheduler_type", "constant"),
         gradient_checkpointing=a.get("gradient_checkpointing", True),
         offload_encoder=a.get("offload_encoder", False),
         preprocess=False,

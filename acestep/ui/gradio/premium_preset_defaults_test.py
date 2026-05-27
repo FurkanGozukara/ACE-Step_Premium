@@ -14,6 +14,19 @@ class PremiumPresetDefaultsTests(unittest.TestCase):
         """LoRA presets should start with Save best enabled."""
 
         self.assertTrue(ADDITIONAL_DEFAULT_PRESET_VALUES["lora_save_best"])
+        self.assertEqual(10, ADDITIONAL_DEFAULT_PRESET_VALUES["lora_save_best_after"])
+        self.assertEqual(
+            5,
+            ADDITIONAL_DEFAULT_PRESET_VALUES["lora_save_best_smoothing_window"],
+        )
+        self.assertEqual(
+            0.001,
+            ADDITIONAL_DEFAULT_PRESET_VALUES["lora_save_best_min_delta"],
+        )
+        self.assertEqual(
+            "constant",
+            ADDITIONAL_DEFAULT_PRESET_VALUES["lora_scheduler_type"],
+        )
 
 
 if __name__ == "__main__":

@@ -154,7 +154,7 @@ def build_configs(args: argparse.Namespace) -> Tuple[AdapterConfig, TrainingConf
         # V2 extensions
         adapter_type=adapter_type,
         optimizer_type=getattr(args, "optimizer_type", "adamw"),
-        scheduler_type=getattr(args, "scheduler_type", "cosine"),
+        scheduler_type=getattr(args, "scheduler_type", "constant"),
         gradient_checkpointing=getattr(args, "gradient_checkpointing", True),
         offload_encoder=getattr(args, "offload_encoder", False),
         cfg_ratio=getattr(args, "cfg_ratio", 0.15),

@@ -58,6 +58,7 @@ from acestep.training.data_module import PreprocessedDataModule
 from acestep.training.adaptive_timestep import AdaptiveTimestepSampler
 from acestep.training.optim import build_optimizer, build_scheduler
 from acestep.training.path_safety import safe_path
+from acestep.training.save_best import BestMetricTracker
 from acestep.training.sample_generation_inprocess import run_training_sample_inprocess
 from acestep.training.timestep_schedule import build_shifted_timestep_schedule
 from acestep.training_v2.timestep_sampling import apply_cfg_dropout, sample_timesteps
@@ -1031,7 +1032,14 @@ class LoRATrainer:
             training_state["plot_best_step"] = None
         ema_loss = None
         ema_alpha = 0.1
-        best_metric = float("inf")
+        best_tracker = BestMetricTracker(
+            smoothing_window=getattr(
+                self.training_config,
+                "save_best_smoothing_window",
+                5,
+            ),
+            min_delta=getattr(self.training_config, "save_best_min_delta", 0.001),
+        )
 
         # Setup optimizer - only LoRA parameters
         trainable_params = [
@@ -1076,7 +1084,7 @@ class LoRATrainer:
         total_steps = steps_per_epoch * self.training_config.max_epochs
         warmup_steps = min(self.training_config.warmup_steps, max(1, total_steps // 10))
         scheduler_type = str(
-            getattr(self.training_config, "scheduler_type", "cosine") or "cosine"
+            getattr(self.training_config, "scheduler_type", "constant") or "constant"
         ).lower()
         scheduler = build_scheduler(
             optimizer,
@@ -1361,33 +1369,41 @@ class LoRATrainer:
                 if training_state is not None:
                     training_state["plot_val_steps"].append(global_step)
                     training_state["plot_val_loss"].append(val_loss)
+                yield (
+                    global_step,
+                    avg_epoch_loss,
+                    f"Validation loss: {val_loss:.6f}",
+                )
 
             if (
                 getattr(self.training_config, "save_best", False)
                 and epoch + 1 >= int(getattr(self.training_config, "save_best_after", 1))
-                and best_candidate < best_metric
             ):
-                best_metric = best_candidate
-                if training_state is not None:
-                    training_state["plot_best_step"] = global_step
-                self.module.model.decoder.eval()
-                best_path = _save_best_lora_checkpoint(
-                    self.module.model,
-                    optimizer,
-                    scheduler,
-                    self.training_config,
-                    epoch + 1,
-                    global_step,
-                )
-                self.module.model.decoder.train()
-                yield (
-                    global_step,
-                    avg_epoch_loss,
-                    (
-                        f"🏆 New best {_adapter_display_name(self.training_config)} "
-                        f"saved ({best_candidate_label}: {best_metric:.6f}) to {best_path}"
-                    ),
-                )
+                is_new_best, smoothed_metric = best_tracker.observe(best_candidate)
+                if is_new_best:
+                    if training_state is not None:
+                        training_state["plot_best_step"] = global_step
+                    self.module.model.decoder.eval()
+                    best_path = _save_best_lora_checkpoint(
+                        self.module.model,
+                        optimizer,
+                        scheduler,
+                        self.training_config,
+                        epoch + 1,
+                        global_step,
+                    )
+                    self.module.model.decoder.train()
+                    yield (
+                        global_step,
+                        avg_epoch_loss,
+                        (
+                            f"🏆 New best {_adapter_display_name(self.training_config)} "
+                            f"saved ({best_candidate_label} MA"
+                            f"{best_tracker.smoothing_window}: "
+                            f"{smoothed_metric:.6f}, raw: {best_candidate:.6f}) "
+                            f"to {best_path}"
+                        ),
+                    )
 
             # Save checkpoint
             if _should_save_epoch_checkpoint(self.training_config, epoch + 1):
@@ -1517,6 +1533,11 @@ class LoRATrainer:
         os.makedirs(self.training_config.output_dir, exist_ok=True)
 
         train_loader = data_module.train_dataloader()
+        val_loader = (
+            data_module.val_dataloader()
+            if hasattr(data_module, "val_dataloader")
+            else None
+        )
 
         trainable_params = [
             p for p in self.module.model.parameters() if p.requires_grad
@@ -1562,7 +1583,7 @@ class LoRATrainer:
         warmup_steps = min(self.training_config.warmup_steps, max(1, total_steps // 10))
 
         scheduler_type = str(
-            getattr(self.training_config, "scheduler_type", "cosine") or "cosine"
+            getattr(self.training_config, "scheduler_type", "constant") or "constant"
         ).lower()
         scheduler = build_scheduler(
             optimizer,
@@ -1576,8 +1597,20 @@ class LoRATrainer:
         global_step = 0
         accumulation_step = 0
         accumulated_loss = 0.0
-        best_metric = float("inf")
+        best_tracker = BestMetricTracker(
+            smoothing_window=getattr(
+                self.training_config,
+                "save_best_smoothing_window",
+                5,
+            ),
+            min_delta=getattr(self.training_config, "save_best_min_delta", 0.001),
+        )
         optimizer.zero_grad(set_to_none=True)
+
+        if training_state is not None:
+            training_state.setdefault("plot_val_steps", [])
+            training_state.setdefault("plot_val_loss", [])
+            training_state.setdefault("plot_best_step", None)
 
         self.module.model.decoder.train()
 
@@ -1662,6 +1695,31 @@ class LoRATrainer:
 
             epoch_time = time.time() - epoch_start_time
             avg_epoch_loss = epoch_loss / max(num_updates, 1)
+            best_candidate = avg_epoch_loss
+            best_candidate_label = "training loss"
+
+            if val_loader is not None:
+                self.module.model.decoder.eval()
+                total_val_loss = 0.0
+                n_val = 0
+                with torch.no_grad():
+                    for val_batch in val_loader:
+                        v_loss = self.module.training_step(val_batch, record_loss=False)
+                        total_val_loss += v_loss.item()
+                        n_val += 1
+                self.module.model.decoder.train()
+                val_loss = total_val_loss / max(n_val, 1)
+                best_candidate = val_loss
+                best_candidate_label = "validation loss"
+                if training_state is not None:
+                    training_state["plot_val_steps"].append(global_step)
+                    training_state["plot_val_loss"].append(val_loss)
+                yield (
+                    global_step,
+                    avg_epoch_loss,
+                    f"Validation loss: {val_loss:.6f}",
+                )
+
             yield (
                 global_step,
                 avg_epoch_loss,
@@ -1671,29 +1729,32 @@ class LoRATrainer:
             if (
                 getattr(self.training_config, "save_best", False)
                 and epoch + 1 >= int(getattr(self.training_config, "save_best_after", 1))
-                and avg_epoch_loss < best_metric
             ):
-                best_metric = avg_epoch_loss
-                if training_state is not None:
-                    training_state["plot_best_step"] = global_step
-                self.module.model.decoder.eval()
-                best_path = _save_best_lora_checkpoint(
-                    self.module.model,
-                    optimizer,
-                    scheduler,
-                    self.training_config,
-                    epoch + 1,
-                    global_step,
-                )
-                self.module.model.decoder.train()
-                yield (
-                    global_step,
-                    avg_epoch_loss,
-                    (
-                        f"🏆 New best {_adapter_display_name(self.training_config)} "
-                        f"saved (training loss: {best_metric:.6f}) to {best_path}"
-                    ),
-                )
+                is_new_best, smoothed_metric = best_tracker.observe(best_candidate)
+                if is_new_best:
+                    if training_state is not None:
+                        training_state["plot_best_step"] = global_step
+                    self.module.model.decoder.eval()
+                    best_path = _save_best_lora_checkpoint(
+                        self.module.model,
+                        optimizer,
+                        scheduler,
+                        self.training_config,
+                        epoch + 1,
+                        global_step,
+                    )
+                    self.module.model.decoder.train()
+                    yield (
+                        global_step,
+                        avg_epoch_loss,
+                        (
+                            f"🏆 New best {_adapter_display_name(self.training_config)} "
+                            f"saved ({best_candidate_label} MA"
+                            f"{best_tracker.smoothing_window}: "
+                            f"{smoothed_metric:.6f}, raw: {best_candidate:.6f}) "
+                            f"to {best_path}"
+                        ),
+                    )
 
             if _should_save_epoch_checkpoint(self.training_config, epoch + 1):
                 _save_lora_epoch_checkpoint(

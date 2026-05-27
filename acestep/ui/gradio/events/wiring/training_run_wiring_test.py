@@ -77,7 +77,12 @@ class TrainingRunWiringTests(unittest.TestCase):
             self.assertEqual("my-awesome-song", kwargs["lora_name"])
             self.assertEqual("model-b", kwargs["model_config"])
             self.assertEqual(19, kwargs["training_num_inference_steps"])
+            self.assertEqual(10, kwargs["save_best_after"])
+            self.assertEqual(5, kwargs["save_best_smoothing_window"])
+            self.assertEqual(0.001, kwargs["save_best_min_delta"])
+            self.assertEqual(10, kwargs["validation_split_percent"])
             self.assertTrue(kwargs["gradient_checkpointing"])
+            self.assertFalse(kwargs["use_8bit_adam"])
             self.assertEqual("Disabled", kwargs["base_quantization"])
             self.assertFalse(kwargs["sample_generation_enabled"])
             self.assertEqual("prompt", kwargs["sample_prompt"])
@@ -115,22 +120,32 @@ class TrainingRunWiringTests(unittest.TestCase):
                 wrapper(
                     "tensors",
                     "my-awesome-song",
+                    "dora",
                     64,
                     128,
                     0.1,
+                    True,
                     0.0003,
                     10,
                     1,
                     1,
                     10,
+                    True,
+                    10,
+                    5,
+                    0.001,
                     3.0,
                     19,
                     42,
+                    "adafactor",
+                    "constant",
+                    "continuous",
+                    0.4,
+                    10,
                     "out",
                     "",
                     True,
                     False,
-                    True,
                     True,
                     True,
                     "Disabled",
@@ -175,22 +190,32 @@ class TrainingRunWiringTests(unittest.TestCase):
                 wrapper(
                     "tensors",
                     "my-awesome-song",
+                    "lora",
                     64,
                     128,
                     0.1,
+                    False,
                     0.0003,
                     10,
                     1,
                     1,
                     10,
+                    True,
+                    10,
+                    5,
+                    0.001,
                     3.0,
                     8,
                     42,
+                    "adamw8bit",
+                    "constant",
+                    "continuous",
+                    0.0,
+                    0,
                     "out",
                     "",
                     True,
                     False,
-                    True,
                     True,
                     True,
                     "Disabled",
@@ -221,6 +246,11 @@ class TrainingRunWiringTests(unittest.TestCase):
         self.assertEqual(1, training_args["train_batch_size"])
         self.assertEqual(1, training_args["gradient_accumulation"])
         self.assertEqual(10, training_args["save_every_n_epochs"])
+        self.assertTrue(training_args["save_best"])
+        self.assertEqual(10, training_args["save_best_after"])
+        self.assertEqual(5, training_args["save_best_smoothing_window"])
+        self.assertEqual(0.001, training_args["save_best_min_delta"])
+        self.assertEqual(0, training_args["validation_split_percent"])
         self.assertTrue(training_args["gradient_checkpointing"])
         self.assertFalse(training_args["activation_cpu_offload"])
         self.assertTrue(training_args["offload_non_decoder"])

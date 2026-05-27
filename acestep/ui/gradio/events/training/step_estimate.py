@@ -16,6 +16,7 @@ def format_lora_step_estimate(
     batch_size: Any,
     gradient_accumulation: Any,
     train_epochs: Any,
+    validation_percent: Any = 0,
 ) -> str:
     """Return a user-facing optimizer-step estimate for LoRA training.
 
@@ -24,6 +25,7 @@ def format_lora_step_estimate(
         batch_size: Per-device training batch size.
         gradient_accumulation: Number of batches accumulated per optimizer step.
         train_epochs: Number of training epochs.
+        validation_percent: Percent of samples held out from training.
 
     Returns:
         Markdown text with the formula and calculated step count, or a prompt
@@ -36,19 +38,68 @@ def format_lora_step_estimate(
     if sample_count == 0:
         return "No tensor samples found, so total training steps cannot be calculated."
 
+    validation_count = _validation_sample_count(
+        sample_count,
+        _bounded_percent(validation_percent),
+    )
+    training_sample_count = sample_count - validation_count
     batch = _positive_int(batch_size)
     accumulation = _positive_int(gradient_accumulation)
     epochs = _positive_int(train_epochs)
-    total_steps = _calculate_total_steps(sample_count, batch, accumulation, epochs)
+    total_steps = _calculate_total_steps(
+        training_sample_count,
+        batch,
+        accumulation,
+        epochs,
+    )
     effective_batch = batch * accumulation
+    validation_text = ""
+    if validation_count > 0:
+        validation_text = (
+            f"Training samples after validation split: "
+            f"`{training_sample_count}` of `{sample_count}`.  \n"
+        )
 
     return (
         f"**Estimated training steps:** {total_steps:,} optimizer updates  \n"
+        f"{validation_text}"
         f"Formula: `ceil(ceil(samples / batch size) / gradient accumulation) "
-        f"* training epochs` = `ceil(ceil({sample_count} / {batch}) / "
+        f"* training epochs` = `ceil(ceil({training_sample_count} / {batch}) / "
         f"{accumulation}) * {epochs}`.  \n"
         f"Effective batch size: `{batch} * {accumulation} = {effective_batch}` "
         "tensor samples per optimizer update."
+    )
+
+
+def format_lora_validation_split(
+    tensor_dir: Any,
+    validation_percent: Any,
+) -> str:
+    """Return a validation split preview for a tensor dataset.
+
+    Args:
+        tensor_dir: Directory containing preprocessed ``.pt`` tensors.
+        validation_percent: UI percentage where 0 disables validation.
+
+    Returns:
+        Markdown text describing train/validation sample counts, or a prompt
+        to load a valid tensor dataset first.
+    """
+
+    sample_count = _count_tensor_samples(tensor_dir)
+    if sample_count is None:
+        return "Load a tensor dataset to preview the validation split."
+    if sample_count == 0:
+        return "No tensor samples found, so validation cannot be calculated."
+
+    percent = _bounded_percent(validation_percent)
+    validation_count = _validation_sample_count(sample_count, percent)
+    training_count = sample_count - validation_count
+
+    return (
+        f"Validation split: `{percent}%`  \n"
+        f"Training samples: `{training_count}`  \n"
+        f"Validation samples: `{validation_count}`"
     )
 
 
@@ -57,6 +108,7 @@ def estimate_lora_total_steps(
     batch_size: Any,
     gradient_accumulation: Any,
     train_epochs: Any,
+    validation_percent: Any = 0,
 ) -> int | None:
     """Return the expected optimizer update count for a LoRA tensor dataset."""
 
@@ -64,10 +116,21 @@ def estimate_lora_total_steps(
     if sample_count is None or sample_count == 0:
         return None
 
+    validation_count = _validation_sample_count(
+        sample_count,
+        _bounded_percent(validation_percent),
+    )
+    training_sample_count = sample_count - validation_count
     batch = _positive_int(batch_size)
     accumulation = _positive_int(gradient_accumulation)
     epochs = _positive_int(train_epochs)
-    return _calculate_total_steps(sample_count, batch, accumulation, epochs)
+    return _calculate_total_steps(training_sample_count, batch, accumulation, epochs)
+
+
+def validation_split_fraction(validation_percent: Any) -> float:
+    """Return a normalized validation split fraction from a UI percentage."""
+
+    return _bounded_percent(validation_percent) / 100.0
 
 
 def _calculate_total_steps(
@@ -100,6 +163,25 @@ def _count_tensor_samples(tensor_dir: Any) -> int | None:
     if manifest_count is not None:
         return manifest_count
     return len([name for name in os.listdir(resolved) if name.endswith(".pt")])
+
+
+def _validation_sample_count(sample_count: int, percent: int) -> int:
+    """Return validation samples while keeping at least one training sample."""
+
+    if sample_count <= 1 or percent <= 0:
+        return 0
+    requested = int(sample_count * (percent / 100.0))
+    return min(sample_count - 1, max(1, requested))
+
+
+def _bounded_percent(value: Any) -> int:
+    """Convert a UI value to an integer percentage in the supported range."""
+
+    try:
+        parsed = int(float(value))
+    except (TypeError, ValueError):
+        return 0
+    return max(0, min(99, parsed))
 
 
 def _sample_count_from_manifest(manifest_path: str) -> int | None:

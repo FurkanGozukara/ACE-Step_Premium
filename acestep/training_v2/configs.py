@@ -123,7 +123,7 @@ class TrainingConfigV2(TrainingConfig):
     optimizer_type: str = "adamw"
     """Optimizer: 'adamw', 'adamw8bit', 'adafactor', 'prodigy'."""
 
-    scheduler_type: str = "cosine"
+    scheduler_type: str = "constant"
     """LR scheduler: 'cosine', 'cosine_restarts', 'linear', 'constant', 'constant_with_warmup'."""
 
     # --- VRAM management ------------------------------------------------------

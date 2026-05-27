@@ -109,7 +109,7 @@ def build_scheduler(
         A PyTorch LR scheduler.
     """
 
-    selected = str(scheduler_type or "cosine").lower().strip()
+    selected = str(scheduler_type or "constant").lower().strip()
     total_steps = max(1, int(total_steps))
     warmup_steps = min(max(0, int(warmup_steps)), max(1, total_steps // 10))
     remaining = max(1, total_steps - warmup_steps)
@@ -141,12 +141,15 @@ def build_scheduler(
             T_mult=1,
             eta_min=lr * 0.01,
         )
-    else:
+    elif selected == "cosine":
         main_sched = CosineAnnealingLR(
             optimizer,
             T_max=remaining,
             eta_min=lr * 0.01,
         )
+    else:
+        logger.info("Using scheduler: constant")
+        return ConstantLR(optimizer, factor=1.0, total_iters=total_steps)
 
     logger.info(f"Using scheduler: {selected}")
     return SequentialLR(optimizer, [warmup_sched, main_sched], milestones=[warmup_steps])

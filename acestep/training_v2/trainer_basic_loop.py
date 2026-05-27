@@ -130,7 +130,7 @@ def run_basic_training_loop(
 
     scheduler = build_scheduler(
         optimizer,
-        scheduler_type=getattr(cfg, "scheduler_type", "cosine"),
+        scheduler_type=getattr(cfg, "scheduler_type", "constant"),
         total_steps=total_steps,
         warmup_steps=cfg.warmup_steps,
         lr=cfg.learning_rate,

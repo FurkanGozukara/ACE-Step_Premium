@@ -6,6 +6,8 @@ import json
 import unittest
 from pathlib import Path
 
+from acestep.training_v2.configs import TrainingConfigV2
+
 
 class TrainingV2PresetDefaultsTests(unittest.TestCase):
     """Verify bundled LoRA presets keep safe shared defaults."""
@@ -19,6 +21,20 @@ class TrainingV2PresetDefaultsTests(unittest.TestCase):
                 preset = json.loads(preset_path.read_text(encoding="utf-8"))
                 self.assertEqual(128, preset["alpha"])
                 self.assertEqual(0.0, preset["dropout"])
+
+    def test_lora_presets_default_to_constant_scheduler(self) -> None:
+        """Every bundled preset should use the constant LR scheduler."""
+
+        preset_dir = Path(__file__).resolve().parent / "presets"
+        for preset_path in preset_dir.glob("*.json"):
+            with self.subTest(preset=preset_path.name):
+                preset = json.loads(preset_path.read_text(encoding="utf-8"))
+                self.assertEqual("constant", preset["scheduler_type"])
+
+    def test_training_config_default_scheduler_is_constant(self) -> None:
+        """Training V2 should default to the constant LR scheduler."""
+
+        self.assertEqual("constant", TrainingConfigV2().scheduler_type)
 
 
 if __name__ == "__main__":

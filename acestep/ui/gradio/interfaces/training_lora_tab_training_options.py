@@ -7,7 +7,10 @@ import gradio as gr
 from acestep.training.optim import OPTIMIZER_CHOICES, SCHEDULER_CHOICES
 
 
-def build_lora_training_option_controls(default_optimizer: object) -> dict[str, object]:
+def build_lora_training_option_controls(
+    default_optimizer: object,
+    default_scheduler: object = "constant",
+) -> dict[str, object]:
     """Render advanced LoRA/DoRA training option controls."""
 
     with gr.Row():
@@ -25,11 +28,11 @@ def build_lora_training_option_controls(default_optimizer: object) -> dict[str, 
         lora_scheduler_type = gr.Dropdown(
             label="Scheduler",
             choices=list(SCHEDULER_CHOICES),
-            value="cosine",
+            value=str(default_scheduler or "constant"),
             info=(
-                "Learning-rate schedule after warmup. Cosine is the recommended "
-                "default; restarts periodically raises LR again; linear decays "
-                "steadily; constant keeps LR flat."
+                "Learning-rate schedule. Constant keeps LR flat and is the "
+                "default; cosine/linear decay LR over the run; restarts "
+                "periodically raises LR again."
             ),
             elem_classes=["has-info-container"],
         )
@@ -56,10 +59,29 @@ def build_lora_training_option_controls(default_optimizer: object) -> dict[str, 
             ),
             elem_classes=["has-info-container"],
         )
+        with gr.Column():
+            lora_validation_split_percent = gr.Slider(
+                minimum=0,
+                maximum=99,
+                step=1,
+                value=0,
+                label="Validation split %",
+                info=(
+                    "Percent of loaded tensor samples held out for validation. "
+                    "0 disables validation; any non-zero split keeps at least "
+                    "one sample for training."
+                ),
+                elem_classes=["has-info-container"],
+            )
+            lora_validation_split_info = gr.Markdown(
+                "Load a tensor dataset to preview the validation split."
+            )
 
     return {
         "lora_optimizer_type": lora_optimizer_type,
         "lora_scheduler_type": lora_scheduler_type,
         "lora_timestep_mode": lora_timestep_mode,
         "lora_adaptive_timestep_ratio": lora_adaptive_timestep_ratio,
+        "lora_validation_split_percent": lora_validation_split_percent,
+        "lora_validation_split_info": lora_validation_split_info,
     }
