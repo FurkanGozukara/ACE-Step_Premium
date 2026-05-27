@@ -1,4 +1,4 @@
-<h1>ACE-Step 1.5 XL Premium v3.4 - Better Music & Song Generator Than SUNO 5.0 - Remix and Repaint Features - Windows, RunPod, Massed Compute, Linux 1-click Installers</h1>
+<h1>ACE-Step 1.5 XL Premium v3.7 - Better Music & Song Generator Than SUNO 5.0 - Remix and Repaint Features - Windows, RunPod, Massed Compute, Linux 1-click Installers</h1>
 
 <h2>Download app : https://www.patreon.com/posts/157675060</h2>
 
@@ -27,6 +27,46 @@
   	    	- Our installer uses uv installation for all of the requirements at once thus it is lightning fast, like 100x faster than normal
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
+
+<h3>26 May 2026 V3.7 Update</h3>
+
+- Version 3.7 is a very major upgrade for training
+- In Advanced tab when you click Analyze button now it will auto initialize model and won't throw error
+- Custom Preset System save and load issues fixed for some cases
+- Now we support DoRA for both training and inference (song generation)
+	- DoRA is like LoRA but better quality for training close to full Fine Tuning of the entire model
+
+<img width="1986" height="459" alt="image" src="https://github.com/user-attachments/assets/ba6eb816-2778-4220-a745-80a98a08a9f4" />
+   
+- Moreover now we have Target MLP feature for training
+	- Also applies LoRA/DoRA to decoder MLP layers (gate_proj, up_proj, down_proj). This increases trainable capacity and VRAM use; leave off for the legacy attention-only path.
+	- When MLP enabled, more parameters are trained thus it may be a little bit slower and may require more VRAM but it should improve quality I am still in research
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/c246fbc7-2076-40dc-958b-44e322afb674" />
+
+- Training Parameters screen significantly improved with lots of new features
+- Now we have Save best feature
+	- It will save best loss having checkpoint and as new best loss having checkpoint reached, it will overwrite previous best
+	- You can set Best smoothing window, Best min delta and Start saving best after epoch as you wish to make it as you wish
+- Now we support following Optimizers : adamw, adamw8bit, adafactor
+- Now we support following Schedulers : cosine, cosine_restarts, linear, constant, constant_with_warmup
+	- I usually prefer constant, I am still in research of best hyper parameters and accurate way of training
+- Now we support following Timestep modes : continuous, discrete
+- Now we support Adaptive timestep
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/d97fbd78-d16a-4c27-abcc-af92f2205a31" />
+  
+- Now we have an amazing new feature to measure quality of training progress : Validation split %
+	- Lets say you have 100 training songs, and you set 5%, so it will set 5 songs as validation and use 95 songs for training
+	- Therefore, you can see actual quality improvement or degrade of the model therotically
+	- You can see in below screenshot that as the training continued, the validation loss rate got worse and worse even though traidional loss got lower and lower
+	- This is because the model got completely overtrained and cooked and memorized and lost its full generalization
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/840f6900-a7b8-4404-8eb4-d524f05925c8" />
+  
+- With the newest features, training VRAM presets are also got updated as below
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/5d2716b6-10ee-42dd-b256-cfa58e93480e" />
 
 <h3>25 May 2026 V3.6 Update</h3>
 
