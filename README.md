@@ -68,6 +68,8 @@
 
 <img height="600" alt="image" src="https://github.com/user-attachments/assets/5d2716b6-10ee-42dd-b256-cfa58e93480e" />
 
+- Zip file is same just use Windows_Install_or_Update.bat to update
+
 <h3>25 May 2026 V3.6 Update</h3>
 
 - Brings some massive improvements for training and LoRA usage
