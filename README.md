@@ -30,7 +30,7 @@
 
 <h3>26 May 2026 V3.7 Update</h3>
 
-- Version 3.7 is a very major upgrade for training
+- Version 3.8 is a very major upgrade for training
 - In Advanced tab when you click Analyze button now it will auto initialize model and won't throw error
 - Custom Preset System save and load issues fixed for some cases
 - Now we support DoRA for both training and inference (song generation)
@@ -68,6 +68,7 @@
 
 <img height="600" alt="image" src="https://github.com/user-attachments/assets/5d2716b6-10ee-42dd-b256-cfa58e93480e" />
 
+- Auto LRC feature improved and now uses lesser VRAM moreover generated .lrc and .vtt files are now automatically saved inside generated output folder
 - Zip file is same just use Windows_Install_or_Update.bat to update
 
 <h3>25 May 2026 V3.6 Update</h3>
