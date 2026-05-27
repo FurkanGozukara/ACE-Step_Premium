@@ -1490,7 +1490,16 @@ class AceStepDiTModel(AceStepPreTrainedModel):
                 # layer_outputs structure: (hidden_states, self_attn_weights, cross_attn_weights)
                 # Extract the last element which is cross_attn_weights
                 if len(layer_outputs) >= 3:
-                    all_cross_attentions += (layer_outputs[2],)
+                    cross_attn_weights = layer_outputs[2]
+                    if custom_layers_config is not None and enable_early_exit:
+                        cross_attn_weights = cross_attn_weights.detach().cpu()
+                    all_cross_attentions += (cross_attn_weights,)
+
+            if index_block >= max_needed_layer:
+                outputs = (hidden_states, past_key_values)
+                if output_attentions:
+                    outputs += (all_cross_attentions,)
+                return outputs
 
         if return_hidden_states:
             return hidden_states

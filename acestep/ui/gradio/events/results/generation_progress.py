@@ -38,6 +38,7 @@ from acestep.ui.gradio.events.results.output_manager import (
     create_generation_run_dir,
     persist_generation_inputs,
     write_json,
+    write_text,
 )
 from acestep.ui.gradio.events.results.generation_task_type import resolve_no_fsq_task_type
 from acestep.ui.gradio.events.results.audio_playback_updates import (
@@ -401,6 +402,7 @@ def generate_with_progress(
     final_codes_list = [""] * stored_sample_count
     final_scores_list = [""] * visible_slots
     final_lrcs_list = [""] * stored_sample_count
+    final_lrc_paths_list = [None] * stored_sample_count
     final_subtitles_list = [None] * stored_sample_count
     progress(0.99, "Preparing audio files...")
 
@@ -500,8 +502,8 @@ def generate_with_progress(
             auto_lrc_start = time_module.time()
             _run_auto_lrc(
                 dit_handler, result.extra_outputs, i,
-                audio_duration, vocal_language, inference_steps,
-                final_lrcs_list, final_subtitles_list,
+                audio_duration, vocal_language, inference_steps, json_path,
+                final_lrcs_list, final_lrc_paths_list, final_subtitles_list,
             )
             total_auto_lrc_time += time_module.time() - auto_lrc_start
 
@@ -519,6 +521,7 @@ def generate_with_progress(
             "score": score_str,
             "audio_codes": code_str,
             "lrc": final_lrcs_list[i],
+            "lrc_path": final_lrc_paths_list[i],
             "subtitle_path": final_subtitles_list[i],
             "params": audio_params,
         }
@@ -537,12 +540,14 @@ def generate_with_progress(
                     "saved_audio_formats": list(saved_audio_paths.keys()),
                     "sample_rate": sample_rate,
                     "score": score_str,
+                    "lrc_path": final_lrc_paths_list[i],
                     "subtitle_path": final_subtitles_list[i],
                     "generation_info": generation_info,
                     "lm_metadata": lm_generated_metadata,
                     "request": request_payload,
                 },
                 "lrc": final_lrcs_list[i],
+                "lrc_path": final_lrc_paths_list[i],
             },
         )
 
@@ -629,7 +634,12 @@ def generate_with_progress(
     final_accordions = [gr.skip()] * 8
 
     extra_to_store = _strip_extra_output_tensors(
-        {**result.extra_outputs, "lrcs": final_lrcs_list, "subtitles": final_subtitles_list}
+        {
+            **result.extra_outputs,
+            "lrcs": final_lrcs_list,
+            "lrc_paths": final_lrc_paths_list,
+            "subtitles": final_subtitles_list,
+        }
     )
 
     yield (
@@ -922,8 +932,8 @@ def _persist_repaint_source_latents(source_latents, json_path: str, audio_params
 
 
 def _run_auto_lrc(dit_handler, extra_outputs, sample_idx,
-                  audio_duration, vocal_language, inference_steps,
-                  final_lrcs_list, final_subtitles_list):
+                  audio_duration, vocal_language, inference_steps, json_path,
+                  final_lrcs_list, final_lrc_paths_list, final_subtitles_list):
     """Run automatic LRC generation for a single sample in-place.
 
     Updates *final_lrcs_list* and *final_subtitles_list* at *sample_idx*.
@@ -936,7 +946,8 @@ def _run_auto_lrc(dit_handler, extra_outputs, sample_idx,
         ctx_lat = extra_outputs.get("context_latents")
         lyric_ids = extra_outputs.get("lyric_token_idss")
 
-        if not all(x is not None for x in [pred_latents, enc_hs, enc_am, ctx_lat, lyric_ids]):
+        required_tensors = [pred_latents, enc_hs, enc_am, ctx_lat, lyric_ids]
+        if not all(x is not None for x in required_tensors):
             logger.warning(f"[auto_lrc] Missing required extra_outputs for sample {sample_idx + 1}")
             return
 
@@ -958,9 +969,19 @@ def _run_auto_lrc(dit_handler, extra_outputs, sample_idx,
 
         if lrc_result.get("success"):
             lrc_text = lrc_result.get("lrc_text", "")
+            if not lrc_text:
+                return
             final_lrcs_list[sample_idx] = lrc_text
             logger.info(f"[auto_lrc] LRC text length for sample {sample_idx + 1}: {len(lrc_text)}")
-            vtt_path = lrc_to_vtt_file(lrc_text, total_duration=float(actual_duration))
+            lrc_path = os.path.splitext(json_path)[0] + ".lrc"
+            vtt_target_path = os.path.splitext(json_path)[0] + ".vtt"
+            write_text(lrc_path, lrc_text)
+            vtt_path = lrc_to_vtt_file(
+                lrc_text,
+                total_duration=float(actual_duration),
+                output_path=vtt_target_path,
+            )
+            final_lrc_paths_list[sample_idx] = lrc_path.replace("\\", "/")
             final_subtitles_list[sample_idx] = vtt_path
     except Exception as e:
         logger.warning(f"[auto_lrc] Failed to generate LRC for sample {sample_idx + 1}: {e}")

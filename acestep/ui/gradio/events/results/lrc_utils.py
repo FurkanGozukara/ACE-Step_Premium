@@ -127,12 +127,17 @@ def _format_vtt_timestamp(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
 
 
-def lrc_to_vtt_file(lrc_text: str, total_duration: float = None) -> Optional[str]:
+def lrc_to_vtt_file(
+    lrc_text: str,
+    total_duration: float = None,
+    output_path: str | None = None,
+) -> Optional[str]:
     """Convert LRC text to a VTT subtitle file and return its path.
 
     Args:
         lrc_text: LRC format lyrics string.
         total_duration: Total audio duration in seconds.
+        output_path: Optional destination path for the VTT file.
 
     Returns:
         Path to the generated VTT file, or ``None`` on failure.
@@ -153,11 +158,15 @@ def lrc_to_vtt_file(lrc_text: str, total_duration: float = None) -> Optional[str
         vtt_lines.append("")
 
     try:
-        vtt_output_dir = os.path.join(str(get_results_dir()), "subtitles")
-        os.makedirs(vtt_output_dir, exist_ok=True)
-        ts = int(time_module.time())
-        vtt_filename = f"subtitles_{ts}_{datetime.datetime.now().strftime('%H%M%S')}.vtt"
-        vtt_path = os.path.join(vtt_output_dir, vtt_filename).replace("\\", "/")
+        if output_path:
+            vtt_path = str(output_path).replace("\\", "/")
+            os.makedirs(os.path.dirname(vtt_path), exist_ok=True)
+        else:
+            vtt_output_dir = os.path.join(str(get_results_dir()), "subtitles")
+            os.makedirs(vtt_output_dir, exist_ok=True)
+            ts = int(time_module.time())
+            vtt_filename = f"subtitles_{ts}_{datetime.datetime.now().strftime('%H%M%S')}.vtt"
+            vtt_path = os.path.join(vtt_output_dir, vtt_filename).replace("\\", "/")
         with open(vtt_path, "w", encoding="utf-8") as f:
             f.write("\n".join(vtt_lines))
         return vtt_path

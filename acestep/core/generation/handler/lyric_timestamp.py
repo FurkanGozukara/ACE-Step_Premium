@@ -97,7 +97,10 @@ class LyricTimestampMixin(LyricAlignmentCommonMixin):
             for layer_attn in decoder_outputs[2]:
                 if layer_attn is None:
                     continue
-                captured_layers.append(layer_attn[:bsz].transpose(-1, -2))
+                captured_layers.append(layer_attn[:bsz].detach().cpu().transpose(-1, -2))
+            del decoder_outputs
+            if hasattr(self, "_empty_cache"):
+                self._empty_cache()
             if not captured_layers:
                 return self._lyric_timestamp_error("No valid attention layers returned")
 

@@ -224,7 +224,7 @@
     "auto_score_label": "Auto Score",
     "auto_score_info": "Calculate a score after each sample. When LM codes exist, scoring uses PMI/recall against the prompt and metadata; when codes are unavailable, such as Cover/Repaint with lyrics, it falls back to DiT lyric-alignment scoring. Adds processing time and may be disabled in save-memory mode.",
     "auto_lrc_label": "Auto LRC",
-    "auto_lrc_info": "Generate timestamped lyrics (LRC) immediately after each sample using the generation alignment tensors. Useful for karaoke/subtitle playback. Adds processing time and may be disabled in save-memory mode.",
+    "auto_lrc_info": "Generate timestamped lyrics immediately after each sample using the generation alignment tensors, then save both .lrc and .vtt files beside the generated audio in the output folder. Useful for karaoke/subtitle playback. Adds processing time and may be disabled in save-memory mode.",
     "lm_batch_chunk_label": "LM Batch Chunk Size",
     "lm_batch_chunk_info": "How many samples the LM processes at once. Higher = faster batch generation but uses more VRAM. Lower if you get out-of-memory errors during batch generation. Default 8. Reduce to 1–4 on GPUs with <12GB VRAM.",
     "codes_strength_label": "LM Codes Strength",
