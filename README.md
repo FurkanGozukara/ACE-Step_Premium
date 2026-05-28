@@ -28,7 +28,19 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
-<h3>26 May 2026 V3.7 Update</h3>
+<h3>28 May 2026 V3.9 Update</h3>
+
+- New feature LM Audio Codes added and enabled for all default presets
+	- This is supposed to improve quality in all generations without any loss or VRAM increase
+
+<img width="1562" height="262" alt="image" src="https://github.com/user-attachments/assets/39b5c7d4-10a5-40d1-849b-839eb965f0ee" />
+   
+- Updates made to fix below error that some users reported
+	- Sadly I couldn't reproduce it yet to verify
+		- Error: Generation produced NaN or Inf latents (shape=[1, 8261, 64], dtype=torch.bfloat16, device=cuda:0, nan=528704, inf=0).
+- Same zip file just run installer to update
+
+<h3>26 May 2026 V3.8 Update</h3>
 
 - Version 3.8 is a very major upgrade for training
 - In Advanced tab when you click Analyze button now it will auto initialize model and won't throw error
