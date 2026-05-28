@@ -29,6 +29,10 @@ from acestep.core.generation.cancellation import (
     check_generation_cancelled,
     cleanup_runtime_memory,
 )
+from acestep.core.generation.sampler_controls import (
+    normalize_sampler_shift,
+    normalize_sampler_timesteps,
+)
 from acestep.gpu_config import get_dit_type_from_path
 
 # HuggingFace Space environment detection
@@ -222,11 +226,15 @@ class GenerationParams:
 
     def __post_init__(self):
         # shift=0 causes 0/0=NaN in timestep formula; shift<0 is nonsensical
-        if self.shift is not None and self.shift <= 0:
-            self.shift = 1.0
+        self.shift = normalize_sampler_shift(self.shift)
         # inference_steps=0 produces empty diffusion loop (silent output)
         if self.inference_steps is not None and self.inference_steps < 1:
             self.inference_steps = 1
+        if self.timesteps is not None:
+            try:
+                self.timesteps = normalize_sampler_timesteps(self.timesteps)
+            except ValueError:
+                self.timesteps = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary for JSON serialization."""

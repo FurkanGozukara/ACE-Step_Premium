@@ -10,6 +10,10 @@ from typing import Any, Dict, List, Optional, Union
 import torch
 
 from acestep.core.generation.cancellation import check_generation_cancelled
+from acestep.core.generation.sampler_controls import (
+    normalize_sampler_shift,
+    normalize_sampler_timesteps,
+)
 
 
 class ServiceGenerateMixin:
@@ -85,6 +89,8 @@ class ServiceGenerateMixin:
             Exception: Propagates exceptions raised by downstream helper methods
                 (e.g., normalization, diffusion execution, output assembly).
         """
+        shift = normalize_sampler_shift(shift)
+        timesteps = normalize_sampler_timesteps(timesteps)
         check_generation_cancelled()
         normalized = self._normalize_service_generate_inputs(
             captions=captions,

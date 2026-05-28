@@ -5,6 +5,7 @@ such as duration limits, timesteps, and uploaded audio files.
 """
 
 import re
+from math import isfinite
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
@@ -79,7 +80,7 @@ def parse_and_validate_timesteps(
         gr.Warning(t("messages.invalid_timesteps_format"))
         return None, True, "Invalid format"
 
-    if any(ts < 0 or ts > 1 for ts in timesteps):
+    if any(not isfinite(ts) or ts < 0 or ts > 1 for ts in timesteps):
         gr.Warning(t("messages.timesteps_out_of_range"))
         return None, True, "Out of range"
 

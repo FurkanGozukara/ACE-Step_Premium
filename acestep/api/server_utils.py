@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+from math import isfinite
 from typing import Optional
 
 
@@ -127,9 +128,12 @@ def parse_timesteps(value: Optional[str]) -> Optional[list[float]]:
     if not value or not value.strip():
         return None
     try:
-        return [float(item.strip()) for item in value.split(",") if item.strip()]
+        timesteps = [float(item.strip()) for item in value.split(",") if item.strip()]
     except (ValueError, Exception):
         return None
+    if any(not isfinite(timestep) or timestep < 0.0 or timestep > 1.0 for timestep in timesteps):
+        return None
+    return timesteps
 
 
 def is_instrumental(lyrics: str) -> bool:

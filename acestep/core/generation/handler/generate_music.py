@@ -18,11 +18,16 @@ from acestep.core.generation.cancellation import (
     check_generation_cancelled,
     cleanup_runtime_memory,
 )
+from acestep.core.generation.sampler_controls import (
+    normalize_sampler_shift,
+    normalize_sampler_timesteps,
+)
 from acestep.core.generation.handler.repaint_waveform_splice import (
     apply_repaint_waveform_splice,
 )
 from acestep.gpu_config import (
     DIT_INFERENCE_VRAM_PER_BATCH,
+    MODEL_VRAM,
     VRAM_SAFETY_MARGIN_GB,
     get_dit_type_from_path,
     get_effective_free_vram_gb,
@@ -134,13 +139,6 @@ class GenerateMusicMixin:
         if not torch.cuda.is_available():
             return None
 
-        if getattr(self, "offload_to_cpu", False):
-            logger.debug(
-                "[generate_music] VRAM pre-flight: skipping check "
-                "(offload_to_cpu=True, models loaded one-at-a-time)"
-            )
-            return None
-
         duration_s = audio_duration or 60.0
         # Determine actual model size (XL vs standard) and CFG mode.
         config_path = ""
@@ -157,6 +155,12 @@ class GenerateMusicMixin:
         # Longer audio = more latent frames (5 Hz rate) = more memory.
         duration_factor = max(1.0, duration_s / 60.0)
         needed_gb = per_batch_gb * actual_batch_size * duration_factor + VRAM_SAFETY_MARGIN_GB
+        if getattr(self, "offload_to_cpu", False) and getattr(self, "offload_dit_to_cpu", False):
+            model_weight_gb = MODEL_VRAM.get(f"dit_{dit_key}", MODEL_VRAM.get("dit_turbo", 4.7))
+            if getattr(self, "quantization", None) is not None:
+                model_weight_gb *= 0.5
+            # CUDA needs a little headroom while quantized parameters are transferred.
+            needed_gb += model_weight_gb + 0.25
 
         free_gb = get_effective_free_vram_gb()
         logger.info(
@@ -299,6 +303,7 @@ class GenerateMusicMixin:
                 guidance_scale,
             )
             guidance_scale = 1.0
+        shift = normalize_sampler_shift(shift)
 
         # When LoRA is active, verify all decoder parameters are on the
         # expected device and dtype.  CPU-offload round-trips can leave PEFT
@@ -331,6 +336,7 @@ class GenerateMusicMixin:
         repainting_end = runtime["repainting_end"]
 
         try:
+            timesteps = normalize_sampler_timesteps(timesteps)
             check_generation_cancelled()
             refer_audios, processed_src_audio, audio_error = self._prepare_reference_and_source_audio(
                 reference_audio=reference_audio,

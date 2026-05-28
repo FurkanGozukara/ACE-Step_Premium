@@ -145,6 +145,23 @@ class ServiceGenerateMixinTests(unittest.TestCase):
         self.assertEqual(execute_kwargs["shift"], 1.3)
         self.assertEqual(execute_kwargs["audio_cover_strength"], 0.7)
 
+    def test_service_generate_normalizes_invalid_shift(self):
+        """Invalid direct service shift should not reach the diffusion sampler."""
+        host = _Host()
+        host.service_generate(captions="cap", lyrics="lyr", shift=0.0)
+        self.assertEqual(host.calls["_build_service_generate_kwargs"]["shift"], 1.0)
+        self.assertEqual(host.calls["_execute_service_generate_diffusion"]["shift"], 1.0)
+
+    def test_service_generate_rejects_non_finite_timesteps(self):
+        """Invalid direct service timesteps should fail before diffusion."""
+        host = _Host()
+        with self.assertRaisesRegex(ValueError, "Custom timesteps"):
+            host.service_generate(
+                captions="cap",
+                lyrics="lyr",
+                timesteps=[1.0, float("nan"), 0.0],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

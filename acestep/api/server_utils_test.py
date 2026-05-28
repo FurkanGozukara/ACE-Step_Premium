@@ -70,6 +70,9 @@ class ServerUtilsTests(unittest.TestCase):
 
         self.assertEqual([0.5, 0.25, 0.0], parse_timesteps("0.5, 0.25, 0"))
         self.assertIsNone(parse_timesteps("x,0.2"))
+        self.assertIsNone(parse_timesteps("nan,0"))
+        self.assertIsNone(parse_timesteps("inf,0"))
+        self.assertIsNone(parse_timesteps("1.1,0"))
 
     def test_is_instrumental_preserves_legacy_markers(self) -> None:
         """Instrumental detector should match empty/marker lyrics behavior."""

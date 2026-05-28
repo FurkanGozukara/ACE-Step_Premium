@@ -64,14 +64,25 @@ class _Host(GenerateMusicMixin):
     payloads so tests can assert orchestration sequencing and return behavior.
     """
 
-    def __init__(self, offload_to_cpu: bool = False, is_turbo: bool = False):
+    def __init__(
+        self,
+        offload_to_cpu: bool = False,
+        is_turbo: bool = False,
+        offload_dit_to_cpu: bool = False,
+        quantization: str | None = None,
+    ):
         """Initialize deterministic state and stub payloads for orchestration tests."""
         self.model = object()
         self.vae = object()
         self.text_tokenizer = object()
         self.text_encoder = object()
         self.offload_to_cpu = offload_to_cpu
+        self.offload_dit_to_cpu = offload_dit_to_cpu
+        self.quantization = quantization
         self._is_turbo = is_turbo
+        self.last_init_params = {
+            "config_path": "ACEStep_1_5_XL_Turbo_BF16" if is_turbo else "ACEStep_1_5_XL_Base_BF16",
+        }
         self.sample_rate = 48000
         self.calls: Dict[str, Any] = {}
         self._final_payload = {"audios": [{"tensor": torch.zeros(1, 4), "sample_rate": 48000}], "success": True}
@@ -205,6 +216,24 @@ class GenerateMusicMixinTests(unittest.TestCase):
         self.assertEqual(out["error"], "boom")
         self.assertIn("Error: boom", out["status_message"])
 
+    def test_generate_music_normalizes_invalid_shift(self):
+        """Invalid handler shift should not reach service generation."""
+        host = _Host()
+        out = host.generate_music(captions="cap", lyrics="lyr", shift=0.0)
+        self.assertEqual(out, host._final_payload)
+        self.assertEqual(host.calls["_run_generate_music_service_with_progress"]["shift"], 1.0)
+
+    def test_generate_music_rejects_non_finite_timesteps(self):
+        """Invalid custom timesteps should return a clear error payload."""
+        host = _Host()
+        out = host.generate_music(
+            captions="cap",
+            lyrics="lyr",
+            timesteps=[1.0, float("nan"), 0.0],
+        )
+        self.assertFalse(out["success"])
+        self.assertIn("Custom timesteps", out["error"])
+
     def test_repaint_forwards_cached_source_latents_to_service(self):
         """Generated-source repaint should only override the source-latent input."""
         host = _Host()
@@ -235,15 +264,45 @@ class VramPreflightCheckTests(unittest.TestCase):
 
     _GM_MOD = GENERATE_MUSIC_MODULE
 
+    @patch.object(_GM_MOD, "get_effective_free_vram_gb", return_value=5.5)
     @patch.object(_GM_MOD, "torch")
-    def test_preflight_skips_when_offload_to_cpu_enabled(self, mock_torch):
-        """It returns None (pass) when offload_to_cpu is True, regardless of free VRAM."""
+    def test_preflight_blocks_full_dit_offload_when_vram_low(
+        self, mock_torch, _mock_free_vram
+    ):
+        """It includes the temporary DiT transfer footprint for full offload."""
         mock_torch.cuda.is_available.return_value = True
-        host = _Host(offload_to_cpu=True)
+        host = _Host(
+            offload_to_cpu=True,
+            offload_dit_to_cpu=True,
+            quantization="int8_weight_only",
+            is_turbo=True,
+        )
         result = host._vram_preflight_check(
-            actual_batch_size=2,
-            audio_duration=246.0,
-            guidance_scale=7.0,
+            actual_batch_size=1,
+            audio_duration=10.0,
+            guidance_scale=1.0,
+        )
+        self.assertIsNotNone(result)
+        self.assertFalse(result["success"])
+        self.assertIn("Insufficient free VRAM", result["error"])
+
+    @patch.object(_GM_MOD, "get_effective_free_vram_gb", return_value=7.5)
+    @patch.object(_GM_MOD, "torch")
+    def test_preflight_passes_full_dit_offload_when_vram_sufficient(
+        self, mock_torch, _mock_free_vram
+    ):
+        """It allows the observed 8GB XL full-offload default path."""
+        mock_torch.cuda.is_available.return_value = True
+        host = _Host(
+            offload_to_cpu=True,
+            offload_dit_to_cpu=True,
+            quantization="int8_weight_only",
+            is_turbo=True,
+        )
+        result = host._vram_preflight_check(
+            actual_batch_size=1,
+            audio_duration=10.0,
+            guidance_scale=1.0,
         )
         self.assertIsNone(result)
 

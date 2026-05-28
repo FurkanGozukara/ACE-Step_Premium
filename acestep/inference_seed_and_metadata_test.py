@@ -2,6 +2,7 @@
 
 import tempfile
 import unittest
+from math import nan
 from pathlib import Path
 
 import torch
@@ -89,6 +90,19 @@ class _FakeLlmHandler:
 
 class MetadataNormalizationTests(unittest.TestCase):
     """Verify LM metadata is sanitized before conditioning the DiT."""
+
+    def test_generation_params_normalizes_invalid_schedule_controls(self):
+        """Invalid schedule controls should not reach the diffusion sampler."""
+
+        for bad_shift in (0.0, -1.0, nan):
+            with self.subTest(shift=bad_shift):
+                params = GenerationParams(
+                    shift=bad_shift,
+                    timesteps=[1.0, nan, 0.0],
+                )
+
+                self.assertEqual(params.shift, 1.0)
+                self.assertIsNone(params.timesteps)
 
     def test_low_lm_bpm_is_normalized_to_musical_full_time(self):
         """A 40 BPM LM guess should condition generation as 80 BPM."""
