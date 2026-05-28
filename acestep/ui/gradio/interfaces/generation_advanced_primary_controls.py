@@ -72,11 +72,15 @@ def build_lora_controls() -> dict[str, Any]:
     }
 
 
-def build_lm_controls(service_mode: bool) -> dict[str, Any]:
+def build_lm_controls(
+    service_mode: bool,
+    generate_lm_audio_codes_default: bool = True,
+) -> dict[str, Any]:
     """Create language-model generation controls for advanced settings.
 
     Args:
         service_mode: Whether the UI is running in service mode (disables some controls).
+        generate_lm_audio_codes_default: Initial semantic-code generation toggle value.
 
     Returns:
         A component map containing LM sampling, CoT, negative prompt, and batch controls.
@@ -180,6 +184,13 @@ def build_lm_controls(service_mode: bool) -> dict[str, Any]:
                 scale=1,
                 elem_classes=["has-info-container"],
             )
+            generate_lm_audio_codes = gr.Checkbox(
+                label=t("generation.lm_audio_codes_label"),
+                value=generate_lm_audio_codes_default,
+                info=t("generation.lm_audio_codes_info"),
+                scale=1,
+                elem_classes=["has-info-container"],
+            )
 
     return {
         "lm_temperature": lm_temperature,
@@ -192,5 +203,6 @@ def build_lm_controls(service_mode: bool) -> dict[str, Any]:
         "constrained_decoding_debug": constrained_decoding_debug,
         "allow_lm_batch": allow_lm_batch,
         "use_cot_caption": use_cot_caption,
+        "generate_lm_audio_codes": generate_lm_audio_codes,
         "lm_use_legacy_cfg_prompt": lm_use_legacy_cfg_prompt,
     }

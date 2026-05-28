@@ -402,6 +402,7 @@ def _generate_with_batch_management_impl(
     lora_path,
     use_lora_checkbox,
     lora_scale_slider,
+    generate_lm_audio_codes=None,
     progress=gr.Progress(track_tqdm=True),
 ):
     """Wrap ``generate_with_progress`` with batch queue management state."""
@@ -444,6 +445,7 @@ def _generate_with_batch_management_impl(
         lora_dropdown=lora_dropdown,
         lora_scale=lora_scale_slider,
         use_lora=bool(resolve_effective_lora_path(lora_path, lora_dropdown)),
+        generate_lm_audio_codes=generate_lm_audio_codes,
     )
     saved_params["_subprocess_mode"] = bool(subprocess_mode_checkbox)
 
@@ -667,6 +669,7 @@ def _generate_with_batch_management_impl(
         retake_variance, retake_seed,
         flow_edit_morph, flow_edit_source_caption, flow_edit_source_lyrics,
         flow_edit_n_min, flow_edit_n_max, flow_edit_n_avg,
+        generate_lm_audio_codes,
         progress,
     )
 

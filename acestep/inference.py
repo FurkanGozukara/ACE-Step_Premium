@@ -97,6 +97,8 @@ class GenerationParams:
         thinking: If True, enable 5Hz Language Model "Chain-of-Thought" reasoning for semantic/music metadata and codes.
         lm_temperature: Sampling temperature for the LLM (0.0–2.0). Higher = more creative/varied results.
         lm_cfg_scale: Classifier-free guidance scale for the LLM.
+        generate_lm_audio_codes: Whether Think mode asks the LM for semantic audio codes.
+            ``None`` keeps model-aware auto behavior; True/False force on/off.
         lm_top_k: LLM top-k sampling (0 = disabled).
         lm_top_p: LLM top-p nucleus sampling (1.0 = disabled).
         lm_negative_prompt: Negative prompt to use for LLM (for control).
@@ -198,6 +200,7 @@ class GenerationParams:
 
     # 5Hz Language Model Parameters
     thinking: bool = True
+    generate_lm_audio_codes: Optional[bool] = None
     lm_temperature: float = 0.85
     lm_cfg_scale: float = 2.0
     lm_top_k: int = 0
@@ -547,6 +550,8 @@ def _should_generate_lm_audio_codes(
 
     if user_provided_audio_codes or not params.thinking:
         return False
+    if params.generate_lm_audio_codes is not None:
+        return bool(params.generate_lm_audio_codes)
     if params.task_type == "text2music" and not _is_turbo_dit_handler(dit_handler):
         return False
     return True
@@ -722,11 +727,19 @@ def generate_music(
         )
         if params.thinking and params.task_type == "text2music" and not need_audio_codes:
             active_config_path = _dit_handler_config_path(dit_handler) or "unknown"
-            logger.info(
-                "[generate_music] Active DiT config '{}' uses LM metadata-only mode for text2music; "
-                "semantic audio codes are not injected unless the model is turbo or the user supplied code hints.",
-                active_config_path,
-            )
+            if params.generate_lm_audio_codes is False:
+                logger.info(
+                    "[generate_music] Active DiT config '{}' has LM semantic audio codes "
+                    "disabled by explicit generation setting; Think mode will use metadata only.",
+                    active_config_path,
+                )
+            else:
+                logger.info(
+                    "[generate_music] Active DiT config '{}' uses LM metadata-only mode for "
+                    "text2music; semantic audio codes are not injected unless the model is "
+                    "turbo or the user supplied code hints.",
+                    active_config_path,
+                )
 
         # Determine if we should use chunk-based LM generation (always use chunks for consistency)
         # Determine actual batch size for chunk processing

@@ -115,6 +115,7 @@ def build_generation_run_inputs(generation_section, results_section):
         generation_section["lora_path"],
         generation_section["use_lora_checkbox"],
         generation_section["lora_scale_slider"],
+        generation_section["generate_lm_audio_codes"],
     ]
 
 
@@ -345,6 +346,7 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
             generation_section["lora_path"],
             generation_section["use_lora_checkbox"],
             generation_section["lora_scale_slider"],
+            generation_section["generate_lm_audio_codes"],
         ],
         outputs=[
             results_section["generated_audio_1"],

@@ -118,6 +118,7 @@ def _build_saved_params(
     lora_dropdown="",
     lora_scale=1.0,
     use_lora=False,
+    generate_lm_audio_codes=None,
 ):
     """Build the parameter snapshot dict stored in batch history."""
     return {
@@ -176,6 +177,7 @@ def _build_saved_params(
         "lora_dropdown": lora_dropdown,
         "lora_scale": lora_scale,
         "use_lora": use_lora,
+        "generate_lm_audio_codes": generate_lm_audio_codes,
     }
 
 
@@ -229,6 +231,7 @@ def _apply_param_defaults(params):
         "mp3_sample_rate": 48000,
         "lm_temperature": 0.85,
         "think_checkbox": True, "lm_cfg_scale": 2.0,
+        "generate_lm_audio_codes": None,
         "lm_top_k": 0, "lm_top_p": 0.9,
         "lm_negative_prompt": "NO USER INPUT",
         "use_cot_metas": True, "use_cot_caption": True,

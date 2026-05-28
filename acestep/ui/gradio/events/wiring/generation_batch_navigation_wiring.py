@@ -170,6 +170,7 @@ def _build_capture_current_params_inputs(generation_section: dict[str, Any]) -> 
         generation_section["repaint_strength"],
         generation_section["retake_variance"],
         generation_section["retake_seed"],
+        generation_section["generate_lm_audio_codes"],
     ]
 
 

@@ -189,6 +189,7 @@ def build_generation_setup(
         audio_cover_strength=req.audio_cover_strength,
         cover_noise_strength=req.cover_noise_strength,
         thinking=thinking,
+        generate_lm_audio_codes=getattr(req, "generate_lm_audio_codes", None),
         lm_temperature=req.lm_temperature,
         lm_cfg_scale=req.lm_cfg_scale,
         lm_top_k=lm_top_k,

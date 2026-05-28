@@ -10,6 +10,7 @@ PARAM_ALIASES: Dict[str, list[str]] = {
     "prompt": ["prompt", "caption"],
     "lyrics": ["lyrics"],
     "thinking": ["thinking"],
+    "generate_lm_audio_codes": ["generate_lm_audio_codes", "generateLmAudioCodes", "lm_audio_codes", "lmAudioCodes"],
     "analysis_only": ["analysis_only", "analysisOnly"],
     "full_analysis_only": ["full_analysis_only", "fullAnalysisOnly"],
     "extract_codes_only": ["extract_codes_only", "extractCodesOnly"],

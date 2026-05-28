@@ -22,10 +22,18 @@ class GenerateMusicRequest(BaseModel):
     lyrics: str = Field(default="", description="Lyric text")
 
     # New API semantics:
-    # - thinking=True: use 5Hz LM to generate audio codes (lm-dit behavior)
+    # - thinking=True: use 5Hz LM for planning; audio-code generation is
+    #   model-aware unless generate_lm_audio_codes explicitly overrides it.
     # - thinking=False: do not use LM to generate codes (dit behavior)
     # Regardless of thinking, if some metas are missing, server may use LM to fill them.
     thinking: bool = False
+    generate_lm_audio_codes: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Override LM semantic audio-code generation. Null keeps model-aware "
+            "defaults, true forces LM code hints, false forces metadata-only Think."
+        ),
+    )
     # Sample-mode requests auto-generate caption/lyrics/metas via LM (no user prompt).
     sample_mode: bool = False
     # Description for sample mode: auto-generate caption/lyrics from description query

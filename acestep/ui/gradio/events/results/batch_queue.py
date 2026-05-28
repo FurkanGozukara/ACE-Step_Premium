@@ -128,6 +128,7 @@ def capture_current_params(
     latent_shift, latent_rescale,
     repaint_mode, repaint_strength,
     retake_variance=0.0, retake_seed="",
+    generate_lm_audio_codes=None,
 ):
     """Capture current UI parameters for next-batch generation.
 
@@ -192,6 +193,7 @@ def capture_current_params(
         "repaint_strength": repaint_strength,
         "retake_variance": retake_variance,
         "retake_seed": retake_seed,
+        "generate_lm_audio_codes": generate_lm_audio_codes,
     }
 
 

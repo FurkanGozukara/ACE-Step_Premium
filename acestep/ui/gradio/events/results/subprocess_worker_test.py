@@ -61,6 +61,7 @@ class SubprocessWorkerArgumentTests(unittest.TestCase):
                 kwargs = _build_generation_kwargs({"generation": generation})
                 self.assertEqual(kwargs["inference_steps"], generation["inference_steps"])
                 self.assertEqual(kwargs["dcw_enabled"], generation["dcw_enabled"])
+                self.assertTrue(generation["generate_lm_audio_codes"])
 
 
 if __name__ == "__main__":

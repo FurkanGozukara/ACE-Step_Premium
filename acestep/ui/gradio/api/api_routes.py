@@ -473,6 +473,19 @@ async def release_task(request: Request, authorization: Optional[str] = Header(N
             sample_timesignature = None
             sample_language = vocal_language
 
+        raw_generate_lm_audio_codes = get_param(
+            "generate_lm_audio_codes",
+            "generateLmAudioCodes",
+            "lm_audio_codes",
+            "lmAudioCodes",
+            default=None,
+        )
+        generate_lm_audio_codes = (
+            None
+            if raw_generate_lm_audio_codes is None
+            else to_bool(raw_generate_lm_audio_codes, False)
+        )
+
         # Process use_format: enhance caption/lyrics via LLM
         if use_format and not sample_mode and not has_sample_query:
             if llm_handler and llm_handler.llm_initialized:
@@ -510,6 +523,7 @@ async def release_task(request: Request, authorization: Optional[str] = Header(N
             guidance_scale=float(get_param("guidance_scale", default=7.0) or 7.0),
             seed=int(get_param("seed", default=-1) or -1),
             thinking=to_bool(get_param("thinking"), False),
+            generate_lm_audio_codes=generate_lm_audio_codes,
             lm_temperature=lm_temperature,
             lm_cfg_scale=float(get_param("lm_cfg_scale", default=2.0) or 2.0),
             lm_negative_prompt=get_param("lm_negative_prompt", default="NO USER INPUT") or "NO USER INPUT",

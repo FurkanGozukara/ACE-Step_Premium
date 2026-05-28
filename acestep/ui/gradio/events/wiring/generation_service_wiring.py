@@ -72,6 +72,7 @@ def register_generation_service_handlers(
         generation_section["generation_mode"],
         generation_section["init_llm_checkbox"],
         generation_section["think_checkbox"],
+        generation_section["generate_lm_audio_codes"],
         generation_section["allow_lm_batch"],
         generation_section["use_cot_metas"],
         generation_section["use_cot_caption"],
@@ -391,6 +392,7 @@ def _apply_config_path_change(
     model_updates[8] = gr.update(value=quality_defaults["init_lm_checkbox"])
     behavior_updates = (
         gr.update(value=quality_defaults["think_checkbox"]),
+        gr.update(value=quality_defaults["generate_lm_audio_codes"]),
         gr.update(value=quality_defaults["allow_lm_batch"]),
         gr.update(value=quality_defaults["use_cot_metas"]),
         gr.update(value=quality_defaults["use_cot_caption"]),

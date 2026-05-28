@@ -242,6 +242,64 @@ class LmAudioCodeRoutingTests(unittest.TestCase):
         self.assertEqual(dit_handler.generate_kwargs["audio_code_string"], expected_codes)
         self.assertEqual(result.audios[0]["params"]["audio_codes"], expected_codes)
 
+    def test_sft_text2music_can_force_lm_audio_code_hints(self):
+        """The explicit toggle should allow original-style code hints on SFT."""
+
+        dit_handler = _FakeDitHandler(config_path="acestep-v15-xl-sft")
+        llm_handler = _FakeLlmHandler()
+        params = GenerationParams(
+            caption="conscious melodic rap",
+            lyrics="[verse]\nwords",
+            duration=-1,
+            thinking=True,
+            generate_lm_audio_codes=True,
+            use_cot_metas=True,
+        )
+        config = GenerationConfig(batch_size=1, use_random_seed=True, audio_format="wav")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = generate_music(
+                dit_handler,
+                llm_handler,
+                params=params,
+                config=config,
+                save_dir=temp_dir,
+            )
+
+        expected_codes = "<|audio_code_1|><|audio_code_2|>"
+        self.assertTrue(result.success)
+        self.assertEqual(llm_handler.generate_kwargs["infer_type"], "llm_dit")
+        self.assertEqual(dit_handler.generate_kwargs["audio_code_string"], expected_codes)
+
+    def test_turbo_text2music_can_disable_lm_audio_code_hints(self):
+        """The explicit toggle should allow turbo A/B tests without code hints."""
+
+        dit_handler = _FakeDitHandler(config_path="acestep-v15-xl-turbo")
+        llm_handler = _FakeLlmHandler()
+        params = GenerationParams(
+            caption="conscious melodic rap",
+            lyrics="[verse]\nwords",
+            duration=-1,
+            thinking=True,
+            generate_lm_audio_codes=False,
+            use_cot_metas=True,
+        )
+        config = GenerationConfig(batch_size=1, use_random_seed=True, audio_format="wav")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = generate_music(
+                dit_handler,
+                llm_handler,
+                params=params,
+                config=config,
+                save_dir=temp_dir,
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual(llm_handler.generate_kwargs["infer_type"], "dit")
+        self.assertEqual(dit_handler.generate_kwargs["audio_code_string"], "")
+        self.assertEqual(result.audios[0]["params"]["audio_codes"], "")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -52,6 +52,7 @@ def build_generate_music_request(
         global_caption=parser.str("global_caption"),
         lyrics=parser.str("lyrics"),
         thinking=parser.bool("thinking"),
+        generate_lm_audio_codes=parser.bool("generate_lm_audio_codes", None),
         analysis_only=parser.bool("analysis_only"),
         full_analysis_only=parser.bool("full_analysis_only"),
         extract_codes_only=parser.bool("extract_codes_only"),

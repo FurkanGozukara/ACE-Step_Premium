@@ -100,6 +100,7 @@ def prepare_simple_generation(
         quality_defaults["velocity_ema_factor"],
         quality_defaults["custom_timesteps"],
         quality_defaults["dcw_wavelet"],
+        quality_defaults["generate_lm_audio_codes"],
     )
 
 

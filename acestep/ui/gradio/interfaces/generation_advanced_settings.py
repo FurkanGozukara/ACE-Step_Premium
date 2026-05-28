@@ -73,7 +73,10 @@ def create_advanced_settings_section(
         )
         lora_components = build_lora_controls()
         dit_components = build_dit_controls(ui_config, think_enabled=lm_initialized)
-        lm_components = build_lm_controls(service_mode=service_mode)
+        lm_components = build_lm_controls(
+            service_mode=service_mode,
+            generate_lm_audio_codes_default=True,
+        )
         output_components = build_output_controls(
             service_pre_initialized=service_pre_initialized,
             service_mode=service_mode,

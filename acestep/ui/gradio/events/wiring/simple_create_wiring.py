@@ -124,6 +124,7 @@ def register_simple_create_handlers(
             generation_section["generation_mode"],
             generation_section["init_llm_checkbox"],
             generation_section["think_checkbox"],
+            generation_section["generate_lm_audio_codes"],
             generation_section["allow_lm_batch"],
             generation_section["use_cot_metas"],
             generation_section["use_cot_caption"],
@@ -346,6 +347,7 @@ def build_simple_prepare_outputs(
         generation_section["velocity_ema_factor"],
         generation_section["custom_timesteps"],
         generation_section["dcw_wavelet"],
+        generation_section["generate_lm_audio_codes"],
     ]
 
 
@@ -506,6 +508,7 @@ def _apply_simple_model_change(
     model_updates[8] = gr.update(value=quality_defaults["init_lm_checkbox"])
     behavior_updates = (
         gr.update(value=quality_defaults["think_checkbox"]),
+        gr.update(value=quality_defaults["generate_lm_audio_codes"]),
         gr.update(value=quality_defaults["allow_lm_batch"]),
         gr.update(value=quality_defaults["use_cot_metas"]),
         gr.update(value=quality_defaults["use_cot_caption"]),

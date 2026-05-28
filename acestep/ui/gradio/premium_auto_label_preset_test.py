@@ -61,6 +61,32 @@ class PremiumAutoLabelPresetTests(unittest.TestCase):
         self.assertFalse(updates[keys.index("auto_label_subprocess")].get("value"))
         self.assertTrue(updates[keys.index("use_only_custom_trigger")].get("value"))
 
+    def test_user_preset_saves_and_loads_lm_audio_code_toggle(self) -> None:
+        """The LM audio-code checkbox should round-trip through user presets."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [""] * len(keys)
+            toggle_index = keys.index("generate_lm_audio_codes")
+            values[toggle_index] = False
+            try:
+                premium_features.save_preset_action("lm codes off", None, *values)
+                loaded_off = premium_features.load_named_preset("lm codes off")
+                updates_off = premium_features.load_preset_action("lm codes off")
+
+                values[toggle_index] = True
+                premium_features.save_preset_action("lm codes on", None, *values)
+                loaded_on = premium_features.load_named_preset("lm codes on")
+                updates_on = premium_features.load_preset_action("lm codes on")
+            finally:
+                self._restore_project_root(original)
+
+        self.assertFalse(loaded_off["generate_lm_audio_codes"])
+        self.assertFalse(updates_off[toggle_index].get("value"))
+        self.assertTrue(loaded_on["generate_lm_audio_codes"])
+        self.assertTrue(updates_on[toggle_index].get("value"))
+
 
 if __name__ == "__main__":
     unittest.main()
