@@ -28,6 +28,23 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+<h3>31 May 2026 V3.9.1 Update</h3>
+
+- New full audio post-processing tab implemented to the app
+- You can use this tab to both post-process your existing audio files as batch or as single file or automatically post process your generated songs
+- When it is enabled to auto post-process generated songs, it will save both original and post-processed songs in the outputs folder
+- You can use preview button to generate 60 second preview and compare quickly the effect impact
+- Use latest newer zip file, overwrite and run installer to update
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/c72f26d1-8287-4d07-827a-bc0a45dbc96c" />
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/4454e2ec-8d68-4540-aeb0-638ff9c963a4" />
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/1dd63340-b60e-4009-bafc-34fd606ef568" />
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/f77f9d8b-b8a8-43e3-9579-d15c625dd00d" />
+
+
 <h3>28 May 2026 V3.9 Update</h3>
 
 - New feature LM Audio Codes added and enabled for all default presets
