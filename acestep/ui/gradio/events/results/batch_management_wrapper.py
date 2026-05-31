@@ -10,7 +10,7 @@ from pathlib import Path
 import gradio as gr
 from loguru import logger
 
-from acestep.gpu_config import find_best_lm_model_on_disk, get_global_gpu_config
+from acestep.audio_processing.settings import settings_from_ui_values
 from acestep.core.generation.cancellation import (
     CANCEL_MESSAGE,
     GenerationCancelled,
@@ -19,6 +19,7 @@ from acestep.core.generation.cancellation import (
     generation_cancel_scope,
     is_generation_cancelled,
 )
+from acestep.gpu_config import find_best_lm_model_on_disk, get_global_gpu_config
 from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 from acestep.ui.gradio.events.results.batch_management_helpers import (
     _apply_param_defaults,
@@ -403,11 +404,31 @@ def _generate_with_batch_management_impl(
     use_lora_checkbox,
     lora_scale_slider,
     generate_lm_audio_codes=None,
+    *audio_processing_value_args,
     progress=gr.Progress(track_tqdm=True),
+    audio_processing_values=None,
+    **audio_processing_keyword_args,
 ):
     """Wrap ``generate_with_progress`` with batch queue management state."""
     check_generation_cancelled()
     _ = (generation_params_state, use_lora_checkbox)  # reserved for API compatibility
+    keyword_audio_processing_values = audio_processing_keyword_args.pop(
+        "audio_processing_value_args",
+        None,
+    )
+    audio_processing_keyword_args.pop("audio_processing_keyword_args", None)
+    if audio_processing_keyword_args:
+        unexpected = ", ".join(sorted(audio_processing_keyword_args))
+        raise TypeError(f"Unexpected keyword argument(s): {unexpected}")
+    resolved_audio_processing_values = (
+        audio_processing_values
+        if audio_processing_values is not None
+        else (
+            keyword_audio_processing_values
+            if keyword_audio_processing_values is not None
+            else audio_processing_value_args
+        )
+    )
     selected_model = str(config_path or "").strip() or DEFAULT_TURBO_DIT_MODEL
     logger.info(
         f"[generate_with_batch_management] Starting generation: "
@@ -446,6 +467,9 @@ def _generate_with_batch_management_impl(
         lora_scale=lora_scale_slider,
         use_lora=bool(resolve_effective_lora_path(lora_path, lora_dropdown)),
         generate_lm_audio_codes=generate_lm_audio_codes,
+        audio_processing_settings=(
+            settings_from_ui_values(resolved_audio_processing_values).to_payload()
+        ),
     )
     saved_params["_subprocess_mode"] = bool(subprocess_mode_checkbox)
 
@@ -670,7 +694,8 @@ def _generate_with_batch_management_impl(
         flow_edit_morph, flow_edit_source_caption, flow_edit_source_lyrics,
         flow_edit_n_min, flow_edit_n_max, flow_edit_n_avg,
         generate_lm_audio_codes,
-        progress,
+        audio_processing_settings=saved_params.get("audio_processing_settings"),
+        progress=progress,
     )
 
     final_result_from_inner = None

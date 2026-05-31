@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from acestep.audio_processing.presets import DEFAULT_STAGE_VALUES, STAGE_KEYS
 from acestep.constants import DEFAULT_DIT_INSTRUCTION
 from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL, DEFAULT_VAE_VARIANT
 
@@ -102,4 +103,10 @@ ADDITIONAL_DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "batch_output_folder": "",
     "batch_auto_improve_lyrics": False,
     "batch_auto_improve_style": False,
+    "ap_auto_postprocess": False,
+    "ap_preserve_original": True,
+    "ap_output_format": "wav",
+    "ap_builtin_preset": "Generic AI",
+    **{f"ap_{key}_enabled": True for key in STAGE_KEYS},
+    **{f"ap_{key}": DEFAULT_STAGE_VALUES[key] for key in STAGE_KEYS},
 }

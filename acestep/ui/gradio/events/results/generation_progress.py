@@ -12,6 +12,8 @@ import time as time_module
 import gradio as gr
 from loguru import logger
 
+from acestep.audio_processing.generated_postprocess import postprocess_generated_sample
+from acestep.audio_processing.settings import AudioProcessingSettings
 from acestep.core.generation.cancellation import check_generation_cancelled
 from acestep.gpu_config import (
     get_global_gpu_config,
@@ -91,6 +93,7 @@ def generate_with_progress(
     flow_edit_n_max=1.0,
     flow_edit_n_avg=1,
     generate_lm_audio_codes=None,
+    audio_processing_settings=None,
     progress=gr.Progress(track_tqdm=True),
 ):
     """Generate audio with progress tracking.
@@ -139,6 +142,7 @@ def generate_with_progress(
     actual_inference_steps = len(parsed_timesteps) - 1 if parsed_timesteps is not None else inference_steps
     audio_format = normalize_audio_format(audio_format)
     backend_audio_format = primary_audio_format(audio_format)
+    ap_settings = _audio_processing_settings(audio_processing_settings)
     active_model = _active_dit_model_label(dit_handler)
     logger.info(
         f"[generate_with_progress] Generation request: model={active_model}, "
@@ -351,6 +355,7 @@ def generate_with_progress(
         flow_edit_n_min=flow_edit_n_min,
         flow_edit_n_max=flow_edit_n_max,
         flow_edit_n_avg=flow_edit_n_avg,
+        audio_processing_settings=ap_settings.to_payload(),
         gen_params=gen_params,
         gen_config=gen_config,
         gpu_config=gpu_config,
@@ -457,10 +462,28 @@ def generate_with_progress(
         if not audio_path and saved_audio_paths:
             audio_path = next(iter(saved_audio_paths.values()))
         audio_path = audio_path or ""
+        original_audio_paths = dict(saved_audio_paths)
+        postprocess_metadata = postprocess_generated_sample(
+            source_audio_path=audio_path,
+            run_dir=temp_dir,
+            key=key,
+            settings=ap_settings,
+            original_audio_paths=original_audio_paths,
+        )
+        if postprocess_metadata.get("applied"):
+            processed_path = str(postprocess_metadata.get("audio_path") or "")
+            if processed_path:
+                saved_audio_paths = _postprocessed_audio_paths(
+                    original_audio_paths,
+                    processed_path,
+                    ap_settings,
+                )
+                audio_path = processed_path
         audio_params["audio_format"] = audio_format
         audio_params["primary_audio_format"] = backend_audio_format
         audio_params["saved_audio_formats"] = list(saved_audio_paths.keys())
         audio_params["audio_paths"] = saved_audio_paths
+        audio_params["audio_processing"] = postprocess_metadata
         if "mp3" in saved_audio_paths:
             audio_params["mp3_path"] = saved_audio_paths["mp3"]
 
@@ -478,7 +501,9 @@ def generate_with_progress(
 
         if i < visible_slots:
             audio_outputs[i] = audio_path
-        all_audio_paths.extend(saved_audio_paths.values())
+        all_audio_paths.extend(path for path in saved_audio_paths.values() if path)
+        if postprocess_metadata.get("metadata_path"):
+            all_audio_paths.append(str(postprocess_metadata["metadata_path"]))
         all_audio_paths.append(json_path)
 
         code_str = audio_params.get("audio_codes", "")
@@ -516,6 +541,7 @@ def generate_with_progress(
             "audio_path": audio_path,
             "audio_paths": saved_audio_paths,
             "mp3_path": saved_audio_paths.get("mp3"),
+            "audio_processing": postprocess_metadata,
             "metadata_path": json_path,
             "audio_format": audio_format,
             "primary_audio_format": backend_audio_format,
@@ -763,6 +789,7 @@ def _build_request_payload(
     flow_edit_n_min,
     flow_edit_n_max,
     flow_edit_n_avg,
+    audio_processing_settings,
     gen_params,
     gen_config,
     gpu_config,
@@ -853,6 +880,7 @@ def _build_request_payload(
         "flow_edit_n_min": flow_edit_n_min,
         "flow_edit_n_max": flow_edit_n_max,
         "flow_edit_n_avg": flow_edit_n_avg,
+        "audio_processing_settings": audio_processing_settings,
         "generation_params": vars(gen_params),
         "generation_config": {
             **vars(gen_config),
@@ -891,6 +919,23 @@ def _active_dit_model_label(dit_handler):
     last_init_params = getattr(dit_handler, "last_init_params", {}) or {}
     config_path = str(last_init_params.get("config_path") or "").strip()
     return config_path or "unknown"
+
+
+def _audio_processing_settings(raw_settings):
+    """Return normalized audio-processing settings from a payload or object."""
+
+    if isinstance(raw_settings, AudioProcessingSettings):
+        return raw_settings
+    return AudioProcessingSettings.from_payload(raw_settings)
+
+
+def _postprocessed_audio_paths(original_paths, processed_path, settings):
+    """Return visible audio paths after generated-song post-processing."""
+
+    processed_key = f"postprocessed_{settings.output_format}"
+    if settings.preserve_original:
+        return {**original_paths, processed_key: processed_path}
+    return {processed_key: processed_path}
 
 
 def _extract_repaint_source_latents(extra_outputs, sample_idx):

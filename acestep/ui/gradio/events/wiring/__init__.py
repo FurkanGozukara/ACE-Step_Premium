@@ -11,6 +11,10 @@ from .context import (
     build_auto_checkbox_outputs,
     build_mode_ui_outputs,
 )
+from .audio_processing_wiring import (
+    audio_processing_generation_inputs,
+    register_audio_processing_handlers,
+)
 from .batch_folder_wiring import register_batch_folder_handlers
 from .generation_metadata_wiring import register_generation_metadata_handlers
 from .generation_metadata_file_wiring import register_generation_metadata_file_handlers
@@ -37,9 +41,11 @@ from .training_run_wiring import register_training_run_handlers
 __all__ = [
     "GenerationWiringContext",
     "TrainingWiringContext",
+    "audio_processing_generation_inputs",
     "build_auto_checkbox_inputs",
     "build_auto_checkbox_outputs",
     "build_mode_ui_outputs",
+    "register_audio_processing_handlers",
     "register_batch_folder_handlers",
     "register_generation_batch_navigation_handlers",
     "register_dataset_import_handlers",

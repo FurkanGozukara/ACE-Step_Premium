@@ -14,6 +14,7 @@ def build_preset_component_map(
     training_section: dict[str, Any],
     dataset_section: dict[str, Any],
     batch_folder_section: dict[str, Any],
+    audio_processing_section: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return every Gradio component addressable by the custom preset system.
 
@@ -23,6 +24,7 @@ def build_preset_component_map(
         training_section: Training page component map.
         dataset_section: Dataset explorer component map.
         batch_folder_section: Batch folder page component map.
+        audio_processing_section: Audio Processing tab component map.
 
     Returns:
         Mapping from preset keys to Gradio components.
@@ -33,6 +35,8 @@ def build_preset_component_map(
     component_map.update(training_section)
     component_map.update(dataset_section)
     component_map.update(batch_folder_section)
+    if audio_processing_section:
+        component_map.update(audio_processing_section)
     for preset_key, simple_key in SIMPLE_CREATE_COMPONENT_ALIASES.items():
         component_map[preset_key] = simple_page[simple_key]
     return component_map
@@ -59,4 +63,3 @@ def preset_components_for_keys(
     if missing:
         raise KeyError(f"Missing preset components: {', '.join(missing)}")
     return [component_map[key] for key in keys]
-

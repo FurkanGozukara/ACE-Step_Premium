@@ -12,6 +12,7 @@ data/
 flow_edit_test_outputs/
 retake_test_outputs/
 premium_user_presets
+TrackAICleaner
 # Byte-compiled / optimized / DLL files
 __pycache__/
 acesteporg/

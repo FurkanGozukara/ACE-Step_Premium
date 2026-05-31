@@ -1,0 +1,123 @@
+"""Batch folder processing for ACE-Step audio processing."""
+
+from __future__ import annotations
+
+import time
+from pathlib import Path
+from typing import Iterator
+
+from loguru import logger
+
+from .file_processor import process_media_file
+from .json_io import write_json
+from .media_io import is_supported_media
+from .runs import create_audio_processing_run_dir
+from .settings import AudioProcessingSettings
+
+
+def iter_media_files(input_folder: str | Path, recursive: bool = False) -> list[Path]:
+    """Return supported media files in a folder."""
+
+    root = Path(input_folder).expanduser().resolve()
+    if not root.is_dir():
+        raise ValueError(f"Input folder does not exist: {root}")
+    iterator = root.rglob("*") if recursive else root.iterdir()
+    return sorted(path for path in iterator if path.is_file() and is_supported_media(path))
+
+
+def run_batch_audio_processing(
+    input_folder: str,
+    output_folder: str,
+    recursive: bool,
+    settings: AudioProcessingSettings,
+) -> Iterator[tuple[str, list[str]]]:
+    """Process every supported audio/video file in a folder.
+
+    Args:
+        input_folder: Folder containing media files.
+        output_folder: Optional destination root. Blank values use ACE-Step outputs.
+        recursive: Whether to scan subfolders.
+        settings: Audio-processing settings.
+
+    Yields:
+        Tuple of status text and generated file paths.
+    """
+
+    status_lines: list[str] = []
+    generated_files: list[str] = []
+    rows: list[dict[str, object]] = []
+    try:
+        files = iter_media_files(input_folder, recursive=recursive)
+        run_dir = create_audio_processing_run_dir(output_folder.strip() or None)
+    except ValueError as exc:
+        yield str(exc), []
+        return
+
+    status_lines.append(f"Found {len(files)} media file(s).")
+    status_lines.append(f"Saving processed outputs under: {run_dir}")
+    yield _render_status(status_lines), generated_files
+
+    for index, source in enumerate(files, start=1):
+        started_at = time.time()
+        status_lines.append(f"[{index}/{len(files)}] Processing {source.name}")
+        yield _render_status(status_lines), generated_files
+        try:
+            result = process_media_file(source, run_dir, settings)
+            generated_files.extend(result.file_list())
+            rows.append(
+                {
+                    "source_path": str(source),
+                    "status": "completed",
+                    "duration_seconds": round(max(0.0, time.time() - started_at), 3),
+                    "outputs": result.file_list(),
+                    "lufs_before": result.processed_audio.lufs_before,
+                    "lufs_after": result.processed_audio.lufs_after,
+                }
+            )
+            status_lines.append(f"[{index}/{len(files)}] Done: {source.name}")
+        except Exception as exc:
+            logger.exception("[audio_processing_batch] Failed for {}", source)
+            rows.append(
+                {
+                    "source_path": str(source),
+                    "status": "failed",
+                    "message": str(exc),
+                    "duration_seconds": round(max(0.0, time.time() - started_at), 3),
+                }
+            )
+            status_lines.append(f"[{index}/{len(files)}] Failed: {exc}")
+        manifest_path = _write_manifest(run_dir, rows, settings)
+        generated_files.append(manifest_path)
+        status_lines.append(f"Manifest: {manifest_path}")
+        yield _render_status(status_lines), generated_files
+
+    completed = sum(1 for row in rows if row["status"] == "completed")
+    status_lines.append(f"Batch complete: {completed}/{len(files)} item(s) processed.")
+    yield _render_status(status_lines), generated_files
+
+
+def _write_manifest(
+    run_dir: Path,
+    rows: list[dict[str, object]],
+    settings: AudioProcessingSettings,
+) -> str:
+    """Persist batch processing metadata."""
+
+    return write_json(
+        run_dir / "audio_processing_batch_manifest.json",
+        {
+            "_meta": {
+                "format": "ace_step_audio_processing_batch",
+                "version": 1,
+                "updated_at_unix": time.time(),
+            },
+            "settings": settings.to_payload(),
+            "items": rows,
+        },
+    )
+
+
+def _render_status(lines: list[str]) -> str:
+    """Return recent status lines for the Gradio textbox."""
+
+    return "\n".join(lines[-80:])

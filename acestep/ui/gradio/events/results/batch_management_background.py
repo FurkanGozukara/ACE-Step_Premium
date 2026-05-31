@@ -195,6 +195,7 @@ def generate_next_batch_background(
             retake_variance=params.get("retake_variance", 0.0),
             retake_seed=params.get("retake_seed", ""),
             generate_lm_audio_codes=params.get("generate_lm_audio_codes"),
+            audio_processing_settings=params.get("audio_processing_settings"),
             progress=progress,
         )
 

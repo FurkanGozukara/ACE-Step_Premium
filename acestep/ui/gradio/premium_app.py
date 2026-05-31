@@ -19,6 +19,7 @@ from acestep.ui.gradio.events.generation.cancel_api import (
     register_generation_cancel_route,
 )
 from acestep.ui.gradio.events.wiring import (
+    register_audio_processing_handlers,
     register_batch_folder_handlers,
     register_grid_testing_handlers,
     register_library_handlers,
@@ -35,6 +36,7 @@ from acestep.ui.gradio.interfaces.user_preferences import (
     wire_preference_restore,
 )
 from acestep.ui.gradio.pages import (
+    create_audio_processing_page,
     create_batch_folder_page,
     create_dataset_page,
     create_generation_workspace_page,
@@ -63,7 +65,7 @@ from acestep.ui.gradio.premium_features import (
 )
 
 
-APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v3.9"
+APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v3.9.1"
 APP_RELEASE_URL = "https://www.patreon.com/posts/157675060"
 APP_HEADER_MARKDOWN = f"# {APP_BROWSER_TITLE} : [{APP_RELEASE_URL}]({APP_RELEASE_URL})"
 _FAVICON_PATH = Path(__file__).resolve().parent / "assets" / "ace_step_premium_favicon.svg"
@@ -680,6 +682,9 @@ def create_gradio_interface(
                     include_results=False,
                 )
 
+            with gr.Tab("Audio Processing", render_children=False):
+                audio_processing_page = create_audio_processing_page()
+
             with gr.Tab("Library", render_children=True):
                 library_page = create_library_page()
 
@@ -709,6 +714,7 @@ def create_gradio_interface(
         generation_section: dict[str, Any] = {}
         generation_section.update(create_page["settings_section"])
         generation_section.update(create_page["generation_section"])
+        generation_section.update(audio_processing_page)
         generation_section["results_wrapper"] = results_wrapper
         generation_section["subprocess_mode_checkbox"] = create_page[
             "subprocess_mode_checkbox"
@@ -783,6 +789,7 @@ def create_gradio_interface(
             dit_handler=dit_handler,
             llm_handler=llm_handler,
         )
+        register_audio_processing_handlers(audio_processing_page)
         register_library_handlers(library_page, demo=demo)
 
         preset_keys = get_preset_component_keys()
@@ -792,6 +799,7 @@ def create_gradio_interface(
             training_section=training_section,
             dataset_section=dataset_section,
             batch_folder_section=batch_folder_section,
+            audio_processing_section=audio_processing_page,
         )
         preset_components = preset_components_for_keys(preset_component_map, preset_keys)
         preset_component_specs = component_specs_from_components(

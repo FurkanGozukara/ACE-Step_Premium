@@ -10,6 +10,7 @@ from ..generation.cancel_actions import (
     request_generation_cancel_pair_from_ui,
 )
 from .context import GenerationWiringContext
+from .audio_processing_wiring import audio_processing_generation_inputs
 from .inline_result_preview import (
     build_inline_result_outputs,
     clear_inline_result_preview,
@@ -116,6 +117,7 @@ def build_generation_run_inputs(generation_section, results_section):
         generation_section["use_lora_checkbox"],
         generation_section["lora_scale_slider"],
         generation_section["generate_lm_audio_codes"],
+        *audio_processing_generation_inputs(generation_section),
     ]
 
 
@@ -347,6 +349,7 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
             generation_section["use_lora_checkbox"],
             generation_section["lora_scale_slider"],
             generation_section["generate_lm_audio_codes"],
+            *audio_processing_generation_inputs(generation_section),
         ],
         outputs=[
             results_section["generated_audio_1"],
