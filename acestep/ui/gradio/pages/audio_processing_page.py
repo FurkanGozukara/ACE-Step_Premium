@@ -82,6 +82,18 @@ def create_audio_processing_page() -> dict[str, Any]:
                     ".avi",
                 ],
             )
+            with gr.Row():
+                controls["ap_upload_audio_preview"] = gr.Audio(
+                    label="Uploaded Audio",
+                    type="filepath",
+                    interactive=False,
+                    visible=False,
+                )
+                controls["ap_upload_video_preview"] = gr.Video(
+                    label="Uploaded Video",
+                    interactive=False,
+                    visible=False,
+                )
             with gr.Row(equal_height=True):
                 controls["ap_preview_btn"] = gr.Button(
                     "Preview 60s",

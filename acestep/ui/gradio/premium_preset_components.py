@@ -15,6 +15,7 @@ def build_preset_component_map(
     dataset_section: dict[str, Any],
     batch_folder_section: dict[str, Any],
     audio_processing_section: dict[str, Any] | None = None,
+    sam_audio_section: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return every Gradio component addressable by the custom preset system.
 
@@ -25,6 +26,7 @@ def build_preset_component_map(
         dataset_section: Dataset explorer component map.
         batch_folder_section: Batch folder page component map.
         audio_processing_section: Audio Processing tab component map.
+        sam_audio_section: SAM Audio Segment tab component map.
 
     Returns:
         Mapping from preset keys to Gradio components.
@@ -37,6 +39,8 @@ def build_preset_component_map(
     component_map.update(batch_folder_section)
     if audio_processing_section:
         component_map.update(audio_processing_section)
+    if sam_audio_section:
+        component_map.update(sam_audio_section)
     for preset_key, simple_key in SIMPLE_CREATE_COMPONENT_ALIASES.items():
         component_map[preset_key] = simple_page[simple_key]
     return component_map

@@ -7,6 +7,13 @@ from typing import Any
 from acestep.audio_processing.presets import DEFAULT_STAGE_VALUES, STAGE_KEYS
 from acestep.constants import DEFAULT_DIT_INSTRUCTION
 from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL, DEFAULT_VAE_VARIANT
+from acestep.sam_audio_segment.vram_presets import (
+    default_sam_vram_preset_name,
+    get_sam_vram_preset,
+)
+
+_DEFAULT_SAM_VRAM_PRESET = default_sam_vram_preset_name()
+_DEFAULT_SAM_VRAM_VALUES = get_sam_vram_preset(_DEFAULT_SAM_VRAM_PRESET)
 
 
 ADDITIONAL_DEFAULT_PRESET_VALUES: dict[str, Any] = {
@@ -109,4 +116,36 @@ ADDITIONAL_DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "ap_builtin_preset": "Generic AI",
     **{f"ap_{key}_enabled": True for key in STAGE_KEYS},
     **{f"ap_{key}": DEFAULT_STAGE_VALUES[key] for key in STAGE_KEYS},
+    "sam_auto_postprocess": False,
+    "sam_preserve_original": True,
+    "sam_output_format": "wav",
+    "sam_prompt_mode": "text",
+    "sam_prompt_preset": "vocals",
+    "sam_custom_prompt": "",
+    "sam_use_span_anchor": False,
+    "sam_anchor_json": "",
+    "sam_anchor_polarity": "+",
+    "sam_anchor_start": 0.0,
+    "sam_anchor_end": 1.0,
+    "sam_predict_spans": _DEFAULT_SAM_VRAM_VALUES["predict_spans"],
+    "sam_reranking_candidates": _DEFAULT_SAM_VRAM_VALUES["reranking_candidates"],
+    "sam_ranker_mode": _DEFAULT_SAM_VRAM_VALUES["ranker_mode"],
+    "sam_ode_steps": _DEFAULT_SAM_VRAM_VALUES["ode_steps"],
+    "sam_seed": 99,
+    "sam_random_seed": False,
+    "sam_vram_preset": _DEFAULT_SAM_VRAM_PRESET,
+    "sam_quantization": _DEFAULT_SAM_VRAM_VALUES["quantization"],
+    "sam_attention_backend": _DEFAULT_SAM_VRAM_VALUES["attention_backend"],
+    "sam_device_mode": _DEFAULT_SAM_VRAM_VALUES["device_mode"],
+    "sam_low_vram_lite": _DEFAULT_SAM_VRAM_VALUES["low_vram_lite"],
+    "sam_chunked": _DEFAULT_SAM_VRAM_VALUES["chunked"],
+    "sam_chunk_seconds": _DEFAULT_SAM_VRAM_VALUES["chunk_seconds"],
+    "sam_chunk_overlap_seconds": _DEFAULT_SAM_VRAM_VALUES["chunk_overlap_seconds"],
+    "sam_subprocess": _DEFAULT_SAM_VRAM_VALUES["subprocess"],
+    "sam_unload_generation": True,
+    "sam_include_residual": True,
+    "sam_include_video": True,
+    "sam_batch_input_folder": "",
+    "sam_batch_output_folder": "",
+    "sam_batch_recursive": False,
 }

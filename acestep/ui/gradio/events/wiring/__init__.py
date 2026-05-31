@@ -31,6 +31,10 @@ from .results_display_wiring import (
 )
 from .generation_service_wiring import register_generation_service_handlers
 from .simple_create_wiring import register_simple_create_handlers
+from .sam_audio_wiring import (
+    register_sam_audio_handlers,
+    sam_audio_generation_inputs,
+)
 from .training_dataset_builder_wiring import register_training_dataset_builder_handlers
 from .training_dataset_preprocess_wiring import (
     register_training_dataset_load_handler,
@@ -60,6 +64,8 @@ __all__ = [
     "register_generation_service_handlers",
     "register_grid_testing_handlers",
     "register_simple_create_handlers",
+    "register_sam_audio_handlers",
+    "sam_audio_generation_inputs",
     "register_training_dataset_builder_handlers",
     "register_training_dataset_load_handler",
     "register_training_preprocess_handler",

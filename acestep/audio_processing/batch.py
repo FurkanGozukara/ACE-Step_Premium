@@ -11,7 +11,7 @@ from loguru import logger
 from .file_processor import process_media_file
 from .json_io import write_json
 from .media_io import is_supported_media
-from .runs import create_audio_processing_run_dir
+from .runs import create_audio_processing_run_dir, safe_media_stem
 from .settings import AudioProcessingSettings
 
 
@@ -62,7 +62,12 @@ def run_batch_audio_processing(
         status_lines.append(f"[{index}/{len(files)}] Processing {source.name}")
         yield _render_status(status_lines), generated_files
         try:
-            result = process_media_file(source, run_dir, settings)
+            result = process_media_file(
+                source,
+                run_dir,
+                settings,
+                output_stem=safe_media_stem(source),
+            )
             generated_files.extend(result.file_list())
             rows.append(
                 {

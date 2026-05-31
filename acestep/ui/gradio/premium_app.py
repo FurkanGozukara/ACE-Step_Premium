@@ -23,6 +23,7 @@ from acestep.ui.gradio.events.wiring import (
     register_batch_folder_handlers,
     register_grid_testing_handlers,
     register_library_handlers,
+    register_sam_audio_handlers,
     register_simple_create_handlers,
 )
 from acestep.ui.gradio.help_content import HELP_MODAL_CSS
@@ -42,6 +43,7 @@ from acestep.ui.gradio.pages import (
     create_generation_workspace_page,
     create_grid_testing_page,
     create_library_page,
+    create_sam_audio_page,
     create_simple_create_page,
     create_studio_page,
     create_training_page,
@@ -685,6 +687,9 @@ def create_gradio_interface(
             with gr.Tab("Audio Processing", render_children=False):
                 audio_processing_page = create_audio_processing_page()
 
+            with gr.Tab("SAM Audio Segment", render_children=False):
+                sam_audio_page = create_sam_audio_page()
+
             with gr.Tab("Library", render_children=True):
                 library_page = create_library_page()
 
@@ -715,6 +720,7 @@ def create_gradio_interface(
         generation_section.update(create_page["settings_section"])
         generation_section.update(create_page["generation_section"])
         generation_section.update(audio_processing_page)
+        generation_section.update(sam_audio_page)
         generation_section["results_wrapper"] = results_wrapper
         generation_section["subprocess_mode_checkbox"] = create_page[
             "subprocess_mode_checkbox"
@@ -790,6 +796,11 @@ def create_gradio_interface(
             llm_handler=llm_handler,
         )
         register_audio_processing_handlers(audio_processing_page)
+        register_sam_audio_handlers(
+            sam_audio_page,
+            dit_handler=dit_handler,
+            llm_handler=llm_handler,
+        )
         register_library_handlers(library_page, demo=demo)
 
         preset_keys = get_preset_component_keys()
@@ -800,6 +811,7 @@ def create_gradio_interface(
             dataset_section=dataset_section,
             batch_folder_section=batch_folder_section,
             audio_processing_section=audio_processing_page,
+            sam_audio_section=sam_audio_page,
         )
         preset_components = preset_components_for_keys(preset_component_map, preset_keys)
         preset_component_specs = component_specs_from_components(

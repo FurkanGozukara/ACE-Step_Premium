@@ -10,6 +10,7 @@ import gradio as gr
 from acestep.audio_processing.batch import run_batch_audio_processing
 from acestep.audio_processing.file_processor import metrics_markdown, process_media_file
 from acestep.audio_processing.media_io import save_processed_audio
+from acestep.audio_processing.media_io import is_video_file
 from acestep.audio_processing.plots import make_spectrogram_figure
 from acestep.audio_processing.presets import PRESET_VALUES, STAGE_KEYS
 from acestep.audio_processing.runs import create_audio_processing_run_dir, safe_media_stem
@@ -34,6 +35,15 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
         fn=_apply_builtin_preset,
         inputs=[audio_page["ap_builtin_preset"]],
         outputs=[audio_page[f"ap_{key}"] for key in STAGE_KEYS],
+    )
+    audio_page["ap_single_file"].change(
+        fn=_preview_upload,
+        inputs=[audio_page["ap_single_file"]],
+        outputs=[
+            audio_page["ap_upload_audio_preview"],
+            audio_page["ap_upload_video_preview"],
+            audio_page["ap_single_status"],
+        ],
     )
     audio_page["ap_preview_btn"].click(
         fn=_preview_single_file,
@@ -87,6 +97,28 @@ def _apply_builtin_preset(preset_name: str | None) -> tuple[Any, ...]:
 
     values = PRESET_VALUES.get(str(preset_name or ""), PRESET_VALUES["Generic AI"])
     return tuple(gr.update(value=values[key]) for key in STAGE_KEYS)
+
+
+def _preview_upload(input_path: str | None) -> tuple[Any, Any, str]:
+    """Return accurate audio/video preview updates for an uploaded file."""
+
+    if not input_path:
+        return (
+            gr.update(value=None, visible=False),
+            gr.update(value=None, visible=False),
+            "Upload an audio or video file first.",
+        )
+    if is_video_file(input_path):
+        return (
+            gr.update(value=None, visible=False),
+            gr.update(value=input_path, visible=True),
+            f"Loaded video: `{Path(input_path).name}`",
+        )
+    return (
+        gr.update(value=input_path, visible=True),
+        gr.update(value=None, visible=False),
+        f"Loaded audio: `{Path(input_path).name}`",
+    )
 
 
 def _preview_single_file(input_path: str | None, *settings_values: Any) -> tuple[Any, ...]:

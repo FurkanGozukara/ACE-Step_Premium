@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from acestep.audio_processing.settings import UI_SETTING_KEYS as AUDIO_PROCESSING_PRESET_KEYS
+from acestep.sam_audio_segment.settings import SAM_AUDIO_PRESET_KEYS
 
 SIMPLE_CREATE_COMPONENT_ALIASES: dict[str, str] = {
     "simple_create_caption": "simple_caption",
@@ -142,6 +143,7 @@ BATCH_FOLDER_PRESET_KEYS: tuple[str, ...] = (
 ADDITIONAL_PRESET_COMPONENT_KEYS: tuple[str, ...] = (
     *GENERATION_PRESET_EXTENSION_KEYS,
     *AUDIO_PROCESSING_PRESET_KEYS,
+    *SAM_AUDIO_PRESET_KEYS,
     *SIMPLE_CREATE_COMPONENT_ALIASES.keys(),
     *DATASET_EXPLORER_PRESET_KEYS,
     *DATASET_BUILDER_PRESET_EXTENSION_KEYS,

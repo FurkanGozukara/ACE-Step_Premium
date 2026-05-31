@@ -11,6 +11,7 @@ from ..generation.cancel_actions import (
 )
 from .context import GenerationWiringContext
 from .audio_processing_wiring import audio_processing_generation_inputs
+from .sam_audio_wiring import sam_audio_generation_inputs
 from .inline_result_preview import (
     build_inline_result_outputs,
     clear_inline_result_preview,
@@ -118,6 +119,7 @@ def build_generation_run_inputs(generation_section, results_section):
         generation_section["lora_scale_slider"],
         generation_section["generate_lm_audio_codes"],
         *audio_processing_generation_inputs(generation_section),
+        *sam_audio_generation_inputs(generation_section),
     ]
 
 
@@ -350,6 +352,7 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
             generation_section["lora_scale_slider"],
             generation_section["generate_lm_audio_codes"],
             *audio_processing_generation_inputs(generation_section),
+            *sam_audio_generation_inputs(generation_section),
         ],
         outputs=[
             results_section["generated_audio_1"],

@@ -10,7 +10,14 @@ from pathlib import Path
 import gradio as gr
 from loguru import logger
 
-from acestep.audio_processing.settings import settings_from_ui_values
+from acestep.audio_processing.settings import (
+    UI_SETTING_KEYS as AUDIO_PROCESSING_KEYS,
+    settings_from_ui_values as audio_processing_settings_from_ui_values,
+)
+from acestep.sam_audio_segment.settings import (
+    SAM_AUDIO_PRESET_KEYS,
+    settings_from_ui_values as sam_audio_settings_from_ui_values,
+)
 from acestep.core.generation.cancellation import (
     CANCEL_MESSAGE,
     GenerationCancelled,
@@ -429,6 +436,9 @@ def _generate_with_batch_management_impl(
             else audio_processing_value_args
         )
     )
+    resolved_ap_values, resolved_sam_values = _split_processing_tail_values(
+        resolved_audio_processing_values
+    )
     selected_model = str(config_path or "").strip() or DEFAULT_TURBO_DIT_MODEL
     logger.info(
         f"[generate_with_batch_management] Starting generation: "
@@ -468,8 +478,9 @@ def _generate_with_batch_management_impl(
         use_lora=bool(resolve_effective_lora_path(lora_path, lora_dropdown)),
         generate_lm_audio_codes=generate_lm_audio_codes,
         audio_processing_settings=(
-            settings_from_ui_values(resolved_audio_processing_values).to_payload()
+            audio_processing_settings_from_ui_values(resolved_ap_values).to_payload()
         ),
+        sam_audio_settings=sam_audio_settings_from_ui_values(resolved_sam_values).to_payload(),
     )
     saved_params["_subprocess_mode"] = bool(subprocess_mode_checkbox)
 
@@ -695,6 +706,7 @@ def _generate_with_batch_management_impl(
         flow_edit_n_min, flow_edit_n_max, flow_edit_n_avg,
         generate_lm_audio_codes,
         audio_processing_settings=saved_params.get("audio_processing_settings"),
+        sam_audio_settings=saved_params.get("sam_audio_settings"),
         progress=progress,
     )
 
@@ -849,3 +861,14 @@ def _extract_is_format_caption_arg(args: tuple, kwargs: dict) -> bool:
 
 
 generate_with_batch_management.__signature__ = inspect.signature(_generate_with_batch_management_impl)
+
+
+def _split_processing_tail_values(values) -> tuple[tuple, tuple]:
+    """Split generation tail values into Audio Processing and SAM-Audio settings."""
+
+    value_tuple = tuple(values or ())
+    ap_count = len(AUDIO_PROCESSING_KEYS)
+    sam_count = len(SAM_AUDIO_PRESET_KEYS)
+    if len(value_tuple) >= ap_count + sam_count:
+        return value_tuple[:ap_count], value_tuple[ap_count : ap_count + sam_count]
+    return value_tuple[:ap_count], ()
