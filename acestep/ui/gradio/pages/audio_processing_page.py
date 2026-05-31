@@ -84,7 +84,7 @@ def create_audio_processing_page() -> dict[str, Any]:
             )
             with gr.Row(equal_height=True):
                 controls["ap_preview_btn"] = gr.Button(
-                    "Preview 15s",
+                    "Preview 60s",
                     variant="secondary",
                     size="lg",
                     elem_classes=["action-btn", "action-btn-preview"],

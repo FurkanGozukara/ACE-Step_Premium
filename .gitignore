@@ -17,6 +17,7 @@ TrackAICleaner
 __pycache__/
 acesteporg/
 *.py[codz]
+sam-audio
 *$py.class
 ui_verification
 # C extensions
