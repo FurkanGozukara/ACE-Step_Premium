@@ -30,7 +30,7 @@
 
 <h3>31 May 2026 V3.9.1 Update</h3>
 
-- New full audio post-processing tab implemented to the app
+- New full audio post-processing tab implemented to our premium app from TrackAICleaner repo
 - You can use this tab to both post-process your existing audio files as batch or as single file or automatically post process your generated songs
 - When it is enabled to auto post-process generated songs, it will save both original and post-processed songs in the outputs folder
 - You can use preview button to generate 60 second preview and compare quickly the effect impact
