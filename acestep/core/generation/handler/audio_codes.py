@@ -44,6 +44,38 @@ class AudioCodesMixin:
             logger.debug(f"[_parse_audio_code_string] Failed to parse audio code string: {e}")
             return []
 
+    def _align_quantizer_decode_buffers(self, quantizer: torch.nn.Module) -> None:
+        """Align ResidualFSQ decode buffers with projection parameters.
+
+        Direct BF16 model loading can leave non-persistent quantizer buffers such
+        as ``scales`` in float32 while ``project_out`` is BF16.  ResidualFSQ
+        multiplies codebooks by ``scales`` before calling ``project_out``, so the
+        buffer has to match before ``get_output_from_indices`` runs.
+        """
+        project_out = getattr(quantizer, "project_out", None)
+        if not isinstance(project_out, torch.nn.Module):
+            return
+
+        target_tensor = next(
+            (param for param in project_out.parameters() if param.is_floating_point()),
+            None,
+        )
+        if target_tensor is None:
+            return
+
+        for buffer_name in ("scales",):
+            buffer = getattr(quantizer, buffer_name, None)
+            if (
+                isinstance(buffer, torch.Tensor)
+                and buffer.is_floating_point()
+                and (buffer.dtype != target_tensor.dtype or buffer.device != target_tensor.device)
+            ):
+                setattr(
+                    quantizer,
+                    buffer_name,
+                    buffer.to(device=target_tensor.device, dtype=target_tensor.dtype),
+                )
+
     def _decode_audio_codes_to_latents(self, code_str: str) -> Optional[torch.Tensor]:
         """Convert serialized audio-code string into 25Hz latents."""
         if self.model is None or not hasattr(self.model, "tokenizer") or not hasattr(self.model, "detokenizer"):
@@ -56,6 +88,7 @@ class AudioCodesMixin:
         with self._load_model_context("model"):
             quantizer = self.model.tokenizer.quantizer
             detokenizer = self.model.detokenizer
+            self._align_quantizer_decode_buffers(quantizer)
             indices = torch.tensor(code_ids, device=self.device, dtype=torch.long)
             indices = indices.unsqueeze(0).unsqueeze(-1)
 
