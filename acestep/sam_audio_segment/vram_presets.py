@@ -33,7 +33,7 @@ _PRESETS: dict[str, dict[str, Any]] = {
         "device_mode": "auto",
         "low_vram_lite": True,
         "chunked": True,
-        "chunk_seconds": 15.0,
+        "chunk_seconds": 10.0,
         "chunk_overlap_seconds": 2.0,
     },
     SAM_VRAM_PRESET_24GB: {

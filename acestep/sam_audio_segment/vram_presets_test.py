@@ -47,6 +47,14 @@ class TestSamAudioVramPresets(unittest.TestCase):
         self.assertEqual("cpu", get_sam_vram_preset(SAM_VRAM_PRESET_8GB)["device_mode"])
         self.assertEqual("auto", get_sam_vram_preset(SAM_VRAM_PRESET_8GB)["attention_backend"])
 
+    def test_32gb_quality_prefers_short_music_window(self):
+        """The quality preset should stay near the best real music sweep window."""
+
+        preset = get_sam_vram_preset(SAM_VRAM_PRESET_32GB)
+
+        self.assertEqual(10.0, preset["chunk_seconds"])
+        self.assertEqual(2.0, preset["chunk_overlap_seconds"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -9,6 +9,10 @@ from .attention import normalize_attention_backend
 from .prompt_presets import DEFAULT_PROMPT
 from .vram_presets import get_sam_vram_preset, normalize_sam_vram_preset
 
+SAM_AUDIO_MIN_CHUNK_SECONDS = 1.0
+SAM_AUDIO_MAX_CHUNK_SECONDS = 60.0
+SAM_AUDIO_MAX_OVERLAP_SECONDS = 10.0
+
 SAM_AUDIO_PRESET_KEYS: tuple[str, ...] = (
     "sam_auto_postprocess",
     "sam_preserve_original",
@@ -162,19 +166,17 @@ class SamAudioSettings:
             ),
             low_vram_lite=bool(payload.get("low_vram_lite", preset["low_vram_lite"])),
             chunked=bool(payload.get("chunked", preset["chunked"])),
-            chunk_seconds=max(
-                1.0,
-                min(60.0, _float(payload.get("chunk_seconds"), preset["chunk_seconds"])),
+            chunk_seconds=_bounded_float(
+                payload.get("chunk_seconds"),
+                preset["chunk_seconds"],
+                SAM_AUDIO_MIN_CHUNK_SECONDS,
+                SAM_AUDIO_MAX_CHUNK_SECONDS,
             ),
-            chunk_overlap_seconds=max(
+            chunk_overlap_seconds=_bounded_float(
+                payload.get("chunk_overlap_seconds"),
+                preset["chunk_overlap_seconds"],
                 0.0,
-                min(
-                    10.0,
-                    _float(
-                        payload.get("chunk_overlap_seconds"),
-                        preset["chunk_overlap_seconds"],
-                    ),
-                ),
+                SAM_AUDIO_MAX_OVERLAP_SECONDS,
             ),
             subprocess=bool(payload.get("subprocess", preset["subprocess"])),
             unload_generation=bool(payload.get("unload_generation", True)),
@@ -211,4 +213,11 @@ def _float(value: Any, fallback: float) -> float:
         result = float(value)
     except (TypeError, ValueError):
         return fallback
-    return result if result == result and result not in (float("inf"), float("-inf")) else fallback
+    is_finite = result == result and result not in (float("inf"), float("-inf"))
+    return result if is_finite else fallback
+
+
+def _bounded_float(value: Any, fallback: float, minimum: float, maximum: float) -> float:
+    """Return a finite float clamped to a closed interval."""
+
+    return max(minimum, min(maximum, _float(value, fallback)))

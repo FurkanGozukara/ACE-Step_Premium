@@ -2,7 +2,12 @@
 
 import unittest
 
-from acestep.sam_audio_segment.settings import SAM_AUDIO_PRESET_KEYS, settings_from_ui_values
+from acestep.sam_audio_segment.settings import (
+    SAM_AUDIO_MAX_CHUNK_SECONDS,
+    SAM_AUDIO_PRESET_KEYS,
+    SamAudioSettings,
+    settings_from_ui_values,
+)
 
 
 class TestSamAudioSettings(unittest.TestCase):
@@ -70,6 +75,31 @@ class TestSamAudioSettings(unittest.TestCase):
         self.assertTrue(settings.random_seed)
         self.assertEqual("cudnn", settings.attention_backend)
         self.assertTrue(settings.batch_recursive)
+
+    def test_chunk_seconds_accept_long_manual_values(self):
+        """Manual chunk inputs above the preset default remain available."""
+
+        settings = SamAudioSettings.from_payload(
+            {
+                "vram_preset": "32gb_quality",
+                "chunk_seconds": 40.0,
+                "chunk_overlap_seconds": 2.0,
+            }
+        )
+
+        self.assertEqual(40.0, settings.chunk_seconds)
+
+    def test_chunk_seconds_still_has_input_sanity_limit(self):
+        """Extreme chunk inputs are clamped to the UI sanity range."""
+
+        settings = SamAudioSettings.from_payload(
+            {
+                "vram_preset": "32gb_quality",
+                "chunk_seconds": 600.0,
+            }
+        )
+
+        self.assertEqual(SAM_AUDIO_MAX_CHUNK_SECONDS, settings.chunk_seconds)
 
 
 if __name__ == "__main__":

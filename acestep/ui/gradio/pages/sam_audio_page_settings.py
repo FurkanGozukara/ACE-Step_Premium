@@ -15,6 +15,7 @@ from acestep.sam_audio_segment.prompt_presets import (
     RANKER_CHOICES,
     VRAM_PRESET_CHOICES,
 )
+from acestep.sam_audio_segment.settings import SAM_AUDIO_MAX_CHUNK_SECONDS
 from acestep.sam_audio_segment.vram_presets import (
     default_sam_vram_preset_name,
     get_sam_vram_preset,
@@ -197,8 +198,8 @@ def _add_runtime_controls(controls: dict[str, Any]) -> None:
                 label="Chunk long audio",
                 value=preset["chunked"],
                 info=(
-                    "Splits long audio into overlapping windows, reducing peak VRAM while "
-                    "preserving the full output duration."
+                    "Splits long audio into overlapping model windows. Lower values "
+                    "may separate vocals and other text-prompt targets better."
                 ),
             )
         with gr.Row():
@@ -206,11 +207,20 @@ def _add_runtime_controls(controls: dict[str, Any]) -> None:
                 label="Chunk Seconds",
                 value=preset["chunk_seconds"],
                 precision=2,
+                minimum=1.0,
+                maximum=SAM_AUDIO_MAX_CHUNK_SECONDS,
+                info=(
+                    f"Allowed range: 1-{SAM_AUDIO_MAX_CHUNK_SECONDS:.0f}s. Lower "
+                    "values may improve quality; larger windows can miss sources."
+                ),
             )
             controls["sam_chunk_overlap_seconds"] = gr.Number(
                 label="Overlap Seconds",
                 value=preset["chunk_overlap_seconds"],
                 precision=2,
+                minimum=0.0,
+                maximum=10.0,
+                info="Crossfades neighboring chunks; 1-2s is usually enough.",
             )
         with gr.Row():
             controls["sam_seed"] = gr.Number(label="Seed", value=99, precision=0)
