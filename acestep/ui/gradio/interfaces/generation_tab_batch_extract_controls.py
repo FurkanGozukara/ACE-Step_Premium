@@ -41,7 +41,8 @@ def build_batch_extract_controls() -> dict[str, Any]:
         batch_extract_status = gr.Textbox(
             label="Batch Extract Status",
             interactive=False,
-            lines=6,
+            lines=10,
+            max_lines=10,
         )
         batch_extract_cancel_confirmed_state = gr.State(value=False)
 

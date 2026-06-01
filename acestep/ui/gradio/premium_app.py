@@ -459,6 +459,11 @@ _PREMIUM_CSS = """
     opacity: 0.52 !important;
     pointer-events: none !important;
 }
+.ace-status-scroll-10,
+.ace-status-markdown {
+    max-height: calc(1.45em * 10 + 1rem) !important;
+    overflow-y: auto !important;
+}
 .gradio-container button[data-ace-command-button="true"] {
     background: var(--ace-btn-bg) !important;
     box-shadow: var(--ace-btn-shadow) !important;

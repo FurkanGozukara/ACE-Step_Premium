@@ -132,7 +132,12 @@ def create_results_section(dit_handler) -> dict:
         
         all_cols = cols_1_4 + cols_5_8
         
-        status_output = gr.Textbox(label=t("results.generation_status"), interactive=False)
+        status_output = gr.Textbox(
+            label=t("results.generation_status"),
+            interactive=False,
+            lines=3,
+            max_lines=10,
+        )
         
         # Batch navigation controls
         with gr.Row(equal_height=True):
@@ -148,7 +153,7 @@ def create_results_section(dit_handler) -> dict:
             )
             next_batch_status = gr.Textbox(
                 label=t("results.next_batch_status"),
-                value="", interactive=False, scale=3
+                value="", interactive=False, scale=3, lines=1, max_lines=10
             )
             next_batch_btn = gr.Button(
                 t("results.next_btn"),

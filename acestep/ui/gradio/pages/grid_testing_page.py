@@ -109,7 +109,8 @@ def create_grid_testing_page() -> dict[str, Any]:
             grid_status = gr.Textbox(
                 label="Grid Status",
                 value="Select LoRAs, adjust Generate Song settings, then generate a grid.",
-                lines=18,
+                lines=10,
+                max_lines=10,
                 interactive=False,
             )
             grid_cancel_confirmed_state = gr.State(value=False)

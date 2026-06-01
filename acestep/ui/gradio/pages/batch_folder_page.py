@@ -97,7 +97,8 @@ def create_batch_folder_page() -> dict[str, Any]:
                     "Select folders, adjust the main generation settings, "
                     "then process the folder."
                 ),
-                lines=18,
+                lines=10,
+                max_lines=10,
                 interactive=False,
             )
 

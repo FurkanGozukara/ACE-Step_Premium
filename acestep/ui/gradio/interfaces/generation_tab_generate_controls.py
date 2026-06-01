@@ -137,6 +137,8 @@ def build_generate_row_controls(
             inline_generation_status = gr.Textbox(
                 label=t("generation.inline_result_status_label"),
                 interactive=False,
+                lines=3,
+                max_lines=10,
             )
             batch_extract_controls = build_batch_extract_controls()
     return {

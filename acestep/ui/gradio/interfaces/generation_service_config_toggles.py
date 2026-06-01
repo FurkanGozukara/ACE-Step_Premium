@@ -148,6 +148,7 @@ def build_service_init_controls(service_pre_initialized: bool, params: dict[str,
         label=t("service.status_label"),
         interactive=False,
         lines=3,
+        max_lines=10,
         value=params.get("init_status", "") if service_pre_initialized else "",
     )
     return {"init_btn": init_btn, "init_status": init_status}

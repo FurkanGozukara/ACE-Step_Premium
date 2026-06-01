@@ -190,7 +190,10 @@ def create_audio_processing_page() -> dict[str, Any]:
                 interactive=False,
                 visible=False,
             )
-            controls["ap_single_status"] = gr.Markdown("Audio processing ready.")
+            controls["ap_single_status"] = gr.Markdown(
+                "Audio processing ready.",
+                elem_classes=["ace-status-scroll-10"],
+            )
 
         with gr.Row(equal_height=True):
             with gr.Column(scale=1):
@@ -233,7 +236,8 @@ def create_audio_processing_page() -> dict[str, Any]:
             controls["ap_batch_status"] = gr.Textbox(
                 label="Batch Status",
                 value="Select a folder and process supported audio/video files.",
-                lines=16,
+                lines=10,
+                max_lines=10,
                 interactive=False,
             )
     return controls

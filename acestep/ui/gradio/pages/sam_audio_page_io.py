@@ -100,7 +100,10 @@ def add_single_file_controls(controls: dict[str, Any]) -> None:
             interactive=False,
             visible=False,
         )
-        controls["sam_single_status"] = gr.Markdown("SAM Audio ready.")
+        controls["sam_single_status"] = gr.Markdown(
+            "SAM Audio ready.",
+            elem_classes=["ace-status-scroll-10"],
+        )
         controls["sam_cancel_confirmed_state"] = gr.State(value=False)
 
 
@@ -144,7 +147,8 @@ def add_batch_controls(controls: dict[str, Any]) -> None:
         controls["sam_batch_status"] = gr.Textbox(
             label="Batch Status",
             value="Select a folder and process supported audio/video files.",
-            lines=16,
+            lines=10,
+            max_lines=10,
             interactive=False,
         )
         controls["sam_batch_cancel_confirmed_state"] = gr.State(value=False)
