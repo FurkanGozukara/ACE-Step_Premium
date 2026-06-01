@@ -82,6 +82,26 @@ class ServiceLoadTests(unittest.TestCase):
         self.assertEqual(["cuda", "cpu"], devices)
         self.assertEqual([{"strict": True, "assign": True}, {"strict": True}], model.calls)
 
+    def test_load_checkpoint_into_model_can_skip_direct_cuda_load(self):
+        """Low-VRAM lite mode should keep checkpoint tensors on CPU before pruning."""
+
+        model = _AssignAwareModel()
+        with patch(
+            "acestep.sam_audio_segment.service.load_checkpoint",
+            return_value={"weight": torch.zeros(1)},
+        ) as load_checkpoint, patch("torch.cuda.empty_cache"):
+            _load_checkpoint_into_model(
+                model,
+                Path("SAM-Audio-Large-BF16.safetensors"),
+                torch.device("cuda"),
+                direct_device_load=False,
+            )
+
+        load_checkpoint.assert_called_once()
+        self.assertEqual("cpu", load_checkpoint.call_args.kwargs["device"])
+        self.assertFalse(model.assign)
+        self.assertTrue(model.strict)
+
     def test_set_local_ranker_map_location_updates_nested_judge_rankers(self):
         """Nested Judge rankers should load directly on the service device."""
 

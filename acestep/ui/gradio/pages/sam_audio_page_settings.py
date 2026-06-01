@@ -150,6 +150,11 @@ def _add_runtime_controls(controls: dict[str, Any]) -> None:
             choices=VRAM_PRESET_CHOICES,
             value=preset_name,
             label="VRAM Preset",
+            info=(
+                "32GB uses 4 candidates + Judge for highest quality. 24GB uses "
+                "2 candidates + Judge for high quality. 12GB/10GB use one "
+                "candidate with measured 10s GPU chunks. 8GB uses CPU-safe mode."
+            ),
         )
         with gr.Row():
             controls["sam_quantization"] = gr.Dropdown(
@@ -174,8 +179,8 @@ def _add_runtime_controls(controls: dict[str, Any]) -> None:
                 value=preset["reranking_candidates"],
                 label="Candidates",
                 info=(
-                    "Generates multiple separation candidates, then selects one. Higher "
-                    "values can improve quality but increase runtime and VRAM."
+                    "4 candidates is highest quality, 2 is high quality, and 1 is "
+                    "normal quality. Higher values increase runtime and VRAM."
                 ),
             )
             controls["sam_ranker_mode"] = gr.Dropdown(

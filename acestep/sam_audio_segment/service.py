@@ -111,9 +111,16 @@ class SamAudioService:
             0.12,
             f"Loading SAM-Audio checkpoint: {model_name}",
         )
-        _load_checkpoint_into_model(model, self.model_path, self.device)
         if self.settings.low_vram_lite:
+            _load_checkpoint_into_model(
+                model,
+                self.model_path,
+                self.device,
+                direct_device_load=False,
+            )
             apply_text_lite_mode(model)
+        else:
+            _load_checkpoint_into_model(model, self.model_path, self.device)
         report_progress(
             self.progress_callback,
             0.18,
@@ -315,10 +322,12 @@ def _load_checkpoint_into_model(
     model: torch.nn.Module,
     path: Path,
     device: torch.device,
+    *,
+    direct_device_load: bool = True,
 ) -> None:
-    """Load a SAM-Audio checkpoint, assigning CUDA safetensors directly when possible."""
+    """Load a SAM-Audio checkpoint, optionally assigning CUDA safetensors directly."""
 
-    load_device = _checkpoint_load_device(path, device)
+    load_device = _checkpoint_load_device(path, device, direct_device_load)
     state_dict: dict[str, torch.Tensor] | None = None
     try:
         state_dict = load_checkpoint(path, device=load_device)
@@ -343,10 +352,18 @@ def _load_checkpoint_into_model(
     )
 
 
-def _checkpoint_load_device(path: Path, device: torch.device) -> str:
+def _checkpoint_load_device(
+    path: Path,
+    device: torch.device,
+    direct_device_load: bool,
+) -> str:
     """Return direct checkpoint load device for safetensors on CUDA."""
 
-    if device.type == "cuda" and path.suffix.lower() == ".safetensors":
+    if (
+        direct_device_load
+        and device.type == "cuda"
+        and path.suffix.lower() == ".safetensors"
+    ):
         return str(device)
     return "cpu"
 
