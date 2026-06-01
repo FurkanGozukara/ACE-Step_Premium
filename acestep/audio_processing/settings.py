@@ -5,6 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from .auto_editor_trim_settings import (
+    AUTO_EDITOR_MARGIN_DEFAULT_SECONDS,
+    AUTO_EDITOR_MINCLIP_DEFAULT,
+    AUTO_EDITOR_MINCUT_DEFAULT,
+    AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
+    AutoEditorTrimSettings,
+    coerce_auto_editor_margin_seconds,
+    coerce_auto_editor_smooth_value,
+    coerce_auto_editor_threshold_db,
+)
 from .presets import (
     DEFAULT_STAGE_VALUES,
     OUTPUT_FORMAT_CHOICES,
@@ -16,30 +26,33 @@ UI_SETTING_KEYS: tuple[str, ...] = (
     "ap_auto_postprocess",
     "ap_preserve_original",
     "ap_output_format",
+    "ap_trim_empty_output",
+    "ap_trim_threshold_db",
+    "ap_trim_margin_seconds",
+    "ap_trim_mincut",
+    "ap_trim_minclip",
     "ap_builtin_preset",
     *tuple(item for key in STAGE_KEYS for item in (f"ap_{key}_enabled", f"ap_{key}")),
 )
 
+AUDIO_PROCESSING_DEFAULT_TRIM_THRESHOLD_DB = AUTO_EDITOR_THRESHOLD_DEFAULT_DB
+AUDIO_PROCESSING_DEFAULT_TRIM_MARGIN_SECONDS = AUTO_EDITOR_MARGIN_DEFAULT_SECONDS
+AUDIO_PROCESSING_DEFAULT_TRIM_MINCUT = AUTO_EDITOR_MINCUT_DEFAULT
+AUDIO_PROCESSING_DEFAULT_TRIM_MINCLIP = AUTO_EDITOR_MINCLIP_DEFAULT
+
 
 @dataclass(frozen=True)
 class AudioProcessingSettings:
-    """Container for stage settings used by manual and generated-song processing.
-
-    Args:
-        enabled: Whether generated-song post-processing is active.
-        preserve_original: Whether original generated files remain beside processed output.
-        output_format: Output format for processed audio.
-        preset: Name of the selected built-in preset.
-        stages_enabled: Per-stage enabled flags keyed by stage name.
-        values: Per-stage numeric values keyed by stage name.
-
-    Returns:
-        Immutable settings object with normalized stage values.
-    """
+    """Normalized manual and generated-song audio-processing settings."""
 
     enabled: bool = False
     preserve_original: bool = True
     output_format: str = "wav"
+    trim_empty_output: bool = False
+    trim_threshold_db: float = AUDIO_PROCESSING_DEFAULT_TRIM_THRESHOLD_DB
+    trim_margin_seconds: float = AUDIO_PROCESSING_DEFAULT_TRIM_MARGIN_SECONDS
+    trim_mincut: int = AUDIO_PROCESSING_DEFAULT_TRIM_MINCUT
+    trim_minclip: int = AUDIO_PROCESSING_DEFAULT_TRIM_MINCLIP
     preset: str = "Generic AI"
     stages_enabled: dict[str, bool] = field(
         default_factory=lambda: {key: True for key in STAGE_KEYS}
@@ -48,25 +61,37 @@ class AudioProcessingSettings:
 
     def stage_enabled(self, key: str) -> bool:
         """Return whether a processing stage should run."""
-
         return bool(self.stages_enabled.get(key, True))
 
     def stage_value(self, key: str) -> float:
         """Return a normalized numeric value for a processing stage."""
-
         return float(self.values.get(key, DEFAULT_STAGE_VALUES[key]))
 
     def to_payload(self) -> dict[str, Any]:
         """Return a JSON-safe settings payload."""
-
         return {
             "enabled": self.enabled,
             "preserve_original": self.preserve_original,
             "output_format": self.output_format,
+            "trim_empty_output": self.trim_empty_output,
+            "trim_threshold_db": self.trim_threshold_db,
+            "trim_margin_seconds": self.trim_margin_seconds,
+            "trim_mincut": self.trim_mincut,
+            "trim_minclip": self.trim_minclip,
             "preset": self.preset,
             "stages_enabled": dict(self.stages_enabled),
             "values": dict(self.values),
         }
+
+    def trim_settings(self) -> AutoEditorTrimSettings:
+        """Return auto-editor settings for optional trimming."""
+
+        return AutoEditorTrimSettings(
+            threshold_db=self.trim_threshold_db,
+            margin_seconds=self.trim_margin_seconds,
+            mincut=self.trim_mincut,
+            minclip=self.trim_minclip,
+        )
 
     @classmethod
     def from_payload(cls, payload: Any) -> "AudioProcessingSettings":
@@ -80,6 +105,21 @@ class AudioProcessingSettings:
             enabled=bool(payload.get("enabled", False)),
             preserve_original=bool(payload.get("preserve_original", True)),
             output_format=_coerce_output_format(payload.get("output_format")),
+            trim_empty_output=bool(payload.get("trim_empty_output", False)),
+            trim_threshold_db=coerce_auto_editor_threshold_db(
+                payload.get("trim_threshold_db")
+            ),
+            trim_margin_seconds=coerce_auto_editor_margin_seconds(
+                payload.get("trim_margin_seconds")
+            ),
+            trim_mincut=coerce_auto_editor_smooth_value(
+                payload.get("trim_mincut"),
+                AUDIO_PROCESSING_DEFAULT_TRIM_MINCUT,
+            ),
+            trim_minclip=coerce_auto_editor_smooth_value(
+                payload.get("trim_minclip"),
+                AUDIO_PROCESSING_DEFAULT_TRIM_MINCLIP,
+            ),
             preset=str(payload.get("preset") or "Generic AI"),
             stages_enabled=enabled,
             values=values,
@@ -88,7 +128,6 @@ class AudioProcessingSettings:
 
 def preset_values(name: str | None) -> dict[str, float]:
     """Return stage values for a built-in preset name."""
-
     return dict(PRESET_VALUES.get(str(name or ""), DEFAULT_STAGE_VALUES))
 
 
@@ -100,6 +139,21 @@ def settings_from_ui_values(values: tuple[Any, ...] | list[Any]) -> AudioProcess
         enabled=bool(payload.get("ap_auto_postprocess")),
         preserve_original=bool(payload.get("ap_preserve_original", True)),
         output_format=_coerce_output_format(payload.get("ap_output_format")),
+        trim_empty_output=bool(payload.get("ap_trim_empty_output", False)),
+        trim_threshold_db=coerce_auto_editor_threshold_db(
+            payload.get("ap_trim_threshold_db")
+        ),
+        trim_margin_seconds=coerce_auto_editor_margin_seconds(
+            payload.get("ap_trim_margin_seconds")
+        ),
+        trim_mincut=coerce_auto_editor_smooth_value(
+            payload.get("ap_trim_mincut"),
+            AUDIO_PROCESSING_DEFAULT_TRIM_MINCUT,
+        ),
+        trim_minclip=coerce_auto_editor_smooth_value(
+            payload.get("ap_trim_minclip"),
+            AUDIO_PROCESSING_DEFAULT_TRIM_MINCLIP,
+        ),
         preset=str(payload.get("ap_builtin_preset") or "Generic AI"),
         stages_enabled={
             key: bool(payload.get(f"ap_{key}_enabled", True)) for key in STAGE_KEYS
@@ -113,7 +167,6 @@ def settings_from_ui_values(values: tuple[Any, ...] | list[Any]) -> AudioProcess
 
 def _coerce_output_format(value: Any) -> str:
     """Return a supported processed-audio output format."""
-
     normalized = str(value or "wav").strip().lower()
     return normalized if normalized in {"wav", "flac", "mp3"} else "wav"
 

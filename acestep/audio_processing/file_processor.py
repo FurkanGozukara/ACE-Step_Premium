@@ -150,6 +150,7 @@ def _write_metadata(
                 "lufs_before": processed.lufs_before,
                 "lufs_after": processed.lufs_after,
             },
+            "trim": processed.trim_metadata,
             "outputs": {
                 "audio_path": audio_path,
                 "video_path": video_path,

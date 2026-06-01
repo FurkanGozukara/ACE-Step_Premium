@@ -76,6 +76,7 @@ class DecompositionContractGenerationTests(unittest.TestCase):
         self.assertIn("register_generation_metadata_handlers", call_names)
         self.assertIn("register_generation_mode_handlers", call_names)
         self.assertIn("register_generation_run_handlers", call_names)
+        self.assertIn("register_generation_batch_extract_handlers", call_names)
         self.assertIn("register_results_aux_handlers", call_names)
         self.assertIn("register_results_save_button_handlers", call_names)
         self.assertIn("register_results_restore_and_lrc_handlers", call_names)

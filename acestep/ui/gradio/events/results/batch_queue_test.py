@@ -233,6 +233,7 @@ class CaptureCurrentParamsTests(unittest.TestCase):
             "auto_score", "auto_lrc", "score_scale", "lm_batch_chunk_size",
             "track_name", "complete_track_classes", "enable_normalization",
             "normalization_db", "fade_in_duration", "fade_out_duration",
+            "extract_trim_empty_output", "extract_trim_threshold_db",
             "latent_shift", "latent_rescale", "repaint_mode", "repaint_strength",
         ]
         defaults = {f: None for f in fields}
@@ -270,6 +271,16 @@ class CaptureCurrentParamsTests(unittest.TestCase):
         args = self._build_args(no_fsq=True)
         result = capture_current_params(*args)
         self.assertTrue(result["no_fsq"])
+
+    def test_capture_preserves_extract_trim_controls(self):
+        """Extract trim controls must be captured for queued batch generation."""
+        args = self._build_args(
+            extract_trim_empty_output=True,
+            extract_trim_threshold_db=-42.0,
+        )
+        result = capture_current_params(*args)
+        self.assertTrue(result["extract_trim_empty_output"])
+        self.assertEqual(result["extract_trim_threshold_db"], -42.0)
 
 
 if __name__ == "__main__":

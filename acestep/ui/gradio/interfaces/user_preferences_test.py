@@ -67,6 +67,8 @@ class SaveScriptTests(unittest.TestCase):
             "acestep-normalization-db",
             "acestep-fade-in-duration",
             "acestep-fade-out-duration",
+            "acestep-extract-trim-empty-output",
+            "acestep-extract-trim-threshold-db",
             "acestep-latent-shift",
             "acestep-latent-rescale",
             "acestep-lm-batch-chunk-size",
@@ -164,15 +166,33 @@ class RestoreTests(unittest.TestCase):
 
     def test_restore_preferences_passes_through_values(self):
         """Non-None values are passed through unchanged."""
-        values = ("flac", "320k", 44100, 0.8, False, -3.0, 0.5, 1.0, 0.05, 0.95, 4, True)
+        values = (
+            "flac", "320k", 44100, 0.8, False, -3.0, 0.5, 1.0,
+            True, -45.0, 0.05, 0.95, 4, True,
+        )
         result = restore_preferences(*values)
-        # First 11 values are direct pass-through, last is visibility.
         for i in range(len(PREF_KEYS)):
             self.assertEqual(result[i], values[i])
 
+    def test_restore_preferences_clamps_extract_trim_threshold(self):
+        """Saved browser trim preferences should stay within the UI range."""
+
+        values = list((None,) * len(PREF_KEYS))
+        threshold_index = PREF_KEYS.index("extract_trim_threshold_db")
+        values[threshold_index] = 120.0
+
+        result = restore_preferences(*values)
+
+        self.assertEqual(0.0, result[threshold_index])
+
+        values[threshold_index] = -120.0
+        result = restore_preferences(*values)
+
+        self.assertEqual(-100.0, result[threshold_index])
+
     def test_restore_preferences_converts_none_to_gr_update(self):
         """None values from JS should become gr.update() (no-op)."""
-        values = (None, None, None, None, None, None, None, None, None, None, None, None)
+        values = (None,) * (len(PREF_KEYS) + 1)
         result = restore_preferences(*values)
         for v in result:
             self.assertIsInstance(v, dict, "None should be converted to gr.update()")
@@ -181,21 +201,24 @@ class RestoreTests(unittest.TestCase):
     def test_restore_preferences_converts_visibility_bools(self):
         """The trailing booleans for mp3 controls should become
         gr.update(visible=...) not raw bools."""
-        # 11 pref values + 3 mp3 visibility bools
-        values = ("mp3", "128k", 48000, 0.5, True, -1.0, 0.0, 0.0, 0.0, 1.0, 8, True, True, True)
+        values = (
+            "mp3", "128k", 48000, 0.5, True, -1.0, 0.0, 0.0,
+            False, -50.0, 0.0, 1.0, 8, True, True, True,
+        )
         result = restore_preferences(*values)
-        # mp3_controls_row (index 11): visible only
-        row_update = result[11]
+        row_index = len(PREF_KEYS)
+        # mp3_controls_row: visible only
+        row_update = result[row_index]
         self.assertIsInstance(row_update, dict)
         self.assertTrue(row_update["visible"])
         self.assertNotIn("interactive", row_update)
-        # mp3_bitrate (index 12): visible + interactive
-        bitrate_update = result[12]
+        # mp3_bitrate: visible + interactive
+        bitrate_update = result[row_index + 1]
         self.assertIsInstance(bitrate_update, dict)
         self.assertTrue(bitrate_update["visible"])
         self.assertTrue(bitrate_update["interactive"])
-        # mp3_sample_rate (index 13): visible + interactive
-        sr_update = result[13]
+        # mp3_sample_rate: visible + interactive
+        sr_update = result[row_index + 2]
         self.assertIsInstance(sr_update, dict)
         self.assertTrue(sr_update["visible"])
         self.assertTrue(sr_update["interactive"])

@@ -13,6 +13,7 @@ import gradio as gr
 from loguru import logger
 
 from acestep.audio_processing.generated_postprocess import postprocess_generated_sample
+from acestep.audio_processing.silence_trim import trim_silent_edges
 from acestep.audio_processing.settings import AudioProcessingSettings
 from acestep.sam_audio_segment.generated_postprocess import (
     postprocess_generated_sample as postprocess_generated_sam_audio,
@@ -97,6 +98,8 @@ def generate_with_progress(
     flow_edit_n_max=1.0,
     flow_edit_n_avg=1,
     generate_lm_audio_codes=None,
+    extract_trim_empty_output=False,
+    extract_trim_threshold_db=-40.0,
     audio_processing_settings=None,
     sam_audio_settings=None,
     progress=gr.Progress(track_tqdm=True),
@@ -361,6 +364,8 @@ def generate_with_progress(
         flow_edit_n_min=flow_edit_n_min,
         flow_edit_n_max=flow_edit_n_max,
         flow_edit_n_avg=flow_edit_n_avg,
+        extract_trim_empty_output=extract_trim_empty_output,
+        extract_trim_threshold_db=extract_trim_threshold_db,
         audio_processing_settings=ap_settings.to_payload(),
         sam_audio_settings=sam_settings.to_payload(),
         gen_params=gen_params,
@@ -445,6 +450,14 @@ def generate_with_progress(
         audio_tensor = dit_audio["tensor"]
         sample_rate = dit_audio["sample_rate"]
         audio_params = dit_audio["params"]
+        audio_tensor, extract_trim_metadata = _trim_extract_audio(
+            audio_tensor,
+            sample_rate=sample_rate,
+            task_type=task_type,
+            enabled=extract_trim_empty_output,
+            threshold_db=extract_trim_threshold_db,
+        )
+        audio_params["extract_trim"] = extract_trim_metadata
 
         temp_dir = str(run_dir.resolve()).replace("\\", "/")
         json_path = os.path.join(temp_dir, f"{key}.json").replace("\\", "/")
@@ -819,6 +832,8 @@ def _build_request_payload(
     flow_edit_n_min,
     flow_edit_n_max,
     flow_edit_n_avg,
+    extract_trim_empty_output,
+    extract_trim_threshold_db,
     audio_processing_settings,
     sam_audio_settings,
     gen_params,
@@ -911,6 +926,8 @@ def _build_request_payload(
         "flow_edit_n_min": flow_edit_n_min,
         "flow_edit_n_max": flow_edit_n_max,
         "flow_edit_n_avg": flow_edit_n_avg,
+        "extract_trim_empty_output": extract_trim_empty_output,
+        "extract_trim_threshold_db": extract_trim_threshold_db,
         "audio_processing_settings": audio_processing_settings,
         "sam_audio_settings": sam_audio_settings,
         "generation_params": vars(gen_params),
@@ -967,6 +984,30 @@ def _sam_audio_settings(raw_settings):
     if isinstance(raw_settings, SamAudioSettings):
         return raw_settings
     return SamAudioSettings.from_payload(raw_settings)
+
+
+def _trim_extract_audio(audio_tensor, *, sample_rate, task_type, enabled, threshold_db):
+    """Return trimmed ACE-Step Extract audio plus metadata."""
+
+    normalized_task_type = str(task_type or "").strip()
+    should_trim = bool(enabled) and normalized_task_type == "extract"
+    if not should_trim:
+        return audio_tensor, {
+            "enabled": bool(enabled),
+            "applied": False,
+            "reason": "disabled" if not enabled else "non_extract_task",
+            "mode": "auto_editor",
+            "task_type": normalized_task_type,
+        }
+
+    trim_result = trim_silent_edges(
+        audio_tensor,
+        sample_rate=int(sample_rate or 48000),
+        enabled=True,
+    )
+    metadata = dict(trim_result.metadata)
+    metadata["task_type"] = normalized_task_type
+    return trim_result.audio, metadata
 
 
 def _postprocessed_audio_paths(original_paths, processed_path, settings):

@@ -22,6 +22,16 @@ class AudioProcessingSettingsTests(unittest.TestCase):
                 values.append(False)
             elif key == "ap_output_format":
                 values.append("flac")
+            elif key == "ap_trim_empty_output":
+                values.append(True)
+            elif key == "ap_trim_threshold_db":
+                values.append(-45.0)
+            elif key == "ap_trim_margin_seconds":
+                values.append(0.3)
+            elif key == "ap_trim_mincut":
+                values.append(20)
+            elif key == "ap_trim_minclip":
+                values.append(4)
             elif key == "ap_builtin_preset":
                 values.append("Suno")
             elif key.endswith("_enabled"):
@@ -34,9 +44,36 @@ class AudioProcessingSettingsTests(unittest.TestCase):
         self.assertTrue(settings.enabled)
         self.assertFalse(settings.preserve_original)
         self.assertEqual("flac", settings.output_format)
+        self.assertTrue(settings.trim_empty_output)
+        self.assertEqual(-45.0, settings.trim_threshold_db)
+        self.assertEqual(0.3, settings.trim_margin_seconds)
+        self.assertEqual(20, settings.trim_mincut)
+        self.assertEqual(4, settings.trim_minclip)
         self.assertFalse(settings.stage_enabled("noise"))
         self.assertEqual(-16.0, settings.stage_value("lufs"))
         self.assertEqual(set(STAGE_KEYS), set(settings.values))
+
+    def test_trim_threshold_is_clamped_to_supported_range(self) -> None:
+        """Saved Audio Processing trim thresholds use the shared trim range."""
+
+        values = []
+        for key in UI_SETTING_KEYS:
+            if key == "ap_trim_threshold_db":
+                values.append(120.0)
+            else:
+                values.append(None)
+
+        settings = settings_from_ui_values(values)
+
+        self.assertEqual(0.0, settings.trim_threshold_db)
+
+        for index, key in enumerate(UI_SETTING_KEYS):
+            if key == "ap_trim_threshold_db":
+                values[index] = -120.0
+
+        settings = settings_from_ui_values(values)
+
+        self.assertEqual(-100.0, settings.trim_threshold_db)
 
 
 if __name__ == "__main__":

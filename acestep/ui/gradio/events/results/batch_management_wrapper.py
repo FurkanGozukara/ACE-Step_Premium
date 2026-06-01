@@ -412,6 +412,8 @@ def _generate_with_batch_management_impl(
     use_lora_checkbox,
     lora_scale_slider,
     generate_lm_audio_codes=None,
+    extract_trim_empty_output=False,
+    extract_trim_threshold_db=-40.0,
     *audio_processing_value_args,
     progress=gr.Progress(track_tqdm=True),
     audio_processing_values=None,
@@ -498,6 +500,8 @@ def _generate_with_batch_management_impl(
         lora_scale=lora_scale_slider,
         use_lora=bool(resolve_effective_lora_path(lora_path, lora_dropdown)),
         generate_lm_audio_codes=generate_lm_audio_codes,
+        extract_trim_empty_output=extract_trim_empty_output,
+        extract_trim_threshold_db=extract_trim_threshold_db,
         audio_processing_settings=(
             audio_processing_settings_from_ui_values(resolved_ap_values).to_payload()
         ),
@@ -726,6 +730,8 @@ def _generate_with_batch_management_impl(
         flow_edit_morph, flow_edit_source_caption, flow_edit_source_lyrics,
         flow_edit_n_min, flow_edit_n_max, flow_edit_n_avg,
         generate_lm_audio_codes,
+        extract_trim_empty_output,
+        extract_trim_threshold_db,
         audio_processing_settings=saved_params.get("audio_processing_settings"),
         sam_audio_settings=saved_params.get("sam_audio_settings"),
         progress=progress,

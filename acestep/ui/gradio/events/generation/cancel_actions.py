@@ -20,6 +20,11 @@ CANCEL_REQUESTED_STATUS = (
 )
 NO_ACTIVE_GENERATION_STATUS = "No active subprocess generation is currently running."
 SUBPROCESS_MODE_DISABLED_STATUS = "Subprocess mode is off. Nothing was cancelled."
+BATCH_CANCEL_REQUESTED_STATUS = (
+    "Batch cancellation requested. The current file will stop at the next safe checkpoint, "
+    "and remaining files will not start."
+)
+NO_ACTIVE_BATCH_STATUS = "No active generation or batch is currently running."
 
 
 def request_generation_cancel_from_ui(
@@ -55,3 +60,16 @@ def request_generation_cancel_pair_from_ui(
 
     status = request_generation_cancel_from_ui(confirmed, subprocess_mode_enabled)
     return status, status
+
+
+def request_full_generation_cancel_from_ui(confirmed: bool) -> str | Any:
+    """Request cancellation for active foreground or subprocess generation work."""
+
+    if not confirmed:
+        return gr.skip()
+    had_active_work = request_generation_cancel()
+    if not had_active_work:
+        logger.info("[generation_cancel] Batch cancel requested, but no generation is active.")
+        return NO_ACTIVE_BATCH_STATUS
+    logger.info("[generation_cancel] Full generation cancellation requested from UI.")
+    return BATCH_CANCEL_REQUESTED_STATUS

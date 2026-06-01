@@ -8,10 +8,13 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import soundfile as sf
+import torch
 
+from acestep.audio_processing.auto_editor_trim import SilenceTrimResult
 from acestep.audio_processing.file_processor import process_media_file
 from acestep.audio_processing.settings import AudioProcessingSettings
 
@@ -34,6 +37,33 @@ class AudioProcessingFileProcessorTests(unittest.TestCase):
             payload = json.loads(Path(result.metadata_path).read_text(encoding="utf-8"))
             self.assertEqual(str(source.resolve()).replace("\\", "/"), payload["_meta"]["source_path"])
             self.assertIn("lufs_after", payload["metrics"])
+            self.assertFalse(payload["trim"]["applied"])
+
+    def test_process_wav_can_trim_silent_edges(self) -> None:
+        """Audio Processing trim should shorten existing audio files when enabled."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "source.wav"
+            output = Path(temp_dir) / "out"
+            _write_padded_wav(source)
+
+            trimmed = torch.full((2, 24000), 0.2, dtype=torch.float32)
+            metadata = {"enabled": True, "applied": True, "reason": "auto_editor_trimmed"}
+            with patch(
+                "acestep.audio_processing.pipeline.trim_silent_edges",
+                return_value=SilenceTrimResult(trimmed, metadata),
+            ):
+                result = process_media_file(
+                    source,
+                    output,
+                    AudioProcessingSettings(trim_empty_output=True),
+                )
+
+            info = sf.info(result.audio_path)
+            payload = json.loads(Path(result.metadata_path).read_text(encoding="utf-8"))
+            self.assertLess(info.duration, 1.0)
+            self.assertTrue(payload["trim"]["applied"])
+            self.assertEqual("auto_editor_trimmed", payload["trim"]["reason"])
 
     @unittest.skipUnless(shutil.which("ffmpeg"), "ffmpeg is required for video processing")
     def test_process_video_writes_muxed_video(self) -> None:
@@ -63,6 +93,14 @@ def _write_test_wav(path: Path, sample_rate: int = 48000) -> None:
         axis=1,
     ).astype(np.float32)
     sf.write(path, audio, sample_rate)
+
+
+def _write_padded_wav(path: Path, sample_rate: int = 48000) -> None:
+    """Write a test WAV with silent leading and trailing edges."""
+
+    silence = np.zeros((sample_rate // 4, 2), dtype=np.float32)
+    tone = np.full((sample_rate // 2, 2), 0.2, dtype=np.float32)
+    sf.write(path, np.concatenate([silence, tone, silence], axis=0), sample_rate)
 
 
 def _write_test_video(path: Path) -> None:

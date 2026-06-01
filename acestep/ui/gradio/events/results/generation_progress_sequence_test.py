@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from acestep.audio_processing.auto_editor_trim import SilenceTrimResult
 from acestep.ui.gradio.events.generation.generation_count import (
     normalize_generation_count,
     seed_for_generation_index,
@@ -75,6 +76,18 @@ def _fake_result(seed_value: str):
             "lm_metadata": {"seed": seed_value},
         },
     )
+
+
+def _fake_tensor_result(seed_value: str):
+    """Return a successful generation result with trimmable tensor audio."""
+
+    import torch
+
+    tensor = torch.zeros(1, 8)
+    tensor[:, 2:6] = 0.25
+    result = _fake_result(seed_value)
+    result.audios[0]["tensor"] = tensor
+    return result
 
 
 class SequentialGenerationCountTests(unittest.TestCase):
@@ -159,7 +172,61 @@ class SequentialGenerationCountTests(unittest.TestCase):
         self.assertEqual(final[11], "901, 902")
         self.assertEqual(final[47][:2], ["code-901", "code-902"])
 
-    def _run_generation(self, tmp: str, fake_generate_music, **overrides):
+    def test_extract_trim_shortens_saved_tensor_and_metadata(self):
+        """Extract trim should modify saved audio tensors and sidecar metadata."""
+
+        saved_shapes = []
+        json_payloads = []
+
+        def fake_generate_music(_dit_handler, _llm_handler, *, params, config, progress):
+            return _fake_tensor_result(str(config.seeds[0]))
+
+        def fake_save_audio(audio_data, output_path, **_kwargs):
+            saved_shapes.append(tuple(audio_data.shape))
+            return output_path
+
+        def fake_write_json(_path, payload):
+            json_payloads.append(payload)
+            return str(_path)
+
+        def fake_trim(audio_tensor, **_kwargs):
+            metadata = {
+                "enabled": True,
+                "applied": True,
+                "reason": "auto_editor_trimmed",
+                "segments": [{"start_sample": 2, "end_sample": 6}],
+            }
+            return SilenceTrimResult(audio_tensor[:, 2:6], metadata)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch(
+                "acestep.ui.gradio.events.results.generation_progress.trim_silent_edges",
+                side_effect=fake_trim,
+            ):
+                self._run_generation(
+                    tmp,
+                    fake_generate_music,
+                    task_type="extract",
+                    extract_trim_empty_output=True,
+                    extract_trim_threshold_db=-40.0,
+                    save_audio_side_effect=fake_save_audio,
+                    write_json_side_effect=fake_write_json,
+                )
+
+        self.assertEqual([(1, 4)], saved_shapes)
+        sample_sidecar = next(payload for payload in json_payloads if "extract_trim" in payload)
+        self.assertTrue(sample_sidecar["extract_trim"]["applied"])
+        self.assertEqual(2, sample_sidecar["extract_trim"]["segments"][0]["start_sample"])
+        self.assertEqual(6, sample_sidecar["extract_trim"]["segments"][0]["end_sample"])
+
+    def _run_generation(
+        self,
+        tmp: str,
+        fake_generate_music,
+        save_audio_side_effect=None,
+        write_json_side_effect=None,
+        **overrides,
+    ):
         """Run ``generate_with_progress`` with filesystem and audio writes mocked."""
 
         gpu_config = SimpleNamespace(
@@ -168,14 +235,16 @@ class SequentialGenerationCountTests(unittest.TestCase):
             max_duration_without_lm=600,
             gpu_memory_gb=24.0,
         )
+        save_side_effect = save_audio_side_effect or (lambda output_path, **_kwargs: output_path)
+        write_json_effect = write_json_side_effect or (lambda *_args, **_kwargs: None)
         patches = [
             patch.object(generation_progress, "get_global_gpu_config", return_value=gpu_config),
             patch.object(generation_progress, "check_duration_limit", return_value=(True, "")),
             patch.object(generation_progress, "create_generation_run_dir", return_value=Path(tmp)),
             patch.object(generation_progress, "persist_generation_inputs", return_value={}),
             patch.object(generation_progress, "build_generation_manifest", return_value=str(Path(tmp) / "manifest.json")),
-            patch.object(generation_progress, "write_json"),
-            patch("acestep.audio_utils.save_audio", side_effect=lambda output_path, **_kwargs: output_path),
+            patch.object(generation_progress, "write_json", side_effect=write_json_effect),
+            patch("acestep.audio_utils.save_audio", side_effect=save_side_effect),
             patch("acestep.inference.generate_music", side_effect=fake_generate_music),
         ]
         with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patches[7]:

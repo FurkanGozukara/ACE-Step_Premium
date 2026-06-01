@@ -78,6 +78,7 @@ def single_status(artifacts: dict[str, Any], cleanup_status: str) -> str:
             f"- Extracted audio: `{artifacts.get('target_audio_path')}`",
             f"- Remaining audio: `{artifacts.get('residual_audio_path') or 'None'}`",
             f"- Extracted video: `{artifacts.get('target_video_path') or 'None'}`",
+            f"- Trim: `{_trim_label(metadata)}`",
             f"- Metadata: `{artifacts.get('metadata_path')}`",
         ]
     )
@@ -105,6 +106,29 @@ def _model_label(metadata: dict[str, Any]) -> str:
     name = Path(path).name if path else "Unknown"
     dtype = str(model.get("dtype") or "").replace("torch.", "")
     return f"{name} ({dtype})" if dtype else name
+
+
+def _trim_label(metadata: dict[str, Any]) -> str:
+    """Return a compact trim summary from saved SAM-Audio metadata."""
+
+    trim = metadata.get("trim") if isinstance(metadata, dict) else None
+    if not isinstance(trim, dict) or not trim.get("enabled"):
+        return "disabled"
+    original = _format_seconds(trim.get("original_duration_seconds"))
+    trimmed = _format_seconds(trim.get("trimmed_duration_seconds"))
+    reason = str(trim.get("reason") or "unchanged")
+    if trim.get("applied"):
+        return f"applied ({original}s -> {trimmed}s, {reason})"
+    return f"not applied ({reason})"
+
+
+def _format_seconds(value: Any) -> str:
+    """Return a short seconds string for status labels."""
+
+    try:
+        return f"{float(value):.2f}"
+    except (TypeError, ValueError):
+        return "?"
 
 
 def request_sam_audio_cancel_from_ui(

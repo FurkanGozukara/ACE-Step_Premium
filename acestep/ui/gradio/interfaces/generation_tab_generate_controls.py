@@ -6,6 +6,7 @@ import gradio as gr
 
 from acestep.gpu_config import get_global_gpu_config
 from acestep.ui.gradio.i18n import t
+from .generation_tab_batch_extract_controls import build_batch_extract_controls
 
 
 def _build_left_generate_toggles(
@@ -93,7 +94,9 @@ def build_generate_row_controls(
     """
 
     params = init_params or {}
-    generate_btn_interactive = params.get("enable_generate", True) if service_pre_initialized else True
+    generate_btn_interactive = (
+        params.get("enable_generate", True) if service_pre_initialized else True
+    )
     with gr.Column(visible=True) as generate_btn_row:
         with gr.Row(equal_height=True) as runtime_options_row:
             think_checkbox, auto_score = _build_left_generate_toggles(
@@ -135,6 +138,7 @@ def build_generate_row_controls(
                 label=t("generation.inline_result_status_label"),
                 interactive=False,
             )
+            batch_extract_controls = build_batch_extract_controls()
     return {
         "think_checkbox": think_checkbox,
         "auto_score": auto_score,
@@ -147,4 +151,5 @@ def build_generate_row_controls(
         "auto_lrc": auto_lrc,
         "inline_generated_audio": inline_generated_audio,
         "inline_generation_status": inline_generation_status,
+        **batch_extract_controls,
     }

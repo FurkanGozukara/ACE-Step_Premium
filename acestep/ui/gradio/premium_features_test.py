@@ -102,6 +102,147 @@ class PremiumFeaturesTests(unittest.TestCase):
             DEFAULT_TURBO_DIT_MODEL,
         )
 
+    def test_user_preset_saves_and_loads_sam_trim_controls(self) -> None:
+        """SAM-Audio trim checkbox and threshold should round-trip through presets."""
+
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            values[keys.index("sam_trim_empty_output")] = True
+            values[keys.index("sam_trim_threshold_db")] = -42.0
+            try:
+                premium_features.save_preset_action("sam trim", None, *values)
+                loaded = premium_features.load_named_preset("sam trim")
+                updates = premium_features.load_preset_action("sam trim")
+            finally:
+                self._restore_project_root(original)
+
+        self.assertTrue(loaded["sam_trim_empty_output"])
+        self.assertEqual(-42.0, loaded["sam_trim_threshold_db"])
+        self.assertTrue(updates[keys.index("sam_trim_empty_output")].get("value"))
+        self.assertEqual(
+            -42.0,
+            updates[keys.index("sam_trim_threshold_db")].get("value"),
+        )
+
+    def test_user_preset_saves_and_loads_extract_trim_controls(self) -> None:
+        """ACE-Step Extract trim controls should round-trip through presets."""
+
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            values[keys.index("extract_trim_empty_output")] = True
+            values[keys.index("extract_trim_threshold_db")] = -44.0
+            try:
+                premium_features.save_preset_action("extract trim", None, *values)
+                loaded = premium_features.load_named_preset("extract trim")
+                updates = premium_features.load_preset_action("extract trim")
+            finally:
+                self._restore_project_root(original)
+
+        self.assertTrue(loaded["extract_trim_empty_output"])
+        self.assertEqual(-44.0, loaded["extract_trim_threshold_db"])
+        self.assertTrue(updates[keys.index("extract_trim_empty_output")].get("value"))
+        self.assertEqual(
+            -44.0,
+            updates[keys.index("extract_trim_threshold_db")].get("value"),
+        )
+
+    def test_user_preset_saves_and_loads_audio_processing_trim_controls(self) -> None:
+        """Audio Processing trim controls should round-trip through presets."""
+
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            values[keys.index("ap_trim_empty_output")] = True
+            values[keys.index("ap_trim_threshold_db")] = -46.0
+            values[keys.index("ap_trim_margin_seconds")] = 0.3
+            values[keys.index("ap_trim_mincut")] = 20
+            values[keys.index("ap_trim_minclip")] = 4
+            try:
+                premium_features.save_preset_action("ap trim", None, *values)
+                loaded = premium_features.load_named_preset("ap trim")
+                updates = premium_features.load_preset_action("ap trim")
+            finally:
+                self._restore_project_root(original)
+
+        self.assertTrue(loaded["ap_trim_empty_output"])
+        self.assertEqual(-46.0, loaded["ap_trim_threshold_db"])
+        self.assertEqual(0.3, loaded["ap_trim_margin_seconds"])
+        self.assertEqual(20, loaded["ap_trim_mincut"])
+        self.assertEqual(4, loaded["ap_trim_minclip"])
+        self.assertTrue(updates[keys.index("ap_trim_empty_output")].get("value"))
+        self.assertEqual(
+            -46.0,
+            updates[keys.index("ap_trim_threshold_db")].get("value"),
+        )
+        self.assertEqual(
+            0.3,
+            updates[keys.index("ap_trim_margin_seconds")].get("value"),
+        )
+        self.assertEqual(20, updates[keys.index("ap_trim_mincut")].get("value"))
+        self.assertEqual(4, updates[keys.index("ap_trim_minclip")].get("value"))
+
+    def test_user_preset_clamps_trim_threshold_controls_to_supported_range(self) -> None:
+        """Saved trim thresholds should load within the supported dB range."""
+
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            values[keys.index("sam_trim_threshold_db")] = -120.0
+            values[keys.index("extract_trim_threshold_db")] = 120.0
+            values[keys.index("ap_trim_threshold_db")] = -120.0
+            values[keys.index("ap_trim_margin_seconds")] = 20.0
+            values[keys.index("ap_trim_mincut")] = 999
+            values[keys.index("ap_trim_minclip")] = -5
+            try:
+                premium_features.save_preset_action("trim clamp", None, *values)
+                loaded = premium_features.load_named_preset("trim clamp")
+                updates = premium_features.load_preset_action("trim clamp")
+            finally:
+                self._restore_project_root(original)
+
+        self.assertEqual(-100.0, loaded["sam_trim_threshold_db"])
+        self.assertEqual(0.0, loaded["extract_trim_threshold_db"])
+        self.assertEqual(-100.0, loaded["ap_trim_threshold_db"])
+        self.assertEqual(5.0, loaded["ap_trim_margin_seconds"])
+        self.assertEqual(300, loaded["ap_trim_mincut"])
+        self.assertEqual(0, loaded["ap_trim_minclip"])
+        self.assertEqual(
+            -100.0,
+            updates[keys.index("sam_trim_threshold_db")].get("value"),
+        )
+        self.assertEqual(
+            0.0,
+            updates[keys.index("extract_trim_threshold_db")].get("value"),
+        )
+        self.assertEqual(
+            -100.0,
+            updates[keys.index("ap_trim_threshold_db")].get("value"),
+        )
+        self.assertEqual(
+            5.0,
+            updates[keys.index("ap_trim_margin_seconds")].get("value"),
+        )
+        self.assertEqual(300, updates[keys.index("ap_trim_mincut")].get("value"))
+        self.assertEqual(0, updates[keys.index("ap_trim_minclip")].get("value"))
+
     def test_startup_uses_remembered_existing_user_preset(self) -> None:
         """Startup should auto-load the last successfully saved user preset."""
         with self._with_project_root() as tmp_dir:

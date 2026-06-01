@@ -119,6 +119,8 @@ def _build_saved_params(
     lora_scale=1.0,
     use_lora=False,
     generate_lm_audio_codes=None,
+    extract_trim_empty_output=False,
+    extract_trim_threshold_db=-40.0,
     audio_processing_settings=None,
     sam_audio_settings=None,
 ):
@@ -180,6 +182,8 @@ def _build_saved_params(
         "lora_scale": lora_scale,
         "use_lora": use_lora,
         "generate_lm_audio_codes": generate_lm_audio_codes,
+        "extract_trim_empty_output": extract_trim_empty_output,
+        "extract_trim_threshold_db": extract_trim_threshold_db,
         "audio_processing_settings": audio_processing_settings or {},
         "sam_audio_settings": sam_audio_settings or {},
     }
@@ -247,6 +251,8 @@ def _apply_param_defaults(params):
         "track_name": None, "complete_track_classes": [],
         "enable_normalization": True, "normalization_db": -1.0,
         "fade_in_duration": 0.0, "fade_out_duration": 0.0,
+        "extract_trim_empty_output": False,
+        "extract_trim_threshold_db": -40.0,
         "latent_shift": 0.0, "latent_rescale": 1.0,
         "repaint_mode": "balanced", "repaint_strength": 0.5,
         "retake_variance": 0.0, "retake_seed": "",

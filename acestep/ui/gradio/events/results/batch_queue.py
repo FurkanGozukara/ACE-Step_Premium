@@ -125,6 +125,7 @@ def capture_current_params(
     track_name, complete_track_classes,
     enable_normalization, normalization_db,
     fade_in_duration, fade_out_duration,
+    extract_trim_empty_output, extract_trim_threshold_db,
     latent_shift, latent_rescale,
     repaint_mode, repaint_strength,
     retake_variance=0.0, retake_seed="",
@@ -187,6 +188,8 @@ def capture_current_params(
         "normalization_db": normalization_db,
         "fade_in_duration": fade_in_duration,
         "fade_out_duration": fade_out_duration,
+        "extract_trim_empty_output": extract_trim_empty_output,
+        "extract_trim_threshold_db": extract_trim_threshold_db,
         "latent_shift": latent_shift,
         "latent_rescale": latent_rescale,
         "repaint_mode": repaint_mode,
@@ -209,7 +212,7 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     """
     if current_batch_index not in batch_queue:
         gr.Warning(t("messages.no_batch_data"))
-        return [gr.update()] * 33
+        return [gr.update()] * 35
 
     batch_data = batch_queue[current_batch_index]
     params = batch_data.get("generation_params", {})
@@ -240,6 +243,8 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     normalization_db = params.get("normalization_db", -1.0)
     fade_in_duration = params.get("fade_in_duration", 0.0)
     fade_out_duration = params.get("fade_out_duration", 0.0)
+    extract_trim_empty_output = params.get("extract_trim_empty_output", False)
+    extract_trim_threshold_db = params.get("extract_trim_threshold_db", -40.0)
     latent_shift = params.get("latent_shift", 0.0)
     latent_rescale = params.get("latent_rescale", 1.0)
     no_fsq = params.get("no_fsq", False)
@@ -266,6 +271,7 @@ def restore_batch_parameters(current_batch_index, batch_queue):
         track_name, complete_track_classes,
         enable_normalization, normalization_db,
         fade_in_duration, fade_out_duration,
+        extract_trim_empty_output, extract_trim_threshold_db,
         latent_shift, latent_rescale, no_fsq,
         retake_variance, retake_seed,
     )

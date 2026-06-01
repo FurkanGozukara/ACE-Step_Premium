@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 import numpy as np
+import torch
 
 from .dsp_enhancement import (
     ambience_shaping,
@@ -26,6 +27,7 @@ from .dsp_mastering import (
 )
 from .presets import STAGE_KEYS, STAGE_LABELS
 from .settings import AudioProcessingSettings
+from .silence_trim import trim_silent_edges
 
 
 ProgressCallback = Callable[[float, str], None]
@@ -42,6 +44,7 @@ class ProcessedAudio:
         lufs_before: Integrated loudness before processing.
         lufs_after: Integrated loudness after processing.
         duration_seconds: Processed duration in seconds.
+        trim_metadata: JSON-safe silence-trim metadata.
 
     Returns:
         Immutable processing result.
@@ -53,6 +56,7 @@ class ProcessedAudio:
     lufs_before: float
     lufs_after: float
     duration_seconds: float
+    trim_metadata: dict[str, object]
 
 
 def process_audio_array(
@@ -86,6 +90,7 @@ def process_audio_array(
             working = _sanitize_audio(working)
         if progress_callback:
             progress_callback(index / len(steps), label)
+    working, trim_metadata = _trim_processed_audio(working, sample_rate, settings)
     lufs_after = measure_lufs(working, sample_rate)
     return ProcessedAudio(
         before=before,
@@ -94,6 +99,7 @@ def process_audio_array(
         lufs_before=lufs_before,
         lufs_after=lufs_after,
         duration_seconds=len(working) / float(sample_rate),
+        trim_metadata=trim_metadata,
     )
 
 
@@ -169,6 +175,24 @@ def _sanitize_audio(audio: np.ndarray) -> np.ndarray:
 
     sanitized = np.nan_to_num(audio, nan=0.0, posinf=0.0, neginf=0.0)
     return np.clip(sanitized, -1.0, 1.0).astype(np.float32, copy=False)
+
+
+def _trim_processed_audio(
+    audio: np.ndarray,
+    sample_rate: int,
+    settings: AudioProcessingSettings,
+) -> tuple[np.ndarray, dict[str, object]]:
+    """Apply optional edge-silence trimming to channel-last processed audio."""
+
+    channel_first = torch.from_numpy(np.ascontiguousarray(audio.T))
+    result = trim_silent_edges(
+        channel_first,
+        sample_rate=sample_rate,
+        enabled=settings.trim_empty_output,
+        trim_settings=settings.trim_settings(),
+    )
+    trimmed = result.audio.detach().cpu().numpy().T
+    return _sanitize_audio(trimmed), dict(result.metadata)
 
 
 def active_stage_labels(settings: AudioProcessingSettings) -> list[str]:

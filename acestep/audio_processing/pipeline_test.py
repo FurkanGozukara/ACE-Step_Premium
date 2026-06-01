@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 import numpy as np
+import torch
 
+from acestep.audio_processing.auto_editor_trim import SilenceTrimResult
 from acestep.audio_processing.pipeline import process_audio_array
 from acestep.audio_processing.presets import DEFAULT_STAGE_VALUES, STAGE_KEYS
 from acestep.audio_processing.settings import AudioProcessingSettings
@@ -47,6 +50,36 @@ class AudioProcessingPipelineTests(unittest.TestCase):
         result = process_audio_array(audio, sample_rate, settings)
 
         np.testing.assert_allclose(audio, result.after, atol=1e-6)
+
+    def test_trim_silent_edges_shortens_processed_audio(self) -> None:
+        """Optional silence trimming should remove quiet leading and trailing edges."""
+
+        sample_rate = 1000
+        silence = np.zeros((100, 2), dtype=np.float32)
+        tone = np.full((300, 2), 0.2, dtype=np.float32)
+        audio = np.concatenate([silence, tone, silence], axis=0)
+        settings = AudioProcessingSettings(
+            trim_empty_output=True,
+            trim_threshold_db=-40.0,
+            stages_enabled={key: False for key in STAGE_KEYS},
+        )
+
+        metadata = {
+            "enabled": True,
+            "applied": True,
+            "reason": "auto_editor_trimmed",
+            "trimmed_duration_seconds": 0.3,
+        }
+        trimmed_tensor = torch.from_numpy(tone.T)
+        with patch(
+            "acestep.audio_processing.pipeline.trim_silent_edges",
+            return_value=SilenceTrimResult(trimmed_tensor, metadata),
+        ):
+            result = process_audio_array(audio, sample_rate, settings)
+
+        self.assertEqual((300, 2), result.after.shape)
+        self.assertTrue(result.trim_metadata["applied"])
+        self.assertEqual("auto_editor_trimmed", result.trim_metadata["reason"])
 
 
 def _test_tone(sample_rate: int, seconds: float) -> np.ndarray:

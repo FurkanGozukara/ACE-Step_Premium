@@ -27,6 +27,8 @@ class TestSamAudioSettings(unittest.TestCase):
         self.assertEqual("chunked", settings.long_audio_mode)
         self.assertEqual(20.0, settings.chunk_seconds)
         self.assertEqual(5.0, settings.chunk_overlap_seconds)
+        self.assertFalse(settings.trim_empty_output)
+        self.assertEqual(-40.0, settings.trim_threshold_db)
         self.assertEqual("vocals", settings.effective_prompt)
 
     def test_values_follow_schema_order(self):
@@ -37,6 +39,8 @@ class TestSamAudioSettings(unittest.TestCase):
             {
                 "sam_auto_postprocess": True,
                 "sam_preserve_original": True,
+                "sam_trim_empty_output": True,
+                "sam_trim_threshold_db": -42.0,
                 "sam_output_format": "flac",
                 "sam_prompt_mode": "span",
                 "sam_prompt_preset": "vocals",
@@ -80,7 +84,18 @@ class TestSamAudioSettings(unittest.TestCase):
         self.assertTrue(settings.random_seed)
         self.assertEqual("cudnn", settings.attention_backend)
         self.assertEqual("multidiffusion", settings.long_audio_mode)
+        self.assertTrue(settings.trim_empty_output)
+        self.assertEqual(-42.0, settings.trim_threshold_db)
         self.assertTrue(settings.batch_recursive)
+
+    def test_trim_threshold_is_clamped_to_safe_range(self):
+        """Saved trim thresholds outside the UI range are clamped."""
+
+        quiet = SamAudioSettings.from_payload({"trim_threshold_db": -120.0})
+        aggressive = SamAudioSettings.from_payload({"trim_threshold_db": 120.0})
+
+        self.assertEqual(-100.0, quiet.trim_threshold_db)
+        self.assertEqual(0.0, aggressive.trim_threshold_db)
 
     def test_chunk_seconds_accept_long_manual_values(self):
         """Manual chunk inputs above the preset default remain available."""

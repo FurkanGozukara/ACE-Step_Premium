@@ -18,6 +18,11 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
+from acestep.audio_processing.auto_editor_trim_settings import (
+    AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
+    coerce_auto_editor_threshold_db,
+)
+
 _ASSET_FILENAME = "user_preferences.js"
 _STORAGE_KEY = "acestep.ui.user_preferences"
 _SCHEMA_VERSION = 1
@@ -35,6 +40,8 @@ PREF_KEYS: list[str] = [
     "normalization_db",
     "fade_in_duration",
     "fade_out_duration",
+    "extract_trim_empty_output",
+    "extract_trim_threshold_db",
     "latent_shift",
     "latent_rescale",
     "lm_batch_chunk_size",
@@ -51,6 +58,8 @@ _DEFAULTS: dict[str, Any] = {
     "normalization_db": -1.0,
     "fade_in_duration": 0.0,
     "fade_out_duration": 0.0,
+    "extract_trim_empty_output": False,
+    "extract_trim_threshold_db": AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
     "latent_shift": 0.0,
     "latent_rescale": 1.0,
     "lm_batch_chunk_size": 8,
@@ -202,6 +211,8 @@ def restore_preferences(
         elif i > n_prefs and isinstance(v, bool):
             # mp3_bitrate, mp3_sample_rate: visibility + interactivity.
             results.append(gr.update(visible=v, interactive=v))
+        elif i < n_prefs and PREF_KEYS[i] == "extract_trim_threshold_db":
+            results.append(coerce_auto_editor_threshold_db(v))
         else:
             results.append(v)
     return tuple(results)

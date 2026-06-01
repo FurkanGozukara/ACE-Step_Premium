@@ -5,8 +5,15 @@ from __future__ import annotations
 from typing import Any
 
 from acestep.audio_processing.presets import DEFAULT_STAGE_VALUES, STAGE_KEYS
+from acestep.audio_processing.settings import (
+    AUDIO_PROCESSING_DEFAULT_TRIM_MARGIN_SECONDS,
+    AUDIO_PROCESSING_DEFAULT_TRIM_MINCLIP,
+    AUDIO_PROCESSING_DEFAULT_TRIM_MINCUT,
+    AUDIO_PROCESSING_DEFAULT_TRIM_THRESHOLD_DB,
+)
 from acestep.constants import DEFAULT_DIT_INSTRUCTION
 from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL, DEFAULT_VAE_VARIANT
+from acestep.sam_audio_segment.settings import SAM_AUDIO_DEFAULT_TRIM_THRESHOLD_DB
 from acestep.sam_audio_segment.vram_presets import (
     default_sam_vram_preset_name,
     get_sam_vram_preset,
@@ -113,11 +120,18 @@ ADDITIONAL_DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "ap_auto_postprocess": False,
     "ap_preserve_original": True,
     "ap_output_format": "wav",
+    "ap_trim_empty_output": False,
+    "ap_trim_threshold_db": AUDIO_PROCESSING_DEFAULT_TRIM_THRESHOLD_DB,
+    "ap_trim_margin_seconds": AUDIO_PROCESSING_DEFAULT_TRIM_MARGIN_SECONDS,
+    "ap_trim_mincut": AUDIO_PROCESSING_DEFAULT_TRIM_MINCUT,
+    "ap_trim_minclip": AUDIO_PROCESSING_DEFAULT_TRIM_MINCLIP,
     "ap_builtin_preset": "Generic AI",
     **{f"ap_{key}_enabled": True for key in STAGE_KEYS},
     **{f"ap_{key}": DEFAULT_STAGE_VALUES[key] for key in STAGE_KEYS},
     "sam_auto_postprocess": False,
     "sam_preserve_original": True,
+    "sam_trim_empty_output": False,
+    "sam_trim_threshold_db": SAM_AUDIO_DEFAULT_TRIM_THRESHOLD_DB,
     "sam_output_format": "wav",
     "sam_prompt_mode": "text",
     "sam_prompt_preset": "vocals",

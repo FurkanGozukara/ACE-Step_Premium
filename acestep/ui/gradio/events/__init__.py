@@ -7,6 +7,7 @@ from .wiring import (
     GenerationWiringContext,
     TrainingWiringContext,
     build_mode_ui_outputs,
+    register_generation_batch_extract_handlers,
     register_generation_batch_navigation_handlers,
     register_generation_metadata_file_handlers,
     register_generation_metadata_handlers,
@@ -91,6 +92,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         mode_ui_outputs=mode_ui_outputs,
     )
     register_generation_run_handlers(wiring_context)
+    register_generation_batch_extract_handlers(wiring_context)
     register_generation_batch_navigation_handlers(wiring_context)
     register_results_restore_and_lrc_handlers(wiring_context)
 

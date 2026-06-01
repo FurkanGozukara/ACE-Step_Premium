@@ -20,6 +20,7 @@ from .generation_metadata_wiring import register_generation_metadata_handlers
 from .generation_metadata_file_wiring import register_generation_metadata_file_handlers
 from .grid_testing_wiring import register_grid_testing_handlers
 from .generation_batch_navigation_wiring import register_generation_batch_navigation_handlers
+from .generation_batch_extract_wiring import register_generation_batch_extract_handlers
 from .generation_mode_wiring import register_generation_mode_handlers
 from .generation_run_wiring import register_generation_run_handlers
 from .dataset_import_wiring import register_dataset_import_handlers
@@ -52,6 +53,7 @@ __all__ = [
     "register_audio_processing_handlers",
     "register_batch_folder_handlers",
     "register_generation_batch_navigation_handlers",
+    "register_generation_batch_extract_handlers",
     "register_dataset_import_handlers",
     "register_generation_metadata_file_handlers",
     "register_generation_metadata_handlers",

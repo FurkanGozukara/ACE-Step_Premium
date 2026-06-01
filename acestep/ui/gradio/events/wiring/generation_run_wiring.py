@@ -118,6 +118,8 @@ def build_generation_run_inputs(generation_section, results_section):
         generation_section["use_lora_checkbox"],
         generation_section["lora_scale_slider"],
         generation_section["generate_lm_audio_codes"],
+        generation_section["extract_trim_empty_output"],
+        generation_section["extract_trim_threshold_db"],
         *audio_processing_generation_inputs(generation_section),
         *sam_audio_generation_inputs(generation_section),
     ]
@@ -351,6 +353,8 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
             generation_section["use_lora_checkbox"],
             generation_section["lora_scale_slider"],
             generation_section["generate_lm_audio_codes"],
+            generation_section["extract_trim_empty_output"],
+            generation_section["extract_trim_threshold_db"],
             *audio_processing_generation_inputs(generation_section),
             *sam_audio_generation_inputs(generation_section),
         ],

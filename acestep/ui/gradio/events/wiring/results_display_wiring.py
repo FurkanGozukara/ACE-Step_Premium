@@ -130,6 +130,8 @@ def register_results_restore_and_lrc_handlers(context: GenerationWiringContext) 
             generation_section["normalization_db"],
             generation_section["fade_in_duration"],
             generation_section["fade_out_duration"],
+            generation_section["extract_trim_empty_output"],
+            generation_section["extract_trim_threshold_db"],
             generation_section["latent_shift"],
             generation_section["latent_rescale"],
             generation_section["no_fsq"],

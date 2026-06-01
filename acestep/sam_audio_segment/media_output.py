@@ -15,6 +15,7 @@ from acestep.audio_processing.media_io import (
     mux_video_with_audio,
     save_processed_audio,
 )
+from acestep.audio_processing.silence_trim import audio_sample_count, trim_silent_edges
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,8 @@ def save_sam_audio_outputs(
     include_residual: bool,
     include_video: bool,
     metadata: dict[str, Any],
+    trim_empty_output: bool = False,
+    trim_threshold_db: float = -40.0,
 ) -> SamAudioArtifacts:
     """Save target, residual, optional video mux, and metadata."""
 
@@ -60,8 +63,15 @@ def save_sam_audio_outputs(
     target_dir = Path(output_dir).expanduser().resolve()
     target_dir.mkdir(parents=True, exist_ok=True)
     ext = _extension(output_format)
+    trim_result = trim_silent_edges(
+        target,
+        sample_rate=sample_rate,
+        enabled=trim_empty_output,
+        threshold_db=trim_threshold_db,
+    )
+    target_to_save = trim_result.audio
     target_audio = save_processed_audio(
-        _tensor_to_audio(target),
+        _tensor_to_audio(target_to_save),
         sample_rate,
         target_dir / f"{output_stem}.{ext}",
         ext,
@@ -76,8 +86,12 @@ def save_sam_audio_outputs(
         )
     target_video = None
     if include_video and is_video_file(source):
-        target_video = mux_video_with_audio(source, target_audio, target_dir / f"{output_stem}.mp4")
-    duration = float(target.numel()) / float(sample_rate)
+        target_video = mux_video_with_audio(
+            source,
+            target_audio,
+            target_dir / f"{output_stem}.mp4",
+        )
+    duration = float(audio_sample_count(target_to_save)) / float(sample_rate)
     metadata_path = write_json(
         target_dir / f"{output_stem}.sam_audio.json",
         {
@@ -87,6 +101,7 @@ def save_sam_audio_outputs(
                 "source_path": str(source).replace("\\", "/"),
             },
             **metadata,
+            "trim": trim_result.metadata,
             "outputs": {
                 "target_audio_path": target_audio,
                 "residual_audio_path": residual_audio,

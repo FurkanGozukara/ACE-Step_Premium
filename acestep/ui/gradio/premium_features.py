@@ -14,6 +14,14 @@ from typing import Any
 
 import gradio as gr
 
+from acestep.audio_processing.auto_editor_trim_settings import (
+    AUTO_EDITOR_MINCLIP_DEFAULT,
+    AUTO_EDITOR_MINCUT_DEFAULT,
+    AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
+    coerce_auto_editor_margin_seconds,
+    coerce_auto_editor_smooth_value,
+    coerce_auto_editor_threshold_db,
+)
 from acestep.gpu_config import (
     find_best_lm_model_on_disk,
     get_global_gpu_config,
@@ -56,6 +64,16 @@ from acestep.ui.gradio.premium_preset_value_safety import coerce_preset_value
 GPU_OPTIMIZATION_PRESET_NAME = "GPU Optimization Preset"
 USER_PRESET_FOLDER = "premium_user_presets"
 LAST_USED_PRESET_FILE = ".last_used_preset.txt"
+TRIM_THRESHOLD_PRESET_KEYS = frozenset(
+    {
+        "extract_trim_threshold_db",
+        "ap_trim_threshold_db",
+        "sam_trim_threshold_db",
+    }
+)
+TRIM_MARGIN_PRESET_KEYS = frozenset({"ap_trim_margin_seconds"})
+TRIM_MINCUT_PRESET_KEYS = frozenset({"ap_trim_mincut"})
+TRIM_MINCLIP_PRESET_KEYS = frozenset({"ap_trim_minclip"})
 DEFAULT_PRESET_CAPTION = (
     "Conscious melodic rap and modern cinematic pop-rap anthem, uplifting and humble, "
     "warm synth pads, punchy drums, deep 808 bass, subtle clean guitar textures, big "
@@ -236,6 +254,8 @@ PRESET_COMPONENT_KEYS: tuple[str, ...] = (
     "normalization_db",
     "fade_in_duration",
     "fade_out_duration",
+    "extract_trim_empty_output",
+    "extract_trim_threshold_db",
     "latent_shift",
     "latent_rescale",
     "lm_temperature",
@@ -304,6 +324,8 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "mp3_sample_rate": 48000,
     "enable_normalization": True,
     "normalization_db": -1.0,
+    "extract_trim_empty_output": False,
+    "extract_trim_threshold_db": AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
     "think_checkbox": True,
     "generate_lm_audio_codes": True,
     "allow_lm_batch": True,
@@ -612,7 +634,31 @@ def _apply_runtime_defaults(
         merged["simple_lora_scale_slider"] = merged.get("lora_scale_slider", 1.0)
     elif raw_lora_scale in (None, "") and raw_simple_lora_scale not in (None, ""):
         merged["lora_scale_slider"] = merged.get("simple_lora_scale_slider", 1.0)
+    _clamp_trim_threshold_defaults(merged)
     return merged
+
+
+def _clamp_trim_threshold_defaults(payload: dict[str, Any]) -> None:
+    """Clamp persisted auto-editor trim settings to supported ranges."""
+
+    for key in TRIM_THRESHOLD_PRESET_KEYS:
+        if key in payload:
+            payload[key] = coerce_auto_editor_threshold_db(payload.get(key))
+    for key in TRIM_MARGIN_PRESET_KEYS:
+        if key in payload:
+            payload[key] = coerce_auto_editor_margin_seconds(payload.get(key))
+    for key in TRIM_MINCUT_PRESET_KEYS:
+        if key in payload:
+            payload[key] = coerce_auto_editor_smooth_value(
+                payload.get(key),
+                AUTO_EDITOR_MINCUT_DEFAULT,
+            )
+    for key in TRIM_MINCLIP_PRESET_KEYS:
+        if key in payload:
+            payload[key] = coerce_auto_editor_smooth_value(
+                payload.get(key),
+                AUTO_EDITOR_MINCLIP_DEFAULT,
+            )
 
 
 def _legacy_bool(value: Any) -> bool:
@@ -877,6 +923,18 @@ def _payload_to_component_updates(
                         value=value,
                     )
                 )
+            elif key in TRIM_THRESHOLD_PRESET_KEYS:
+                value = coerce_auto_editor_threshold_db(value)
+                updates.append(gr.update(value=value))
+            elif key in TRIM_MARGIN_PRESET_KEYS:
+                value = coerce_auto_editor_margin_seconds(value)
+                updates.append(gr.update(value=value))
+            elif key in TRIM_MINCUT_PRESET_KEYS:
+                value = coerce_auto_editor_smooth_value(value, AUTO_EDITOR_MINCUT_DEFAULT)
+                updates.append(gr.update(value=value))
+            elif key in TRIM_MINCLIP_PRESET_KEYS:
+                value = coerce_auto_editor_smooth_value(value, AUTO_EDITOR_MINCLIP_DEFAULT)
+                updates.append(gr.update(value=value))
             else:
                 value = coerce_preset_value(key, value, component_specs)
                 updates.append(gr.update(value=value))

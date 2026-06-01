@@ -195,7 +195,10 @@ def generate_next_batch_background(
             retake_variance=params.get("retake_variance", 0.0),
             retake_seed=params.get("retake_seed", ""),
             generate_lm_audio_codes=params.get("generate_lm_audio_codes"),
+            extract_trim_empty_output=params.get("extract_trim_empty_output", False),
+            extract_trim_threshold_db=params.get("extract_trim_threshold_db", -40.0),
             audio_processing_settings=params.get("audio_processing_settings"),
+            sam_audio_settings=params.get("sam_audio_settings"),
             progress=progress,
         )
 

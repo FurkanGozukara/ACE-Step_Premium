@@ -6,6 +6,18 @@ from typing import Any
 
 import gradio as gr
 
+from acestep.audio_processing.auto_editor_trim_settings import (
+    AUTO_EDITOR_MARGIN_DEFAULT_SECONDS,
+    AUTO_EDITOR_MARGIN_MAX_SECONDS,
+    AUTO_EDITOR_MARGIN_MIN_SECONDS,
+    AUTO_EDITOR_MINCLIP_DEFAULT,
+    AUTO_EDITOR_MINCUT_DEFAULT,
+    AUTO_EDITOR_SMOOTH_MAX,
+    AUTO_EDITOR_SMOOTH_MIN,
+    AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
+    AUTO_EDITOR_THRESHOLD_MAX_DB,
+    AUTO_EDITOR_THRESHOLD_MIN_DB,
+)
 from acestep.audio_processing.presets import (
     DEFAULT_STAGE_VALUES,
     OUTPUT_FORMAT_CHOICES,
@@ -50,16 +62,59 @@ def create_audio_processing_page() -> dict[str, Any]:
                     value="Generic AI",
                     label="Processing Preset",
                 )
-
-        with gr.Row(equal_height=True):
-            with gr.Column(scale=1):
-                gr.Markdown("### Audio Enhancement")
-                for key in STAGE_KEYS[:6]:
-                    _add_stage_control(controls, key)
-            with gr.Column(scale=1):
-                gr.Markdown("### Pre-Mastering")
-                for key in STAGE_KEYS[6:]:
-                    _add_stage_control(controls, key)
+            with gr.Row(equal_height=True):
+                controls["ap_trim_empty_output"] = gr.Checkbox(
+                    label="Auto-Editor trim silent sections",
+                    value=False,
+                    info=(
+                        "Optional. Uses auto-editor to trim out silent sections "
+                        "after audio processing."
+                    ),
+                    scale=2,
+                    min_width=220,
+                )
+                controls["ap_trim_threshold_db"] = gr.Slider(
+                    minimum=AUTO_EDITOR_THRESHOLD_MIN_DB,
+                    maximum=AUTO_EDITOR_THRESHOLD_MAX_DB,
+                    step=1.0,
+                    value=AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
+                    label="Auto-Editor threshold (dB)",
+                    info=(
+                        "Default -40 dB, matching Auto Encode & Shorten."
+                    ),
+                    scale=2,
+                    min_width=180,
+                )
+                controls["ap_trim_margin_seconds"] = gr.Slider(
+                    minimum=AUTO_EDITOR_MARGIN_MIN_SECONDS,
+                    maximum=AUTO_EDITOR_MARGIN_MAX_SECONDS,
+                    step=0.1,
+                    value=AUTO_EDITOR_MARGIN_DEFAULT_SECONDS,
+                    label="Auto-Editor margin (s)",
+                    info="Keeps this much audio before and after non-silent sections.",
+                    scale=2,
+                    min_width=180,
+                )
+                controls["ap_trim_mincut"] = gr.Slider(
+                    minimum=AUTO_EDITOR_SMOOTH_MIN,
+                    maximum=AUTO_EDITOR_SMOOTH_MAX,
+                    step=1,
+                    value=AUTO_EDITOR_MINCUT_DEFAULT,
+                    label="Auto-Editor mincut",
+                    info="Default 20, matching Auto Encode & Shorten.",
+                    scale=2,
+                    min_width=160,
+                )
+                controls["ap_trim_minclip"] = gr.Slider(
+                    minimum=AUTO_EDITOR_SMOOTH_MIN,
+                    maximum=AUTO_EDITOR_SMOOTH_MAX,
+                    step=1,
+                    value=AUTO_EDITOR_MINCLIP_DEFAULT,
+                    label="Auto-Editor minclip",
+                    info="Default 4, matching Auto Encode & Shorten.",
+                    scale=2,
+                    min_width=160,
+                )
 
         with gr.Group(elem_classes=["ace-panel", "ace-stack"]):
             gr.Markdown("### Single Audio or Video")
@@ -136,6 +191,16 @@ def create_audio_processing_page() -> dict[str, Any]:
                 visible=False,
             )
             controls["ap_single_status"] = gr.Markdown("Audio processing ready.")
+
+        with gr.Row(equal_height=True):
+            with gr.Column(scale=1):
+                gr.Markdown("### Audio Enhancement")
+                for key in STAGE_KEYS[:6]:
+                    _add_stage_control(controls, key)
+            with gr.Column(scale=1):
+                gr.Markdown("### Pre-Mastering")
+                for key in STAGE_KEYS[6:]:
+                    _add_stage_control(controls, key)
 
         with gr.Group(elem_classes=["ace-panel", "ace-stack"]):
             gr.Markdown("### Batch Folder Processing")

@@ -29,6 +29,10 @@
         normalization_db:    { elemId: "acestep-normalization-db",     type: "slider"   },
         fade_in_duration:    { elemId: "acestep-fade-in-duration",    type: "slider"   },
         fade_out_duration:   { elemId: "acestep-fade-out-duration",   type: "slider"   },
+        extract_trim_empty_output:
+                              { elemId: "acestep-extract-trim-empty-output", type: "checkbox" },
+        extract_trim_threshold_db:
+                              { elemId: "acestep-extract-trim-threshold-db", type: "slider"   },
         latent_shift:        { elemId: "acestep-latent-shift",        type: "slider"   },
         latent_rescale:      { elemId: "acestep-latent-rescale",      type: "slider"   },
         lm_batch_chunk_size: { elemId: "acestep-lm-batch-chunk-size", type: "number"   },

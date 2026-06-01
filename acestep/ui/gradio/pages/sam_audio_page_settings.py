@@ -16,6 +16,7 @@ from acestep.sam_audio_segment.prompt_presets import (
     VRAM_PRESET_CHOICES,
 )
 from acestep.sam_audio_segment.settings import (
+    SAM_AUDIO_DEFAULT_TRIM_THRESHOLD_DB,
     SAM_AUDIO_LONG_MODE_CHUNKED,
     SAM_AUDIO_LONG_MODE_MULTIDIFFUSION,
     SAM_AUDIO_MAX_CHUNK_SECONDS,
@@ -39,6 +40,19 @@ def add_generation_controls(controls: dict[str, Any]) -> None:
                 label="Save original plus SAM output",
                 value=True,
             )
+            with gr.Column(scale=1, min_width=190):
+                controls["sam_trim_empty_output"] = gr.Checkbox(
+                    label="Auto-Editor trim output",
+                    value=False,
+                    info=(
+                        "Uses the Auto Encode & Shorten defaults to remove "
+                        "silent parts from the extracted target audio."
+                    ),
+                )
+                controls["sam_trim_threshold_db"] = gr.Number(
+                    value=SAM_AUDIO_DEFAULT_TRIM_THRESHOLD_DB,
+                    visible=False,
+                )
             controls["sam_output_format"] = gr.Dropdown(
                 choices=OUTPUT_FORMAT_CHOICES,
                 value="wav",

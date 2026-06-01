@@ -148,6 +148,7 @@ class GenerationDecompositionContractTests(unittest.TestCase):
             ("generation_tab_variation_morph_controls.py", "build_variation_morph_controls"),
             ("generation_tab_optional_controls.py", "build_optional_parameter_controls"),
             ("generation_tab_generate_controls.py", "build_generate_row_controls"),
+            ("generation_tab_batch_extract_controls.py", "build_batch_extract_controls"),
             ("generation_advanced_dit_controls.py", "build_dit_controls"),
             ("generation_advanced_primary_controls.py", "build_lm_controls"),
             ("generation_advanced_primary_controls.py", "build_lora_controls"),

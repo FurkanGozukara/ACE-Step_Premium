@@ -5,6 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from acestep.audio_processing.silence_trim import (
+    TRIM_THRESHOLD_DEFAULT_DB,
+    TRIM_THRESHOLD_MAX_DB,
+    TRIM_THRESHOLD_MIN_DB,
+)
+
 from .attention import normalize_attention_backend
 from .prompt_presets import DEFAULT_PROMPT
 from .ranker_availability import normalize_ranker_mode
@@ -13,12 +19,17 @@ from .vram_presets import get_sam_vram_preset, normalize_sam_vram_preset
 SAM_AUDIO_MIN_CHUNK_SECONDS = 1.0
 SAM_AUDIO_MAX_CHUNK_SECONDS = 60.0
 SAM_AUDIO_MAX_OVERLAP_SECONDS = 10.0
+SAM_AUDIO_DEFAULT_TRIM_THRESHOLD_DB = TRIM_THRESHOLD_DEFAULT_DB
+SAM_AUDIO_MIN_TRIM_THRESHOLD_DB = TRIM_THRESHOLD_MIN_DB
+SAM_AUDIO_MAX_TRIM_THRESHOLD_DB = TRIM_THRESHOLD_MAX_DB
 SAM_AUDIO_LONG_MODE_CHUNKED = "chunked"
 SAM_AUDIO_LONG_MODE_MULTIDIFFUSION = "multidiffusion"
 
 SAM_AUDIO_PRESET_KEYS: tuple[str, ...] = (
     "sam_auto_postprocess",
     "sam_preserve_original",
+    "sam_trim_empty_output",
+    "sam_trim_threshold_db",
     "sam_output_format",
     "sam_prompt_mode",
     "sam_prompt_preset",
@@ -59,6 +70,8 @@ class SamAudioSettings:
 
     auto_postprocess: bool = False
     preserve_original: bool = True
+    trim_empty_output: bool = False
+    trim_threshold_db: float = SAM_AUDIO_DEFAULT_TRIM_THRESHOLD_DB
     output_format: str = "wav"
     prompt_mode: str = "text"
     prompt_preset: str = DEFAULT_PROMPT
@@ -114,6 +127,13 @@ class SamAudioSettings:
         return cls(
             auto_postprocess=bool(payload.get("auto_postprocess", False)),
             preserve_original=bool(payload.get("preserve_original", True)),
+            trim_empty_output=bool(payload.get("trim_empty_output", False)),
+            trim_threshold_db=_bounded_float(
+                payload.get("trim_threshold_db"),
+                SAM_AUDIO_DEFAULT_TRIM_THRESHOLD_DB,
+                SAM_AUDIO_MIN_TRIM_THRESHOLD_DB,
+                SAM_AUDIO_MAX_TRIM_THRESHOLD_DB,
+            ),
             output_format=_choice(
                 payload.get("output_format"),
                 {"wav", "flac", "mp3"},
