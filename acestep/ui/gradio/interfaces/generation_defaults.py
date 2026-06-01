@@ -103,14 +103,27 @@ def resolve_is_pure_base_model(
         service_pre_initialized: Whether service was already initialized before UI render.
 
     Returns:
-        ``True`` when the selected model should use base-only generation mode options.
+        ``True`` when the selected model should use the pure-base mode set.
     """
 
+    config_path = resolve_generation_config_path(
+        dit_handler=dit_handler,
+        init_params=init_params,
+        service_pre_initialized=service_pre_initialized,
+    )
+    return is_pure_base_model((config_path or "").lower())
+
+
+def resolve_generation_config_path(
+    dit_handler: Any,
+    init_params: dict[str, Any] | None,
+    service_pre_initialized: bool,
+) -> str:
+    """Resolve the selected generation DiT config path for initial UI defaults."""
+
     if service_pre_initialized and init_params and "dit_handler" in init_params:
-        config_path = init_params.get("config_path", "")
-        return is_pure_base_model((config_path or "").lower())
+        return str(init_params.get("config_path", "") or "")
 
     available_models = dit_handler.get_available_acestep_v15_models()
     default_model = select_preferred_model_path(available_models)
-    actual_model = init_params.get("config_path", default_model) if init_params else default_model
-    return is_pure_base_model((actual_model or "").lower())
+    return str(init_params.get("config_path", default_model) if init_params else default_model)

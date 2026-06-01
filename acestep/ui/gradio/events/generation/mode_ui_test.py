@@ -31,6 +31,8 @@ _IDX_SRC_AUDIO = 48
 _IDX_FLOW_EDIT_COLUMN = 49
 _IDX_FLOW_EDIT_MORPH = 50
 _IDX_THINK_CHECKBOX = 14
+_IDX_GENERATION_MODE = 12
+_IDX_PREVIOUS_GENERATION_MODE = 37
 _IDX_REMIX_STRENGTH = 17
 _IDX_COVER_NOISE = 18
 _EXPECTED_TUPLE_LENGTH = 51
@@ -241,6 +243,36 @@ class ModeUiStateClearingTests(unittest.TestCase):
         result = compute_mode_ui_updates("Custom", previous_mode="Extract")
         for idx in (_IDX_BPM, _IDX_KEY, _IDX_TIMESIG, _IDX_VOCAL_LANG, _IDX_DURATION):
             self.assertFalse(result[idx].get("interactive"))
+
+    def test_sft_model_allows_advanced_modes(self):
+        """SFT models should allow advanced modes after real pipeline verification."""
+
+        cases = {
+            "Extract": "extract",
+            "Lego": "lego",
+            "Complete": "complete",
+        }
+        for mode, task_type in cases.items():
+            with self.subTest(mode=mode):
+                result = compute_mode_ui_updates(
+                    mode,
+                    previous_mode="Custom",
+                    config_path="ACEStep_1_5_XL_SFT_BF16",
+                )
+                self.assertEqual(result[_IDX_TASK_TYPE], task_type)
+                self.assertEqual(result[_IDX_PREVIOUS_GENERATION_MODE], mode)
+
+    def test_turbo_model_reverts_unsupported_extract_mode(self):
+        """Unsupported advanced modes should be visible but not usable."""
+        result = compute_mode_ui_updates(
+            "Extract",
+            previous_mode="Custom",
+            config_path="ACEStep_1_5_XL_Turbo_BF16",
+        )
+        self.assertEqual(result[_IDX_TASK_TYPE], "text2music")
+        self.assertEqual(result[_IDX_GENERATION_MODE].get("value"), "Custom")
+        self.assertIn("not available", result[_IDX_GENERATION_MODE].get("info"))
+        self.assertEqual(result[_IDX_PREVIOUS_GENERATION_MODE], "Custom")
 
 
 @unittest.skipIf(compute_mode_ui_updates is None,

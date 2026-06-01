@@ -5,7 +5,9 @@ import unittest
 from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 from acestep.ui.gradio.events.generation.model_config import (
     _has_token,
+    get_supported_generation_modes_for_path,
     is_sft_model,
+    is_generation_mode_supported_for_path,
     is_pure_base_model,
     get_ui_control_config,
     get_ui_control_config_for_path,
@@ -140,11 +142,18 @@ class GetUiControlConfigTests(unittest.TestCase):
         self.assertEqual(cfg["inference_steps_value"], 8)
 
     def test_xl_sft_path_returns_quality_steps(self):
-        """The premium default XL-SFT model should use SFT defaults."""
+        """The premium default XL-SFT model should use SFT defaults and advanced modes."""
         cfg = get_ui_control_config_for_path("acestep-v15-xl-sft")
         self.assertEqual(cfg["inference_steps_value"], 50)
         self.assertEqual(cfg["shift_value"], 3.0)
         self.assertFalse(cfg["use_adg_value"])
+        self.assertIn("Extract", get_supported_generation_modes_for_path("acestep-v15-xl-sft"))
+        self.assertTrue(is_generation_mode_supported_for_path("Extract", "acestep-v15-xl-sft"))
+        self.assertTrue(is_generation_mode_supported_for_path("Lego", "acestep-v15-xl-sft"))
+        self.assertTrue(is_generation_mode_supported_for_path("Complete", "acestep-v15-xl-sft"))
+        self.assertIn("Extract", cfg["generation_mode_choices"])
+        self.assertIn("Lego", cfg["generation_mode_choices"])
+        self.assertIn("Complete", cfg["generation_mode_choices"])
 
     def test_xl_base_path_returns_quality_steps_and_base_modes(self):
         """XL-Base should use non-turbo defaults and expose base-only modes."""
@@ -152,12 +161,17 @@ class GetUiControlConfigTests(unittest.TestCase):
         self.assertEqual(cfg["inference_steps_value"], 64)
         self.assertEqual(cfg["shift_value"], 3.0)
         self.assertFalse(cfg["use_adg_value"])
-        self.assertIn("Extract", cfg["generation_mode_choices"])
+        self.assertIn("Extract", cfg["supported_generation_modes"])
 
     def test_xl_turbo_path_returns_8_steps(self):
         """XL-Turbo should keep the 8-step turbo default."""
         cfg = get_ui_control_config_for_path("acestep-v15-xl-turbo")
         self.assertEqual(cfg["inference_steps_value"], 8)
+        self.assertFalse(is_generation_mode_supported_for_path("Extract", "acestep-v15-xl-turbo"))
+        self.assertIn(
+            ("Extract - unavailable (Base/SFT only)", "Extract"),
+            cfg["generation_mode_choices"],
+        )
 
 
 class UpdateModelTypeSettingsIntegrationTests(unittest.TestCase):
@@ -172,6 +186,7 @@ class UpdateModelTypeSettingsIntegrationTests(unittest.TestCase):
         self.assertEqual(result[3]["value"], 3.0)
         self.assertEqual(result[3]["minimum"], 1.0)
         self.assertEqual(result[3]["maximum"], 5.0)
+        self.assertNotIn("value", result[-1])
 
     def test_turbo_path_produces_8_steps(self):
         """Passing a turbo model path should yield 8 inference steps."""
@@ -188,6 +203,7 @@ class UpdateModelTypeSettingsIntegrationTests(unittest.TestCase):
         self.assertTrue(result[1]["visible"])
         self.assertFalse(result[2]["value"])
         self.assertEqual(result[3]["value"], 3.0)
+        self.assertFalse(result[-1]["value"])
 
     def test_none_path_does_not_crash(self):
         """Passing None as config_path should not raise."""

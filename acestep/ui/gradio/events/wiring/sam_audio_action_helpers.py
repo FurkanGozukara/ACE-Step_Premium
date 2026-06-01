@@ -9,8 +9,8 @@ from typing import Any
 import gradio as gr
 from loguru import logger
 
-from acestep.core.generation.cancellation import request_generation_cancel
 from acestep.audio_processing.media_io import is_video_file
+from acestep.sam_audio_segment.cancel import request_sam_audio_cancel
 from acestep.sam_audio_segment.settings import SamAudioSettings
 from acestep.sam_audio_segment.vram_presets import get_sam_vram_preset
 from acestep.ui.gradio.events.training.runtime_cleanup import prepare_parent_runtime_for_training
@@ -117,7 +117,7 @@ def request_sam_audio_cancel_from_ui(
         return gr.skip()
     if not subprocess_mode_enabled:
         return SAM_IN_PROCESS_STATUS
-    had_active_work = request_generation_cancel(subprocess_only=True)
+    had_active_work = request_sam_audio_cancel()
     if not had_active_work:
         logger.info("[sam_audio_cancel] Cancel requested, but no SAM subprocess is active.")
         return SAM_NO_ACTIVE_STATUS

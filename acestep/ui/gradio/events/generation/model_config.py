@@ -12,9 +12,12 @@ import gradio as gr
 
 from acestep.constants import (
     TASK_TYPES_TURBO,
+    TASK_TYPES_SFT,
     TASK_TYPES_BASE,
     GENERATION_MODES_TURBO,
+    GENERATION_MODES_SFT,
     GENERATION_MODES_BASE,
+    MODE_TO_TASK_TYPE,
 )
 from acestep.model_downloader import (
     DEFAULT_BASE_DIT_MODEL,
@@ -52,6 +55,12 @@ COMMON_DIFFUSION_CONTROL_RANGES = {
     "cfg_interval_end_minimum": 0.0,
     "cfg_interval_end_maximum": 1.0,
     "cfg_interval_end_step": 0.01,
+}
+
+_UNSUPPORTED_MODE_REASONS = {
+    "Extract": "Base/SFT only",
+    "Lego": "Base/SFT only",
+    "Complete": "Base/SFT only",
 }
 
 
@@ -141,6 +150,76 @@ def get_ui_control_config_for_path(config_path: str | None) -> dict:
     )
 
 
+def _choice_value(choice: str | tuple[str, str]) -> str:
+    """Return the semantic mode value from a raw or display choice."""
+
+    if isinstance(choice, tuple):
+        return str(choice[1])
+    return str(choice)
+
+
+def get_supported_generation_modes(
+    is_turbo: bool,
+    is_pure_base: bool = False,
+    is_sft: bool = False,
+) -> list[str]:
+    """Return generation modes supported by a model family."""
+
+    if is_pure_base:
+        return list(GENERATION_MODES_BASE)
+    if is_sft and not is_turbo:
+        return list(GENERATION_MODES_SFT)
+    return list(GENERATION_MODES_TURBO)
+
+
+def get_generation_mode_display_choices(
+    supported_modes: list[str],
+) -> list[str | tuple[str, str]]:
+    """Return radio choices that show unavailable modes without enabling them."""
+
+    supported = set(supported_modes)
+    choices: list[str | tuple[str, str]] = []
+    for mode in GENERATION_MODES_BASE:
+        if mode in supported:
+            choices.append(mode)
+            continue
+        reason = _UNSUPPORTED_MODE_REASONS.get(mode, "not supported")
+        choices.append((f"{mode} - unavailable ({reason})", mode))
+    return choices
+
+
+def get_generation_mode_choices_for_path(config_path: str | None) -> list[str | tuple[str, str]]:
+    """Return model-aware generation-mode choices for the Gradio selector."""
+
+    cfg = get_ui_control_config_for_path(config_path)
+    return list(cfg["generation_mode_choices"])
+
+
+def get_supported_generation_modes_for_path(config_path: str | None) -> list[str]:
+    """Return raw supported mode values for a model config path."""
+
+    cfg = get_ui_control_config_for_path(config_path)
+    return list(cfg["supported_generation_modes"])
+
+
+def is_generation_mode_supported_for_path(mode: str, config_path: str | None) -> bool:
+    """Return whether a mode can be used with the selected model config."""
+
+    return mode in get_supported_generation_modes_for_path(config_path)
+
+
+def fallback_generation_mode_for_path(
+    mode: str | None,
+    config_path: str | None,
+) -> str:
+    """Return a supported mode, preserving *mode* when possible."""
+
+    supported = get_supported_generation_modes_for_path(config_path)
+    if mode in supported:
+        return str(mode)
+    return "Custom" if "Custom" in supported else supported[0]
+
+
 def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bool = False) -> dict:
     """Return UI control configuration (values, limits, visibility) for model type.
 
@@ -156,10 +235,17 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
     # Precedence: turbo > SFT > pure base > fallback.
     if is_pure_base:
         task_choices = TASK_TYPES_BASE
-        mode_choices = GENERATION_MODES_BASE
+    elif is_sft and not is_turbo:
+        task_choices = TASK_TYPES_SFT
     else:
         task_choices = TASK_TYPES_TURBO
-        mode_choices = GENERATION_MODES_TURBO
+    is_pure_base_family = bool(is_pure_base)
+    supported_modes = get_supported_generation_modes(
+        is_turbo,
+        is_pure_base=is_pure_base,
+        is_sft=is_sft,
+    )
+    mode_choices = get_generation_mode_display_choices(supported_modes)
 
     if is_turbo:
         return {
@@ -180,6 +266,8 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
             "cfg_interval_end_visible": False,
             "task_type_choices": task_choices,
             "generation_mode_choices": mode_choices,
+            "supported_generation_modes": supported_modes,
+            "is_pure_base_family": is_pure_base_family,
         }
     if is_pure_base:
         # Keep Base on the same APG/CFG path used by the official pipeline.
@@ -202,6 +290,8 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
             "cfg_interval_end_visible": True,
             "task_type_choices": task_choices,
             "generation_mode_choices": mode_choices,
+            "supported_generation_modes": supported_modes,
+            "is_pure_base_family": is_pure_base_family,
         }
 
     # SFT and unknown non-turbo checkpoints default to the documented CFG
@@ -224,6 +314,8 @@ def get_ui_control_config(is_turbo: bool, is_pure_base: bool = False, is_sft: bo
         "cfg_interval_end_visible": True,
         "task_type_choices": task_choices,
         "generation_mode_choices": mode_choices,
+        "supported_generation_modes": supported_modes,
+        "is_pure_base_family": is_pure_base_family,
     }
 
 
@@ -231,11 +323,14 @@ def get_model_type_ui_settings_from_config(cfg: dict, current_mode: str | None =
     """Get gr.update() tuple from an already-resolved UI configuration."""
 
     new_choices = cfg["generation_mode_choices"]
-    if current_mode and current_mode in new_choices:
-        mode_update = gr.update(choices=new_choices, value=current_mode)
-    else:
-        mode_update = gr.update(choices=new_choices)
-    init_llm_update = gr.update(value=False) if new_choices == GENERATION_MODES_BASE else gr.update()
+    supported_modes = cfg.get("supported_generation_modes", GENERATION_MODES_TURBO)
+    new_choice_values = [_choice_value(choice) for choice in new_choices]
+    resolved_mode = current_mode if current_mode in supported_modes else "Custom"
+    if resolved_mode not in new_choice_values:
+        resolved_mode = new_choice_values[0] if new_choice_values else "Custom"
+    mode_update = gr.update(choices=new_choices, value=resolved_mode)
+    task_type = MODE_TO_TASK_TYPE.get(resolved_mode, "text2music")
+    init_llm_update = gr.update(value=False) if cfg.get("is_pure_base_family") else gr.update()
     return (
         gr.update(
             value=cfg["inference_steps_value"],
@@ -271,13 +366,18 @@ def get_model_type_ui_settings_from_config(cfg: dict, current_mode: str | None =
             step=cfg["cfg_interval_end_step"],
             visible=cfg["cfg_interval_end_visible"],
         ),
-        gr.update(),  # task_type
+        task_type,
         mode_update,
         init_llm_update,
     )
 
 
-def get_model_type_ui_settings(is_turbo: bool, current_mode: str | None = None, is_pure_base: bool = False, is_sft: bool = False):
+def get_model_type_ui_settings(
+    is_turbo: bool,
+    current_mode: str | None = None,
+    is_pure_base: bool = False,
+    is_sft: bool = False,
+):
     """Get gr.update() tuple for model-type controls.
 
     Args:
@@ -295,16 +395,19 @@ def get_model_type_ui_settings(is_turbo: bool, current_mode: str | None = None, 
     return get_model_type_ui_settings_from_config(cfg, current_mode=current_mode)
 
 
-def get_generation_mode_choices(is_pure_base: bool = False) -> list:
+def get_generation_mode_choices(is_pure_base: bool = False, is_sft: bool = False) -> list:
     """Get the list of generation mode choices based on model type.
 
     Args:
         is_pure_base: Whether the model is a pure base model.
+        is_sft: Whether the model is an SFT model.
 
     Returns:
         List of mode choice strings.
     """
-    if is_pure_base:
-        return GENERATION_MODES_BASE
-    else:
-        return GENERATION_MODES_TURBO
+    supported_modes = get_supported_generation_modes(
+        False,
+        is_pure_base=is_pure_base,
+        is_sft=is_sft,
+    )
+    return get_generation_mode_display_choices(supported_modes)

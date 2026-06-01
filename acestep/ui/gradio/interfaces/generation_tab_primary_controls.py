@@ -11,7 +11,9 @@ from .generation_tab_simple_controls import build_simple_mode_controls
 from .generation_tab_source_controls import build_source_track_and_code_controls
 
 
-def build_mode_selector_controls(initial_mode_choices: list[str]) -> dict[str, Any]:
+def build_mode_selector_controls(
+    initial_mode_choices: list[str | tuple[str, str]],
+) -> dict[str, Any]:
     """Create generation mode selector and load-metadata upload controls.
 
     Args:
@@ -27,6 +29,7 @@ def build_mode_selector_controls(initial_mode_choices: list[str]) -> dict[str, A
             value="Custom",
             label=t("generation.mode_label"),
             info=t("generation.mode_info_custom"),
+            elem_id="acestep-generation-mode",
             elem_classes=["has-info-container"],
             scale=10,
         )

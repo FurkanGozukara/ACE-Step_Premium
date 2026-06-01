@@ -13,6 +13,7 @@ from fastapi.routing import APIRoute
 from acestep.api.http.model_service_routes import (
     InitModelRequest,
     _collect_model_inventory,
+    _read_model_supported_tasks,
     register_model_service_routes,
 )
 
@@ -103,6 +104,15 @@ class ModelServiceRoutesTests(unittest.TestCase):
         self.assertIn("acestep-v15-turbo", names)
         self.assertEqual("acestep-v15-base", inventory["default_model"])
         self.assertTrue(inventory["llm_initialized"])
+
+    def test_read_model_supported_tasks_allows_sft_advanced_tasks(self):
+        """SFT inventory should advertise verified advanced task support."""
+
+        tasks = _read_model_supported_tasks("/tmp/non-existent", "acestep-v15-xl-sft")
+
+        self.assertIn("extract", tasks)
+        self.assertIn("lego", tasks)
+        self.assertIn("complete", tasks)
 
     def test_init_route_wraps_initializer_exception(self):
         """Init endpoint should convert initializer exceptions into wrapped code=500 payloads."""

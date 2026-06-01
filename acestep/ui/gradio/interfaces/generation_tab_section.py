@@ -4,10 +4,12 @@ from typing import Any
 
 import gradio as gr
 
-from acestep.constants import GENERATION_MODES_BASE, GENERATION_MODES_TURBO
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.events.generation.model_config import (
+    get_generation_mode_choices_for_path,
+)
 
-from .generation_defaults import compute_init_defaults, resolve_is_pure_base_model
+from .generation_defaults import compute_init_defaults, resolve_generation_config_path
 from .generation_tab_primary_controls import (
     build_hidden_generation_state,
     build_mode_selector_controls,
@@ -42,12 +44,12 @@ def _compute_generation_tab_defaults(
     defaults = compute_init_defaults(init_params, language)
     service_pre_initialized = defaults["service_pre_initialized"]
 
-    is_pure_base_model = resolve_is_pure_base_model(
+    config_path = resolve_generation_config_path(
         dit_handler=dit_handler,
         init_params=init_params,
         service_pre_initialized=service_pre_initialized,
     )
-    initial_mode_choices = GENERATION_MODES_BASE if is_pure_base_model else GENERATION_MODES_TURBO
+    initial_mode_choices = get_generation_mode_choices_for_path(config_path)
 
     return {
         "defaults": defaults,

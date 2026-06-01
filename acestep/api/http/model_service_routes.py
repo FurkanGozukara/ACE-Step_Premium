@@ -11,7 +11,7 @@ from fastapi import Depends, FastAPI
 from pydantic import BaseModel, Field
 
 from acestep.api.http.model_init_service import initialize_models_for_request
-from acestep.constants import TASK_TYPES_BASE, TASK_TYPES_TURBO
+from acestep.constants import TASK_TYPES_BASE, TASK_TYPES_SFT, TASK_TYPES_TURBO
 from acestep.model_downloader import DEFAULT_BASE_DIT_MODEL, get_models_dir
 
 
@@ -36,6 +36,14 @@ class InitModelRequest(BaseModel):
 
 def _read_model_supported_tasks(checkpoint_dir: str, model_name: str) -> List[str]:
     """Read config.json for a model and return its supported task types."""
+    model_name_lower = (model_name or "").lower()
+    if "turbo" in model_name_lower:
+        return list(TASK_TYPES_TURBO)
+    if "sft" in model_name_lower:
+        return list(TASK_TYPES_SFT)
+    if "base" in model_name_lower:
+        return list(TASK_TYPES_BASE)
+
     config_path = os.path.join(checkpoint_dir, model_name, "config.json")
     if not os.path.isfile(config_path):
         return list(TASK_TYPES_BASE)
@@ -45,6 +53,9 @@ def _read_model_supported_tasks(checkpoint_dir: str, model_name: str) -> List[st
         is_turbo = config.get("is_turbo", False)
         if is_turbo:
             return list(TASK_TYPES_TURBO)
+        model_version = str(config.get("model_version", "")).lower()
+        if model_version == "sft":
+            return list(TASK_TYPES_SFT)
         return list(TASK_TYPES_BASE)
     except Exception:
         return list(TASK_TYPES_BASE)

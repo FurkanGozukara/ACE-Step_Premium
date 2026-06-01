@@ -508,6 +508,32 @@ def _default_instruction_for_task(task_type: str, tracks: Optional[List[str]] = 
     return DEFAULT_DIT_INSTRUCTION
 
 
+def _task_supported_by_model_config(task_type: str, config_path: Optional[str]) -> bool:
+    """Return whether a task can run with the selected DiT model config."""
+
+    if task_type not in {"lego", "extract", "complete"} or not config_path:
+        return True
+    config_lower = str(config_path).lower()
+    if "turbo" in config_lower:
+        return False
+    return "base" in config_lower or "sft" in config_lower
+
+
+def _filter_models_for_task(models: List[str], task_type: str) -> List[str]:
+    """Filter discovered DiT model names to those supporting *task_type*."""
+
+    return [model for model in models if _task_supported_by_model_config(task_type, model)]
+
+
+def _task_model_requirement_message(task_type: str) -> str:
+    """Return a concise model requirement message for a task."""
+
+    return (
+        f"task_type '{task_type}' requires a base or SFT model config "
+        f"(e.g., '{DEFAULT_BASE_DIT_MODEL}')."
+    )
+
+
 def _apply_optional_defaults(args, params_defaults: GenerationParams, config_defaults: GenerationConfig) -> None:
     optional_defaults = {
         "duration": params_defaults.duration,
@@ -691,28 +717,40 @@ def run_wizard(args, configure_only: bool = False, default_config_path: Optional
             task_choice = task_default
         args.task_type = task_map.get(task_choice, "text2music")
         if args.task_type in {"lego", "extract", "complete"}:
-            print(f"Note: This task requires a base DiT model ({DEFAULT_BASE_DIT_MODEL}). It will be auto-downloaded if missing.")
+            print(
+                f"Note: {_task_model_requirement_message(args.task_type)} "
+                "It will be auto-downloaded if missing."
+            )
 
         # Model selection (DiT)
         dit_handler = AceStepHandler()
         available_dit_models = dit_handler.get_available_acestep_v15_models()
-        base_only = args.task_type in {"lego", "extract", "complete"}
-        if base_only and available_dit_models:
-            available_dit_models = [m for m in available_dit_models if "base" in m.lower()]
+        task_restricted = args.task_type in {"lego", "extract", "complete"}
+        if task_restricted and available_dit_models:
+            available_dit_models = _filter_models_for_task(available_dit_models, args.task_type)
 
-        if base_only and args.config_path and "base" not in str(args.config_path).lower():
+        if task_restricted and not _task_supported_by_model_config(
+            args.task_type,
+            args.config_path,
+        ):
             args.config_path = None
 
-        if base_only:
+        if task_restricted:
             if available_dit_models:
                 if args.config_path in available_dit_models:
                     selected = args.config_path
                 else:
                     selected = available_dit_models[0]
                 args.config_path = selected
-                print(f"\nNote: This task requires a base model. Using: {selected}")
+                print(
+                    f"\nNote: {_task_model_requirement_message(args.task_type)} "
+                    f"Using: {selected}"
+                )
             else:
-                print(f"\nNote: This task requires a base model (e.g., '{DEFAULT_BASE_DIT_MODEL}'). It will be auto-downloaded if missing.")
+                print(
+                    f"\nNote: {_task_model_requirement_message(args.task_type)} "
+                    "It will be auto-downloaded if missing."
+                )
         elif available_dit_models:
             selected = _prompt_choice_from_list(
                 "--- Available DiT Models ---",
@@ -1246,11 +1284,11 @@ def main():
         if args.task_type in {"text2music", "cover", "repaint"}:
             args.instruction = TASK_INSTRUCTIONS[args.task_type]
 
-    # Base-model-only task enforcement
-    base_only_tasks = {"lego", "extract", "complete"}
-    if args.task_type in base_only_tasks and args.config_path:
-        if "base" not in str(args.config_path).lower():
-            parser.error(f"task_type '{args.task_type}' requires a base model config (e.g., '{DEFAULT_BASE_DIT_MODEL}').")
+    # Model-restricted task enforcement
+    restricted_tasks = {"lego", "extract", "complete"}
+    if args.task_type in restricted_tasks and args.config_path:
+        if not _task_supported_by_model_config(args.task_type, args.config_path):
+            parser.error(_task_model_requirement_message(args.task_type))
 
     if args.task_type == "repaint":
         if args.repainting_end != -1 and args.repainting_end <= args.repainting_start:
@@ -1319,7 +1357,7 @@ def main():
     dit_handler = AceStepHandler()
     llm_handler = LLMHandler()
 
-    base_only_tasks = {"lego", "extract", "complete"}
+    restricted_tasks = {"lego", "extract", "complete"}
     skip_lm_tasks = {"cover", "repaint"}
     requires_lm = (
         args.task_type not in skip_lm_tasks and (
@@ -1336,8 +1374,8 @@ def main():
 
     if args.config_path is None:
         available_models = dit_handler.get_available_acestep_v15_models()
-        if args.task_type in base_only_tasks and available_models:
-            available_models = [m for m in available_models if "base" in m.lower()]
+        if args.task_type in restricted_tasks and available_models:
+            available_models = _filter_models_for_task(available_models, args.task_type)
         if not available_models:
             from acestep.model_downloader import (
                 DEFAULT_PREMIUM_DIT_MODEL,
@@ -1351,10 +1389,13 @@ def main():
             if not success:
                 parser.error(f"Failed to download main model: {msg}")
             available_models = dit_handler.get_available_acestep_v15_models()
-            if args.task_type in base_only_tasks and available_models:
-                available_models = [m for m in available_models if "base" in m.lower()]
-        if args.task_type in base_only_tasks and not available_models:
-            print(f"Base-only task selected. Downloading base DiT model ({DEFAULT_BASE_DIT_MODEL})...")
+            if args.task_type in restricted_tasks and available_models:
+                available_models = _filter_models_for_task(available_models, args.task_type)
+        if args.task_type in restricted_tasks and not available_models:
+            print(
+                "Restricted task selected. Downloading base DiT model "
+                f"({DEFAULT_BASE_DIT_MODEL})..."
+            )
             from acestep.model_downloader import ensure_dit_model, get_checkpoints_dir
             checkpoints_dir = get_checkpoints_dir()
             success, msg = ensure_dit_model(DEFAULT_BASE_DIT_MODEL, checkpoints_dir)
@@ -1363,7 +1404,7 @@ def main():
                 parser.error(f"Failed to download base DiT model: {msg}")
             available_models = dit_handler.get_available_acestep_v15_models()
             if available_models:
-                available_models = [m for m in available_models if "base" in m.lower()]
+                available_models = _filter_models_for_task(available_models, args.task_type)
         if available_models:
             from acestep.model_downloader import DEFAULT_PREMIUM_DIT_MODEL
             if args.task_type in {"lego", "extract", "complete"}:
@@ -1374,8 +1415,11 @@ def main():
             print(f"Auto-selected config_path: {args.config_path}")
         else:
             parser.error("No available DiT models found. Please specify --config_path.")
-    if args.task_type in {"lego", "extract", "complete"} and "base" not in str(args.config_path).lower():
-        parser.error(f"task_type '{args.task_type}' requires a base model config (e.g., '{DEFAULT_BASE_DIT_MODEL}').")
+    if args.task_type in {"lego", "extract", "complete"} and not _task_supported_by_model_config(
+        args.task_type,
+        args.config_path,
+    ):
+        parser.error(_task_model_requirement_message(args.task_type))
 
     # Ensure required DiT/main models are present for the selected task/model.
     from acestep.model_downloader import (

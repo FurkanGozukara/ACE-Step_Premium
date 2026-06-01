@@ -19,6 +19,13 @@ from acestep.core.generation.cancellation import (
     register_generation_subprocess,
     unregister_generation_subprocess,
 )
+from acestep.core.generation.subprocess_termination import terminate_generation_process
+from .cancel import (
+    check_sam_audio_cancelled,
+    is_sam_audio_cancelled,
+    register_sam_audio_subprocess,
+    unregister_sam_audio_subprocess,
+)
 from .progress import ProgressCallback, parse_progress_line
 
 
@@ -31,6 +38,7 @@ def run_sam_audio_subprocess(
 
     project_root = Path(__file__).resolve().parents[2]
     with tempfile.TemporaryDirectory(prefix="acestep_sam_audio_") as temp_dir:
+        check_sam_audio_cancelled()
         temp_root = Path(temp_dir)
         request_path = temp_root / "request.json"
         result_path = temp_root / "result.json"
@@ -54,11 +62,15 @@ def run_sam_audio_subprocess(
             bufsize=1,
         )
         register_generation_subprocess(proc)
+        register_sam_audio_subprocess(proc)
         try:
+            if is_sam_audio_cancelled():
+                terminate_generation_process(proc)
             stdout, stderr = _collect_process_output(proc, progress_callback)
             return_code = proc.wait()
-            was_cancelled = is_generation_cancelled()
+            was_cancelled = is_generation_cancelled() or is_sam_audio_cancelled()
         finally:
+            unregister_sam_audio_subprocess(proc)
             unregister_generation_subprocess(proc)
         if was_cancelled:
             raise GenerationCancelled(CANCEL_MESSAGE)
@@ -104,6 +116,8 @@ def _collect_process_output(
     while proc.poll() is None or not output_queue.empty() or any(
         thread.is_alive() for thread in threads
     ):
+        if is_sam_audio_cancelled() and proc.poll() is None:
+            terminate_generation_process(proc)
         try:
             stream_name, line = output_queue.get(timeout=0.1)
         except Empty:

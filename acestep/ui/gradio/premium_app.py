@@ -385,7 +385,73 @@ _BUTTON_PERSONALIZATION_SCRIPT = """
 </script>
 """.replace("__ACE_CANCEL_ENDPOINT__", CANCEL_GENERATION_ENDPOINT)
 
+_UNAVAILABLE_GENERATION_MODE_SCRIPT = """
+<script>
+(function() {
+    const MODE_SELECTOR = "#acestep-generation-mode";
+
+    function updateModeAvailability() {
+        const root = document.querySelector(MODE_SELECTOR);
+        if (!root) return;
+
+        root.querySelectorAll('label[data-testid$="-radio-label"]').forEach((label) => {
+            const testId = label.getAttribute("data-testid") || "";
+            const unavailable = testId.includes("unavailable");
+            const input = label.querySelector('input[type="radio"]');
+            if (!input) return;
+
+            if (unavailable) {
+                input.dataset.aceModeDisabled = "true";
+                if (!input.disabled) input.disabled = true;
+                label.classList.add("ace-mode-unavailable");
+                label.setAttribute("aria-disabled", "true");
+                return;
+            }
+
+            if (input.dataset.aceModeDisabled === "true") {
+                delete input.dataset.aceModeDisabled;
+                input.disabled = false;
+                label.classList.remove("ace-mode-unavailable");
+                label.removeAttribute("aria-disabled");
+            }
+        });
+    }
+
+    let scheduled = false;
+    function scheduleModeAvailability() {
+        if (scheduled) return;
+        scheduled = true;
+        window.requestAnimationFrame(() => {
+            scheduled = false;
+            updateModeAvailability();
+        });
+    }
+
+    document.addEventListener("change", scheduleModeAvailability, true);
+    new MutationObserver(scheduleModeAvailability).observe(document.documentElement, {
+        attributeFilter: ["data-testid"],
+        attributes: true,
+        childList: true,
+        subtree: true,
+    });
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", scheduleModeAvailability, { once: true });
+    } else {
+        scheduleModeAvailability();
+    }
+    window.setTimeout(scheduleModeAvailability, 400);
+    window.setTimeout(scheduleModeAvailability, 1400);
+})();
+</script>
+"""
+
 _PREMIUM_CSS = """
+#acestep-generation-mode .ace-mode-unavailable {
+    cursor: not-allowed !important;
+    opacity: 0.52 !important;
+    pointer-events: none !important;
+}
 .gradio-container button[data-ace-command-button="true"] {
     background: var(--ace-btn-bg) !important;
     box-shadow: var(--ace-btn-shadow) !important;
@@ -590,6 +656,7 @@ def _build_head(service_mode: bool) -> str:
         + ("" if service_mode else get_user_preferences_head())
         + _TOOLTIP_SCRIPT
         + _BUTTON_PERSONALIZATION_SCRIPT
+        + _UNAVAILABLE_GENERATION_MODE_SCRIPT
     )
 
 

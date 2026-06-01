@@ -8,6 +8,7 @@ from loguru import logger
 from acestep.core.generation.cancellation import check_generation_cancelled
 
 from .attention import attention_backend_context
+from .cancel import check_sam_audio_cancelled
 from .chunking import (
     iter_audio_chunks,
     overlap_add_chunks,
@@ -126,6 +127,7 @@ class SamAudioSeparator:
         logger.info("[sam_audio] Processing {} chunks for long audio", len(chunks))
         for index, chunk in enumerate(chunks, start=1):
             check_generation_cancelled()
+            check_sam_audio_cancelled()
             self._report_chunk_progress(index - 1, len(chunks), index, "Separating")
             logger.info(
                 "[sam_audio] Chunk {}/{} samples {}:{}",

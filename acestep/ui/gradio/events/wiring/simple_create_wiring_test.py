@@ -162,6 +162,12 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
         self.assertEqual(result[4].get("value"), 3.0)
         self.assertEqual(result[4].get("minimum"), 1.0)
         self.assertEqual(result[4].get("maximum"), 5.0)
+        sft_mode_values = [
+            choice[1] if isinstance(choice, tuple) else choice
+            for choice in result[8].get("choices")
+        ]
+        self.assertIn("Extract", sft_mode_values)
+        self.assertIn("Lego", sft_mode_values)
         self.assertTrue(result[9].get("value"))
         self.assertTrue(result[10].get("value"))
         self.assertTrue(result[11].get("value"))

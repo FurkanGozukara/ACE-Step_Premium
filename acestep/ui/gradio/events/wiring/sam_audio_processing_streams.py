@@ -9,6 +9,10 @@ from typing import Any, Callable
 import gradio as gr
 
 from acestep.core.generation.cancellation import GenerationCancelled
+from acestep.sam_audio_segment.cancel import (
+    request_sam_audio_cancel,
+    sam_audio_cancel_scope,
+)
 
 from .sam_audio_action_helpers import single_status
 from .sam_audio_status_log import SamAudioStatusLog
@@ -25,10 +29,13 @@ def stream_single_subprocess(
     """Stream one SAM-Audio subprocess worker into Gradio single-file outputs."""
 
     holder = _start_worker(worker)
-    yield _single_pending_update(
-        status_log.render(_with_cleanup(cleanup_status, "SAM-Audio started."))
-    )
-    yield from _yield_pending_single_while_running(holder, cleanup_status, status_log)
+    try:
+        yield _single_pending_update(
+            status_log.render(_with_cleanup(cleanup_status, "SAM-Audio started."))
+        )
+        yield from _yield_pending_single_while_running(holder, cleanup_status, status_log)
+    finally:
+        _cancel_active_worker(holder)
     error = holder.get("error")
     if isinstance(error, GenerationCancelled):
         yield _single_pending_update(status_log.append_to_status("SAM-Audio cancelled."))
@@ -58,17 +65,20 @@ def stream_batch_subprocess(
     """Stream one SAM-Audio subprocess worker into Gradio batch outputs."""
 
     holder = _start_worker(worker)
-    yield status_log.render(
-        _with_cleanup(cleanup_status, "SAM-Audio batch started.")
-    ), gr.update(visible=False)
-    while holder["thread"].is_alive():
-        if status_log.drain():
-            yield status_log.render(
-                _with_cleanup(cleanup_status, "SAM-Audio batch running...")
-            ), gr.update(visible=False)
-        time.sleep(0.25)
-    holder["thread"].join()
-    status_log.drain()
+    try:
+        yield status_log.render(
+            _with_cleanup(cleanup_status, "SAM-Audio batch started.")
+        ), gr.update(visible=False)
+        while holder["thread"].is_alive():
+            if status_log.drain():
+                yield status_log.render(
+                    _with_cleanup(cleanup_status, "SAM-Audio batch running...")
+                ), gr.update(visible=False)
+            time.sleep(0.25)
+        holder["thread"].join()
+        status_log.drain()
+    finally:
+        _cancel_active_worker(holder)
     error = holder.get("error")
     if isinstance(error, GenerationCancelled):
         yield status_log.append_to_status("SAM-Audio batch cancelled."), gr.update(
@@ -94,7 +104,8 @@ def _start_worker(worker: Callable[[], Any]) -> dict[str, Any]:
 
     def _run() -> None:
         try:
-            holder["result"] = worker()
+            with sam_audio_cancel_scope():
+                holder["result"] = worker()
         except BaseException as exc:
             holder["error"] = exc
 
@@ -124,6 +135,16 @@ def _single_pending_update(status: str) -> tuple[Any, ...]:
     """Return output placeholders that only update the status panel."""
 
     return gr.update(), gr.update(), gr.update(), gr.update(visible=False), status
+
+
+def _cancel_active_worker(holder: dict[str, Any]) -> None:
+    """Cancel and briefly join an active SAM-Audio worker."""
+
+    thread = holder.get("thread")
+    if thread is None or not thread.is_alive():
+        return
+    request_sam_audio_cancel()
+    thread.join(timeout=3.0)
 
 
 def _with_cleanup(cleanup_status: str, status: str) -> str:

@@ -34,6 +34,14 @@ class PremiumAppTests(unittest.TestCase):
         self.assertIn("/ace-step/cancel-generation", head)
         self.assertIn("subprocessModeEnabled", head)
 
+    def test_unavailable_generation_modes_are_browser_disabled(self):
+        """Unavailable generation modes should be visible but not selectable."""
+
+        head = premium_app._build_head(service_mode=False)
+        self.assertIn("acestep-generation-mode", head)
+        self.assertIn("aceModeDisabled", head)
+        self.assertIn("ace-mode-unavailable", premium_app._PREMIUM_CSS)
+
     def test_header_shows_plain_title_and_release_link(self):
         """Visible app header should show a plain title and clickable release URL."""
 

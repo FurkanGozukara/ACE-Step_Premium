@@ -5,6 +5,10 @@ from loguru import logger
 
 from acestep.constants import MODE_TO_TASK_TYPE
 from acestep.ui.gradio.i18n import t
+from .model_config import (
+    fallback_generation_mode_for_path,
+    is_generation_mode_supported_for_path,
+)
 from .mode_ui_helpers import (
     _compute_automation_updates,
     _compute_field_updates_for_mode,
@@ -13,8 +17,35 @@ from .mode_ui_helpers import (
 )
 
 
-def compute_mode_ui_updates(mode: str, llm_handler=None, previous_mode: str = "Custom"):
+def compute_mode_ui_updates(
+    mode: str,
+    llm_handler=None,
+    previous_mode: str = "Custom",
+    config_path: str | None = None,
+):
     """Return the 46-output mode-switch update tuple for generation UI."""
+    if not is_generation_mode_supported_for_path(mode, config_path):
+        fallback_mode = fallback_generation_mode_for_path(previous_mode, config_path)
+        updates = list(
+            compute_mode_ui_updates(
+                fallback_mode,
+                llm_handler=llm_handler,
+                previous_mode=fallback_mode,
+                config_path=config_path,
+            )
+        )
+        unavailable_info = (
+            f"{mode} is not available for the selected model. "
+            f"Staying on {fallback_mode}."
+        )
+        updates[12] = gr.update(
+            value=fallback_mode,
+            info=unavailable_info,
+            elem_classes=["has-info-container"],
+        )
+        updates[37] = fallback_mode
+        return tuple(updates)
+
     task_type = MODE_TO_TASK_TYPE.get(mode, "text2music")
 
     is_simple = (mode == "Simple")
@@ -197,9 +228,19 @@ def compute_mode_ui_updates(mode: str, llm_handler=None, previous_mode: str = "C
     )
 
 
-def handle_generation_mode_change(mode: str, previous_mode: str, llm_handler=None):
+def handle_generation_mode_change(
+    mode: str,
+    previous_mode: str,
+    llm_handler=None,
+    config_path: str | None = None,
+):
     """Delegate generation-mode change handling to compute_mode_ui_updates."""
-    return compute_mode_ui_updates(mode, llm_handler, previous_mode=previous_mode)
+    return compute_mode_ui_updates(
+        mode,
+        llm_handler,
+        previous_mode=previous_mode,
+        config_path=config_path,
+    )
 
 
 def handle_extract_track_name_change(track_name_value: str, mode: str):
