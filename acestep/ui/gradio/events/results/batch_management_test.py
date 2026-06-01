@@ -11,8 +11,12 @@ from acestep.ui.gradio.events.results.output_manager import (
     use_results_dir,
 )
 
-from _batch_management_test_support import build_progress_result
-from _batch_management_test_support import load_batch_management_module
+try:
+    from ._batch_management_test_support import build_progress_result
+    from ._batch_management_test_support import load_batch_management_module
+except ImportError:  # pragma: no cover - supports direct file execution
+    from _batch_management_test_support import build_progress_result
+    from _batch_management_test_support import load_batch_management_module
 
 
 def _build_call_kwargs(module):
@@ -157,6 +161,44 @@ class BatchManagementWrapperTests(unittest.TestCase):
         saved_params = state["store_calls"][0]["generation_params"]
         self.assertTrue(saved_params["no_fsq"])
         self.assertEqual(saved_params["task_type"], "cover")
+
+    def test_extract_requires_track_name_before_generation(self):
+        """Extract should stop before backend generation when no track is selected."""
+
+        module, state = load_batch_management_module(is_windows=False)
+        kwargs = _build_call_kwargs(module)
+        kwargs["task_type"] = "extract"
+        kwargs["track_name"] = None
+
+        outputs = list(module.generate_with_batch_management(None, None, **kwargs))
+
+        self.assertEqual(len(outputs), 1)
+        self.assertIn("Select Track Name", outputs[0][10])
+        self.assertEqual(state["store_calls"], [])
+        self.assertTrue(state["warning_messages"])
+
+    def test_extract_track_name_updates_instruction_and_caption(self):
+        """Extract should pass selected track context into the generation request."""
+
+        module, state = load_batch_management_module(is_windows=False)
+        seen = {}
+
+        def _gen(*args, **_kwargs):
+            """Capture positional generation args and yield a standard result."""
+            seen["args"] = args
+            yield build_progress_result(length=48)
+
+        kwargs = _build_call_kwargs(module)
+        kwargs["task_type"] = "extract"
+        kwargs["track_name"] = "vocals"
+        kwargs["captions"] = ""
+        kwargs["instruction_display_gen"] = ""
+        with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
+            list(module.generate_with_batch_management(None, None, **kwargs))
+
+        self.assertEqual(seen["args"][2], "vocals")
+        self.assertEqual(seen["args"][19], "Extract the VOCALS track from the audio:")
+        self.assertEqual(state["store_calls"][0]["generation_params"]["track_name"], "vocals")
 
     def test_auto_lrc_copies_lrc_fields_to_batch_queue(self):
         """Auto-LRC mode should copy LRC/subtitle payloads into stored queue entry."""

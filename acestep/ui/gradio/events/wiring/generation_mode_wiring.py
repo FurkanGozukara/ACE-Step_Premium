@@ -50,14 +50,26 @@ def register_generation_mode_handlers(
 
     # Shared handler for mode-change and initial page load — extracted to
     # avoid duplicating the lambda and to keep both call sites in sync.
-    def _handle_mode_change(mode: str, prev: str | None, config_path: str | None):
+    def _handle_mode_change(
+        mode: str,
+        prev: str | None,
+        config_path: str | None,
+        track_name: str | None,
+    ):
         """Proxy mode-change handling for both .change() and .load() events."""
-        return gen_h.handle_generation_mode_change(mode, prev, llm_handler, config_path)
+        return gen_h.handle_generation_mode_change(
+            mode,
+            prev,
+            llm_handler,
+            config_path,
+            track_name,
+        )
 
     mode_change_inputs = [
         generation_section["generation_mode"],
         generation_section["previous_generation_mode"],
         generation_section["config_path"],
+        generation_section["track_name"],
     ]
     dcw_default_outputs = [
         generation_section["dcw_mode"],
@@ -70,6 +82,7 @@ def register_generation_mode_handlers(
         fn=_handle_mode_change,
         inputs=mode_change_inputs,
         outputs=mode_ui_outputs,
+        queue=False,
     )
 
     # ========== Initial Mode State on Page Load ==========
@@ -105,7 +118,10 @@ def register_generation_mode_handlers(
             generation_section["track_name"],
             generation_section["generation_mode"],
         ],
-        outputs=[generation_section["captions"]],
+        outputs=[
+            generation_section["captions"],
+            generation_section["generate_btn"],
+        ],
     )
 
     # Validate source audio eagerly so users get immediate feedback on invalid files.

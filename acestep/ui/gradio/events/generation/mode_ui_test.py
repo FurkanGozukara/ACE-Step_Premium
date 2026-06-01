@@ -25,22 +25,32 @@ except Exception as exc:  # pragma: no cover - environment dependency guard
 
 # Output indices for the two new state-clearing outputs
 _IDX_TASK_TYPE = 5       # Index of task_type (gr.State) in compute_mode_ui_updates return tuple
+_IDX_CUSTOM_MODE_GROUP = 1
+_IDX_GENERATE_BTN = 2
+_IDX_OPTIONAL_PARAMS = 4
 _IDX_SRC_AUDIO_ROW = 6
+_IDX_AUDIO_CODES_GROUP = 8
+_IDX_TRACK_NAME = 9
+_IDX_GENERATE_BTN_ROW = 11
 _IDX_AUDIO_CODES = 47
 _IDX_SRC_AUDIO = 48
 _IDX_FLOW_EDIT_COLUMN = 49
 _IDX_FLOW_EDIT_MORPH = 50
+_IDX_RUNTIME_OPTIONS_ROW = 51
 _IDX_THINK_CHECKBOX = 14
 _IDX_GENERATION_MODE = 12
 _IDX_PREVIOUS_GENERATION_MODE = 37
 _IDX_REMIX_STRENGTH = 17
 _IDX_COVER_NOISE = 18
-_EXPECTED_TUPLE_LENGTH = 51
+_EXPECTED_TUPLE_LENGTH = 52
 _IDX_BPM = 21
 _IDX_KEY = 22
 _IDX_TIMESIG = 23
 _IDX_VOCAL_LANG = 24
 _IDX_DURATION = 25
+_IDX_AUTO_SCORE = 26
+_IDX_AUTOGEN = 27
+_IDX_AUTO_LRC = 28
 
 
 @unittest.skipIf(compute_mode_ui_updates is None,
@@ -49,7 +59,7 @@ class ModeUiStateClearingTests(unittest.TestCase):
     """Tests that mode switches clear stale UI state to prevent noise."""
 
     def test_tuple_length(self):
-        """compute_mode_ui_updates should return exactly 51 elements."""
+        """compute_mode_ui_updates should return exactly 52 elements."""
         result = compute_mode_ui_updates("Custom")
         self.assertEqual(len(result), _EXPECTED_TUPLE_LENGTH)
 
@@ -261,6 +271,41 @@ class ModeUiStateClearingTests(unittest.TestCase):
                 )
                 self.assertEqual(result[_IDX_TASK_TYPE], task_type)
                 self.assertEqual(result[_IDX_PREVIOUS_GENERATION_MODE], mode)
+
+    def test_extract_mode_applies_visible_controls(self):
+        """Extract mode should show stem controls and hide Custom-only panels."""
+
+        result = compute_mode_ui_updates(
+            "Extract",
+            previous_mode="Custom",
+            config_path="ACEStep_1_5_XL_Base_BF16",
+        )
+
+        self.assertFalse(result[_IDX_CUSTOM_MODE_GROUP].get("visible"))
+        self.assertFalse(result[_IDX_OPTIONAL_PARAMS].get("visible"))
+        self.assertTrue(result[_IDX_SRC_AUDIO_ROW].get("visible"))
+        self.assertFalse(result[_IDX_AUDIO_CODES_GROUP].get("visible"))
+        self.assertTrue(result[_IDX_TRACK_NAME].get("visible"))
+        self.assertTrue(result[_IDX_GENERATE_BTN_ROW].get("visible"))
+        self.assertFalse(result[_IDX_GENERATE_BTN].get("interactive"))
+        self.assertFalse(result[_IDX_RUNTIME_OPTIONS_ROW].get("visible"))
+        self.assertFalse(result[_IDX_THINK_CHECKBOX].get("visible"))
+        self.assertFalse(result[_IDX_AUTO_SCORE].get("visible"))
+        self.assertFalse(result[_IDX_AUTOGEN].get("visible"))
+        self.assertFalse(result[_IDX_AUTO_LRC].get("visible"))
+        self.assertIn("Extract", result[_IDX_GENERATE_BTN].get("value"))
+
+    def test_extract_mode_enables_generate_when_track_is_selected(self):
+        """Extract should become runnable after a track name is selected."""
+
+        result = compute_mode_ui_updates(
+            "Extract",
+            previous_mode="Custom",
+            config_path="ACEStep_1_5_XL_Base_BF16",
+            track_name="vocals",
+        )
+
+        self.assertTrue(result[_IDX_GENERATE_BTN].get("interactive"))
 
     def test_turbo_model_reverts_unsupported_extract_mode(self):
         """Unsupported advanced modes should be visible but not usable."""

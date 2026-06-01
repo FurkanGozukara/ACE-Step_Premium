@@ -57,7 +57,7 @@ def add_single_file_controls(controls: dict[str, Any]) -> None:
                 interactive=False,
                 visible=False,
             )
-        with gr.Row(equal_height=True):
+        with gr.Row(equal_height=False, elem_classes=["ace-generate-action-row"]):
             controls["sam_process_btn"] = gr.Button(
                 "Segment File",
                 variant="primary",
@@ -120,7 +120,7 @@ def add_batch_controls(controls: dict[str, Any]) -> None:
             label="Include subfolders",
             value=False,
         )
-        with gr.Row(equal_height=True):
+        with gr.Row(equal_height=False, elem_classes=["ace-generate-action-row"]):
             controls["sam_batch_process_btn"] = gr.Button(
                 "Segment Batch Folder",
                 variant="primary",

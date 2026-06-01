@@ -78,6 +78,7 @@ MODE_OUTPUT_EXPECTED = [
     "src_audio",
     "flow_edit_column",
     "flow_edit_morph",
+    "runtime_options_row",
 ]
 
 

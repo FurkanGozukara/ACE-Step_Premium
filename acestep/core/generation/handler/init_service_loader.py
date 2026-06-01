@@ -184,20 +184,47 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
 
         last_attn_error = None
         self.model = None
+        direct_device_load = self._should_direct_load_main_model(device)
+        loaded_directly = False
         for candidate in attn_candidates:
-            try:
-                logger.info(f"[initialize_service] Attempting to load model with attention implementation: {candidate}")
-                self.model = AutoModel.from_pretrained(
-                    model_checkpoint_path,
-                    trust_remote_code=True,
-                    attn_implementation=candidate,
-                    dtype=self.dtype,
-                )
-                attn_implementation = candidate
+            direct_attempts = [True, False] if direct_device_load else [False]
+            for attempt_direct in direct_attempts:
+                try:
+                    logger.info(
+                        "[initialize_service] Attempting to load model with attention "
+                        "implementation: {} direct_device_load={}",
+                        candidate,
+                        attempt_direct,
+                    )
+                    load_kwargs = self._main_model_from_pretrained_kwargs(
+                        candidate,
+                        device=device,
+                        direct_device_load=attempt_direct,
+                    )
+                    self.model = AutoModel.from_pretrained(
+                        model_checkpoint_path,
+                        **load_kwargs,
+                    )
+                    loaded_directly = attempt_direct
+                    attn_implementation = candidate
+                    break
+                except Exception as exc:
+                    last_attn_error = exc
+                    if attempt_direct:
+                        logger.warning(
+                            "[initialize_service] Direct device load failed with {}: {}. "
+                            "Retrying staged load.",
+                            candidate,
+                            exc,
+                        )
+                    else:
+                        logger.warning(
+                            "[initialize_service] Failed to load model with {}: {}",
+                            candidate,
+                            exc,
+                        )
+            if self.model is not None:
                 break
-            except Exception as exc:
-                last_attn_error = exc
-                logger.warning(f"[initialize_service] Failed to load model with {candidate}: {exc}")
 
         if self.model is None:
             raise RuntimeError(
@@ -209,7 +236,9 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
         self._sync_alignment_config()
         self._apply_cuda_bool_argsort_workaround()
 
-        if not self.offload_to_cpu:
+        if loaded_directly:
+            logger.info("[initialize_service] Main model loaded directly on {}", device)
+        elif not self.offload_to_cpu:
             self.model = self.model.to(device).to(self.dtype)
         elif not self.offload_dit_to_cpu:
             logger.info(f"[initialize_service] Keeping main model on {device} (persistent)")
@@ -234,3 +263,28 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
         silence_latent_device = "cpu" if self.offload_to_cpu and self.offload_dit_to_cpu else device
         self.silence_latent = self.silence_latent.to(silence_latent_device).to(self.dtype)
         return attn_implementation
+
+    def _main_model_from_pretrained_kwargs(
+        self,
+        attn_implementation: str,
+        *,
+        device: str,
+        direct_device_load: bool,
+    ) -> dict:
+        """Return ``AutoModel.from_pretrained`` kwargs for the main model."""
+
+        kwargs = {
+            "trust_remote_code": True,
+            "attn_implementation": attn_implementation,
+            "dtype": self.dtype,
+        }
+        if direct_device_load:
+            kwargs["device_map"] = {"": device}
+            kwargs["low_cpu_mem_usage"] = True
+        return kwargs
+
+    def _should_direct_load_main_model(self, device: str) -> bool:
+        """Return whether the main model's final placement is CUDA."""
+
+        final_device = "cpu" if self.offload_to_cpu and self.offload_dit_to_cpu else device
+        return str(final_device).startswith("cuda")

@@ -55,11 +55,20 @@ class BaseModel(torch.nn.Module, ModelHubMixin):
 
         config = cls.config_cls(**config)
         model = cls(config)
+        resolved_checkpoint_path = _resolve_checkpoint_path(cached_model_dir, checkpoint_path)
         state_dict = _load_checkpoint(
-            _resolve_checkpoint_path(cached_model_dir, checkpoint_path),
+            resolved_checkpoint_path,
             map_location=map_location,
         )
-        model.load_state_dict(state_dict, strict=strict)
+        assign = _should_assign_loaded_tensors(resolved_checkpoint_path, map_location)
+        try:
+            model.load_state_dict(state_dict, strict=strict, assign=assign)
+        except TypeError:
+            if not assign:
+                raise
+            del state_dict
+            state_dict = _load_checkpoint(resolved_checkpoint_path, map_location="cpu")
+            model.load_state_dict(state_dict, strict=strict)
         return model
 
 
@@ -83,3 +92,9 @@ def _load_checkpoint(path: str, map_location: str) -> dict:
     if isinstance(state_dict, dict) and isinstance(state_dict.get("state_dict"), dict):
         return state_dict["state_dict"]
     return state_dict
+
+
+def _should_assign_loaded_tensors(path: str, map_location: str) -> bool:
+    """Return whether loaded checkpoint tensors should replace module tensors."""
+
+    return path.lower().endswith(".safetensors") and str(map_location).startswith("cuda")

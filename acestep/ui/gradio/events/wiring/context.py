@@ -84,6 +84,7 @@ _MODE_UI_OUTPUT_KEYS = (
     "src_audio",
     "flow_edit_column",
     "flow_edit_morph",
+    "runtime_options_row",
 )
 
 

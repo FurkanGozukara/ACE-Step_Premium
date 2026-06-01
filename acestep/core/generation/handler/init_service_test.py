@@ -784,6 +784,124 @@ class InitServiceMixinTests(unittest.TestCase):
         self.assertIsNotNone(host.model)
         self.assertIsNotNone(host.silence_latent)
 
+    def test_load_main_model_directly_uses_cuda_device_map(self):
+        """CUDA resident DiT loads should stream through Transformers device maps."""
+        host = _Host(project_root="K:/fake_root", device="cuda")
+        host.dtype = torch.bfloat16
+
+        class _DummyModel:
+            """Minimal model stub matching loader expectations."""
+
+            def __init__(self):
+                self.config = types.SimpleNamespace(_attn_implementation="sdpa")
+                self.to = Mock(return_value=self)
+                self.eval = Mock(return_value=self)
+
+        class _FakeLatent:
+            """Tensor-like silence latent stub that avoids CUDA allocation in tests."""
+
+            def transpose(self, *_args):
+                return self
+
+            def to(self, *_args, **_kwargs):
+                return self
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            checkpoint_dir = os.path.join(tmpdir, "acestep-v15-base")
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            Path(os.path.join(checkpoint_dir, "silence_latent.pt")).touch()
+            model = _DummyModel()
+
+            with patch("torch.cuda.is_available", return_value=False), \
+                    patch.object(
+                        INIT_SERVICE_LOADER_MODULE.gpu_config,
+                        "cuda_supports_bfloat16",
+                        return_value=True,
+                    ), \
+                    patch(
+                        "transformers.AutoModel.from_pretrained",
+                        return_value=model,
+                    ) as load, \
+                    patch.object(host, "is_flash_attention_available", return_value=False), \
+                    patch.object(host, "_apply_cuda_bool_argsort_workaround"), \
+                    patch.object(
+                        INIT_SERVICE_LOADER_MODULE.torch,
+                        "load",
+                        return_value=_FakeLatent(),
+                    ):
+                attn = host._load_main_model_from_checkpoint(
+                    model_checkpoint_path=checkpoint_dir,
+                    device="cuda",
+                    use_flash_attention=False,
+                    compile_model=False,
+                    quantization=None,
+                )
+
+        self.assertEqual("sdpa", attn)
+        self.assertEqual({"": "cuda"}, load.call_args.kwargs["device_map"])
+        self.assertTrue(load.call_args.kwargs["low_cpu_mem_usage"])
+        self.assertEqual(torch.bfloat16, load.call_args.kwargs["dtype"])
+        model.to.assert_not_called()
+
+    def test_load_main_model_retries_staged_load_after_direct_failure(self):
+        """A failed direct Transformers load should fall back to the previous path."""
+        host = _Host(project_root="K:/fake_root", device="cuda")
+
+        class _DummyModel:
+            """Minimal model stub matching loader expectations."""
+
+            def __init__(self):
+                self.config = types.SimpleNamespace(_attn_implementation="sdpa")
+                self.to = Mock(return_value=self)
+                self.eval = Mock(return_value=self)
+
+        class _FakeLatent:
+            """Tensor-like silence latent stub that avoids CUDA allocation in tests."""
+
+            def transpose(self, *_args):
+                return self
+
+            def to(self, *_args, **_kwargs):
+                return self
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            checkpoint_dir = os.path.join(tmpdir, "acestep-v15-base")
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            Path(os.path.join(checkpoint_dir, "silence_latent.pt")).touch()
+            model = _DummyModel()
+
+            with patch("torch.cuda.is_available", return_value=False), \
+                    patch.object(
+                        INIT_SERVICE_LOADER_MODULE.gpu_config,
+                        "cuda_supports_bfloat16",
+                        return_value=True,
+                    ), \
+                    patch(
+                        "transformers.AutoModel.from_pretrained",
+                        side_effect=[RuntimeError("no device map"), model],
+                    ) as load, \
+                    patch.object(host, "is_flash_attention_available", return_value=False), \
+                    patch.object(host, "_apply_cuda_bool_argsort_workaround"), \
+                    patch.object(
+                        INIT_SERVICE_LOADER_MODULE.torch,
+                        "load",
+                        return_value=_FakeLatent(),
+                    ):
+                attn = host._load_main_model_from_checkpoint(
+                    model_checkpoint_path=checkpoint_dir,
+                    device="cuda",
+                    use_flash_attention=False,
+                    compile_model=False,
+                    quantization=None,
+                )
+
+        self.assertEqual("sdpa", attn)
+        first_kwargs = load.call_args_list[0].kwargs
+        second_kwargs = load.call_args_list[1].kwargs
+        self.assertIn("device_map", first_kwargs)
+        self.assertNotIn("device_map", second_kwargs)
+        model.to.assert_any_call("cuda")
+
     def test_apply_cuda_bool_argsort_workaround_patches_pack_sequences(self):
         """It monkey-patches dynamic ``pack_sequences`` when CUDA bool argsort is unsupported."""
         host = _Host(project_root="K:/fake_root", device="cuda")

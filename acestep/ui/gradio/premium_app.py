@@ -218,6 +218,15 @@ _BUTTON_PERSONALIZATION_SCRIPT = """
         return /^[\\u{1F300}-\\u{1FAFF}\\u23E9-\\u23FA\\u2600-\\u27BF\\u2190-\\u21FF]/u.test(label);
     }
 
+    function stripDecorativePrefix(label) {
+        if (!hasDecorativePrefix(label)) return label;
+        return label.replace(/^\\S+\\s+/, "").trim();
+    }
+
+    function usesDynamicServerLabel(button) {
+        return Boolean(button.closest(".action-btn-generate"));
+    }
+
     function emojiFor(label) {
         for (const [pattern, emoji] of emojiRules) {
             if (pattern.test(label)) return emoji;
@@ -279,8 +288,17 @@ _BUTTON_PERSONALIZATION_SCRIPT = """
                 container
                     ? container.querySelector('input[type="checkbox"]')
                     : document.querySelector('#acestep-subprocess-mode-checkbox input[type="checkbox"]')
-            );
+        );
         return Boolean(input && input.checked);
+    }
+
+    function showTemporaryButtonText(button, message, restoreDelay) {
+        const originalText = buttonText(button);
+        button.textContent = message;
+        window.setTimeout(() => {
+            button.textContent = originalText;
+            schedulePersonalization();
+        }, restoreDelay);
     }
 
     async function requestCancel(button) {
@@ -292,9 +310,7 @@ _BUTTON_PERSONALIZATION_SCRIPT = """
 
         const originalText = buttonText(button);
         if (!subprocessModeEnabled()) {
-            button.dataset.aceOriginalLabel = originalText.replace(/^\\S+\\s+/, "");
-            button.textContent = "Subprocess Mode Off";
-            window.setTimeout(schedulePersonalization, 1200);
+            showTemporaryButtonText(button, "Subprocess Mode Off", 1200);
             return;
         }
         button.textContent = "Cancelling...";
@@ -307,13 +323,18 @@ _BUTTON_PERSONALIZATION_SCRIPT = """
                 throw new Error(`Cancel request failed: HTTP ${response.status}`);
             }
             const payload = await response.json();
-            button.dataset.aceOriginalLabel = originalText.replace(/^\\S+\\s+/, "");
             button.textContent = payload.active ? "Subprocess Cancel Requested" : "No Active Subprocess";
-            window.setTimeout(schedulePersonalization, 1200);
+            window.setTimeout(() => {
+                button.textContent = originalText;
+                schedulePersonalization();
+            }, 1200);
         } catch (error) {
             console.error("[ACE-Step] Cancel request failed", error);
             button.textContent = "Cancel Failed";
-            window.setTimeout(schedulePersonalization, 1800);
+            window.setTimeout(() => {
+                button.textContent = originalText;
+                schedulePersonalization();
+            }, 1800);
         }
     }
 
@@ -333,20 +354,6 @@ _BUTTON_PERSONALIZATION_SCRIPT = """
             .filter(visible);
 
         buttons.forEach((button, index) => {
-            const currentLabel = buttonText(button);
-            if (!button.dataset.aceOriginalLabel) {
-                button.dataset.aceOriginalLabel = currentLabel;
-            }
-
-            const originalLabel = button.dataset.aceOriginalLabel.trim();
-            const desiredLabel = hasDecorativePrefix(originalLabel)
-                ? originalLabel
-                : `${emojiFor(originalLabel)} ${originalLabel}`;
-
-            if (buttonText(button) !== desiredLabel) {
-                button.textContent = desiredLabel;
-            }
-
             const color = cancelColorFor(button) || colorFor(tabKey, index);
             button.dataset.aceCommandButton = "true";
             button.dataset.aceButtonOrdinal = String(index + 1);
@@ -522,6 +529,36 @@ button.action-btn:active {
 button.action-btn:disabled {
     opacity: 0.68;
     transform: none;
+}
+.gradio-container .action-btn,
+.gradio-container button.action-btn,
+.gradio-container button[data-ace-command-button="true"] {
+    min-height: 42px !important;
+    height: 46px !important;
+    max-height: 46px !important;
+    overflow: hidden !important;
+}
+.gradio-container .action-btn > div,
+.gradio-container .action-btn button {
+    min-height: 42px !important;
+    height: 46px !important;
+    max-height: 46px !important;
+    overflow: hidden !important;
+}
+.ace-generate-action-row,
+.ace-generate-action-row > div {
+    min-height: 0 !important;
+    height: auto !important;
+    max-height: 56px !important;
+    align-items: stretch !important;
+    overflow: hidden !important;
+}
+.ace-generate-action-row .action-btn,
+.ace-generate-action-row button {
+    min-height: 42px !important;
+    height: 46px !important;
+    max-height: 46px !important;
+    overflow: hidden !important;
 }
 .action-btn-upscale button,
 button.action-btn-upscale {

@@ -95,13 +95,13 @@ def build_generate_row_controls(
     params = init_params or {}
     generate_btn_interactive = params.get("enable_generate", True) if service_pre_initialized else True
     with gr.Column(visible=True) as generate_btn_row:
-        with gr.Row(equal_height=True):
+        with gr.Row(equal_height=True) as runtime_options_row:
             think_checkbox, auto_score = _build_left_generate_toggles(
                 lm_initialized=lm_initialized,
                 service_mode=service_mode,
             )
             autogen_checkbox, auto_lrc = _build_right_generate_toggles(service_mode=service_mode)
-        with gr.Row(equal_height=True):
+        with gr.Row(equal_height=False, elem_classes=["ace-generate-action-row"]):
             generate_btn = gr.Button(
                 t("generation.generate_btn"),
                 variant="primary",
@@ -138,6 +138,7 @@ def build_generate_row_controls(
     return {
         "think_checkbox": think_checkbox,
         "auto_score": auto_score,
+        "runtime_options_row": runtime_options_row,
         "generate_btn": generate_btn,
         "cancel_generation_btn": cancel_generation_btn,
         "cancel_confirmed_state": cancel_confirmed_state,

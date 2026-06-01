@@ -11,15 +11,19 @@ from safetensors.torch import load_file
 from acestep.audio_processing.media_io import read_media_audio
 
 
-def load_checkpoint(path: Path) -> dict[str, torch.Tensor]:
+def load_checkpoint(
+    path: Path,
+    *,
+    device: str | torch.device = "cpu",
+) -> dict[str, torch.Tensor]:
     """Load a SAM-Audio checkpoint from safetensors or torch format."""
 
     if path.suffix.lower() == ".safetensors":
-        return load_file(str(path), device="cpu")
+        return load_file(str(path), device=str(device))
     try:
-        payload = torch.load(path, map_location="cpu", weights_only=True, mmap=True)
+        payload = torch.load(path, map_location=device, weights_only=True, mmap=True)
     except TypeError:
-        payload = torch.load(path, map_location="cpu", weights_only=True)
+        payload = torch.load(path, map_location=device, weights_only=True)
     if isinstance(payload, dict) and isinstance(payload.get("state_dict"), dict):
         payload = payload["state_dict"]
     if not isinstance(payload, dict):

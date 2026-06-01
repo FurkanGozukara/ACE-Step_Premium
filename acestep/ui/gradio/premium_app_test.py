@@ -10,7 +10,7 @@ from acestep.ui.gradio.events.generation.cancel_actions import (
     BATCH_CANCEL_CONFIRM_JS,
     CANCEL_CONFIRM_JS,
 )
-from acestep.ui.gradio.pages import studio_page
+from acestep.ui.gradio.pages import sam_audio_page_io, studio_page
 
 
 class PremiumAppTests(unittest.TestCase):
@@ -41,6 +41,30 @@ class PremiumAppTests(unittest.TestCase):
         self.assertIn("acestep-generation-mode", head)
         self.assertIn("aceModeDisabled", head)
         self.assertIn("ace-mode-unavailable", premium_app._PREMIUM_CSS)
+
+    def test_button_personalization_does_not_rewrite_labels(self):
+        """Button decoration must not replace server-provided labels."""
+
+        head = premium_app._build_head(service_mode=False)
+        self.assertIn("setStyleProperty(button", head)
+        self.assertIn("showTemporaryButtonText", head)
+        self.assertNotIn("desiredLabel", head)
+        self.assertNotIn("aceOriginalLabel", head)
+
+    def test_generate_action_row_has_fixed_button_height(self):
+        """Generate/Cancel row should not stretch into a full-page loading panel."""
+
+        self.assertIn("ace-generate-action-row", premium_app._PREMIUM_CSS)
+        self.assertIn("max-height: 46px", premium_app._PREMIUM_CSS)
+        self.assertIn("button[data-ace-command-button", premium_app._PREMIUM_CSS)
+        self.assertIn(".gradio-container .action-btn", premium_app._PREMIUM_CSS)
+
+    def test_sam_audio_action_rows_use_fixed_button_layout(self):
+        """SAM Audio buttons should use the fixed-height action row."""
+
+        source = Path(sam_audio_page_io.__file__).read_text(encoding="utf-8")
+        self.assertIn('elem_classes=["ace-generate-action-row"]', source)
+        self.assertNotIn("with gr.Row(equal_height=True):", source)
 
     def test_header_shows_plain_title_and_release_link(self):
         """Visible app header should show a plain title and clickable release URL."""

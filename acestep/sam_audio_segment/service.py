@@ -83,6 +83,7 @@ class SamAudioService:
             f"Building SAM-Audio model for {model_name}",
         )
         model_config = config_for_settings(self.settings)
+        _set_local_ranker_map_location(model_config, self.device)
         logger.info(
             "[sam_audio] Runtime settings: prompt_mode={} candidates={} "
             "ranker={} text_ranker={} visual_ranker={} span_predictor={} "
@@ -110,8 +111,7 @@ class SamAudioService:
             0.12,
             f"Loading SAM-Audio checkpoint: {model_name}",
         )
-        state_dict = load_checkpoint(self.model_path)
-        model.load_state_dict(state_dict, strict=True)
+        _load_checkpoint_into_model(model, self.model_path, self.device)
         if self.settings.low_vram_lite:
             apply_text_lite_mode(model)
         report_progress(
@@ -307,3 +307,66 @@ def _ranker_kind(config: object) -> str:
     if not isinstance(config, dict):
         return "disabled"
     return str(config.get("kind") or "unknown")
+
+
+def _load_checkpoint_into_model(
+    model: torch.nn.Module,
+    path: Path,
+    device: torch.device,
+) -> None:
+    """Load a SAM-Audio checkpoint, assigning CUDA safetensors directly when possible."""
+
+    load_device = _checkpoint_load_device(path, device)
+    state_dict: dict[str, torch.Tensor] | None = None
+    try:
+        state_dict = load_checkpoint(path, device=load_device)
+        assign = load_device != "cpu"
+        try:
+            model.load_state_dict(state_dict, strict=True, assign=assign)
+        except TypeError:
+            if not assign:
+                raise
+            del state_dict
+            state_dict = None
+            state_dict = load_checkpoint(path, device="cpu")
+            model.load_state_dict(state_dict, strict=True)
+    finally:
+        state_dict = None
+        if device.type == "cuda":
+            torch.cuda.empty_cache()
+    logger.info(
+        "[sam_audio] Loaded checkpoint tensors from {} via {}",
+        path.name,
+        load_device,
+    )
+
+
+def _checkpoint_load_device(path: Path, device: torch.device) -> str:
+    """Return direct checkpoint load device for safetensors on CUDA."""
+
+    if device.type == "cuda" and path.suffix.lower() == ".safetensors":
+        return str(device)
+    return "cpu"
+
+
+def _set_local_ranker_map_location(config: dict, device: torch.device) -> None:
+    """Set local Judge ranker checkpoint placement in a nested SAM-Audio config."""
+
+    map_location = str(device) if device.type == "cuda" else "cpu"
+    for key in ("text_ranker", "visual_ranker"):
+        _set_ranker_map_location(config.get(key), map_location)
+
+
+def _set_ranker_map_location(config: object, map_location: str) -> None:
+    """Apply ``map_location`` to Judge rankers without touching other ranker types."""
+
+    if not isinstance(config, dict):
+        return
+    if config.get("kind") == "judge":
+        config["map_location"] = map_location
+        return
+    if config.get("kind") != "ensemble":
+        return
+    for ranker_pair in config.get("rankers", {}).values():
+        if isinstance(ranker_pair, (list, tuple)) and ranker_pair:
+            _set_ranker_map_location(ranker_pair[0], map_location)

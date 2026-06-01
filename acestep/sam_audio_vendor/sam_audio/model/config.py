@@ -161,9 +161,11 @@ class JudgeRankerConfig(RankerConfig):
         self,
         checkpoint_or_model_id: Optional[str] = None,
         checkpoint_path: Optional[str] = None,
+        map_location: str = "cpu",
     ):
         self.checkpoint_or_model_id = checkpoint_or_model_id
         self.checkpoint_path = checkpoint_path
+        self.map_location = map_location
 
 
 class SoundActivityRankerConfig(RankerConfig):

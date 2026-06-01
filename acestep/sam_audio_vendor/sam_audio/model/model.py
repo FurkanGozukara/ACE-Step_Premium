@@ -397,10 +397,10 @@ class SAMAudio(BaseModel):
             result.append(row.narrow(dim=time_dim, start=0, length=size))
         return result
 
-    def load_state_dict(self, state_dict, strict=True):
+    def load_state_dict(self, state_dict, strict=True, assign=False):
         if strict:
             missing_keys, unexpected_keys = super().load_state_dict(
-                state_dict, strict=False
+                state_dict, strict=False, assign=assign
             )
             # We load this directly from HF, not in checkpoint
             skip_regex = re.compile(
@@ -411,6 +411,8 @@ class SAMAudio(BaseModel):
                 raise RuntimeError(
                     f"Missing keys: {missing_keys}, unexpected_keys: {unexpected_keys}"
                 )
+            return
+        return super().load_state_dict(state_dict, strict=strict, assign=assign)
 
 
 __all__ = ["SAMAudio"]

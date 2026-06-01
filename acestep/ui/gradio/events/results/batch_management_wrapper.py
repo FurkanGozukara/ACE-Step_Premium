@@ -26,6 +26,7 @@ from acestep.core.generation.cancellation import (
     generation_cancel_scope,
     is_generation_cancelled,
 )
+from acestep.core.generation.handler.task_instruction import generate_task_instruction
 from acestep.gpu_config import find_best_lm_model_on_disk, get_global_gpu_config
 from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 from acestep.ui.gradio.events.results.batch_management_helpers import (
@@ -446,6 +447,26 @@ def _generate_with_batch_management_impl(
         f"songs={normalize_generation_count(batch_size_input)}, duration={audio_duration}, "
         f"subprocess={bool(subprocess_mode_checkbox)}"
     )
+    selected_track_name = str(track_name or "").strip()
+    if task_type in ("extract", "lego") and not selected_track_name:
+        mode_label = "Extract" if task_type == "extract" else "Lego"
+        error_msg = f"Select Track Name before running {mode_label}."
+        logger.warning("[generate_with_batch_management] {}", error_msg)
+        gr.Warning(error_msg)
+        yield build_pending_core_outputs(error_msg, is_format_caption) + (
+            gr.skip(), gr.skip(), gr.skip(), gr.skip(),
+            gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(),
+        )
+        return
+
+    if task_type in ("extract", "lego", "complete"):
+        instruction_display_gen = generate_task_instruction(
+            task_type=task_type,
+            track_name=selected_track_name or None,
+            complete_track_classes=complete_track_classes or [],
+        )
+        if task_type == "extract":
+            captions = selected_track_name
 
     saved_params = _build_saved_params(
         captions, lyrics, bpm, key_scale, time_signature, vocal_language,

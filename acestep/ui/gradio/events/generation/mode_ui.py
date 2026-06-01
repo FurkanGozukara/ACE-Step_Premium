@@ -22,8 +22,9 @@ def compute_mode_ui_updates(
     llm_handler=None,
     previous_mode: str = "Custom",
     config_path: str | None = None,
+    track_name: str | None = None,
 ):
-    """Return the 46-output mode-switch update tuple for generation UI."""
+    """Return the mode-switch update tuple for generation UI."""
     if not is_generation_mode_supported_for_path(mode, config_path):
         fallback_mode = fallback_generation_mode_for_path(previous_mode, config_path)
         updates = list(
@@ -32,6 +33,7 @@ def compute_mode_ui_updates(
                 llm_handler=llm_handler,
                 previous_mode=fallback_mode,
                 config_path=config_path,
+                track_name=track_name,
             )
         )
         unavailable_info = (
@@ -62,15 +64,16 @@ def compute_mode_ui_updates(
     show_simple = is_simple
     show_custom_group = not_simple and not is_extract
     show_generate_row = not_simple
-    generate_interactive = not_simple
+    has_track_name = bool(str(track_name or "").strip())
+    generate_interactive = not_simple and not ((is_extract or is_lego) and not has_track_name)
     # Custom mode shows src_audio so the flow-edit morph overlay can use
     # it; the row is harmless when morph is off (just an unused upload).
     show_src_audio = is_cover or is_repaint or is_extract or is_lego or is_complete or is_custom
     show_optional = not_simple and not is_extract and not is_lego
     show_repainting = is_repaint or is_lego
     show_audio_codes = is_custom
-    show_track_name = is_lego or is_extract
     show_complete_classes = is_complete
+    show_runtime_options = not (is_extract or is_lego)
 
     # Audio cover strength
     show_strength = not is_simple and not is_repaint and not is_extract and not is_lego
@@ -183,7 +186,7 @@ def compute_mode_ui_updates(
         gr.update(visible=show_src_audio),                 # 6: src_audio_row
         gr.update(visible=show_repainting),                # 7: repainting_group
         gr.update(visible=show_audio_codes),               # 8: text2music_audio_codes_group
-        gr.update(visible=show_track_name),                # 9: track_name
+        gr.update(visible=True),                           # 9: track_name
         gr.update(visible=show_complete_classes),           # 10: complete_track_classes
         gr.update(visible=show_generate_row),              # 11: generate_btn_row
         gr.update(info=mode_help_text, elem_classes=["has-info-container"]),  # 12: generation_mode
@@ -225,6 +228,7 @@ def compute_mode_ui_updates(
         src_audio_update,                                  # 48: src_audio
         flow_edit_column_update,                           # 49: flow_edit_column
         flow_edit_morph_update,                            # 50: flow_edit_morph
+        gr.update(visible=show_runtime_options),           # 51: runtime_options_row
     )
 
 
@@ -233,6 +237,7 @@ def handle_generation_mode_change(
     previous_mode: str,
     llm_handler=None,
     config_path: str | None = None,
+    track_name: str | None = None,
 ):
     """Delegate generation-mode change handling to compute_mode_ui_updates."""
     return compute_mode_ui_updates(
@@ -240,14 +245,25 @@ def handle_generation_mode_change(
         llm_handler,
         previous_mode=previous_mode,
         config_path=config_path,
+        track_name=track_name,
     )
 
 
 def handle_extract_track_name_change(track_name_value: str, mode: str):
-    """Auto-fill caption with the selected track name in Extract mode."""
-    if mode == "Extract" and track_name_value:
-        return gr.update(value=track_name_value)
-    return gr.update()
+    """Update caption and generate-button state for Extract/Lego track selection."""
+
+    has_track_name = bool(str(track_name_value or "").strip())
+    if mode == "Extract":
+        return (
+            gr.update(value=track_name_value or ""),
+            gr.update(value=t("generation.extract_stem_btn"), interactive=has_track_name),
+        )
+    if mode == "Lego":
+        return gr.update(), gr.update(
+            value=t("generation.add_stem_btn"),
+            interactive=has_track_name,
+        )
+    return gr.update(), gr.update()
 
 
 def handle_extract_src_audio_change(src_audio_path, mode: str):

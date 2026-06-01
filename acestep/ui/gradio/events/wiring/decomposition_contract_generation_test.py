@@ -115,6 +115,26 @@ class DecompositionContractGenerationTests(unittest.TestCase):
 
         self.assertTrue(found_mode_change_output_binding)
 
+    def test_generation_mode_change_bypasses_queue(self):
+        """Mode switches should update immediately while generation jobs are queued."""
+
+        wiring_node = load_generation_mode_wiring_node()
+        found_non_queued_mode_change = False
+
+        for node in ast.walk(wiring_node):
+            if not isinstance(node, ast.Call):
+                continue
+            if not _is_generation_mode_change_call(node):
+                continue
+            for keyword in node.keywords:
+                if keyword.arg != "queue":
+                    continue
+                if isinstance(keyword.value, ast.Constant) and keyword.value.value is False:
+                    found_non_queued_mode_change = True
+                    break
+
+        self.assertTrue(found_non_queued_mode_change)
+
     def test_generation_mode_change_does_not_reset_dcw_defaults(self):
         """Mode switches should not overwrite manually tuned DCW controls."""
 

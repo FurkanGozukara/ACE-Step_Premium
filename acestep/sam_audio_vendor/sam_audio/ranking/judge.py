@@ -18,10 +18,12 @@ class JudgeRanker(Ranker):
         model_kwargs = {}
         if config.checkpoint_path is not None:
             model_kwargs["checkpoint_path"] = config.checkpoint_path
+        model_kwargs["map_location"] = config.map_location
         logger.info(
-            "[sam_audio] Loading SAM-Audio Judge ranker metadata={} checkpoint={}",
+            "[sam_audio] Loading SAM-Audio Judge ranker metadata={} checkpoint={} device={}",
             config.checkpoint_or_model_id,
             config.checkpoint_path or "default",
+            config.map_location,
         )
         self.model = SAMAudioJudgeModel.from_pretrained(
             config.checkpoint_or_model_id,

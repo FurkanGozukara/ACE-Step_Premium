@@ -16,7 +16,7 @@ def build_source_audio_controls() -> dict[str, Any]:
         None.
 
     Returns:
-        A component map containing ``src_audio_row``, ``src_audio``, ``analyze_btn``, and ``extract_help_group``.
+        A component map containing source audio controls and the Extract/Lego track selector.
     """
 
     with gr.Row(equal_height=True, visible=False) as src_audio_row:
@@ -36,10 +36,22 @@ def build_source_audio_controls() -> dict[str, Any]:
             )
 
     with gr.Group(visible=False) as extract_help_group:
-        create_help_button("generation_extract")
+        with gr.Row(equal_height=True):
+            track_name = gr.Dropdown(
+                choices=TRACK_NAMES,
+                value=None,
+                label=t("generation.track_name_label"),
+                info=t("generation.track_name_info"),
+                elem_classes=["has-info-container"],
+                visible=True,
+                scale=6,
+            )
+            with gr.Column(scale=1, min_width=48):
+                create_help_button("generation_extract")
     return {
         "src_audio_row": src_audio_row,
         "src_audio": src_audio,
+        "track_name": track_name,
         "analyze_btn": analyze_btn,
         "extract_help_group": extract_help_group,
     }
@@ -52,17 +64,9 @@ def build_track_selection_controls() -> dict[str, Any]:
         None.
 
     Returns:
-        A component map containing ``track_name``, ``complete_help_group``, and ``complete_track_classes``.
+        A component map containing ``complete_help_group`` and ``complete_track_classes``.
     """
 
-    track_name = gr.Dropdown(
-        choices=TRACK_NAMES,
-        value=None,
-        label=t("generation.track_name_label"),
-        info=t("generation.track_name_info"),
-        elem_classes=["has-info-container"],
-        visible=False,
-    )
     with gr.Group(visible=False) as complete_help_group:
         create_help_button("generation_complete")
     complete_track_classes = gr.CheckboxGroup(
@@ -73,7 +77,6 @@ def build_track_selection_controls() -> dict[str, Any]:
         visible=False,
     )
     return {
-        "track_name": track_name,
         "complete_help_group": complete_help_group,
         "complete_track_classes": complete_track_classes,
     }
@@ -153,9 +156,9 @@ def build_source_track_and_code_controls() -> dict[str, Any]:
     return {
         "src_audio_row": source_audio_controls["src_audio_row"],
         "src_audio": source_audio_controls["src_audio"],
+        "track_name": source_audio_controls["track_name"],
         "analyze_btn": source_audio_controls["analyze_btn"],
         "extract_help_group": source_audio_controls["extract_help_group"],
-        "track_name": track_selection_controls["track_name"],
         "complete_help_group": track_selection_controls["complete_help_group"],
         "complete_track_classes": track_selection_controls["complete_track_classes"],
         "text2music_audio_codes_group": lm_code_hint_controls["text2music_audio_codes_group"],
