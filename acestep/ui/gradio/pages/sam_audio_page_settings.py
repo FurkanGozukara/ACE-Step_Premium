@@ -15,7 +15,11 @@ from acestep.sam_audio_segment.prompt_presets import (
     RANKER_CHOICES,
     VRAM_PRESET_CHOICES,
 )
-from acestep.sam_audio_segment.settings import SAM_AUDIO_MAX_CHUNK_SECONDS
+from acestep.sam_audio_segment.settings import (
+    SAM_AUDIO_LONG_MODE_CHUNKED,
+    SAM_AUDIO_LONG_MODE_MULTIDIFFUSION,
+    SAM_AUDIO_MAX_CHUNK_SECONDS,
+)
 from acestep.sam_audio_segment.vram_presets import (
     default_sam_vram_preset_name,
     get_sam_vram_preset,
@@ -66,7 +70,7 @@ def _add_prompt_controls(controls: dict[str, Any]) -> None:
     with gr.Group(elem_classes=["ace-panel", "ace-stack"]):
         gr.Markdown("### Prompt")
         controls["sam_prompt_mode"] = gr.Dropdown(
-            choices=[("Text", "text"), ("Span", "span"), ("Visual mask", "visual")],
+            choices=[("Text", "text"), ("Span", "span")],
             value="text",
             label="Mode",
         )
@@ -84,6 +88,7 @@ def _add_prompt_controls(controls: dict[str, Any]) -> None:
                     "Uses SAM-Audio's span predictor to estimate target time ranges "
                     "from the prompt when you did not provide anchors."
                 ),
+                interactive=False,
             )
             controls["sam_use_span_anchor"] = gr.Checkbox(
                 label="Use explicit span anchor",
@@ -167,6 +172,7 @@ def _add_runtime_controls(controls: dict[str, Any]) -> None:
                     "Scores candidates with the selected official ranker. Disabled uses "
                     "the first generated candidate."
                 ),
+                interactive=not preset["low_vram_lite"],
             )
         with gr.Row():
             controls["sam_ode_steps"] = gr.Slider(
@@ -200,6 +206,22 @@ def _add_runtime_controls(controls: dict[str, Any]) -> None:
                 info=(
                     "Splits long audio into overlapping model windows. Lower values "
                     "may separate vocals and other text-prompt targets better."
+                ),
+            )
+            controls["sam_long_audio_mode"] = gr.Dropdown(
+                choices=[
+                    ("Chunk-wise crossfade", SAM_AUDIO_LONG_MODE_CHUNKED),
+                    (
+                        "Multi-diffusion text-only",
+                        SAM_AUDIO_LONG_MODE_MULTIDIFFUSION,
+                    ),
+                ],
+                value=preset["long_audio_mode"],
+                label="Long Audio Mode",
+                info=(
+                    "Multi-diffusion fuses latent windows at each ODE step. It is "
+                    "text-only, high-VRAM, and best matches the paper at 20s window "
+                    "/ 5s overlap."
                 ),
             )
         with gr.Row():

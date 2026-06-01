@@ -119,5 +119,6 @@ dev = []
 packages = ["acestep", "openrouter"]
 
 [tool.hatch.build.targets.wheel.force-include]
+"acestep/sam_audio_segment/assets" = "acestep/sam_audio_segment/assets"
 "acestep/ui/gradio/interfaces/audio_player_preferences.js" = "acestep/ui/gradio/interfaces/audio_player_preferences.js"
 "acestep/ui/gradio/interfaces/user_preferences.js" = "acestep/ui/gradio/interfaces/user_preferences.js"

@@ -43,6 +43,7 @@ def add_single_file_controls(controls: dict[str, Any]) -> None:
                     file_count="single",
                     type="filepath",
                     file_types=MASK_VIDEO_FILE_TYPES,
+                    interactive=False,
                 )
         with gr.Row():
             controls["sam_upload_audio_preview"] = gr.Audio(

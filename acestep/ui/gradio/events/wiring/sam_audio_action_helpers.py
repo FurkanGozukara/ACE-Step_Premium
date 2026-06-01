@@ -140,6 +140,7 @@ def apply_vram_preset(preset: str | None) -> tuple[Any, ...]:
         values["device_mode"],
         values["low_vram_lite"],
         values["chunked"],
+        values["long_audio_mode"],
         values["chunk_seconds"],
         values["chunk_overlap_seconds"],
     )

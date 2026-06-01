@@ -1,6 +1,7 @@
 """Prompt presets for open-vocabulary SAM-Audio segmentation."""
 
 from .attention import SAM_ATTENTION_CHOICES
+from .ranker_availability import available_ranker_choices
 from .vram_presets import SAM_VRAM_PRESET_CHOICES
 
 PROMPT_PRESET_CHOICES: tuple[tuple[str, str], ...] = (
@@ -40,13 +41,7 @@ PROMPT_PRESET_CHOICES: tuple[tuple[str, str], ...] = (
 
 DEFAULT_PROMPT = "vocals"
 
-RANKER_CHOICES: tuple[tuple[str, str], ...] = (
-    ("Disabled", "none"),
-    ("Official text ensemble (CLAP + Judge)", "text_ensemble"),
-    ("CLAP text similarity", "clap"),
-    ("SAM-Audio Judge", "judge"),
-    ("ImageBind visual similarity", "imagebind"),
-)
+RANKER_CHOICES = available_ranker_choices()
 
 VRAM_PRESET_CHOICES = SAM_VRAM_PRESET_CHOICES
 

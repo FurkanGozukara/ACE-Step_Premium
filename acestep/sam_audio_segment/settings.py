@@ -7,11 +7,14 @@ from typing import Any
 
 from .attention import normalize_attention_backend
 from .prompt_presets import DEFAULT_PROMPT
+from .ranker_availability import normalize_ranker_mode
 from .vram_presets import get_sam_vram_preset, normalize_sam_vram_preset
 
 SAM_AUDIO_MIN_CHUNK_SECONDS = 1.0
 SAM_AUDIO_MAX_CHUNK_SECONDS = 60.0
 SAM_AUDIO_MAX_OVERLAP_SECONDS = 10.0
+SAM_AUDIO_LONG_MODE_CHUNKED = "chunked"
+SAM_AUDIO_LONG_MODE_MULTIDIFFUSION = "multidiffusion"
 
 SAM_AUDIO_PRESET_KEYS: tuple[str, ...] = (
     "sam_auto_postprocess",
@@ -37,6 +40,7 @@ SAM_AUDIO_PRESET_KEYS: tuple[str, ...] = (
     "sam_device_mode",
     "sam_low_vram_lite",
     "sam_chunked",
+    "sam_long_audio_mode",
     "sam_chunk_seconds",
     "sam_chunk_overlap_seconds",
     "sam_subprocess",
@@ -76,8 +80,9 @@ class SamAudioSettings:
     device_mode: str = "auto"
     low_vram_lite: bool = False
     chunked: bool = True
-    chunk_seconds: float = 10.0
-    chunk_overlap_seconds: float = 1.0
+    long_audio_mode: str = SAM_AUDIO_LONG_MODE_CHUNKED
+    chunk_seconds: float = 20.0
+    chunk_overlap_seconds: float = 5.0
     subprocess: bool = True
     unload_generation: bool = True
     include_residual: bool = True
@@ -139,10 +144,12 @@ class SamAudioSettings:
                     ),
                 ),
             ),
-            ranker_mode=_choice(
-                payload.get("ranker_mode"),
-                {"none", "text_ensemble", "clap", "judge", "imagebind"},
-                str(preset["ranker_mode"]),
+            ranker_mode=normalize_ranker_mode(
+                _choice(
+                    payload.get("ranker_mode"),
+                    {"none", "text_ensemble", "clap", "judge", "imagebind"},
+                    str(preset["ranker_mode"]),
+                )
             ),
             ode_steps=max(
                 1,
@@ -166,6 +173,11 @@ class SamAudioSettings:
             ),
             low_vram_lite=bool(payload.get("low_vram_lite", preset["low_vram_lite"])),
             chunked=bool(payload.get("chunked", preset["chunked"])),
+            long_audio_mode=_choice(
+                payload.get("long_audio_mode"),
+                {SAM_AUDIO_LONG_MODE_CHUNKED, SAM_AUDIO_LONG_MODE_MULTIDIFFUSION},
+                str(preset["long_audio_mode"]),
+            ),
             chunk_seconds=_bounded_float(
                 payload.get("chunk_seconds"),
                 preset["chunk_seconds"],

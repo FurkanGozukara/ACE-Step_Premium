@@ -1,6 +1,7 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates. All Rights Reserved\n
 
 import torch
+from loguru import logger
 
 from ..model.config import JudgeRankerConfig
 from ..model.judge import SAMAudioJudgeModel
@@ -12,10 +13,24 @@ class JudgeRanker(Ranker):
     def __init__(self, config: JudgeRankerConfig):
         super().__init__()
         self.config = config
-        self.model = SAMAudioJudgeModel.from_pretrained(config.checkpoint_or_model_id)
+        if not config.checkpoint_or_model_id:
+            raise ValueError("SAM-Audio Judge requires a local model directory.")
+        model_kwargs = {}
+        if config.checkpoint_path is not None:
+            model_kwargs["checkpoint_path"] = config.checkpoint_path
+        logger.info(
+            "[sam_audio] Loading SAM-Audio Judge ranker metadata={} checkpoint={}",
+            config.checkpoint_or_model_id,
+            config.checkpoint_path or "default",
+        )
+        self.model = SAMAudioJudgeModel.from_pretrained(
+            config.checkpoint_or_model_id,
+            **model_kwargs,
+        )
         self.processor = SAMAudioJudgeProcessor.from_pretrained(
             config.checkpoint_or_model_id
         )
+        logger.info("[sam_audio] SAM-Audio Judge ranker ready")
 
     @torch.inference_mode()
     def forward(

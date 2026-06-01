@@ -17,6 +17,7 @@ from .sam_audio_action_helpers import (
     preview_upload,
     request_sam_audio_cancel_from_ui,
 )
+from .sam_audio_compatibility import apply_sam_audio_compatibility
 from .sam_audio_processing import process_batch_folder, process_single_file
 
 
@@ -35,6 +36,23 @@ def register_sam_audio_handlers(
     """Register SAM Audio Segment handlers."""
 
     settings_inputs = sam_audio_generation_inputs(sam_page)
+    compatibility_inputs = [
+        sam_page["sam_prompt_mode"],
+        sam_page["sam_low_vram_lite"],
+        sam_page["sam_long_audio_mode"],
+    ]
+    compatibility_outputs = [
+        sam_page["sam_prompt_mode"],
+        sam_page["sam_ranker_mode"],
+        sam_page["sam_predict_spans"],
+        sam_page["sam_reranking_candidates"],
+        sam_page["sam_use_span_anchor"],
+        sam_page["sam_anchor_json"],
+        sam_page["sam_anchor_polarity"],
+        sam_page["sam_anchor_start"],
+        sam_page["sam_anchor_end"],
+        sam_page["sam_visual_mask_file"],
+    ]
 
     def single_wrapper(*args: Any, progress: gr.Progress = gr.Progress(track_tqdm=True)):
         """Run one SAM-Audio request with Gradio progress updates."""
@@ -65,7 +83,7 @@ def register_sam_audio_handlers(
             sam_page["sam_single_status"],
         ],
     )
-    sam_page["sam_vram_preset"].change(
+    preset_event = sam_page["sam_vram_preset"].change(
         fn=apply_vram_preset,
         inputs=[sam_page["sam_vram_preset"]],
         outputs=[
@@ -79,10 +97,22 @@ def register_sam_audio_handlers(
             sam_page["sam_device_mode"],
             sam_page["sam_low_vram_lite"],
             sam_page["sam_chunked"],
+            sam_page["sam_long_audio_mode"],
             sam_page["sam_chunk_seconds"],
             sam_page["sam_chunk_overlap_seconds"],
         ],
     )
+    preset_event.then(
+        fn=apply_sam_audio_compatibility,
+        inputs=compatibility_inputs,
+        outputs=compatibility_outputs,
+    )
+    for key in ("sam_prompt_mode", "sam_low_vram_lite", "sam_long_audio_mode"):
+        sam_page[key].change(
+            fn=apply_sam_audio_compatibility,
+            inputs=compatibility_inputs,
+            outputs=compatibility_outputs,
+        )
     single_event = sam_page["sam_process_btn"].click(
         fn=single_wrapper,
         inputs=[

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 import torch
+from loguru import logger
 from torchdiffeq import odeint
 
 try:
@@ -25,6 +26,13 @@ from sam_audio.processor import Batch
 from sam_audio.ranking import create_ranker
 
 DFLT_ODE_OPT = {"method": "midpoint", "options": {"step_size": 2 / 32}}
+
+
+def _scores_for_log(scores: torch.Tensor) -> list:
+    """Return detached ranker scores rounded for readable logs."""
+
+    rounded = (scores.detach().float().cpu() * 10000).round() / 10000
+    return rounded.tolist()
 
 
 class SinusoidalEmbedding(torch.nn.Module):
@@ -327,13 +335,29 @@ class SAMAudio(BaseModel):
             and batch.masked_video is not None
             and self.visual_ranker is not None
         ):
+            logger.info(
+                "[sam_audio] Reranking {} item(s) with visual ranker candidates={}",
+                bsz,
+                reranking_candidates,
+            )
             scores = self.visual_ranker(
                 extracted_audio=target_wavs,
                 videos=batch.masked_video,
                 sample_rate=self.audio_codec.sample_rate,
             )
             idxs = scores.argmax(dim=1)
+            logger.info(
+                "[sam_audio] Visual rerank scores={} selected={}",
+                _scores_for_log(scores),
+                idxs.detach().cpu().tolist(),
+            )
         elif reranking_candidates > 1 and self.text_ranker is not None:
+            logger.info(
+                "[sam_audio] Reranking {} item(s) with {} candidates={}",
+                bsz,
+                type(self.text_ranker).__name__,
+                reranking_candidates,
+            )
             input_audio = [
                 audio[:, :size].expand(reranking_candidates, -1)
                 for audio, size in zip(batch.audios, sizes, strict=False)
@@ -345,7 +369,18 @@ class SAMAudio(BaseModel):
                 sample_rate=self.audio_codec.sample_rate,
             )
             idxs = scores.argmax(dim=1)
+            logger.info(
+                "[sam_audio] Text rerank scores={} selected={}",
+                _scores_for_log(scores),
+                idxs.detach().cpu().tolist(),
+            )
         else:
+            if reranking_candidates > 1:
+                logger.info(
+                    "[sam_audio] Reranking requested candidates={} "
+                    "but no compatible ranker is active",
+                    reranking_candidates,
+                )
             idxs = torch.zeros(bsz, dtype=torch.long, device=noise.device)
 
         return SeparationResult(

@@ -9,6 +9,7 @@ from acestep.sam_audio_segment.vram_presets import (
     SAM_VRAM_PRESET_16GB,
     SAM_VRAM_PRESET_24GB,
     SAM_VRAM_PRESET_32GB,
+    SAM_VRAM_PRESET_CHOICES,
     get_sam_vram_preset,
     normalize_sam_vram_preset,
     select_sam_vram_preset_for_gpu,
@@ -43,17 +44,26 @@ class TestSamAudioVramPresets(unittest.TestCase):
         """Lower VRAM presets should reduce optional component memory."""
 
         self.assertTrue(get_sam_vram_preset(SAM_VRAM_PRESET_10GB)["low_vram_lite"])
-        self.assertEqual("auto", get_sam_vram_preset(SAM_VRAM_PRESET_10GB)["attention_backend"])
+        self.assertEqual(
+            "auto",
+            get_sam_vram_preset(SAM_VRAM_PRESET_10GB)["attention_backend"],
+        )
         self.assertEqual("cpu", get_sam_vram_preset(SAM_VRAM_PRESET_8GB)["device_mode"])
-        self.assertEqual("auto", get_sam_vram_preset(SAM_VRAM_PRESET_8GB)["attention_backend"])
+        self.assertEqual(
+            "auto",
+            get_sam_vram_preset(SAM_VRAM_PRESET_8GB)["attention_backend"],
+        )
 
-    def test_32gb_quality_prefers_short_music_window(self):
-        """The quality preset should stay near the best real music sweep window."""
+    def test_all_presets_use_paper_default_window(self):
+        """All presets should default to the paper long-audio window."""
 
-        preset = get_sam_vram_preset(SAM_VRAM_PRESET_32GB)
+        for _, preset_name in SAM_VRAM_PRESET_CHOICES:
+            with self.subTest(preset_name=preset_name):
+                preset = get_sam_vram_preset(preset_name)
 
-        self.assertEqual(10.0, preset["chunk_seconds"])
-        self.assertEqual(2.0, preset["chunk_overlap_seconds"])
+                self.assertEqual(20.0, preset["chunk_seconds"])
+                self.assertEqual(5.0, preset["chunk_overlap_seconds"])
+                self.assertEqual("chunked", preset["long_audio_mode"])
 
 
 if __name__ == "__main__":

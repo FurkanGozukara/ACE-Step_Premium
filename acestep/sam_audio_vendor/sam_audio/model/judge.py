@@ -4,12 +4,12 @@ from dataclasses import dataclass
 from typing import Optional
 
 import torch
+from core.audio_visual_encoder.audio_codec import DacEncoderVAE
 from core.audio_visual_encoder.transformer import BaseModelOutputWithPooling
 from core.audio_visual_encoder.transformer import Transformer as PEAVTransformer
 from transformers import AutoModel
 
 from .base import BaseModel
-from .codec import DACVAEEncoder
 from .config import SAMAudioJudgeConfig
 
 
@@ -40,11 +40,12 @@ class SAMAudioJudgeModel(BaseModel):
         super().__init__()
         self.config = config
         self.data_proj = torch.nn.Linear(
-            config.audio_codec.codebook_dim, config.transformer.hidden_size
+            config.dac_vae_encoder.codebook_dim, config.transformer.hidden_size
         )
-        self.audio_codec = DACVAEEncoder(config.audio_codec)
+        self.dac_vae_encoder = DacEncoderVAE(config.dac_vae_encoder)
         self.transformer = PEAVTransformer(config.transformer)
         self.finetune_transformer = PEAVTransformer(config.finetune_transformer)
+        _prefer_sdpa_for_modernbert(config.text_model)
         self.text_model = AutoModel.from_config(config.text_model)
         self.cat_audio_proj = torch.nn.Linear(
             2 * config.transformer.hidden_size, config.bottleneck_dim
@@ -99,11 +100,11 @@ class SAMAudioJudgeModel(BaseModel):
             self._get_text_output(input_ids, attention_mask).pooler_output
         )
         stacked_audios = torch.cat([input_values, separated_values], dim=0)
-        stacked_codec_features = self.audio_codec(stacked_audios)
+        stacked_codec_features = self.dac_vae_encoder(stacked_audios)
         feature_padding_mask = None
         if padding_mask is not None:
             feature_padding_mask = padding_mask[
-                :, :: self.config.audio_codec.hop_length
+                :, :: self.config.dac_vae_encoder.hop_length
             ]
         stacked_features = self.transformer(
             self.data_proj(stacked_codec_features.transpose(1, 2)),
@@ -130,6 +131,13 @@ class SAMAudioJudgeModel(BaseModel):
         pooled = torch.masked.mean(result, mask=feature_padding_mask, dim=1)
         de_normalized = pooled * self.std + self.mean
         return SAMAudioJudgeOutput(*de_normalized.chunk(4, dim=1))
+
+
+def _prefer_sdpa_for_modernbert(config) -> None:
+    """Avoid ModernBERT FlashAttention2 dtype warnings during Judge construction."""
+
+    if getattr(config, "model_type", None) == "modernbert":
+        config._attn_implementation = "sdpa"
 
 
 __all__ = ["SAMAudioJudgeModel", "SAMAudioJudgeOutput"]

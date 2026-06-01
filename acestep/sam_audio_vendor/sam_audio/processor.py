@@ -290,8 +290,8 @@ class SAMAudioJudgeProcessor(Processor):
         config = cls._get_config(model_name_or_path)
         tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
         return cls(
-            audio_hop_length=config.audio_codec.hop_length,
-            audio_sampling_rate=config.audio_codec.sample_rate,
+            audio_hop_length=config.audio_hop_length,
+            audio_sampling_rate=config.audio_sampling_rate,
             tokenizer=tokenizer,
         )
 

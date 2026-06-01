@@ -139,6 +139,7 @@ ADDITIONAL_DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "sam_device_mode": _DEFAULT_SAM_VRAM_VALUES["device_mode"],
     "sam_low_vram_lite": _DEFAULT_SAM_VRAM_VALUES["low_vram_lite"],
     "sam_chunked": _DEFAULT_SAM_VRAM_VALUES["chunked"],
+    "sam_long_audio_mode": _DEFAULT_SAM_VRAM_VALUES["long_audio_mode"],
     "sam_chunk_seconds": _DEFAULT_SAM_VRAM_VALUES["chunk_seconds"],
     "sam_chunk_overlap_seconds": _DEFAULT_SAM_VRAM_VALUES["chunk_overlap_seconds"],
     "sam_subprocess": _DEFAULT_SAM_VRAM_VALUES["subprocess"],

@@ -23,6 +23,10 @@ from .progress import ProgressCallback, report_progress
 from .runtime import load_checkpoint, read_audio_tensor, resolve_device, resolve_dtype
 from .seed import resolve_runtime_seed
 from .separation import SamAudioSeparator
+from .separation_multidiffusion import (
+    separate_multidiffusion_with_separator,
+    should_use_multidiffusion_long_audio,
+)
 from .settings import SamAudioSettings
 from .video_mask import load_masked_video_tensor
 
@@ -78,7 +82,23 @@ class SamAudioService:
             0.06,
             f"Building SAM-Audio model for {model_name}",
         )
-        config = SAMAudioConfig(**config_for_settings(self.settings))
+        model_config = config_for_settings(self.settings)
+        logger.info(
+            "[sam_audio] Runtime settings: prompt_mode={} candidates={} "
+            "ranker={} text_ranker={} visual_ranker={} span_predictor={} "
+            "long_mode={} chunk_seconds={} overlap_seconds={} lite={}",
+            self.settings.prompt_mode,
+            self.settings.reranking_candidates,
+            self.settings.ranker_mode,
+            _ranker_kind(model_config.get("text_ranker")),
+            _ranker_kind(model_config.get("visual_ranker")),
+            model_config.get("span_predictor") or "disabled",
+            self.settings.long_audio_mode,
+            self.settings.chunk_seconds,
+            self.settings.chunk_overlap_seconds,
+            self.settings.low_vram_lite,
+        )
+        config = SAMAudioConfig(**model_config)
         try:
             model = SAMAudio(config).eval()
         except Exception as exc:
@@ -169,7 +189,20 @@ class SamAudioService:
         reset_peak_memory(self.device)
         reset_attention_stats(self.settings.attention_backend)
         started = time.time()
-        if separator.use_chunking(audio_tensor, masked_videos):
+        if should_use_multidiffusion_long_audio(
+            self.settings,
+            audio_tensor,
+            self.sample_rate,
+            masked_videos,
+            anchors,
+        ):
+            target, residual, chunk_count = separate_multidiffusion_with_separator(
+                separator,
+                audio_tensor,
+                description=description,
+                anchors=anchors,
+            )
+        elif separator.use_chunking(audio_tensor, masked_videos):
             target, residual, chunk_count = separator.separate_chunked(
                 audio_tensor,
                 description=description,
@@ -236,6 +269,7 @@ class SamAudioService:
             },
             "chunking": {
                 "enabled": chunk_count > 1,
+                "mode": self.settings.long_audio_mode,
                 "chunks": chunk_count,
                 "chunk_seconds": self.settings.chunk_seconds,
                 "overlap_seconds": self.settings.chunk_overlap_seconds,
@@ -265,3 +299,11 @@ class SamAudioService:
             raise ValueError("Visual prompting requires a mask video/image file.")
         mask = Path(mask_video_path).expanduser().resolve()
         return [load_masked_video_tensor(source, mask)]
+
+
+def _ranker_kind(config: object) -> str:
+    """Return a concise optional-ranker name for logs."""
+
+    if not isinstance(config, dict):
+        return "disabled"
+    return str(config.get("kind") or "unknown")

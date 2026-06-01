@@ -3,6 +3,7 @@
 from typing import Optional, Tuple
 
 import numpy as np
+from core.audio_visual_encoder.config import DacConfig
 from core.audio_visual_encoder.config import TransformerConfig as PEAVTransformerConfig
 from transformers import ModernBertConfig
 
@@ -156,8 +157,13 @@ class ClapRankerConfig(RankerConfig):
 class JudgeRankerConfig(RankerConfig):
     kind: str = "judge"
 
-    def __init__(self, checkpoint_or_model_id: str = "facebook/sam-audio-judge"):
+    def __init__(
+        self,
+        checkpoint_or_model_id: Optional[str] = None,
+        checkpoint_path: Optional[str] = None,
+    ):
         self.checkpoint_or_model_id = checkpoint_or_model_id
+        self.checkpoint_path = checkpoint_path
 
 
 class SoundActivityRankerConfig(RankerConfig):
@@ -234,6 +240,7 @@ class SAMAudioConfig:
 class SAMAudioJudgeConfig:
     def __init__(
         self,
+        dac_vae_encoder: DacConfig = None,
         audio_codec: DACVAEConfig = None,
         transformer: PEAVTransformerConfig = None,
         text_model: ModernBertConfig = None,
@@ -241,7 +248,9 @@ class SAMAudioJudgeConfig:
         nth_text_layer: int = 22,
         bottleneck_dim: int = 256,
     ):
-        self.audio_codec = DACVAEConfig(**(audio_codec or {}))
+        if dac_vae_encoder is None and audio_codec is not None:
+            dac_vae_encoder = _dac_config_from_audio_codec(audio_codec)
+        self.dac_vae_encoder = DacConfig(**(dac_vae_encoder or {}))
         self.transformer = PEAVTransformerConfig(**(transformer or {}))
         self.text_model = ModernBertConfig(**(text_model or {}))
         self.finetune_transformer = PEAVTransformerConfig(
@@ -249,3 +258,28 @@ class SAMAudioJudgeConfig:
         )
         self.nth_text_layer = nth_text_layer
         self.bottleneck_dim = bottleneck_dim
+
+    @property
+    def audio_hop_length(self) -> int:
+        """Return Judge audio hop length in samples."""
+
+        return self.dac_vae_encoder.hop_length
+
+    @property
+    def audio_sampling_rate(self) -> int:
+        """Return Judge audio sampling rate in Hz."""
+
+        return self.dac_vae_encoder.sampling_rate
+
+
+def _dac_config_from_audio_codec(audio_codec: dict) -> dict:
+    return {
+        "encoder_hidden_size": audio_codec.get("encoder_dim", 64),
+        "downsampling_ratios": audio_codec.get("encoder_rates", [2, 8, 10, 12]),
+        "decoder_hidden_size": audio_codec.get("decoder_dim", 1536),
+        "n_codebooks": audio_codec.get("n_codebooks", 16),
+        "codebook_size": audio_codec.get("codebook_size", 1024),
+        "codebook_dim": audio_codec.get("codebook_dim", 128),
+        "quantizer_dropout": int(audio_codec.get("quantizer_dropout", False)),
+        "sampling_rate": audio_codec.get("sample_rate", 48_000),
+    }

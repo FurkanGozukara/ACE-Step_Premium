@@ -1,6 +1,7 @@
 """Tests for SAM-Audio settings parsing."""
 
 import unittest
+from unittest.mock import patch
 
 from acestep.sam_audio_segment.settings import (
     SAM_AUDIO_MAX_CHUNK_SECONDS,
@@ -23,6 +24,9 @@ class TestSamAudioSettings(unittest.TestCase):
         self.assertEqual(99, settings.seed)
         self.assertFalse(settings.random_seed)
         self.assertEqual("auto", settings.attention_backend)
+        self.assertEqual("chunked", settings.long_audio_mode)
+        self.assertEqual(20.0, settings.chunk_seconds)
+        self.assertEqual(5.0, settings.chunk_overlap_seconds)
         self.assertEqual("vocals", settings.effective_prompt)
 
     def test_values_follow_schema_order(self):
@@ -54,6 +58,7 @@ class TestSamAudioSettings(unittest.TestCase):
                 "sam_device_mode": "auto",
                 "sam_low_vram_lite": False,
                 "sam_chunked": True,
+                "sam_long_audio_mode": "multidiffusion",
                 "sam_chunk_seconds": 10.0,
                 "sam_chunk_overlap_seconds": 1.0,
                 "sam_subprocess": True,
@@ -74,6 +79,7 @@ class TestSamAudioSettings(unittest.TestCase):
         self.assertEqual(42, settings.seed)
         self.assertTrue(settings.random_seed)
         self.assertEqual("cudnn", settings.attention_backend)
+        self.assertEqual("multidiffusion", settings.long_audio_mode)
         self.assertTrue(settings.batch_recursive)
 
     def test_chunk_seconds_accept_long_manual_values(self):
@@ -100,6 +106,17 @@ class TestSamAudioSettings(unittest.TestCase):
         )
 
         self.assertEqual(SAM_AUDIO_MAX_CHUNK_SECONDS, settings.chunk_seconds)
+
+    def test_unavailable_ranker_mode_falls_back_to_disabled(self):
+        """Saved ranker values should not crash when optional packages are absent."""
+
+        with patch(
+            "acestep.sam_audio_segment.settings.normalize_ranker_mode",
+            return_value="none",
+        ):
+            settings = SamAudioSettings.from_payload({"ranker_mode": "clap"})
+
+        self.assertEqual("none", settings.ranker_mode)
 
 
 if __name__ == "__main__":

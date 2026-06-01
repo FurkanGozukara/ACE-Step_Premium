@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from copy import deepcopy
 
+from .judge_assets import prepare_local_judge_model_dir, resolve_local_judge_checkpoint
+from .ranker_availability import normalize_ranker_mode
 from .settings import SamAudioSettings
 
 
@@ -76,28 +78,29 @@ def config_for_settings(settings: SamAudioSettings) -> dict:
     config = deepcopy(SAM_AUDIO_LARGE_CONFIG)
     if not settings.predict_spans:
         config["span_predictor"] = None
-    mode = settings.ranker_mode
+    mode = normalize_ranker_mode(settings.ranker_mode)
     if mode == "imagebind":
         config["visual_ranker"] = {"checkpoint": None, "kind": "imagebind"}
     elif mode == "clap":
         config["text_ranker"] = {"checkpoint": None, "kind": "clap"}
     elif mode == "judge":
-        config["text_ranker"] = {
-            "checkpoint_or_model_id": "facebook/sam-audio-judge",
-            "kind": "judge",
-        }
+        config["text_ranker"] = _local_judge_ranker_config()
     elif mode == "text_ensemble":
         config["text_ranker"] = {
             "rankers": {
                 "clap": [{"checkpoint": None, "kind": "clap"}, 5.0],
-                "judge": [
-                    {
-                        "checkpoint_or_model_id": "facebook/sam-audio-judge",
-                        "kind": "judge",
-                    },
-                    1.0,
-                ],
+                "judge": [_local_judge_ranker_config(), 1.0],
             },
             "kind": "ensemble",
         }
     return config
+
+
+def _local_judge_ranker_config() -> dict[str, str]:
+    """Return a Judge ranker config using only local model assets."""
+
+    return {
+        "checkpoint_or_model_id": str(prepare_local_judge_model_dir()),
+        "checkpoint_path": str(resolve_local_judge_checkpoint()),
+        "kind": "judge",
+    }
