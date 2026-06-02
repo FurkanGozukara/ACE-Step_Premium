@@ -30,6 +30,68 @@
 
 <h3>3 June 2026 V4.0 Update</h3>
 
+- V4.0 is a massive update so please carefully read all
+- For update please get latest v4 zip file, extract into install folder, overwrite and run Windows_Install_or_Update.bat file
+	- If you get any errors for any reason, delete \ACE-Step_Premium\venv and then run installer bat file
+- When you select ACESTEP XL 1.5 SFT or Base model, in advaced tab, now all these options will be enabled and fully work
+	- Simple, Custom, Remix, Repaint, Extract, Lego, Complete
+   
+<img width="1822" height="342" alt="image" src="https://github.com/user-attachments/assets/c81b17aa-9ea2-4d48-bfb1-8c07954032d0" />
+
+- Extract now fully works and you can pick what to extract from Track Name below
+	- However I think new SAM Audio model is better still test and compare both
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/4000285d-7443-488c-8ba4-6f8e3a20265a" />
+
+- You can also use batch extract feature now if you want to batch process a folder of songs
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/0f9b2df7-8383-439b-b763-bc16ba28ac41" />
+
+- Audio Processing tab improved and now we support extremely famous Auto-Editor
+- Auto-Editor is amazing library to trim silent - no spoken parts
+- I use this to trim out videos and can be very useful to trim vocal extraction
+- I use this to also cut silent parts of my tutorials, very useful to pre-process before editing
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/33736271-51ce-4320-bb94-b3cd0e904942" />
+
+- New tab SAM Audio Segment implemented
+- SAM Audio is state of the art prompt and mask based audio processing / seperation model from Facebook : https://ai.meta.com/research/samaudio/
+- It supports any custom text prompt and the below quick select presets
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/d1cc0bfe-fbd7-4d79-91f7-c97608438bcb" />
+
+- I have made massive amount of optimizations and programming to implement this model
+- BF16 pre-converted safetensors SAM-Audio and SAM-Audio Judge models will be automatically downloaded when you run installer or model downloader bat file
+- Normally released models were FP32 .pt models but I converted them to BF16 and safetensors format
+- SAM Audio models official pipeline was also first loading into RAM and then moving into GPU thus using extra RAM and slower
+	- I made it directly to be loaded into GPU as BF16
+- Our implementation supports full sub-process running and auto trim feature - extremely useful to extract vocals for ACESTEP XL 1.5 LoRA vocal training
+
+<img width="3505" height="191" alt="image" src="https://github.com/user-attachments/assets/f9329b1d-9830-4da1-924f-4b07f4b33522" />
+
+- We already have VRAM presets for every GPU out there for SAM Audio model
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/59558997-09bb-4f19-b431-95f8083b6fdc" />
+
+- It works with 20 seconds segmentation with 5 seconds overlap
+	- 20 seconds segmentation is what model authors recommend and used for training
+	- Longer segmentation not improving quality but increases VRAM usage and reduces processing time
+- Only missing feature is Multi-diffusion text-only mode since authors didn't publish this but I opened an issue and expecting them to publish hopefully
+	- We already have that mode coded by CODEX but I think it is not better due to our inaccurate implementation
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/d4a0420b-c5d6-48d0-8716-f01b0e356ac4" />
+
+- We support batch folder processing to pre-process training songs as well or for any reason you want
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/22fda4f2-eb06-4f59-ae89-dd98169333d1" />
+
+- Flash Attention were not working on Windows RTX 4000 series GPUs and this issue fixed
+	- I have re-compiled Flash Attention 2.8.3 to fully support RTX 3000, 4000 and 5000 series GPUs with extra CUDA Arch a flag for SM120a
+	- I am still trying to re-compile Linux Flash Attention with all GPUs (to include Cloud server GPUs too) SMs : 80;86;89;90;90a;100;100a;103;103a;120;120a
+	- It keeps failing due to exceeding 2 GB file size for Linux but I am compiling again with new flahgs, when published hopefully will be updated
+
+<h3>31 May 2026 V3.9.1 Update</h3>
+
 - New full audio post-processing tab implemented to our premium app from TrackAICleaner repo
 - You can use this tab to both post-process your existing audio files as batch or as single file or automatically post process your generated songs
 - When it is enabled to auto post-process generated songs, it will save both original and post-processed songs in the outputs folder
