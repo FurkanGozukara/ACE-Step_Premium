@@ -26,6 +26,7 @@ from loguru import logger
 
 from acestep.core.generation.cancellation import check_generation_cancelled
 
+from .flow_edit_params import normalize_flow_edit_n_avg
 from .service_generate_flow_edit_source import embed_source, tokenize_source
 
 
@@ -58,7 +59,7 @@ def dispatch_flow_edit_overlay(
     task_type = flow_edit_ctx.get("task_type") or "text2music"
     n_min = float(flow_edit_ctx.get("n_min", 0.0))
     n_max = float(flow_edit_ctx.get("n_max", 1.0))
-    n_avg = int(flow_edit_ctx.get("n_avg", 1))
+    n_avg = normalize_flow_edit_n_avg(flow_edit_ctx.get("n_avg", 1))
     src_caption = flow_edit_ctx.get("source_caption") or ""
     src_lyrics = flow_edit_ctx.get("source_lyrics") or ""
     if not src_caption and not src_lyrics:

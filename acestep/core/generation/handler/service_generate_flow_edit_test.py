@@ -105,6 +105,17 @@ class FlowEditOverlayDispatchTests(unittest.TestCase):
         self.assertEqual(kwargs["edit_n_max"], 1.0)
         self.assertEqual(kwargs["edit_n_avg"], 1)
 
+    def test_fractional_n_avg_is_clamped_before_sampler(self):
+        handler = FakeHandler()
+        ctx = make_flow_edit_ctx()
+        ctx["n_avg"] = 0.5
+        dispatch_flow_edit_overlay(
+            handler, payload=make_payload(), generate_kwargs={"infer_steps": 4},
+            seed_param=None, flow_edit_ctx=ctx,
+        )
+        kwargs = handler.model.flowedit_generate_audio.call_args.kwargs
+        self.assertEqual(kwargs["edit_n_avg"], 1)
+
     def test_dict_metas_parsed_before_tokenization(self):
         handler = FakeHandler()
         ctx = make_flow_edit_ctx()

@@ -1,4 +1,4 @@
-<h1>ACE-Step 1.5 XL Premium v3.9.1 - Better Music & Song Generator Than SUNO 5.0 - Remix and Repaint Features - Windows, RunPod, Massed Compute, Linux 1-click Installers</h1>
+<h1>ACE-Step 1.5 XL Premium v4.0 - Better Music & Song Generator Than SUNO 5.0 - Remix and Repaint Features - Windows, RunPod, Massed Compute, Linux 1-click Installers</h1>
 
 <h2>Download app : https://www.patreon.com/posts/157675060</h2>
 
@@ -28,7 +28,7 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
-<h3>31 May 2026 V3.9.1 Update</h3>
+<h3>3 June 2026 V4.0 Update</h3>
 
 - New full audio post-processing tab implemented to our premium app from TrackAICleaner repo
 - You can use this tab to both post-process your existing audio files as batch or as single file or automatically post process your generated songs

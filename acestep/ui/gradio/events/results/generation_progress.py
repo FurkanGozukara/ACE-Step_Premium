@@ -20,6 +20,7 @@ from acestep.sam_audio_segment.generated_postprocess import (
 )
 from acestep.sam_audio_segment.settings import SamAudioSettings
 from acestep.core.generation.cancellation import check_generation_cancelled
+from acestep.core.generation.handler.flow_edit_params import normalize_flow_edit_n_avg
 from acestep.gpu_config import (
     get_global_gpu_config,
     check_duration_limit,
@@ -237,7 +238,7 @@ def generate_with_progress(
         flow_edit_source_lyrics=flow_edit_source_lyrics or "",
         flow_edit_n_min=float(flow_edit_n_min) if flow_edit_n_min is not None else 0.0,
         flow_edit_n_max=float(flow_edit_n_max) if flow_edit_n_max is not None else 1.0,
-        flow_edit_n_avg=int(flow_edit_n_avg) if flow_edit_n_avg is not None else 1,
+        flow_edit_n_avg=normalize_flow_edit_n_avg(flow_edit_n_avg),
     )
 
     gen_config = GenerationConfig(
