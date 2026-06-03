@@ -30,7 +30,7 @@
 
 <h3>3 June 2026 V4.1 Update</h3>
 
-- V4.0 is a massive update so please carefully read all
+- V4.1 is a massive update so please carefully read all
 - For update please get latest v4_1 zip file, extract into install folder, overwrite and run Windows_Install_or_Update.bat file
 	- If you get any errors for any reason, delete \ACE-Step_Premium\venv and then run installer bat file
 - When you select ACESTEP XL 1.5 SFT or Base model, in advaced tab, now all these options will be enabled and fully work
