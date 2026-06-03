@@ -28,10 +28,10 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
-<h3>3 June 2026 V4.0 Update</h3>
+<h3>3 June 2026 V4.1 Update</h3>
 
 - V4.0 is a massive update so please carefully read all
-- For update please get latest v4 zip file, extract into install folder, overwrite and run Windows_Install_or_Update.bat file
+- For update please get latest v4_1 zip file, extract into install folder, overwrite and run Windows_Install_or_Update.bat file
 	- If you get any errors for any reason, delete \ACE-Step_Premium\venv and then run installer bat file
 - When you select ACESTEP XL 1.5 SFT or Base model, in advaced tab, now all these options will be enabled and fully work
 	- Simple, Custom, Remix, Repaint, Extract, Lego, Complete
@@ -87,8 +87,16 @@
 
 - Flash Attention were not working on Windows RTX 4000 series GPUs and this issue fixed
 	- I have re-compiled Flash Attention 2.8.3 to fully support RTX 3000, 4000 and 5000 series GPUs with extra CUDA Arch a flag for SM120a
-	- I am still trying to re-compile Linux Flash Attention with all GPUs (to include Cloud server GPUs too) SMs : 80;86;89;90;90a;100;100a;103;103a;120;120a
-	- It keeps failing due to exceeding 2 GB file size for Linux but I am compiling again with new flahgs, when published hopefully will be updated
+	- Linux Flash Attention with all GPUs (to include Cloud server GPUs too) SMs also recompiled and now will be used : 80;86;89;90;100;103;120
+	- So no GPU should get any error with Flash Attention anymore
+	- More information regarding CUDA archs : https://www.patreon.com/posts/159064759
+- ACESTEP XL 1.5 Advanced tab now supports uploading video files as well
+	- They will be automatically converted into audio and used
+	- If your video upload shows processing forever, click X icon and reupload
+		- This is a Gradio bug I am trying to fix, refresh page also fixes
+- Audio Processing tab supports both Audio and Video uploading
+- SAM Audio Segment supports both Audio and Video uploading
+- Video upload previews are now capped to height 400px so they won't take entire web page space and look much better
 
 <h3>31 May 2026 V3.9.1 Update</h3>
 
