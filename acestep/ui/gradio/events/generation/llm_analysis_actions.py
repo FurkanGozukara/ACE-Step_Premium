@@ -24,6 +24,7 @@ def analyze_src_audio(
     backend: str | None = None,
     device: str | None = None,
     offload_to_cpu: bool = False,
+    task_type: str | None = None,
     **dit_init_kwargs,
 ):
     """Analyze source audio and optionally transcribe generated audio codes.
@@ -33,6 +34,7 @@ def analyze_src_audio(
         llm_handler: LLM handler instance.
         src_audio: Path to source audio file.
         constrained_decoding_debug: Whether constrained-decoding debug logs are enabled.
+        task_type: Current generation task type, used to reject Extract-mode Analyze.
         dit_init_kwargs: Selected DiT model/runtime options for on-demand init.
 
     Returns:
@@ -40,6 +42,11 @@ def analyze_src_audio(
         keyscale, language, timesignature, is_format_caption)``.
     """
     error_tuple = ("", "", "", "", None, None, "", "", "", False)
+
+    if str(task_type or "").strip().lower() == "extract":
+        message = t("messages.extract_mode_analyze_not_useful")
+        gr.Info(message)
+        return ("", message, "", "", None, None, "", "", "", False)
 
     src_audio = latest_upload_path(src_audio)
     if not src_audio:

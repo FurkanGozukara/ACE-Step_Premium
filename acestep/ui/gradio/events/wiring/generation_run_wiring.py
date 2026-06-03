@@ -13,8 +13,9 @@ from .context import GenerationWiringContext
 from .audio_processing_wiring import audio_processing_generation_inputs
 from .sam_audio_wiring import sam_audio_generation_inputs
 from .inline_result_preview import (
+    append_inline_result_preview,
     build_inline_result_outputs,
-    clear_inline_result_preview,
+    prepare_inline_result_preview,
     sync_inline_result_preview,
 )
 
@@ -222,22 +223,26 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
     llm_handler = context.llm_handler
 
     def generation_wrapper(*args):
-        """Proxy passthrough to `res_h.generate_with_batch_management`.
+        """Stream generation outputs and mirror status into the inline preview.
 
         Args:
             *args (Any): Positional passthrough inputs forwarded unchanged to
                 `res_h.generate_with_batch_management(dit_handler, llm_handler, *args)`.
 
         Yields:
-            Any: Streamed generation updates yielded by
-            `res_h.generate_with_batch_management`.
+            Any: Streamed generation updates with inline preview updates appended.
 
         Raises:
             Exception: Propagates exceptions raised by
             `res_h.generate_with_batch_management`.
         """
 
-        yield from res_h.generate_with_batch_management(dit_handler, llm_handler, *args)
+        for outputs in res_h.generate_with_batch_management(
+            dit_handler,
+            llm_handler,
+            *args,
+        ):
+            yield append_inline_result_preview(outputs)
 
     generation_section["generate_btn"].click(
         fn=res_h.clear_audio_outputs_for_new_generation,
@@ -253,7 +258,8 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
             results_section["generated_audio_batch"],
         ],
     ).then(
-        fn=clear_inline_result_preview,
+        fn=prepare_inline_result_preview,
+        inputs=[generation_section["task_type"]],
         outputs=build_inline_result_outputs(generation_section),
     ).then(
         fn=generation_wrapper,
@@ -414,6 +420,7 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
             results_section["next_batch_btn"],
             results_section["next_batch_status"],
             results_section["restore_params_btn"],
+            *build_inline_result_outputs(generation_section),
         ],
     ).then(
         fn=sync_inline_result_preview,

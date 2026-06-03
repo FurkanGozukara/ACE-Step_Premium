@@ -138,7 +138,8 @@ def build_generate_row_controls(
                 label=t("generation.inline_result_status_label"),
                 interactive=False,
                 lines=3,
-                max_lines=10,
+                max_lines=3,
+                autoscroll=True,
             )
             batch_extract_controls = build_batch_extract_controls()
     return {

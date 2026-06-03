@@ -25,6 +25,22 @@ def register_generation_metadata_handlers(
     dit_handler = context.dit_handler
     llm_handler = context.llm_handler
 
+    def analyze_source_audio_for_mode(*args: Any) -> Any:
+        """Analyze source audio unless the current mode uses Extract flow."""
+
+        return gen_h.analyze_src_audio(
+            dit_handler,
+            llm_handler,
+            *args[:6],
+            config_path=args[6],
+            use_flash_attention=args[7],
+            offload_dit_to_cpu=args[8],
+            compile_model=args[9],
+            quantization=args[10],
+            mlx_dit=args[11],
+            task_type=args[12],
+        )
+
     # ========== Audio Conversion (LM Codes Hints accordion in Custom mode) ==========
     generation_section["convert_src_to_codes_btn"].click(
         fn=lambda src: gen_h.convert_src_audio_to_codes_wrapper(dit_handler, src),
@@ -43,12 +59,7 @@ def register_generation_metadata_handlers(
 
     # ========== Analyze Source Audio (Remix/Repaint: convert to codes + transcribe) ==========
     generation_section["analyze_btn"].click(
-        fn=lambda *args: gen_h.analyze_src_audio(
-            dit_handler, llm_handler, *args[:6],
-            config_path=args[6], use_flash_attention=args[7],
-            offload_dit_to_cpu=args[8], compile_model=args[9],
-            quantization=args[10], mlx_dit=args[11],
-        ),
+        fn=analyze_source_audio_for_mode,
         inputs=[
             generation_section["src_audio"],
             generation_section["constrained_decoding_debug"],
@@ -62,6 +73,7 @@ def register_generation_metadata_handlers(
             generation_section["compile_model_checkbox"],
             generation_section["quantization_checkbox"],
             generation_section["mlx_dit_checkbox"],
+            generation_section["task_type"],
         ],
         outputs=[
             generation_section["text2music_audio_code_string"],

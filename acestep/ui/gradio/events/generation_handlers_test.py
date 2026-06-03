@@ -31,6 +31,35 @@ class _FakeDitHandler:
 class GenerationHandlersTests(unittest.TestCase):
     """Tests for source-audio analysis validation behavior."""
 
+    @patch("acestep.ui.gradio.events.generation.llm_analysis_actions.ensure_dit_ready")
+    @patch("acestep.ui.gradio.events.generation.llm_analysis_actions.gr.Info")
+    @patch("acestep.ui.gradio.events.generation.llm_analysis_actions.gr.Warning")
+    def test_analyze_src_audio_extract_mode_shows_guidance_without_model_work(
+        self,
+        warning_mock,
+        info_mock,
+        ensure_dit_ready_mock,
+    ):
+        """Extract-mode Analyze should tell users to choose a track and extract."""
+
+        message = _t("messages.extract_mode_analyze_not_useful")
+        dit_handler = SimpleNamespace(convert_src_audio_to_codes=MagicMock())
+        llm_handler = SimpleNamespace(llm_initialized=True)
+
+        result = generation_handlers.analyze_src_audio(
+            dit_handler=dit_handler,
+            llm_handler=llm_handler,
+            src_audio=None,
+            constrained_decoding_debug=False,
+            task_type="extract",
+        )
+
+        self.assertEqual(result, ("", message, "", "", None, None, "", "", "", False))
+        info_mock.assert_called_once_with(message)
+        warning_mock.assert_not_called()
+        ensure_dit_ready_mock.assert_not_called()
+        dit_handler.convert_src_audio_to_codes.assert_not_called()
+
     @patch("acestep.ui.gradio.events.generation.llm_analysis_actions.gr.Warning")
     @patch("acestep.ui.gradio.events.generation.llm_analysis_actions.understand_music")
     def test_analyze_src_audio_rejects_non_audio_code_output(

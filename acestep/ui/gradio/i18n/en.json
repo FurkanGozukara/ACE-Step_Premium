@@ -369,7 +369,9 @@
     "invalid_timesteps_format": "⚠️ Invalid timesteps format. Using default schedule.",
     "timesteps_out_of_range": "⚠️ Timesteps must be in range [0, 1]. Using default schedule.",
     "timesteps_count_mismatch": "⚠️ Timesteps count ({actual}) differs from inference_steps ({expected}). Using timesteps count.",
-    "audio_format_invalid": "{role} format is invalid or unsupported. Please upload a valid audio file."
+    "audio_format_invalid": "{role} format is invalid or unsupported. Please upload a valid audio file.",
+    "extract_stem_processing": "Extracting stem... Loading the model and processing the source audio. Please wait.",
+    "extract_mode_analyze_not_useful": "Analyze is not useful in Extract mode. Select a Track Name, then click Extract Stem."
   },
   "training": {
     "tab_title": "🎓 LoRA Training",
