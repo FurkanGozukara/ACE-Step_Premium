@@ -32,6 +32,8 @@ _IDX_SRC_AUDIO_ROW = 6
 _IDX_AUDIO_CODES_GROUP = 8
 _IDX_TRACK_NAME = 9
 _IDX_GENERATE_BTN_ROW = 11
+_IDX_LOAD_FILE_COL = 15
+_IDX_LOAD_FILE = 16
 _IDX_AUDIO_CODES = 47
 _IDX_SRC_AUDIO = 48
 _IDX_FLOW_EDIT_COLUMN = 49
@@ -51,6 +53,7 @@ _IDX_DURATION = 25
 _IDX_AUTO_SCORE = 26
 _IDX_AUTOGEN = 27
 _IDX_AUTO_LRC = 28
+_IDX_ANALYZE_BTN = 29
 
 
 @unittest.skipIf(compute_mode_ui_updates is None,
@@ -62,6 +65,18 @@ class ModeUiStateClearingTests(unittest.TestCase):
         """compute_mode_ui_updates should return exactly 52 elements."""
         result = compute_mode_ui_updates("Custom")
         self.assertEqual(len(result), _EXPECTED_TUPLE_LENGTH)
+
+    def test_metadata_load_button_stays_hidden(self):
+        """Mode changes should not reveal the deprecated metadata load button."""
+        for mode in ("Simple", "Custom", "Remix", "Repaint", "Extract", "Lego", "Complete"):
+            with self.subTest(mode=mode):
+                result = compute_mode_ui_updates(
+                    mode,
+                    previous_mode="Custom",
+                    config_path="ACEStep_1_5_XL_Base_BF16",
+                )
+                self.assertFalse(result[_IDX_LOAD_FILE_COL].get("visible"))
+                self.assertFalse(result[_IDX_LOAD_FILE].get("visible"))
 
     def test_custom_mode_preserves_audio_codes(self):
         """In Custom mode, audio_codes textbox should be visible but not cleared."""
@@ -293,6 +308,7 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertFalse(result[_IDX_AUTO_SCORE].get("visible"))
         self.assertFalse(result[_IDX_AUTOGEN].get("visible"))
         self.assertFalse(result[_IDX_AUTO_LRC].get("visible"))
+        self.assertFalse(result[_IDX_ANALYZE_BTN].get("visible"))
         self.assertIn("Extract", result[_IDX_GENERATE_BTN].get("value"))
 
     def test_extract_mode_enables_generate_when_track_is_selected(self):

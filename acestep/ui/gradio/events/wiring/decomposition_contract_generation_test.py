@@ -42,6 +42,33 @@ def _is_generation_mode_change_call(node: ast.AST) -> bool:
     )
 
 
+def _is_demo_load_call(node: ast.AST) -> bool:
+    """Return whether ``node`` is the shared Blocks load event call."""
+
+    if not isinstance(node, ast.Call):
+        return False
+    if not isinstance(node.func, ast.Attribute) or node.func.attr != "load":
+        return False
+    demo_attr = node.func.value
+    return (
+        isinstance(demo_attr, ast.Attribute)
+        and demo_attr.attr == "demo"
+        and isinstance(demo_attr.value, ast.Name)
+        and demo_attr.value.id == "context"
+    )
+
+
+def _has_constant_keyword(node: ast.Call, keyword_name: str, expected_value: object) -> bool:
+    """Return whether a call includes a constant keyword value."""
+
+    return any(
+        keyword.arg == keyword_name
+        and isinstance(keyword.value, ast.Constant)
+        and keyword.value.value == expected_value
+        for keyword in node.keywords
+    )
+
+
 def _call_uses_keyword_function(node: ast.Call, function_name: str) -> bool:
     """Return whether a call passes ``function_name`` as its ``fn=`` keyword."""
 
@@ -135,6 +162,28 @@ class DecompositionContractGenerationTests(unittest.TestCase):
                     break
 
         self.assertTrue(found_non_queued_mode_change)
+
+    def test_generation_mode_updates_hide_progress_overlay(self):
+        """Mode state updates should not cover the selector with Gradio progress UI."""
+
+        wiring_node = load_generation_mode_wiring_node()
+        found_hidden_mode_change_progress = False
+        found_hidden_load_progress = False
+
+        for node in ast.walk(wiring_node):
+            if not isinstance(node, ast.Call):
+                continue
+            if _is_generation_mode_change_call(node):
+                found_hidden_mode_change_progress = _has_constant_keyword(
+                    node, "show_progress", "hidden"
+                )
+            if _is_demo_load_call(node):
+                found_hidden_load_progress = _has_constant_keyword(
+                    node, "show_progress", "hidden"
+                )
+
+        self.assertTrue(found_hidden_mode_change_progress)
+        self.assertTrue(found_hidden_load_progress)
 
     def test_generation_mode_change_does_not_reset_dcw_defaults(self):
         """Mode switches should not overwrite manually tuned DCW controls."""

@@ -194,8 +194,8 @@ def compute_mode_ui_updates(
         gr.update(info=mode_help_text, elem_classes=["has-info-container"]),  # 12: generation_mode
         gr.update(visible=show_results),                   # 13: results_wrapper
         think_update,                                      # 14: think_checkbox
-        gr.update(visible=not_simple),                     # 15: load_file_col
-        gr.update(visible=not_simple),                     # 16: load_file
+        gr.update(visible=False),                          # 15: load_file_col
+        gr.update(visible=False),                          # 16: load_file
         strength_update,                                   # 17: audio_cover_strength
         cover_noise_update,                                # 18: cover_noise_strength
         captions_update,                                   # 19: captions

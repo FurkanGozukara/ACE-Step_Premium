@@ -102,6 +102,7 @@ def register_generation_service_handlers(
                 generation_section["simple_model_dropdown"],
                 *advanced_model_reset_outputs,
             ],
+            show_progress="hidden",
         )
     else:
         generation_section["config_path"].change(
@@ -114,6 +115,7 @@ def register_generation_service_handlers(
                 *model_type_outputs,
                 *advanced_model_reset_outputs,
             ],
+            show_progress="hidden",
         )
 
     if "simple_quantization" in generation_section:
@@ -204,6 +206,7 @@ def register_generation_service_handlers(
             generation_section["batch_size_input"],
             generation_section["think_checkbox"],
         ],
+        show_progress_on=[generation_section["init_status"]],
     )
     init_event.then(
         fn=_apply_dcw_defaults_for_model,

@@ -84,6 +84,7 @@ def register_generation_mode_handlers(
         inputs=mode_change_inputs,
         outputs=mode_ui_outputs,
         queue=False,
+        show_progress="hidden",
     )
 
     # ========== Initial Mode State on Page Load ==========
@@ -99,6 +100,7 @@ def register_generation_mode_handlers(
         fn=_handle_mode_change,
         inputs=mode_change_inputs,
         outputs=mode_ui_outputs,
+        show_progress="hidden",
     )
     load_event.then(
         fn=gen_h.update_dcw_defaults_for_think,

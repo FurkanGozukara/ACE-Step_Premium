@@ -33,13 +33,19 @@ def build_mode_selector_controls(
             elem_classes=["has-info-container"],
             scale=10,
         )
-        with gr.Column(scale=1, min_width=80, elem_classes="icon-btn-wrap") as load_file_col:
+        with gr.Column(
+            scale=1,
+            min_width=80,
+            elem_classes="icon-btn-wrap",
+            visible=False,
+        ) as load_file_col:
             load_file = gr.UploadButton(
                 t("generation.load_btn"),
                 file_types=[".json"],
                 file_count="single",
                 variant="secondary",
                 size="lg",
+                visible=False,
             )
     return {
         "generation_mode": generation_mode,

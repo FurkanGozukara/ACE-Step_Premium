@@ -141,6 +141,7 @@ def register_simple_create_handlers(
             generation_section["dcw_wavelet"],
             simple_page["simple_status"],
         ],
+        show_progress="hidden",
     )
 
     simple_page["simple_quantization"].change(
