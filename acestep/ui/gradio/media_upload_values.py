@@ -40,3 +40,40 @@ def latest_upload_path(value: Any) -> str | None:
         if path:
             return path
     return None
+
+
+def resolve_effective_source_audio(
+    source_value: Any,
+    preview_value: Any = None,
+    original_preview_value: Any = None,
+) -> str | None:
+    """Return the source-audio path, preferring a user-edited preview.
+
+    Args:
+        source_value: Original Source Audio upload value.
+        preview_value: Current Source Audio Preview value.
+        original_preview_value: Preview value created from the original upload.
+
+    Returns:
+        The edited preview path when the preview changed after upload, otherwise
+        the original source upload path.
+    """
+
+    source_path = latest_upload_path(source_value)
+    preview_path = latest_upload_path(preview_value)
+    original_preview_path = latest_upload_path(original_preview_value)
+
+    if preview_path:
+        if original_preview_path:
+            if _same_path(preview_path, original_preview_path):
+                return source_path
+            return preview_path
+        if not source_path or not _same_path(preview_path, source_path):
+            return preview_path
+    return source_path
+
+
+def _same_path(left: str, right: str) -> bool:
+    """Return whether two upload paths refer to the same UI file value."""
+
+    return left.replace("\\", "/").casefold() == right.replace("\\", "/").casefold()

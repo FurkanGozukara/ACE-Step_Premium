@@ -91,7 +91,10 @@ def register_generation_service_handlers(
         generation_section["dcw_wavelet"],
     ]
     if "simple_model_dropdown" in generation_section:
-        generation_section["config_path"].change(
+        # Gradio .change() also fires for function-driven dropdown updates.
+        # Use .input() here so the advanced selector mirrors the simple tab
+        # only when the user directly changes the advanced model dropdown.
+        generation_section["config_path"].input(
             fn=_apply_config_path_change_with_simple_sync,
             inputs=[
                 generation_section["config_path"],
@@ -105,7 +108,7 @@ def register_generation_service_handlers(
             show_progress="hidden",
         )
     else:
-        generation_section["config_path"].change(
+        generation_section["config_path"].input(
             fn=_apply_config_path_change_with_advanced_resets,
             inputs=[
                 generation_section["config_path"],

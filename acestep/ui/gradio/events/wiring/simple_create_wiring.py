@@ -106,7 +106,9 @@ def register_simple_create_handlers(
         ],
     )
 
-    simple_page["simple_model_dropdown"].change(
+    # Gradio .change() fires for programmatic dropdown updates too. The model
+    # selector should apply defaults only for direct user selections.
+    simple_page["simple_model_dropdown"].input(
         fn=_apply_simple_model_change,
         inputs=[
             simple_page["simple_model_dropdown"],

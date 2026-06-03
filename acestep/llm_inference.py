@@ -1543,7 +1543,7 @@ class LLMHandler:
                 logger.info("Batch Phase 1: Using user-provided metadata (skipping generation)")
             else:
                 logger.info("Phase 1: Using user-provided metadata (skipping generation)")
-            metadata = {k: v for k, v in user_metadata.items() if v is not None}
+            metadata = {k: v for k, v in (user_metadata or {}).items() if v is not None}
 
         # When the caller did not supply an explicit target_duration, use the
         # duration that Phase 1 (CoT) produced so that Phase 2 code generation

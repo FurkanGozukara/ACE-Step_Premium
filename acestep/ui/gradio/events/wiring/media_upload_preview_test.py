@@ -2,22 +2,30 @@
 
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import ANY, MagicMock, patch
 
 from acestep.ui.gradio.events.wiring.audio_processing_wiring import (
     _preview_upload as preview_audio_processing_upload,
+)
+from acestep.ui.gradio.events.wiring.generation_upload_handlers import (
+    finalize_src_audio_upload,
+    handle_src_audio_upload,
 )
 from acestep.ui.gradio.events.wiring.media_upload_preview import (
     PREVIEW_AUDIO_SECONDS,
     PREVIEW_AUDIO_TIMEOUT_SECONDS,
     extract_audio_preview,
     preview_audio_purpose_upload,
+    preview_audio_purpose_upload_direct,
     preview_video_upload,
 )
 from acestep.ui.gradio.events.wiring.sam_audio_action_helpers import (
     preview_upload as preview_sam_upload,
 )
-from acestep.ui.gradio.media_upload_values import latest_upload_path
+from acestep.ui.gradio.media_upload_values import (
+    latest_upload_path,
+    resolve_effective_source_audio,
+)
 
 
 class MediaUploadPreviewTests(unittest.TestCase):
@@ -36,6 +44,30 @@ class MediaUploadPreviewTests(unittest.TestCase):
             "new.mp4",
         )
 
+    def test_effective_source_uses_original_upload_when_preview_is_unedited(self):
+        """Initial video preview extraction should not replace the original source."""
+
+        self.assertEqual(
+            resolve_effective_source_audio(
+                "song_video.mp4",
+                "song_video_audio_preview.wav",
+                "song_video_audio_preview.wav",
+            ),
+            "song_video.mp4",
+        )
+
+    def test_effective_source_uses_trimmed_preview_when_preview_changes(self):
+        """Edited Source Audio Preview should become the generation source."""
+
+        self.assertEqual(
+            resolve_effective_source_audio(
+                "song_video.mp4",
+                "trimmed_preview.wav",
+                "song_video_audio_preview.wav",
+            ),
+            "trimmed_preview.wav",
+        )
+
     def test_audio_purpose_upload_shows_audio_for_audio_file(self):
         """Audio files should show only the audio preview."""
 
@@ -45,6 +77,21 @@ class MediaUploadPreviewTests(unittest.TestCase):
         self.assertTrue(audio_update.get("visible"))
         self.assertIsNone(video_update.get("value"))
         self.assertFalse(video_update.get("visible"))
+
+    @patch("acestep.ui.gradio.events.wiring.media_upload_preview.extract_audio_preview")
+    def test_direct_audio_purpose_upload_shows_video_without_extracting_audio(
+        self,
+        extract_mock,
+    ):
+        """Fast upload previews should show video immediately without ffmpeg."""
+
+        audio_update, video_update = preview_audio_purpose_upload_direct("clip.mp4")
+
+        self.assertIsNone(audio_update.get("value"))
+        self.assertFalse(audio_update.get("visible"))
+        self.assertEqual(video_update.get("value"), "clip.mp4")
+        self.assertTrue(video_update.get("visible"))
+        extract_mock.assert_not_called()
 
     @patch(
         "acestep.ui.gradio.events.wiring.media_upload_preview.extract_audio_preview",
@@ -59,7 +106,7 @@ class MediaUploadPreviewTests(unittest.TestCase):
         self.assertTrue(audio_update.get("visible"))
         self.assertEqual(video_update.get("value"), "clip.mp4")
         self.assertTrue(video_update.get("visible"))
-        extract_mock.assert_called_once_with("clip.mp4")
+        extract_mock.assert_called_once_with("clip.mp4", progress=ANY)
 
     @patch(
         "acestep.ui.gradio.events.wiring.media_upload_preview.extract_audio_preview",
@@ -72,7 +119,7 @@ class MediaUploadPreviewTests(unittest.TestCase):
 
         self.assertEqual(audio_update.get("value"), "new_audio_preview.wav")
         self.assertEqual(video_update.get("value"), "new.mp4")
-        extract_mock.assert_called_once_with("new.mp4")
+        extract_mock.assert_called_once_with("new.mp4", progress=ANY)
 
     @patch("acestep.ui.gradio.events.wiring.media_upload_preview.gr.Warning")
     @patch(
@@ -92,8 +139,67 @@ class MediaUploadPreviewTests(unittest.TestCase):
         self.assertFalse(audio_update.get("visible"))
         self.assertEqual(video_update.get("value"), "clip.mp4")
         self.assertTrue(video_update.get("visible"))
-        extract_mock.assert_called_once_with("clip.mp4")
+        extract_mock.assert_called_once_with("clip.mp4", progress=ANY)
         warning_mock.assert_called_once()
+
+    @patch(
+        "acestep.ui.gradio.events.wiring.generation_upload_handlers.gen_h."
+        "handle_extract_src_audio_change",
+    )
+    @patch("acestep.ui.gradio.events.wiring.media_upload_preview.extract_audio_preview")
+    def test_source_upload_fast_stage_skips_extraction_and_duration(
+        self,
+        extract_mock,
+        duration_mock,
+    ):
+        """Initial Source Audio upload updates should not block on slow work."""
+
+        audio_update, video_update, duration_update, original = handle_src_audio_upload(
+            "clip.mp4",
+            "Complete",
+        )
+
+        self.assertIsNone(audio_update.get("value"))
+        self.assertFalse(audio_update.get("visible"))
+        self.assertEqual(video_update.get("value"), "clip.mp4")
+        self.assertTrue(video_update.get("visible"))
+        self.assertNotIn("value", duration_update)
+        self.assertIsNone(original)
+        extract_mock.assert_not_called()
+        duration_mock.assert_not_called()
+
+    @patch(
+        "acestep.ui.gradio.events.wiring.generation_upload_handlers.gen_h."
+        "handle_extract_src_audio_change",
+        return_value={"value": 42.0, "__type__": "update"},
+    )
+    @patch(
+        "acestep.ui.gradio.events.wiring.media_upload_preview.extract_audio_preview",
+        return_value="clip_audio_preview.wav",
+    )
+    def test_source_upload_finalize_extracts_preview_with_progress(
+        self,
+        extract_mock,
+        duration_mock,
+    ):
+        """Source upload finalize should extract audio and report progress."""
+
+        progress = MagicMock()
+        audio_update, video_update, duration_update, original = finalize_src_audio_upload(
+            "clip.mp4",
+            "Complete",
+            progress=progress,
+        )
+
+        self.assertEqual(audio_update.get("value"), "clip_audio_preview.wav")
+        self.assertTrue(audio_update.get("visible"))
+        self.assertEqual(video_update.get("value"), "clip.mp4")
+        self.assertTrue(video_update.get("visible"))
+        self.assertEqual(duration_update.get("value"), 42.0)
+        self.assertEqual(original, "clip_audio_preview.wav")
+        extract_mock.assert_called_once_with("clip.mp4", progress=progress)
+        duration_mock.assert_called_once_with("clip.mp4", "Complete")
+        self.assertGreaterEqual(progress.call_count, 3)
 
     def test_video_upload_shows_video_preview(self):
         """Video-only fields should show uploaded video previews."""
@@ -142,13 +248,16 @@ class MediaUploadPreviewTests(unittest.TestCase):
 
         mkdtemp_mock.return_value = "C:/tmp/acestep_preview"
 
-        result = extract_audio_preview("C:/media/long_clip.mp4")
+        progress = MagicMock()
+
+        result = extract_audio_preview("C:/media/long_clip.mp4", progress=progress)
 
         self.assertEqual(result, "C:/tmp/acestep_preview/long_clip_audio_preview.wav")
         command = run_mock.call_args.args[0]
         self.assertIn("-t", command)
         self.assertEqual(command[command.index("-t") + 1], str(PREVIEW_AUDIO_SECONDS))
         self.assertEqual(run_mock.call_args.kwargs["timeout"], PREVIEW_AUDIO_TIMEOUT_SECONDS)
+        self.assertGreaterEqual(progress.call_count, 2)
 
 
 if __name__ == "__main__":

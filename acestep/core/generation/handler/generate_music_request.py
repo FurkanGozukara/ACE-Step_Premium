@@ -127,7 +127,14 @@ class GenerateMusicRequestMixin:
             refer_audios = [[torch.zeros(2, 30 * self.sample_rate)] for _ in range(actual_batch_size)]
 
         processed_src_audio = None
-        _src_audio_required_tasks = {"cover", "cover-nofsq", "repaint", "lego", "extract"}
+        _src_audio_required_tasks = {
+            "cover",
+            "cover-nofsq",
+            "repaint",
+            "lego",
+            "extract",
+            "complete",
+        }
         if task_type == "text2music" and not flow_edit_morph:
             if src_audio is not None:
                 logger.info("[generate_music] text2music task does not use src_audio, ignoring")
@@ -157,7 +164,8 @@ class GenerateMusicRequestMixin:
                     "error": "Invalid source audio for flow_edit_morph",
                 }
         elif src_audio is not None:
-            if self._has_non_empty_audio_codes(audio_code_string):
+            use_source_with_codes = task_type in {"lego", "complete"}
+            if self._has_non_empty_audio_codes(audio_code_string) and not use_source_with_codes:
                 logger.info("[generate_music] Audio codes provided, ignoring src_audio and using codes instead")
             else:
                 logger.info("[generate_music] Processing source audio...")
@@ -175,7 +183,7 @@ class GenerateMusicRequestMixin:
                         "error": "Invalid source audio",
                     }
         elif task_type in _src_audio_required_tasks:
-            if self._has_non_empty_audio_codes(audio_code_string):
+            if task_type != "complete" and self._has_non_empty_audio_codes(audio_code_string):
                 logger.info(
                     "[generate_music] {} task: no src_audio but audio codes provided, proceeding with codes",
                     task_type,

@@ -70,6 +70,13 @@ class GenerationServiceWiringTests(unittest.TestCase):
         )
         self.assertGreaterEqual(source.count("fn=open_outputs_folder"), 2)
 
+    def test_config_path_model_sync_uses_user_input_event(self):
+        """Model sync must not run for function-driven dropdown updates."""
+
+        source = _WIRING_PATH.read_text(encoding="utf-8")
+        self.assertIn('generation_section["config_path"].input', source)
+        self.assertNotIn('generation_section["config_path"].change', source)
+
     def test_config_path_change_applies_sft_quality_defaults(self):
         """Advanced model dropdown should apply LM-assisted SFT controls."""
 

@@ -85,31 +85,37 @@ def _compute_meta_updates_for_mode(
 
 
 def _compute_automation_updates(is_extract: bool, is_lego: bool, not_simple: bool):
-    """Compute gr.update() for auto_score, autogen, auto_lrc, and analyze_btn."""
+    """Compute gr.update() for automation controls."""
     if is_extract or is_lego:
         return (
             gr.update(visible=False, value=False, interactive=False),
             gr.update(visible=False, value=False, interactive=False),
             gr.update(visible=False, value=False, interactive=False),
-            gr.update(visible=False),
+            gr.skip(),
         )
     if not_simple:
         return (
             gr.update(visible=True, interactive=True),
             gr.update(visible=True, interactive=True),
             gr.update(visible=True, interactive=True),
-            gr.update(visible=True),
+            gr.skip(),
         )
-    return gr.update(), gr.update(), gr.update(), gr.update()
+    return gr.update(), gr.update(), gr.update(), gr.skip()
 
 
-def _compute_repainting_labels(is_lego: bool, is_repaint: bool):
+def _compute_repainting_labels(is_lego: bool, is_repaint: bool, is_complete: bool):
     """Compute gr.update() for repainting header, start, and end labels."""
     if is_lego:
         return (
             gr.update(value=f"<h5>{t('generation.stem_area_controls')}</h5>"),
             gr.update(label=t("generation.stem_start")),
             gr.update(label=t("generation.stem_end")),
+        )
+    if is_complete:
+        return (
+            gr.update(value=f"<h5>{t('generation.complete_section_controls')}</h5>"),
+            gr.update(label=t("generation.complete_start")),
+            gr.update(label=t("generation.complete_end")),
         )
     if is_repaint:
         return (

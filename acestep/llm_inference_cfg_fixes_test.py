@@ -80,6 +80,8 @@ class TestCotCfgScaleFixed(unittest.TestCase):
         handler = LLMHandler()
         handler.llm_initialized = True
         handler.llm_backend = "pt"
+        handler.llm = MagicMock()
+        handler.llm_tokenizer = MagicMock()
 
         captured_cfg = {}
 
@@ -136,7 +138,7 @@ class TestCotCfgScaleFixed(unittest.TestCase):
 
         with patch.object(handler, "generate_from_formatted_prompt", side_effect=capturing_gen):
             with patch.object(handler, "build_formatted_prompt", return_value="P"):
-                with patch.object(handler, "_parse_metadata_from_cot", return_value={}):
+                with patch.object(handler, "parse_lm_output", return_value=({}, "")):
                     with patch.object(handler, "_format_metadata_as_cot", return_value=""):
                         with patch.object(
                             handler, "build_formatted_prompt_with_cot", return_value="P2"
@@ -165,6 +167,44 @@ class TestCotCfgScaleFixed(unittest.TestCase):
             1.0,
             f"Expected cfg_scale=1.0 for CoT phase, got {cot_cfg.get('cfg_scale')}",
         )
+
+    def test_llm_dit_without_cot_metas_allows_none_user_metadata(self):
+        """Skipping CoT metadata should not crash when no user metadata is supplied."""
+
+        handler = LLMHandler()
+        handler.llm_initialized = True
+        handler.llm_backend = "pt"
+        handler.llm = MagicMock()
+        handler.llm_tokenizer = MagicMock()
+
+        with patch.object(
+            handler,
+            "build_formatted_prompt_with_cot",
+            return_value="PROMPT_WITH_EMPTY_COT",
+        ), patch.object(
+            handler,
+            "generate_from_formatted_prompt",
+            return_value=("<|audio_code_1|><|audio_code_2|>", "ok"),
+        ) as generate_mock, patch.object(
+            handler,
+            "parse_lm_output",
+            return_value=({}, "<|audio_code_1|><|audio_code_2|>"),
+        ):
+            result = handler.generate_with_stop_condition(
+                caption="partial source arrangement",
+                lyrics="",
+                infer_type="llm_dit",
+                use_cot_metas=False,
+                use_cot_caption=False,
+                use_cot_language=False,
+                user_metadata=None,
+                progress=lambda *a, **kw: None,
+            )
+
+        self.assertTrue(result["success"])
+        self.assertEqual(result["metadata"], {})
+        self.assertEqual(result["audio_codes"], "<|audio_code_1|><|audio_code_2|>")
+        generate_mock.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

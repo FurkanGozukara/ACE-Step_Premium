@@ -15,6 +15,7 @@ from acestep.ui.gradio.events.wiring.media_upload_preview_gradio_support import 
     assert_audio_purpose_video_preview,
     assert_media_upload_video_preview,
     assert_preview_routes_bypass_queue,
+    assert_source_audio_purpose_video_preview,
     assert_video_preview,
     build_preview_test_app,
     free_port,
@@ -44,6 +45,10 @@ class LiveGradioMediaPreviewTests(unittest.TestCase):
                 demo = build_preview_test_app()
                 assert_all_videos_are_capped(demo)
                 assert_preview_routes_bypass_queue(demo)
+                source_preview = _component_props(demo, "audio", "Source Audio Preview")
+                self.assertTrue(source_preview.get("interactive"))
+                self.assertTrue(source_preview.get("editable"))
+                self.assertEqual(source_preview.get("sources"), ["upload"])
                 demo.queue(default_concurrency_limit=1)
                 port = free_port()
                 demo.launch(
@@ -54,7 +59,7 @@ class LiveGradioMediaPreviewTests(unittest.TestCase):
                 )
                 try:
                     client = Client(f"http://127.0.0.1:{port}")
-                    assert_audio_purpose_video_preview(
+                    assert_source_audio_purpose_video_preview(
                         client,
                         video_path,
                         "/generation_source_preview",
@@ -72,7 +77,7 @@ class LiveGradioMediaPreviewTests(unittest.TestCase):
                     assert_video_preview(client, video_path, "/sam_mask_video_preview")
                     assert_media_upload_video_preview(client, video_path, "/sam_single_preview")
                     assert_media_upload_video_preview(client, video_path, "/ap_single_preview")
-                    assert_audio_purpose_video_preview(
+                    assert_source_audio_purpose_video_preview(
                         client,
                         [audio_path, video_path],
                         "/generation_source_preview",
@@ -89,6 +94,16 @@ class LiveGradioMediaPreviewTests(unittest.TestCase):
                     )
                 finally:
                     demo.close()
+
+
+def _component_props(demo, component_type: str, label: str) -> dict:
+    """Return component props from the live Gradio config."""
+
+    for component in demo.config["components"]:
+        props = component.get("props") or {}
+        if component.get("type") == component_type and props.get("label") == label:
+            return props
+    raise AssertionError(f"Could not find {component_type} component {label!r}")
 
 
 if __name__ == "__main__":

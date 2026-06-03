@@ -10,8 +10,11 @@ import gradio as gr
 
 from .. import generation_handlers as gen_h
 from .context import GenerationWiringContext
-from .generation_upload_handlers import handle_src_audio_upload
-from .media_upload_preview import preview_audio_purpose_upload
+from .generation_upload_handlers import (
+    finalize_src_audio_upload,
+    handle_src_audio_preview_change,
+    handle_src_audio_upload,
+)
 from acestep.constants import MODE_TO_TASK_TYPE
 
 
@@ -78,6 +81,20 @@ def register_generation_mode_handlers(
         generation_section["dcw_scaler"],
         generation_section["dcw_high_scaler"],
     ]
+    source_upload_inputs = [
+        generation_section["src_audio"],
+        generation_section["generation_mode"],
+    ]
+    source_upload_outputs = [
+        generation_section["src_audio_preview"],
+        generation_section["src_video_preview"],
+        generation_section["audio_duration"],
+        generation_section["src_audio_preview_original"],
+    ]
+    source_preview_progress_targets = [
+        generation_section["src_audio_preview"],
+        generation_section["src_video_preview"],
+    ]
 
     # ========== Generation Mode Change ==========
     mode_change_event = generation_section["generation_mode"].change(
@@ -87,19 +104,20 @@ def register_generation_mode_handlers(
         queue=False,
         show_progress="hidden",
     )
-    mode_change_event.then(
+    mode_source_preview_event = mode_change_event.then(
         fn=handle_src_audio_upload,
-        inputs=[
-            generation_section["src_audio"],
-            generation_section["generation_mode"],
-        ],
-        outputs=[
-            generation_section["src_audio_preview"],
-            generation_section["src_video_preview"],
-            generation_section["audio_duration"],
-        ],
+        inputs=source_upload_inputs,
+        outputs=source_upload_outputs,
         queue=False,
         show_progress="hidden",
+    )
+    mode_source_preview_event.then(
+        fn=finalize_src_audio_upload,
+        inputs=source_upload_inputs,
+        outputs=source_upload_outputs,
+        queue=False,
+        show_progress="full",
+        show_progress_on=source_preview_progress_targets,
     )
 
     # ========== Initial Mode State on Page Load ==========
@@ -142,23 +160,30 @@ def register_generation_mode_handlers(
         ],
     )
 
-    generation_section["src_audio"].change(
-        fn=preview_audio_purpose_upload,
-        inputs=[generation_section["src_audio"]],
-        outputs=[
-            generation_section["src_audio_preview"],
-            generation_section["src_video_preview"],
-        ],
+    source_upload_event = generation_section["src_audio"].change(
+        fn=handle_src_audio_upload,
+        inputs=source_upload_inputs,
+        outputs=source_upload_outputs,
         queue=False,
-    ).then(
-        fn=gen_h.handle_extract_src_audio_change,
+        show_progress="hidden",
+    )
+    source_upload_event.then(
+        fn=finalize_src_audio_upload,
+        inputs=source_upload_inputs,
+        outputs=source_upload_outputs,
+        queue=False,
+        show_progress="full",
+        show_progress_on=source_preview_progress_targets,
+    )
+    generation_section["src_audio_preview"].change(
+        fn=handle_src_audio_preview_change,
         inputs=[
             generation_section["src_audio"],
+            generation_section["src_audio_preview"],
+            generation_section["src_audio_preview_original"],
             generation_section["generation_mode"],
         ],
-        outputs=[
-            generation_section["audio_duration"],
-        ],
+        outputs=[generation_section["audio_duration"]],
         queue=False,
         show_progress="hidden",
     )

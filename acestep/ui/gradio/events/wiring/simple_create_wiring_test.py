@@ -1,6 +1,7 @@
 """Tests for simple Create tab event wiring helpers."""
 
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from acestep.model_downloader import (
@@ -19,6 +20,9 @@ from acestep.ui.gradio.events.wiring.simple_create_wiring import (
     build_simple_generation_progress_targets,
     build_simple_generation_wrapper_signature,
 )
+
+
+_WIRING_PATH = Path(simple_create_wiring.__file__)
 
 
 class SimpleCreateWiringStatusTests(unittest.TestCase):
@@ -89,6 +93,13 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
         self.assertNotIn("llm_handler", parameters)
         self.assertIn("progress", parameters)
         self.assertTrue(hasattr(parameters["progress"].default, "track_tqdm"))
+
+    def test_simple_model_selector_uses_user_input_event(self):
+        """Simple model defaults must not rerun for mirrored dropdown updates."""
+
+        source = _WIRING_PATH.read_text(encoding="utf-8")
+        self.assertIn('simple_page["simple_model_dropdown"].input', source)
+        self.assertNotIn('simple_page["simple_model_dropdown"].change', source)
 
     def test_format_status_compacts_initialization_messages(self):
         """Long init logs should keep the phase and final backend line."""

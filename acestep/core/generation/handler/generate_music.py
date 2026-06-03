@@ -349,9 +349,9 @@ class GenerateMusicMixin:
             if audio_error is not None:
                 return audio_error
 
-            # Cover/repaint/lego/extract + text2music+morph: lock duration to source audio.
+            # Source-audio tasks + text2music+morph: lock duration to source audio.
             if processed_src_audio is not None and (
-                task_type in ("cover", "cover-nofsq", "repaint", "lego", "extract")
+                task_type in ("cover", "cover-nofsq", "repaint", "lego", "extract", "complete")
                 or (task_type == "text2music" and flow_edit_morph)
             ):
                 audio_duration = processed_src_audio.shape[-1] / self.sample_rate

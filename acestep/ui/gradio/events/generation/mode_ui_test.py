@@ -29,8 +29,10 @@ _IDX_CUSTOM_MODE_GROUP = 1
 _IDX_GENERATE_BTN = 2
 _IDX_OPTIONAL_PARAMS = 4
 _IDX_SRC_AUDIO_ROW = 6
+_IDX_REPAINTING_GROUP = 7
 _IDX_AUDIO_CODES_GROUP = 8
 _IDX_TRACK_NAME = 9
+_IDX_COMPLETE_TRACK_CLASSES = 10
 _IDX_GENERATE_BTN_ROW = 11
 _IDX_LOAD_FILE_COL = 15
 _IDX_LOAD_FILE = 16
@@ -54,6 +56,9 @@ _IDX_AUTO_SCORE = 26
 _IDX_AUTOGEN = 27
 _IDX_AUTO_LRC = 28
 _IDX_ANALYZE_BTN = 29
+_IDX_REPAINTING_HEADER = 30
+_IDX_REPAINTING_START = 31
+_IDX_REPAINTING_END = 32
 
 
 @unittest.skipIf(compute_mode_ui_updates is None,
@@ -321,7 +326,7 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertFalse(result[_IDX_AUTO_SCORE].get("visible"))
         self.assertFalse(result[_IDX_AUTOGEN].get("visible"))
         self.assertFalse(result[_IDX_AUTO_LRC].get("visible"))
-        self.assertFalse(result[_IDX_ANALYZE_BTN].get("visible"))
+        self.assertNotIn("visible", result[_IDX_ANALYZE_BTN])
         self.assertIn("Extract", result[_IDX_GENERATE_BTN].get("value"))
 
     def test_extract_mode_enables_generate_when_track_is_selected(self):
@@ -347,6 +352,22 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertEqual(result[_IDX_GENERATION_MODE].get("value"), "Custom")
         self.assertIn("not available", result[_IDX_GENERATION_MODE].get("info"))
         self.assertEqual(result[_IDX_PREVIOUS_GENERATION_MODE], "Custom")
+
+    def test_complete_mode_shows_source_tracks_and_section_controls(self):
+        """Complete should expose source audio, target tracks, and start/end controls."""
+
+        result = compute_mode_ui_updates(
+            "Complete",
+            previous_mode="Custom",
+            config_path="ACEStep_1_5_XL_Base_BF16",
+        )
+
+        self.assertTrue(result[_IDX_SRC_AUDIO_ROW].get("visible"))
+        self.assertTrue(result[_IDX_COMPLETE_TRACK_CLASSES].get("visible"))
+        self.assertTrue(result[_IDX_REPAINTING_GROUP].get("visible"))
+        self.assertIn("Complete Section", result[_IDX_REPAINTING_HEADER].get("value"))
+        self.assertEqual(result[_IDX_REPAINTING_START].get("label"), "Complete Start")
+        self.assertEqual(result[_IDX_REPAINTING_END].get("label"), "Complete End")
 
 
 @unittest.skipIf(compute_mode_ui_updates is None,
@@ -436,8 +457,8 @@ class ExtractSrcAudioDurationTests(unittest.TestCase):
     duration without invoking the training-module path-safety guard.
     """
 
-    def test_returns_noop_for_non_extract_lego_mode(self):
-        """Non-Extract/Lego modes should return an empty update without inspecting the file."""
+    def test_returns_noop_for_non_source_locked_mode(self):
+        """Modes without source-duration locking should return an empty update."""
         result = handle_extract_src_audio_change("/anywhere/file.wav", "Custom")
         self.assertNotIn("value", result)
 
@@ -458,7 +479,7 @@ class ExtractSrcAudioDurationTests(unittest.TestCase):
         self.assertEqual(result.get("value"), 42.7)
 
     def test_reads_duration_from_video_media_helper(self):
-        """Video source uploads should use decoded media duration for Extract/Lego."""
+        """Video source uploads should use decoded media duration for source-locked modes."""
         from unittest.mock import patch
         with patch(
             "acestep.ui.gradio.events.generation.mode_ui.media_audio_duration_seconds",
@@ -467,6 +488,17 @@ class ExtractSrcAudioDurationTests(unittest.TestCase):
             result = handle_extract_src_audio_change("clip.mp4", "Extract")
             duration_mock.assert_called_once_with("clip.mp4")
         self.assertEqual(result.get("value"), 19.5)
+
+    def test_reads_duration_for_complete_mode(self):
+        """Complete source uploads should auto-fill duration from the source."""
+        from unittest.mock import patch
+        with patch(
+            "acestep.ui.gradio.events.generation.mode_ui.media_audio_duration_seconds",
+            return_value=12.25,
+        ) as duration_mock:
+            result = handle_extract_src_audio_change("partial.wav", "Complete")
+            duration_mock.assert_called_once_with("partial.wav")
+        self.assertEqual(result.get("value"), 12.25)
 
     def test_reads_duration_from_latest_stale_upload_list(self):
         """Duration extraction should tolerate Gradio stale single-file lists."""

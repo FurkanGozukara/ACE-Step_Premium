@@ -75,6 +75,7 @@ class TaskUtilsMixin:
         """Compute task-mode booleans for downstream generation logic."""
         is_repaint_task = task_type == "repaint"
         is_lego_task = task_type == "lego"
+        is_complete_task = task_type == "complete"
         is_cover_task = task_type in ("cover", "cover-nofsq")
 
         if isinstance(audio_code_string, list):
@@ -84,7 +85,7 @@ class TaskUtilsMixin:
 
         if has_codes:
             is_cover_task = True
-        can_use_repainting = is_repaint_task or is_lego_task
+        can_use_repainting = is_repaint_task or is_lego_task or is_complete_task
         return is_repaint_task, is_lego_task, is_cover_task, can_use_repainting
 
     def create_target_wavs(self, duration_seconds: float) -> torch.Tensor:

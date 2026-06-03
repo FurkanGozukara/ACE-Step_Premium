@@ -40,8 +40,11 @@ def build_source_audio_controls() -> dict[str, Any]:
             src_audio_preview = gr.Audio(
                 label="Source Audio Preview",
                 type="filepath",
-                interactive=False,
+                sources=["upload"],
+                interactive=True,
+                editable=True,
                 visible=False,
+                elem_classes=["has-info-container"],
             )
             src_video_preview = gr.Video(
                 label="Source Video Preview",
@@ -49,6 +52,7 @@ def build_source_audio_controls() -> dict[str, Any]:
                 visible=False,
                 elem_classes=["ace-video-preview"],
             )
+            src_audio_preview_original = gr.State(value=None)
         with gr.Column(scale=1, min_width=80):
             analyze_btn = gr.Button(
                 t("generation.analyze_btn"),
@@ -84,6 +88,7 @@ def build_source_audio_controls() -> dict[str, Any]:
         "src_audio_row": src_audio_row,
         "src_audio": src_audio,
         "src_audio_preview": src_audio_preview,
+        "src_audio_preview_original": src_audio_preview_original,
         "src_video_preview": src_video_preview,
         "track_name": track_name,
         "extract_output_format": extract_output_format,
@@ -211,6 +216,7 @@ def build_source_track_and_code_controls() -> dict[str, Any]:
         "src_audio_row": source_audio_controls["src_audio_row"],
         "src_audio": source_audio_controls["src_audio"],
         "src_audio_preview": source_audio_controls["src_audio_preview"],
+        "src_audio_preview_original": source_audio_controls["src_audio_preview_original"],
         "src_video_preview": source_audio_controls["src_video_preview"],
         "track_name": source_audio_controls["track_name"],
         "extract_output_format": source_audio_controls["extract_output_format"],

@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from math import nan
 from pathlib import Path
+from unittest.mock import patch
 
 import torch
 
@@ -42,6 +43,8 @@ class _FakeDitHandler:
         use_random_seed=True,
         audio_code_string="",
         captions="",
+        audio_duration=None,
+        src_audio=None,
         **kwargs,
     ):
         self.generate_kwargs = {
@@ -49,6 +52,8 @@ class _FakeDitHandler:
             "use_random_seed": use_random_seed,
             "audio_code_string": audio_code_string,
             "captions": captions,
+            "audio_duration": audio_duration,
+            "src_audio": src_audio,
             **kwargs,
         }
         return {
@@ -313,6 +318,43 @@ class LmAudioCodeRoutingTests(unittest.TestCase):
         self.assertEqual(llm_handler.generate_kwargs["infer_type"], "dit")
         self.assertEqual(dit_handler.generate_kwargs["audio_code_string"], "")
         self.assertEqual(result.audios[0]["params"]["audio_codes"], "")
+
+    def test_complete_lm_target_duration_uses_source_before_dit_lock(self):
+        """Complete Think-mode codes should target source duration even when UI duration is auto."""
+
+        dit_handler = _FakeDitHandler(config_path="acestep-v15-xl-base")
+        llm_handler = _FakeLlmHandler()
+        params = GenerationParams(
+            task_type="complete",
+            src_audio="source.flac",
+            caption="80s pop",
+            lyrics="[Instrumental]",
+            duration=-1,
+            thinking=True,
+            use_cot_metas=False,
+            use_cot_caption=False,
+            use_cot_language=False,
+            repainting_start=2.0,
+            repainting_end=4.0,
+        )
+        config = GenerationConfig(batch_size=1, use_random_seed=True, audio_format="wav")
+
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "acestep.audio_processing.media_io.media_audio_duration_seconds",
+            return_value=12.5,
+        ):
+            result = generate_music(
+                dit_handler,
+                llm_handler,
+                params=params,
+                config=config,
+                save_dir=temp_dir,
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual(llm_handler.generate_kwargs["target_duration"], 12.5)
+        self.assertIsNone(dit_handler.generate_kwargs["audio_duration"])
+        self.assertEqual(dit_handler.generate_kwargs["src_audio"], "source.flac")
 
 
 if __name__ == "__main__":

@@ -29,11 +29,14 @@ class VaeDecodeChunksMixin:
             return result
 
         min_overlap = 4  # Minimum floor to prevent audio artifacts at chunk boundaries
-        effective_overlap = overlap
-        while chunk_size - 2 * effective_overlap <= 0 and effective_overlap > min_overlap:
-            effective_overlap = effective_overlap // 2
+        max_valid_overlap = max(0, (chunk_size - 1) // 2)
+        effective_overlap = min(overlap, max_valid_overlap)
         # Enforce minimum overlap floor to avoid near-zero values that cause corruption
-        if effective_overlap < min_overlap and overlap >= min_overlap:
+        if (
+            effective_overlap < min_overlap
+            and overlap >= min_overlap
+            and max_valid_overlap >= min_overlap
+        ):
             effective_overlap = min_overlap
         if effective_overlap != overlap:
             logger.warning(

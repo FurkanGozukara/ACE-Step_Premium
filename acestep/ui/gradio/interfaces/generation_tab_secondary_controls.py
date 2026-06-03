@@ -166,7 +166,7 @@ def build_custom_mode_controls() -> dict[str, Any]:
 
 
 def build_repainting_controls() -> dict[str, Any]:
-    """Create repainting range controls used by repaint/lego flows.
+    """Create range controls used by repaint, lego, and complete flows.
 
     Args:
         None.

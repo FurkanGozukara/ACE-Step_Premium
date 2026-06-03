@@ -192,6 +192,22 @@ class ConditioningMaskLegoBehaviorTests(unittest.TestCase):
         # This is a graceful fallback — the important thing is no exception is raised.
         self.assertEqual(src_latents.shape, target_latents.shape)
 
+    def test_complete_partial_range_silences_selected_region(self):
+        """Complete should regenerate only the selected range, like repaint."""
+        host = _make_host()
+        target_latents = torch.ones(1, 100, 16) * 4.0
+        _chunk_masks, spans, _is_covers, src_latents, _rm = _build(
+            host,
+            target_latents=target_latents,
+            repainting_start=[1.0],
+            repainting_end=[2.0],
+            task_type="complete",
+        )
+        self.assertEqual(spans[0][0], "repainting")
+        start_l, end_l = spans[0][1], spans[0][2]
+        self.assertTrue(src_latents[0, start_l:end_l].abs().sum().item() < 1e-6)
+        self.assertAlmostEqual(src_latents[0, 0, 0].item(), 4.0, places=4)
+
     def test_non_lego_instruction_still_silences_repaint(self):
         """A non-lego instruction in the repainting path must still silence src_latents."""
         host = _make_host()

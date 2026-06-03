@@ -258,6 +258,66 @@ class GenerateMusicMixinTests(unittest.TestCase):
             host.calls["_run_generate_music_service_with_progress"]["source_repaint_latents"],
         )
 
+    def test_complete_locks_duration_to_source_audio(self):
+        """Complete should use the source audio length instead of user duration."""
+        host = _Host()
+
+        def _prepare_audio(**kwargs):
+            """Return a three-second prepared source audio tensor."""
+            host.calls["_prepare_reference_and_source_audio"] = kwargs
+            return [[torch.zeros(2, 10)]], torch.ones(2, 48000 * 3), None
+
+        host._prepare_reference_and_source_audio = _prepare_audio
+
+        out = host.generate_music(
+            captions="cap",
+            lyrics="lyr",
+            task_type="complete",
+            src_audio="source.wav",
+            audio_duration=99.0,
+        )
+
+        self.assertEqual(out, host._final_payload)
+        self.assertEqual(
+            host.calls["_prepare_generate_music_service_inputs"]["audio_duration"],
+            3.0,
+        )
+
+    @patch.object(GENERATE_MUSIC_MODULE, "apply_repaint_waveform_splice")
+    def test_complete_with_range_splices_generated_section_back_into_source(self, splice_mock):
+        """Complete ranges should merge generated audio into the original source waveform."""
+        host = _Host()
+        spliced = torch.full((1, 2, 8), 7.0)
+        splice_mock.return_value = spliced
+
+        def _prepare_service_inputs(**kwargs):
+            """Return repaint-range service inputs for Complete."""
+            host.calls["_prepare_generate_music_service_inputs"] = kwargs
+            return {
+                "should_return_intermediate": True,
+                "repainting_start_batch": [1.0],
+                "repainting_end_batch": [2.0],
+                "target_wavs_tensor": torch.ones(1, 2, 8),
+            }
+
+        host._prepare_generate_music_service_inputs = _prepare_service_inputs
+
+        out = host.generate_music(
+            captions="cap",
+            lyrics="lyr",
+            task_type="complete",
+            src_audio="source.wav",
+            repainting_start=1.0,
+            repainting_end=2.0,
+        )
+
+        self.assertEqual(out, host._final_payload)
+        splice_mock.assert_called_once()
+        self.assertIs(
+            spliced,
+            host.calls["_build_generate_music_success_payload"]["pred_wavs"],
+        )
+
 
 class VramPreflightCheckTests(unittest.TestCase):
     """Verify ``_vram_preflight_check`` respects CPU offload mode."""

@@ -60,6 +60,7 @@ from acestep.ui.gradio.events.generation.audio_format_options import (
 )
 from acestep.ui.gradio.events.generation.quantization import select_quantization_value
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.media_upload_values import resolve_effective_source_audio
 
 torch = sys.modules.get("torch")
 
@@ -362,6 +363,7 @@ def _generate_with_batch_management_impl(
     captions, lyrics, bpm, key_scale, time_signature, vocal_language,
     inference_steps, guidance_scale, random_seed_checkbox, seed,
     reference_audio, audio_duration, batch_size_input, src_audio,
+    src_audio_preview, src_audio_preview_original,
     text2music_audio_code_string, repainting_start, repainting_end,
     instruction_display_gen, audio_cover_strength, cover_noise_strength, task_type,
     no_fsq, use_adg, cfg_interval_start, cfg_interval_end, shift, infer_method,
@@ -447,6 +449,11 @@ def _generate_with_batch_management_impl(
     resolved_ap_values, resolved_sam_values = _split_processing_tail_values(
         resolved_audio_processing_values
     )
+    src_audio = resolve_effective_source_audio(
+        src_audio,
+        src_audio_preview,
+        src_audio_preview_original,
+    )
     selected_model = str(config_path or "").strip() or DEFAULT_TURBO_DIT_MODEL
     logger.info(
         f"[generate_with_batch_management] Starting generation: "
@@ -458,6 +465,24 @@ def _generate_with_batch_management_impl(
     if task_type in ("extract", "lego") and not selected_track_name:
         mode_label = "Extract" if task_type == "extract" else "Lego"
         error_msg = f"Select Track Name before running {mode_label}."
+        logger.warning("[generate_with_batch_management] {}", error_msg)
+        gr.Warning(error_msg)
+        yield build_pending_core_outputs(error_msg, is_format_caption) + (
+            gr.skip(), gr.skip(), gr.skip(), gr.skip(),
+            gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(),
+        )
+        return
+    if task_type == "complete" and not src_audio:
+        error_msg = "Upload Source Audio before running Complete."
+        logger.warning("[generate_with_batch_management] {}", error_msg)
+        gr.Warning(error_msg)
+        yield build_pending_core_outputs(error_msg, is_format_caption) + (
+            gr.skip(), gr.skip(), gr.skip(), gr.skip(),
+            gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(),
+        )
+        return
+    if task_type == "complete" and not complete_track_classes:
+        error_msg = "Select at least one Track Name before running Complete."
         logger.warning("[generate_with_batch_management] {}", error_msg)
         gr.Warning(error_msg)
         yield build_pending_core_outputs(error_msg, is_format_caption) + (

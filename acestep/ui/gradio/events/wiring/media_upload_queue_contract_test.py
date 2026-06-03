@@ -64,27 +64,59 @@ class MediaUploadQueueContractTests(unittest.TestCase):
             (
                 "acestep/ui/gradio/events/wiring/generation_mode_wiring.py",
                 "src_audio",
-            ): ["src_audio_preview", "src_video_preview"],
+            ): (
+                "handle_src_audio_upload",
+                [
+                    "src_audio_preview",
+                    "src_video_preview",
+                    "audio_duration",
+                    "src_audio_preview_original",
+                ],
+            ),
             (
                 "acestep/ui/gradio/events/wiring/generation_metadata_wiring.py",
                 "reference_audio",
-            ): ["reference_audio_preview", "reference_video_preview"],
+            ): (
+                "preview_audio_purpose_upload",
+                ["reference_audio_preview", "reference_video_preview"],
+            ),
             (
                 "acestep/ui/gradio/events/wiring/generation_metadata_wiring.py",
                 "lm_codes_audio_upload",
-            ): ["lm_codes_audio_preview", "lm_codes_video_preview"],
+            ): (
+                "preview_audio_purpose_upload",
+                ["lm_codes_audio_preview", "lm_codes_video_preview"],
+            ),
         }
 
-        for (relative_path, component_key), outputs in expected_previews.items():
+        for (relative_path, component_key), (handler_name, outputs) in expected_previews.items():
             with self.subTest(component_key=component_key):
                 calls = _change_calls_for_component(relative_path, component_key)
                 self.assertTrue(
                     any(
-                        _keyword_function_name(call, "fn") == "preview_audio_purpose_upload"
-                        and _component_keys_for_keyword(call, "outputs") == outputs
+                        _keyword_function_name(call, "fn") == handler_name
+                        and _component_keys_for_keyword_or_variable(
+                            relative_path,
+                            call,
+                            "outputs",
+                        )
+                        == outputs
                         for call in calls
                     )
                 )
+
+    def test_source_upload_finalize_progress_is_visible(self) -> None:
+        """Source upload follow-up work should show visible progress."""
+
+        calls = _calls_for_handler(
+            "acestep/ui/gradio/events/wiring/generation_mode_wiring.py",
+            "then",
+            "finalize_src_audio_upload",
+        )
+        self.assertGreaterEqual(len(calls), 2)
+        for call in calls:
+            self.assertTrue(_keyword_is_false(call, "queue"))
+            self.assertEqual(_constant_keyword_value(call, "show_progress"), "full")
 
     def test_media_upload_files_have_isolated_gradio_state(self) -> None:
         """Media upload widgets should not preserve stale Gradio file values."""
@@ -168,6 +200,26 @@ def _change_calls_for_component(relative_path: str, component_key: str) -> list[
         if not isinstance(target.slice, ast.Constant):
             continue
         if target.slice.value == component_key:
+            calls.append(node)
+    return calls
+
+
+def _calls_for_handler(
+    relative_path: str,
+    method_name: str,
+    handler_name: str,
+) -> list[ast.Call]:
+    """Return method calls wired to a named handler function."""
+
+    module_path = _ROOT / relative_path
+    tree = ast.parse(module_path.read_text(encoding="utf-8"))
+    calls = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if not isinstance(node.func, ast.Attribute) or node.func.attr != method_name:
+            continue
+        if _keyword_function_name(node, "fn") == handler_name:
             calls.append(node)
     return calls
 
@@ -263,6 +315,16 @@ def _all_calls_bypass_queue(calls: list[ast.Call]) -> bool:
     return True
 
 
+def _keyword_is_false(call: ast.Call, keyword_name: str) -> bool:
+    """Return whether an AST call keyword is explicitly ``False``."""
+
+    for keyword in call.keywords:
+        if keyword.arg != keyword_name:
+            continue
+        return isinstance(keyword.value, ast.Constant) and keyword.value.value is False
+    return False
+
+
 def _has_self_output(calls: list[ast.Call], component_key: str) -> bool:
     """Return whether any upload call writes back to the same file component."""
 
@@ -304,6 +366,58 @@ def _component_keys_for_keyword(call: ast.Call, keyword_name: str) -> list[str]:
             and isinstance(item.slice.value, str)
         ]
     return []
+
+
+def _component_keys_for_keyword_or_variable(
+    relative_path: str,
+    call: ast.Call,
+    keyword_name: str,
+) -> list[str]:
+    """Return component-map keys from an inline list or local list variable."""
+
+    inline_keys = _component_keys_for_keyword(call, keyword_name)
+    if inline_keys:
+        return inline_keys
+
+    keyword_value = _keyword_value(call, keyword_name)
+    if not isinstance(keyword_value, ast.Name):
+        return []
+
+    module_path = _ROOT / relative_path
+    tree = ast.parse(module_path.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(
+            isinstance(target, ast.Name) and target.id == keyword_value.id
+            for target in node.targets
+        ):
+            continue
+        return _component_keys_for_node(node.value)
+    return []
+
+
+def _component_keys_for_node(node: ast.AST) -> list[str]:
+    """Return component-map keys referenced by a list AST node."""
+
+    if not isinstance(node, ast.List):
+        return []
+    return [
+        item.slice.value
+        for item in node.elts
+        if isinstance(item, ast.Subscript)
+        and isinstance(item.slice, ast.Constant)
+        and isinstance(item.slice.value, str)
+    ]
+
+
+def _keyword_value(call: ast.Call, keyword_name: str) -> ast.AST | None:
+    """Return a keyword AST value from a call."""
+
+    for keyword in call.keywords:
+        if keyword.arg == keyword_name:
+            return keyword.value
+    return None
 
 
 def _node_contains_component_key(node: ast.AST, component_key: str) -> bool:

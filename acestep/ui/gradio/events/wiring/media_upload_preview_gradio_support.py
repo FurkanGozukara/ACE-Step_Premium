@@ -10,6 +10,10 @@ import gradio as gr
 from gradio_client import Client, handle_file
 
 from acestep.ui.gradio.events.wiring import media_upload_preview
+from acestep.ui.gradio.events.wiring.generation_upload_handlers import (
+    finalize_src_audio_upload,
+    handle_src_audio_upload,
+)
 from acestep.ui.gradio.events.wiring.audio_processing_wiring import (
     _preview_upload as preview_audio_processing_upload,
 )
@@ -31,16 +35,39 @@ def build_preview_test_app() -> gr.Blocks:
     with gr.Blocks() as demo:
         generation = build_source_track_and_code_controls()
         custom = build_custom_mode_controls()
+        source_mode = gr.State(value="Lego")
+        source_audio_duration = gr.Number(value=-1, visible=False)
         create_simple_create_page()
         sam_page = create_sam_audio_page()
         ap_page = create_audio_processing_page()
 
-        generation["src_audio"].change(
-            media_upload_preview.preview_audio_purpose_upload,
-            inputs=[generation["src_audio"]],
-            outputs=[generation["src_audio_preview"], generation["src_video_preview"]],
+        source_upload_event = generation["src_audio"].change(
+            handle_src_audio_upload,
+            inputs=[generation["src_audio"], source_mode],
+            outputs=[
+                generation["src_audio_preview"],
+                generation["src_video_preview"],
+                source_audio_duration,
+                generation["src_audio_preview_original"],
+            ],
             api_name="generation_source_preview",
             queue=False,
+        )
+        source_upload_event.then(
+            finalize_src_audio_upload,
+            inputs=[generation["src_audio"], source_mode],
+            outputs=[
+                generation["src_audio_preview"],
+                generation["src_video_preview"],
+                source_audio_duration,
+                generation["src_audio_preview_original"],
+            ],
+            queue=False,
+            show_progress="full",
+            show_progress_on=[
+                generation["src_audio_preview"],
+                generation["src_video_preview"],
+            ],
         )
         custom["reference_audio"].change(
             media_upload_preview.preview_audio_purpose_upload,
@@ -142,6 +169,26 @@ def assert_audio_purpose_video_preview(
     assert str(audio_update["value"]).endswith(".wav")
     assert video_update["visible"] is True
     assert str(video_update["value"]).endswith(expected_video_path.suffix)
+
+
+def assert_source_audio_purpose_video_preview(
+    client: Client,
+    video_path: Path | list[Path],
+    api_name: str,
+) -> None:
+    """Assert a Source Audio upload returns the immediate direct preview."""
+
+    expected_video_path = _expected_latest_path(video_path)
+    result = client.predict(
+        _upload_payload(video_path),
+        api_name=api_name,
+    )
+    audio_update, video_update = result[:2]
+    assert audio_update["visible"] is False
+    assert video_update["visible"] is True
+    assert str(video_update["value"]).endswith(expected_video_path.suffix)
+    if len(result) >= 4:
+        assert result[3] is None
 
 
 def assert_video_preview(client: Client, video_path: Path | list[Path], api_name: str) -> None:

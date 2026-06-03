@@ -168,6 +168,81 @@ class GenerateMusicRequestMixinTests(unittest.TestCase):
         self.assertIsNone(error)
         self.assertIsNone(processed_src_audio)
 
+    def test_cover_with_src_audio_and_codes_keeps_code_only_behavior(self):
+        """Cover should keep existing code-only behavior when audio codes are supplied."""
+        host = _Host()
+        called = {"process_src_audio": False}
+
+        def _process_src_audio(_src):
+            called["process_src_audio"] = True
+            return torch.ones(2, 100)
+
+        host.process_src_audio = _process_src_audio
+        _, processed_src_audio, error = host._prepare_reference_and_source_audio(
+            reference_audio=None,
+            src_audio="source.wav",
+            audio_code_string="<|audio_code_99|>",
+            actual_batch_size=1,
+            task_type="cover",
+        )
+        self.assertIsNone(error)
+        self.assertIsNone(processed_src_audio)
+        self.assertFalse(called["process_src_audio"])
+
+    def test_complete_with_src_audio_and_codes_still_processes_source(self):
+        """Complete must keep source audio active even when LM audio codes are present."""
+        host = _Host()
+        _, processed_src_audio, error = host._prepare_reference_and_source_audio(
+            reference_audio=None,
+            src_audio="source.wav",
+            audio_code_string="<|audio_code_99|>",
+            actual_batch_size=1,
+            task_type="complete",
+        )
+        self.assertIsNone(error)
+        self.assertIsNotNone(processed_src_audio)
+
+    def test_lego_with_src_audio_and_codes_still_processes_source(self):
+        """Lego should use uploaded source audio when it is provided with LM codes."""
+        host = _Host()
+        _, processed_src_audio, error = host._prepare_reference_and_source_audio(
+            reference_audio=None,
+            src_audio="source.wav",
+            audio_code_string="<|audio_code_99|>",
+            actual_batch_size=1,
+            task_type="lego",
+        )
+        self.assertIsNone(error)
+        self.assertIsNotNone(processed_src_audio)
+
+    def test_complete_no_src_audio_no_codes_errors(self):
+        """Complete task without source audio should error."""
+        host = _Host()
+        _, _, error = host._prepare_reference_and_source_audio(
+            reference_audio=None,
+            src_audio=None,
+            audio_code_string="",
+            actual_batch_size=1,
+            task_type="complete",
+        )
+        self.assertIsNotNone(error)
+        self.assertFalse(error["success"])
+        self.assertIn("requires source audio", error["error"])
+
+    def test_complete_no_src_audio_with_codes_still_errors(self):
+        """Complete should require source audio even when audio codes are present."""
+        host = _Host()
+        _, _, error = host._prepare_reference_and_source_audio(
+            reference_audio=None,
+            src_audio=None,
+            audio_code_string="<|audio_code_99|>",
+            actual_batch_size=1,
+            task_type="complete",
+        )
+        self.assertIsNotNone(error)
+        self.assertFalse(error["success"])
+        self.assertIn("requires source audio", error["error"])
+
     def test_should_return_intermediate_always_true(self):
         """Intermediate tensors must always be returned for LRC generation support."""
         host = _Host()

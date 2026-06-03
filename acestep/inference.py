@@ -35,6 +35,15 @@ from acestep.core.generation.sampler_controls import (
 )
 from acestep.gpu_config import get_dit_type_from_path
 
+_SOURCE_AUDIO_DURATION_LOCKED_TASKS = {
+    "cover",
+    "cover-nofsq",
+    "repaint",
+    "lego",
+    "extract",
+    "complete",
+}
+
 # HuggingFace Space environment detection
 IS_HUGGINGFACE_SPACE = os.environ.get("SPACE_ID") is not None
 
@@ -549,6 +558,27 @@ def _is_turbo_dit_handler(dit_handler: Any) -> bool:
     return False
 
 
+def _source_audio_duration_for_lm(task_type: str, src_audio: Optional[str]) -> Optional[float]:
+    """Return source duration for source-locked tasks before LM code generation."""
+
+    if task_type not in _SOURCE_AUDIO_DURATION_LOCKED_TASKS or not src_audio:
+        return None
+    try:
+        from acestep.audio_processing.media_io import media_audio_duration_seconds
+
+        duration = float(media_audio_duration_seconds(src_audio))
+    except Exception as exc:
+        logger.warning(
+            "[generate_music] Could not read source duration before LM for task_type={!r}: {}",
+            task_type,
+            exc,
+        )
+        return None
+    if duration <= 0:
+        return None
+    return duration
+
+
 def _should_generate_lm_audio_codes(
     dit_handler: Any,
     params: GenerationParams,
@@ -716,6 +746,12 @@ def generate_music(
         key_scale = params.keyscale
         time_signature = params.timesignature
         audio_duration = params.duration
+        source_locked_lm_duration = _source_audio_duration_for_lm(
+            params.task_type,
+            params.src_audio,
+        )
+        if source_locked_lm_duration is not None:
+            audio_duration = source_locked_lm_duration
         dit_input_caption = params.caption
         dit_input_vocal_language = params.vocal_language
         dit_input_lyrics = params.lyrics
@@ -1016,10 +1052,10 @@ def generate_music(
             logger.info(f"[generate_music] {params.task_type} task: using params.caption='{params.caption}', params.lyrics='{params.lyrics}'")
             logger.info(f"[generate_music] Final inputs: dit_input_caption='{dit_input_caption}', dit_input_lyrics='{dit_input_lyrics}'")
 
-        # Cover/repaint/lego/extract: duration is locked to the source audio
+        # Cover/repaint/lego/extract/complete: duration is locked to the source audio
         # length.  Silently ignore whatever the caller passed — the handler
         # will set audio_duration from the loaded waveform.
-        if params.task_type in ("cover", "cover-nofsq", "repaint", "lego", "extract"):
+        if params.task_type in _SOURCE_AUDIO_DURATION_LOCKED_TASKS:
             audio_duration = None
 
         # Phase 2: DiT music generation

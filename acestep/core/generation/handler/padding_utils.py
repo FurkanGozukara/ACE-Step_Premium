@@ -5,7 +5,7 @@ from loguru import logger
 
 
 class PaddingMixin:
-    """Mixin containing repaint/lego padding helpers.
+    """Mixin containing source-range padding helpers.
 
     Depends on host members:
     - Method: ``create_target_wavs`` (provided by ``TaskUtilsMixin`` in this decomposition).
@@ -34,8 +34,8 @@ class PaddingMixin:
                         # Cover task: Use src_audio directly without padding
                         batch_target_wavs = processed_src_audio
                         padding_info_batch.append({"left_padding_duration": 0.0, "right_padding_duration": 0.0})
-                    elif is_repaint_task or is_lego_task:
-                        # Repaint/lego task: May need padding for outpainting
+                    elif is_repaint_task or is_lego_task or can_use_repainting:
+                        # Repaint/lego/complete task: may need padding for range edits/outpainting.
                         src_audio_duration = processed_src_audio.shape[-1] / 48000.0
 
                         # Determine actual end time
@@ -146,8 +146,7 @@ class PaddingMixin:
                         for i in range(actual_batch_size):
                             repainting_end_batch.append(repainting_end[i])
             else:
-                # All other tasks (cover, text2music, extract, complete): No repainting
-                # Only repaint and lego tasks should have repainting parameters
+                # All other tasks (cover, text2music, extract): no range repainting.
                 repainting_start_batch = None
                 repainting_end_batch = None
 

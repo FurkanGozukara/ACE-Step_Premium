@@ -162,6 +162,30 @@ class BatchManagementWrapperTests(unittest.TestCase):
         self.assertTrue(saved_params["no_fsq"])
         self.assertEqual(saved_params["task_type"], "cover")
 
+    def test_trimmed_source_preview_forwards_to_generation_and_saved_params(self):
+        """Edited Source Audio Preview should replace the original source path."""
+
+        module, state = load_batch_management_module(is_windows=False)
+        seen = {}
+
+        def _gen(*args, **_kwargs):
+            """Capture positional generation args and yield a standard result."""
+            seen["args"] = args
+            yield build_progress_result(length=48)
+
+        kwargs = _build_call_kwargs(module)
+        kwargs["task_type"] = "cover"
+        kwargs["src_audio"] = "source_video.mp4"
+        kwargs["src_audio_preview"] = "trimmed_source.wav"
+        kwargs["src_audio_preview_original"] = "source_video_audio_preview.wav"
+
+        with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
+            list(module.generate_with_batch_management(None, None, **kwargs))
+
+        self.assertEqual(seen["args"][15], "trimmed_source.wav")
+        saved_params = state["store_calls"][0]["generation_params"]
+        self.assertEqual(saved_params["src_audio"], "trimmed_source.wav")
+
     def test_extract_requires_track_name_before_generation(self):
         """Extract should stop before backend generation when no track is selected."""
 
@@ -176,6 +200,70 @@ class BatchManagementWrapperTests(unittest.TestCase):
         self.assertIn("Select Track Name", outputs[0][10])
         self.assertEqual(state["store_calls"], [])
         self.assertTrue(state["warning_messages"])
+
+    def test_complete_requires_source_audio_before_generation(self):
+        """Complete should stop before backend generation when source audio is missing."""
+
+        module, state = load_batch_management_module(is_windows=False)
+        kwargs = _build_call_kwargs(module)
+        kwargs["task_type"] = "complete"
+        kwargs["src_audio"] = None
+        kwargs["complete_track_classes"] = ["drums"]
+
+        outputs = list(module.generate_with_batch_management(None, None, **kwargs))
+
+        self.assertEqual(len(outputs), 1)
+        self.assertIn("Upload Source Audio", outputs[0][10])
+        self.assertEqual(state["store_calls"], [])
+        self.assertTrue(state["warning_messages"])
+
+    def test_complete_requires_track_classes_before_generation(self):
+        """Complete should stop before backend generation when no tracks are selected."""
+
+        module, state = load_batch_management_module(is_windows=False)
+        kwargs = _build_call_kwargs(module)
+        kwargs["task_type"] = "complete"
+        kwargs["src_audio"] = "source.wav"
+        kwargs["complete_track_classes"] = []
+
+        outputs = list(module.generate_with_batch_management(None, None, **kwargs))
+
+        self.assertEqual(len(outputs), 1)
+        self.assertIn("Select at least one Track Name", outputs[0][10])
+        self.assertEqual(state["store_calls"], [])
+        self.assertTrue(state["warning_messages"])
+
+    def test_complete_track_classes_update_instruction_and_range(self):
+        """Complete should pass selected tracks and section range to generation."""
+
+        module, state = load_batch_management_module(is_windows=False)
+        seen = {}
+
+        def _gen(*args, **_kwargs):
+            """Capture positional generation args and yield a standard result."""
+            seen["args"] = args
+            yield build_progress_result(length=48)
+
+        kwargs = _build_call_kwargs(module)
+        kwargs["task_type"] = "complete"
+        kwargs["src_audio"] = "source.wav"
+        kwargs["complete_track_classes"] = ["drums", "bass"]
+        kwargs["repainting_start"] = 5.0
+        kwargs["repainting_end"] = 15.0
+        kwargs["instruction_display_gen"] = ""
+
+        with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
+            list(module.generate_with_batch_management(None, None, **kwargs))
+
+        self.assertEqual(seen["args"][15], "source.wav")
+        self.assertEqual(seen["args"][17], 5.0)
+        self.assertEqual(seen["args"][18], 15.0)
+        self.assertEqual(
+            seen["args"][19],
+            "Complete the input track with DRUMS | BASS:",
+        )
+        saved_params = state["store_calls"][0]["generation_params"]
+        self.assertEqual(saved_params["complete_track_classes"], ["drums", "bass"])
 
     def test_extract_track_name_updates_instruction_and_caption(self):
         """Extract should pass selected track context into the generation request."""

@@ -36,6 +36,17 @@ class DetermineTaskTypeTests(unittest.TestCase):
         self.assertFalse(is_cover)
         self.assertTrue(can_repaint, "lego must use the repainting path to get a proper chunk mask")
 
+    def test_complete_task_enables_repainting_for_section_completion(self):
+        """Complete should use repainting ranges to regenerate only selected sections."""
+        is_repaint, is_lego, is_cover, can_repaint = self.host.determine_task_type(
+            "complete",
+            None,
+        )
+        self.assertFalse(is_repaint)
+        self.assertFalse(is_lego)
+        self.assertFalse(is_cover)
+        self.assertTrue(can_repaint)
+
     def test_cover_task_is_not_repaint(self):
         """Cover task should not set can_use_repainting=True."""
         is_repaint, is_lego, is_cover, can_repaint = self.host.determine_task_type("cover", None)
