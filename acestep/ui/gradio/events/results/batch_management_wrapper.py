@@ -54,6 +54,10 @@ from acestep.ui.gradio.events.results.output_manager import (
     get_active_results_dir,
 )
 from acestep.ui.gradio.events.generation.generation_count import normalize_generation_count
+from acestep.ui.gradio.events.generation.audio_format_options import (
+    DEFAULT_EXTRACT_AUDIO_FORMAT,
+    normalize_extract_audio_format,
+)
 from acestep.ui.gradio.events.generation.quantization import select_quantization_value
 from acestep.ui.gradio.i18n import t
 
@@ -414,6 +418,7 @@ def _generate_with_batch_management_impl(
     generate_lm_audio_codes=None,
     extract_trim_empty_output=False,
     extract_trim_threshold_db=-40.0,
+    extract_output_format=DEFAULT_EXTRACT_AUDIO_FORMAT,
     *audio_processing_value_args,
     progress=gr.Progress(track_tqdm=True),
     audio_processing_values=None,
@@ -469,6 +474,7 @@ def _generate_with_batch_management_impl(
         )
         if task_type == "extract":
             captions = selected_track_name
+            audio_format = normalize_extract_audio_format(extract_output_format)
 
     saved_params = _build_saved_params(
         captions, lyrics, bpm, key_scale, time_signature, vocal_language,
@@ -502,6 +508,7 @@ def _generate_with_batch_management_impl(
         generate_lm_audio_codes=generate_lm_audio_codes,
         extract_trim_empty_output=extract_trim_empty_output,
         extract_trim_threshold_db=extract_trim_threshold_db,
+        extract_output_format=normalize_extract_audio_format(extract_output_format),
         audio_processing_settings=(
             audio_processing_settings_from_ui_values(resolved_ap_values).to_payload()
         ),

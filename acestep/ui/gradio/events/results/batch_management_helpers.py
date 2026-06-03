@@ -11,6 +11,7 @@ from acestep.core.generation.handler.lora.folder_scan import (
 )
 from acestep.ui.gradio.events.generation.audio_format_options import (
     DEFAULT_AUDIO_FORMAT,
+    DEFAULT_EXTRACT_AUDIO_FORMAT,
     DEFAULT_MP3_BITRATE,
 )
 from acestep.ui.gradio.events.dcw_defaults import get_dcw_defaults_for_think
@@ -121,6 +122,7 @@ def _build_saved_params(
     generate_lm_audio_codes=None,
     extract_trim_empty_output=False,
     extract_trim_threshold_db=-40.0,
+    extract_output_format=DEFAULT_EXTRACT_AUDIO_FORMAT,
     audio_processing_settings=None,
     sam_audio_settings=None,
 ):
@@ -184,6 +186,7 @@ def _build_saved_params(
         "generate_lm_audio_codes": generate_lm_audio_codes,
         "extract_trim_empty_output": extract_trim_empty_output,
         "extract_trim_threshold_db": extract_trim_threshold_db,
+        "extract_output_format": extract_output_format,
         "audio_processing_settings": audio_processing_settings or {},
         "sam_audio_settings": sam_audio_settings or {},
     }
@@ -253,6 +256,7 @@ def _apply_param_defaults(params):
         "fade_in_duration": 0.0, "fade_out_duration": 0.0,
         "extract_trim_empty_output": False,
         "extract_trim_threshold_db": -40.0,
+        "extract_output_format": DEFAULT_EXTRACT_AUDIO_FORMAT,
         "latent_shift": 0.0, "latent_rescale": 1.0,
         "repaint_mode": "balanced", "repaint_strength": 0.5,
         "retake_variance": 0.0, "retake_seed": "",

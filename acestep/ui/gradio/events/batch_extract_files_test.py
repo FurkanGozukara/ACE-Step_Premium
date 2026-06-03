@@ -23,20 +23,29 @@ class BatchExtractFilesTests(unittest.TestCase):
             output_dir.mkdir()
             source_audio = root / "Alpha.wav"
             generated_audio = generated_dir / "generated.flac"
+            remaining_audio = generated_dir / "generated_remaining.flac"
             manifest = generated_dir / "generation_manifest.json"
             source_asset = generated_dir / "source_audio.mp3"
             generated_audio.write_bytes(b"extracted")
+            remaining_audio.write_bytes(b"remaining")
             manifest.write_text("{}", encoding="utf-8")
             source_asset.write_bytes(b"original-source")
 
             copied = copy_batch_extract_audio_outputs(
-                [str(generated_audio), str(manifest), str(source_asset)],
+                [str(generated_audio), str(remaining_audio), str(manifest), str(source_asset)],
                 source_audio,
                 output_dir,
             )
 
-            self.assertEqual([str(output_dir / "Alpha.flac")], copied)
+            self.assertEqual(
+                [str(output_dir / "Alpha.flac"), str(output_dir / "Alpha_remaining.flac")],
+                copied,
+            )
             self.assertEqual(b"extracted", (output_dir / "Alpha.flac").read_bytes())
+            self.assertEqual(
+                b"remaining",
+                (output_dir / "Alpha_remaining.flac").read_bytes(),
+            )
             self.assertFalse((output_dir / "Alpha.mp3").exists())
 
 

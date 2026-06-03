@@ -299,6 +299,10 @@ def register_generation_service_handlers(
         fn=open_outputs_folder,
         outputs=[results_section["status_output"]],
     )
+    generation_section["generate_row_open_outputs_folder_btn"].click(
+        fn=open_outputs_folder,
+        outputs=[results_section["status_output"]],
+    )
 
     # ========== UI Visibility Updates ==========
     generation_section["init_llm_checkbox"].change(

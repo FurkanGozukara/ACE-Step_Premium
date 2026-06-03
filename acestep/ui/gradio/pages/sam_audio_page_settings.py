@@ -55,7 +55,7 @@ def add_generation_controls(controls: dict[str, Any]) -> None:
                 )
             controls["sam_output_format"] = gr.Dropdown(
                 choices=OUTPUT_FORMAT_CHOICES,
-                value="wav",
+                value="mp3",
                 label="Output",
             )
             controls["sam_subprocess"] = gr.Checkbox(

@@ -22,6 +22,8 @@
      */
     const PREFS = {
         audio_format:        { elemId: "acestep-audio-format",        type: "dropdown" },
+        extract_output_format:
+                             { elemId: "acestep-extract-output-format", type: "dropdown" },
         mp3_bitrate:         { elemId: "acestep-mp3-bitrate",         type: "dropdown" },
         mp3_sample_rate:     { elemId: "acestep-mp3-sample-rate",     type: "dropdown" },
         score_scale:         { elemId: "acestep-score-scale",         type: "slider"   },

@@ -59,6 +59,17 @@ class GenerationServiceWiringTests(unittest.TestCase):
         }
         self.assertIn("_apply_runtime_language", function_names)
 
+    def test_advanced_outputs_folder_buttons_are_wired(self):
+        """Both Advanced output-folder buttons should call the shared opener."""
+
+        source = _WIRING_PATH.read_text(encoding="utf-8")
+        self.assertIn('generation_section["open_outputs_folder_btn"].click', source)
+        self.assertIn(
+            'generation_section["generate_row_open_outputs_folder_btn"].click',
+            source,
+        )
+        self.assertGreaterEqual(source.count("fn=open_outputs_folder"), 2)
+
     def test_config_path_change_applies_sft_quality_defaults(self):
         """Advanced model dropdown should apply LM-assisted SFT controls."""
 

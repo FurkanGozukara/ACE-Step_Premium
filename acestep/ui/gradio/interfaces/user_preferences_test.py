@@ -60,6 +60,7 @@ class SaveScriptTests(unittest.TestCase):
         script = get_user_preferences_head()
         expected_ids = [
             "acestep-audio-format",
+            "acestep-extract-output-format",
             "acestep-mp3-bitrate",
             "acestep-mp3-sample-rate",
             "acestep-score-scale",
@@ -167,8 +168,8 @@ class RestoreTests(unittest.TestCase):
     def test_restore_preferences_passes_through_values(self):
         """Non-None values are passed through unchanged."""
         values = (
-            "flac", "320k", 44100, 0.8, False, -3.0, 0.5, 1.0,
-            True, -45.0, 0.05, 0.95, 4, True,
+            "flac", "wav", "320k", 44100, 0.8, False, -3.0, 0.5, 1.0,
+            True, -45.0, 0.05, 0.95, 4,
         )
         result = restore_preferences(*values)
         for i in range(len(PREF_KEYS)):
@@ -202,7 +203,7 @@ class RestoreTests(unittest.TestCase):
         """The trailing booleans for mp3 controls should become
         gr.update(visible=...) not raw bools."""
         values = (
-            "mp3", "128k", 48000, 0.5, True, -1.0, 0.0, 0.0,
+            "mp3", "mp3", "256k", 48000, 0.5, True, -1.0, 0.0, 0.0,
             False, -50.0, 0.0, 1.0, 8, True, True, True,
         )
         result = restore_preferences(*values)
@@ -243,10 +244,11 @@ class RestoreTests(unittest.TestCase):
             self.assertIn(key, _DEFAULTS, f"Key {key!r} missing from _DEFAULTS")
 
     def test_quality_output_defaults_save_lossless_and_mp3(self):
-        """Fresh installs should default to FLAC+MP3 and max MP3 bitrate."""
+        """Fresh installs should default to FLAC+MP3, Extract MP3, and 256k MP3."""
 
         self.assertEqual(_DEFAULTS["audio_format"], "flac_mp3")
-        self.assertEqual(_DEFAULTS["mp3_bitrate"], "320k")
+        self.assertEqual(_DEFAULTS["extract_output_format"], "mp3")
+        self.assertEqual(_DEFAULTS["mp3_bitrate"], "256k")
 
     def test_restore_js_generation_is_stable(self):
         js_1 = _build_restore_js(_NUM_OUTPUTS)

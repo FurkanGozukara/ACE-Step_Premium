@@ -72,17 +72,30 @@ def copy_batch_extract_audio_outputs(
     """Copy generated audio files to ``output_folder`` using the source stem."""
 
     copied: list[str] = []
-    copied_suffixes: set[str] = set()
+    copied_outputs: set[tuple[str, bool]] = set()
     for generated_path in generated_paths:
         source = Path(generated_path)
         if source.name == "generation_manifest.json":
             break
         suffix = source.suffix.lower()
-        if suffix not in AUDIO_OUTPUT_SUFFIXES or suffix in copied_suffixes or not source.is_file():
+        is_remaining = _is_remaining_audio(source)
+        output_key = (suffix, is_remaining)
+        if (
+            suffix not in AUDIO_OUTPUT_SUFFIXES
+            or output_key in copied_outputs
+            or not source.is_file()
+        ):
             continue
-        target = output_folder / f"{source_audio.stem}{suffix}"
+        target_stem = f"{source_audio.stem}_remaining" if is_remaining else source_audio.stem
+        target = output_folder / f"{target_stem}{suffix}"
         if source.resolve() != target.resolve():
             shutil.copy2(source, target)
         copied.append(str(target))
-        copied_suffixes.add(suffix)
+        copied_outputs.add(output_key)
     return copied
+
+
+def _is_remaining_audio(path: Path) -> bool:
+    """Return whether a generated audio path is an Extract remaining artifact."""
+
+    return "_remaining" in path.stem.lower()

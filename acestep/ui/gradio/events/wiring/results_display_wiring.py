@@ -125,6 +125,7 @@ def register_results_restore_and_lrc_handlers(context: GenerationWiringContext) 
             generation_section["use_cot_language"],
             generation_section["allow_lm_batch"],
             generation_section["track_name"],
+            generation_section["extract_output_format"],
             generation_section["complete_track_classes"],
             generation_section["enable_normalization"],
             generation_section["normalization_db"],

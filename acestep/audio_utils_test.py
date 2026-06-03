@@ -118,7 +118,7 @@ class AudioSaverFormatTests(unittest.TestCase):
             self.assertEqual(mock_save_mp3.call_args[1]['mp3_sample_rate'], 44100)
 
     def test__save_mp3_uses_default_settings_when_not_overridden(self):
-        """MP3 export should default to 128k at 48 kHz when no overrides are provided."""
+        """MP3 export should default to 256k at 48 kHz when no overrides are provided."""
         saver = AudioSaver()
         output_path = Path(self.temp_dir) / "test.mp3"
 
@@ -134,7 +134,7 @@ class AudioSaverFormatTests(unittest.TestCase):
 
             cmd = mock_subprocess_run.call_args[0][0]
             self.assertIn('libmp3lame', cmd)
-            self.assertIn('128k', cmd)
+            self.assertIn('256k', cmd)
             self.assertIn('48000', cmd)
             self.assertNotIn('-abr', cmd)
 

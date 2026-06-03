@@ -93,7 +93,7 @@ def save_processed_audio(
         sample_rate=sample_rate,
         format=target_format,
         channels_first=True,
-        mp3_bitrate="320k",
+        mp3_bitrate="256k",
         mp3_sample_rate=48000,
     ).replace("\\", "/")
 

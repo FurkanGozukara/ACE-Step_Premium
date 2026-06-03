@@ -97,10 +97,19 @@ class BatchExtractRunnerTests(unittest.TestCase):
                 calls.append(args)
                 source = Path(args[SRC_AUDIO_ARG_INDEX])
                 flac_path = generated_dir / f"generated-{source.stem}.flac"
+                remaining_path = generated_dir / f"generated-{source.stem}_remaining.flac"
                 mp3_path = generated_dir / f"generated-{source.stem}.mp3"
                 flac_path.write_bytes(b"flac-data")
+                remaining_path.write_bytes(b"remaining-data")
                 mp3_path.write_bytes(b"mp3-data")
-                yield _result([str(flac_path), str(mp3_path), str(flac_path.with_suffix(".json"))])
+                yield _result(
+                    [
+                        str(flac_path),
+                        str(remaining_path),
+                        str(mp3_path),
+                        str(flac_path.with_suffix(".json")),
+                    ]
+                )
 
             statuses = list(
                 run_batch_extract_processing(
@@ -115,8 +124,16 @@ class BatchExtractRunnerTests(unittest.TestCase):
 
             self.assertIn("Batch Extract complete: 2/2 file(s) saved", statuses[-1])
             self.assertEqual(b"flac-data", (output_dir / "Alpha.flac").read_bytes())
+            self.assertEqual(
+                b"remaining-data",
+                (output_dir / "Alpha_remaining.flac").read_bytes(),
+            )
             self.assertEqual(b"mp3-data", (output_dir / "Alpha.mp3").read_bytes())
             self.assertEqual(b"flac-data", (output_dir / "Beta.flac").read_bytes())
+            self.assertEqual(
+                b"remaining-data",
+                (output_dir / "Beta_remaining.flac").read_bytes(),
+            )
             self.assertEqual(2, len(calls))
             self.assertEqual("extract", calls[0][TASK_TYPE_ARG_INDEX])
             self.assertEqual("vocals", calls[0][TRACK_NAME_ARG_INDEX])

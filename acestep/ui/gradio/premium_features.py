@@ -246,6 +246,7 @@ PRESET_COMPONENT_KEYS: tuple[str, ...] = (
     "cfg_interval_end",
     "seed",
     "random_seed_checkbox",
+    "extract_output_format",
     "audio_format",
     "mp3_bitrate",
     "mp3_sample_rate",
@@ -319,8 +320,9 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "custom_timesteps": "",
     "cfg_interval_start": 0.0,
     "cfg_interval_end": 1.0,
+    "extract_output_format": "mp3",
     "audio_format": "flac_mp3",
-    "mp3_bitrate": "320k",
+    "mp3_bitrate": "256k",
     "mp3_sample_rate": 48000,
     "enable_normalization": True,
     "normalization_db": -1.0,
@@ -1054,18 +1056,90 @@ def refresh_dashboard(selected_preset: str | None, subprocess_mode: bool | None)
 
 def open_folder_in_system(path: str | Path) -> str:
     """Open a folder with the platform file explorer."""
-    target = Path(path).expanduser().resolve()
-    target.mkdir(parents=True, exist_ok=True)
+
     try:
-        if sys.platform == "win32":
-            os.startfile(str(target))  # type: ignore[attr-defined]
-        elif sys.platform == "darwin":
-            subprocess.Popen(["open", str(target)])
-        else:
-            subprocess.Popen(["xdg-open", str(target)])
+        target = _prepare_folder_target(path)
+    except (OSError, TypeError, ValueError) as exc:
+        return f"Failed to prepare folder `{path}`: {exc}"
+
+    try:
+        _launch_folder_in_system(target)
         return f"Opened `{target}`"
+    except FileNotFoundError:
+        return f"Folder is available at `{target}`, but no system file explorer was found."
     except Exception as exc:
         return f"Failed to open `{target}`: {exc}"
+
+
+def _prepare_folder_target(path: str | Path) -> Path:
+    """Return an existing folder path, using a file parent when needed."""
+
+    target = Path(path).expanduser()
+    if target.exists() and target.is_file():
+        target = target.parent
+    target = target.resolve(strict=False)
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _launch_folder_in_system(target: Path) -> None:
+    """Launch the platform file explorer for a prepared folder path."""
+
+    if sys.platform == "win32":
+        _launch_windows_folder(target)
+        return
+
+    command = _folder_open_command()
+    if command is None:
+        raise FileNotFoundError("No supported file explorer command was found.")
+    subprocess.Popen(
+        [*command, str(target)],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def _launch_windows_folder(target: Path) -> None:
+    """Launch Windows Explorer for a prepared folder path."""
+
+    startfile = getattr(os, "startfile", None)
+    if startfile is not None:
+        startfile(str(target))
+        return
+
+    explorer = shutil.which("explorer") or shutil.which("explorer.exe")
+    if explorer is None:
+        raise FileNotFoundError("No Windows Explorer command was found.")
+    subprocess.Popen(
+        [explorer, str(target)],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def _folder_open_command() -> tuple[str, ...] | None:
+    """Return the first available non-Windows folder opener command."""
+
+    candidates: tuple[tuple[str, ...], ...]
+    if sys.platform == "darwin":
+        candidates = (("open",),)
+    else:
+        candidates = (
+            ("xdg-open",),
+            ("gio", "open"),
+            ("kde-open",),
+            ("gnome-open",),
+            ("wslview",),
+            ("explorer.exe",),
+        )
+
+    for command in candidates:
+        executable = shutil.which(command[0])
+        if executable:
+            return (executable, *command[1:])
+    return None
 
 
 def open_models_folder() -> str:

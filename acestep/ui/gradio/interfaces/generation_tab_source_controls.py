@@ -5,6 +5,10 @@ from typing import Any
 import gradio as gr
 
 from acestep.constants import TRACK_NAMES
+from acestep.ui.gradio.events.generation.audio_format_options import (
+    DEFAULT_EXTRACT_AUDIO_FORMAT,
+    EXTRACT_AUDIO_FORMAT_CHOICES,
+)
 from acestep.ui.gradio.help_content import create_help_button
 from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.media_file_types import MEDIA_FILE_TYPES
@@ -62,7 +66,17 @@ def build_source_audio_controls() -> dict[str, Any]:
                 info=t("generation.track_name_info"),
                 elem_classes=["has-info-container"],
                 visible=True,
-                scale=6,
+                scale=5,
+            )
+            extract_output_format = gr.Dropdown(
+                choices=EXTRACT_AUDIO_FORMAT_CHOICES,
+                value=DEFAULT_EXTRACT_AUDIO_FORMAT,
+                label="Output",
+                info="ACE-Step Extract output format.",
+                elem_id="acestep-extract-output-format",
+                elem_classes=["has-info-container"],
+                visible=True,
+                scale=2,
             )
             with gr.Column(scale=1, min_width=48):
                 create_help_button("generation_extract")
@@ -72,6 +86,7 @@ def build_source_audio_controls() -> dict[str, Any]:
         "src_audio_preview": src_audio_preview,
         "src_video_preview": src_video_preview,
         "track_name": track_name,
+        "extract_output_format": extract_output_format,
         "analyze_btn": analyze_btn,
         "extract_help_group": extract_help_group,
     }
@@ -198,6 +213,7 @@ def build_source_track_and_code_controls() -> dict[str, Any]:
         "src_audio_preview": source_audio_controls["src_audio_preview"],
         "src_video_preview": source_audio_controls["src_video_preview"],
         "track_name": source_audio_controls["track_name"],
+        "extract_output_format": source_audio_controls["extract_output_format"],
         "analyze_btn": source_audio_controls["analyze_btn"],
         "extract_help_group": source_audio_controls["extract_help_group"],
         "complete_help_group": track_selection_controls["complete_help_group"],

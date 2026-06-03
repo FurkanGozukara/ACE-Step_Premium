@@ -5,7 +5,8 @@ from __future__ import annotations
 
 DUAL_AUDIO_FORMAT = "flac_mp3"
 DEFAULT_AUDIO_FORMAT = DUAL_AUDIO_FORMAT
-DEFAULT_MP3_BITRATE = "320k"
+DEFAULT_MP3_BITRATE = "256k"
+DEFAULT_EXTRACT_AUDIO_FORMAT = "mp3"
 
 AUDIO_FORMAT_CHOICES = [
     ("FLAC + MP3", DUAL_AUDIO_FORMAT),
@@ -36,12 +37,29 @@ MP3_BITRATE_CHOICES = [
 
 MP3_SAMPLE_RATE_CHOICES = [("48 kHz", 48000), ("44.1 kHz", 44100)]
 
+EXTRACT_AUDIO_FORMAT_CHOICES = [
+    ("WAV", "wav"),
+    ("MP3", "mp3"),
+    ("FLAC", "flac"),
+]
+
+SUPPORTED_EXTRACT_AUDIO_FORMATS = {"wav", "mp3", "flac"}
+
 
 def normalize_audio_format(value: object) -> str:
     """Return a supported UI audio-format value."""
 
     normalized = str(value or "").strip().lower()
     return normalized if normalized in SUPPORTED_AUDIO_FORMATS else DEFAULT_AUDIO_FORMAT
+
+
+def normalize_extract_audio_format(value: object) -> str:
+    """Return a supported ACE-Step Extract output-format value."""
+
+    normalized = str(value or "").strip().lower()
+    if normalized in SUPPORTED_EXTRACT_AUDIO_FORMATS:
+        return normalized
+    return DEFAULT_EXTRACT_AUDIO_FORMAT
 
 
 def output_audio_formats(value: object) -> list[str]:

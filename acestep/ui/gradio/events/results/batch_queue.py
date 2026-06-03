@@ -10,6 +10,7 @@ import gradio as gr
 
 from acestep.ui.gradio.events.generation.audio_format_options import (
     DEFAULT_AUDIO_FORMAT,
+    DEFAULT_EXTRACT_AUDIO_FORMAT,
     DEFAULT_MP3_BITRATE,
     MP3_BITRATE_CHOICES,
     MP3_SAMPLE_RATE_CHOICES,
@@ -122,7 +123,7 @@ def capture_current_params(
     use_cot_metas, use_cot_caption, use_cot_language,
     constrained_decoding_debug, allow_lm_batch, auto_score, auto_lrc,
     score_scale, lm_batch_chunk_size,
-    track_name, complete_track_classes,
+    track_name, extract_output_format, complete_track_classes,
     enable_normalization, normalization_db,
     fade_in_duration, fade_out_duration,
     extract_trim_empty_output, extract_trim_threshold_db,
@@ -183,6 +184,7 @@ def capture_current_params(
         "score_scale": score_scale,
         "lm_batch_chunk_size": lm_batch_chunk_size,
         "track_name": track_name,
+        "extract_output_format": extract_output_format,
         "complete_track_classes": complete_track_classes,
         "enable_normalization": enable_normalization,
         "normalization_db": normalization_db,
@@ -212,7 +214,7 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     """
     if current_batch_index not in batch_queue:
         gr.Warning(t("messages.no_batch_data"))
-        return [gr.update()] * 35
+        return [gr.update()] * 36
 
     batch_data = batch_queue[current_batch_index]
     params = batch_data.get("generation_params", {})
@@ -238,6 +240,7 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     use_cot_language = params.get("use_cot_language", True)
     allow_lm_batch = params.get("allow_lm_batch", True)
     track_name = params.get("track_name", None)
+    extract_output_format = params.get("extract_output_format", DEFAULT_EXTRACT_AUDIO_FORMAT)
     complete_track_classes = params.get("complete_track_classes", [])
     enable_normalization = params.get("enable_normalization", True)
     normalization_db = params.get("normalization_db", -1.0)
@@ -268,7 +271,7 @@ def restore_batch_parameters(current_batch_index, batch_queue):
         gr.update(choices=MP3_SAMPLE_RATE_CHOICES, value=mp3_sample_rate, visible=is_mp3),
         lm_temperature, lm_cfg_scale, lm_top_k, lm_top_p, think_checkbox,
         use_cot_caption, use_cot_language, allow_lm_batch,
-        track_name, complete_track_classes,
+        track_name, extract_output_format, complete_track_classes,
         enable_normalization, normalization_db,
         fade_in_duration, fade_out_duration,
         extract_trim_empty_output, extract_trim_threshold_db,

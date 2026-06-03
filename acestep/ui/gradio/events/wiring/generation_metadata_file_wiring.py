@@ -45,6 +45,7 @@ _LOAD_METADATA_GENERATION_OUTPUT_KEYS = (
     "repainting_start",
     "repainting_end",
     "track_name",
+    "extract_output_format",
     "complete_track_classes",
     "instrumental_checkbox",
     "retake_variance",

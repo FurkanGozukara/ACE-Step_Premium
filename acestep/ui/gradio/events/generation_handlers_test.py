@@ -570,8 +570,29 @@ class LoadMetadataMp3SanitizationTests(unittest.TestCase):
 
         self.assertEqual(result[19], "mp3")
         self.assertTrue(result[20]["visible"])
-        self.assertEqual(result[21]["value"], "320k")
+        self.assertEqual(result[21]["value"], "256k")
         self.assertEqual(result[22]["value"], 48000)
+
+    @patch("acestep.ui.gradio.events.generation.metadata_loading.gr.Info")
+    @patch("acestep.ui.gradio.events.generation.metadata_loading.get_global_gpu_config")
+    def test_load_metadata_restores_extract_output_format(self, gpu_mock, info_mock):
+        """Extract metadata should restore the dedicated Extract output format."""
+        import tempfile
+        gpu_cfg = MagicMock()
+        gpu_cfg.max_batch_size_with_lm = 8
+        gpu_cfg.max_batch_size_without_lm = 8
+        gpu_mock.return_value = gpu_cfg
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            file_obj = self._write_json(tmpdir, {
+                "task_type": "extract",
+                "audio_format": "flac",
+                "track_name": "vocals",
+            })
+            result = generation_handlers.load_metadata(file_obj, None)
+
+        self.assertEqual(result[37], "vocals")
+        self.assertEqual(result[38], "flac")
 
 @unittest.skipIf(generation_handlers is None, f"generation_handlers import unavailable: {_IMPORT_ERROR}")
 class AutoCheckboxTests(unittest.TestCase):

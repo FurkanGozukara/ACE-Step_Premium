@@ -197,6 +197,7 @@ def register_simple_create_handlers(
         fn=sync_inline_result_preview,
         inputs=[
             results_section["generated_audio_1"],
+            results_section["generated_audio_batch"],
             results_section["status_output"],
         ],
         outputs=build_inline_result_outputs(generation_section),

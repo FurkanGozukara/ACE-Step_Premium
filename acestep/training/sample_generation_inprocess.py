@@ -106,7 +106,7 @@ def run_training_sample_inprocess(
             settings.get("constrained_decoding_debug", False)
         ),
         audio_format=backend_audio_format,
-        mp3_bitrate=str(settings.get("mp3_bitrate") or "320k"),
+        mp3_bitrate=str(settings.get("mp3_bitrate") or "256k"),
         mp3_sample_rate=_as_int(settings.get("mp3_sample_rate"), 48000),
     )
 

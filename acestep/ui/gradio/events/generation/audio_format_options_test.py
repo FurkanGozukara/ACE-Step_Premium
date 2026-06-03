@@ -6,6 +6,7 @@ from acestep.ui.gradio.events.generation.audio_format_options import (
     audio_file_extension,
     audio_format_label,
     mp3_controls_visible,
+    normalize_extract_audio_format,
     output_audio_formats,
     primary_audio_format,
 )
@@ -26,6 +27,12 @@ class AudioFormatOptionsTests(unittest.TestCase):
         """WAV 32-bit should still use a .wav file extension."""
 
         self.assertEqual(audio_file_extension("wav32"), "wav")
+
+    def test_extract_audio_format_defaults_to_mp3(self):
+        """Extract-specific output format should support wav/mp3/flac and default to MP3."""
+
+        self.assertEqual(normalize_extract_audio_format(" FLAC "), "flac")
+        self.assertEqual(normalize_extract_audio_format("invalid"), "mp3")
 
 
 if __name__ == "__main__":

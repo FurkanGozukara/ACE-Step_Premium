@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 
 from acestep.ui.gradio.premium_preset_defaults import ADDITIONAL_DEFAULT_PRESET_VALUES
+from acestep.ui.gradio.premium_features import DEFAULT_PRESET_VALUES
 
 
 class PremiumPresetDefaultsTests(unittest.TestCase):
@@ -27,6 +28,13 @@ class PremiumPresetDefaultsTests(unittest.TestCase):
             "constant",
             ADDITIONAL_DEFAULT_PRESET_VALUES["lora_scheduler_type"],
         )
+
+    def test_extract_and_mp3_defaults(self) -> None:
+        """Extract defaults should save MP3 output and use 256k MP3 quality."""
+
+        self.assertEqual("mp3", ADDITIONAL_DEFAULT_PRESET_VALUES["extract_output_format"])
+        self.assertEqual("mp3", ADDITIONAL_DEFAULT_PRESET_VALUES["sam_output_format"])
+        self.assertEqual("256k", DEFAULT_PRESET_VALUES["mp3_bitrate"])
 
 
 if __name__ == "__main__":

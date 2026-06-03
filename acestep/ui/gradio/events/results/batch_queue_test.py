@@ -231,7 +231,8 @@ class CaptureCurrentParamsTests(unittest.TestCase):
             "lm_negative_prompt", "use_cot_metas", "use_cot_caption",
             "use_cot_language", "constrained_decoding_debug", "allow_lm_batch",
             "auto_score", "auto_lrc", "score_scale", "lm_batch_chunk_size",
-            "track_name", "complete_track_classes", "enable_normalization",
+            "track_name", "extract_output_format", "complete_track_classes",
+            "enable_normalization",
             "normalization_db", "fade_in_duration", "fade_out_duration",
             "extract_trim_empty_output", "extract_trim_threshold_db",
             "latent_shift", "latent_rescale", "repaint_mode", "repaint_strength",
@@ -281,6 +282,14 @@ class CaptureCurrentParamsTests(unittest.TestCase):
         result = capture_current_params(*args)
         self.assertTrue(result["extract_trim_empty_output"])
         self.assertEqual(result["extract_trim_threshold_db"], -42.0)
+
+    def test_capture_preserves_extract_output_format(self):
+        """Extract output format must be captured for queued batch generation."""
+
+        args = self._build_args(extract_output_format="flac")
+        result = capture_current_params(*args)
+
+        self.assertEqual(result["extract_output_format"], "flac")
 
 
 if __name__ == "__main__":

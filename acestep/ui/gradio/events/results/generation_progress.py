@@ -33,6 +33,7 @@ from acestep.ui.gradio.events.generation.generation_count import (
 from acestep.ui.gradio.events.generation_handlers import parse_and_validate_timesteps
 from acestep.ui.gradio.events.generation.audio_format_options import (
     audio_file_extension,
+    normalize_extract_audio_format,
     normalize_audio_format,
     output_audio_formats,
     primary_audio_format,
@@ -51,6 +52,9 @@ from acestep.ui.gradio.events.results.output_manager import (
 from acestep.ui.gradio.events.results.generation_task_type import resolve_no_fsq_task_type
 from acestep.ui.gradio.events.results.audio_playback_updates import (
     build_audio_slot_update,
+)
+from acestep.ui.gradio.events.results.extract_remaining_audio import (
+    save_extract_remaining_audio,
 )
 from acestep.ui.gradio.events.results.scoring import calculate_score_handler
 from acestep.ui.gradio.events.results.lrc_utils import lrc_to_vtt_file
@@ -165,6 +169,9 @@ def generate_with_progress(
     )
 
     task_type = resolve_no_fsq_task_type(task_type, bool(no_fsq))
+    if task_type == "extract":
+        audio_format = normalize_extract_audio_format(audio_format)
+        backend_audio_format = audio_format
 
     # text2music never uses src_audio EXCEPT when flow_edit_morph is on:
     # the morph overlay needs the source audio for ``zt_src``/``zt_tar``
@@ -454,6 +461,7 @@ def generate_with_progress(
         audio_tensor = dit_audio["tensor"]
         sample_rate = dit_audio["sample_rate"]
         audio_params = dit_audio["params"]
+        extract_source_tensor = audio_tensor
         audio_tensor, extract_trim_metadata = _trim_extract_audio(
             audio_tensor,
             sample_rate=sample_rate,
@@ -486,6 +494,20 @@ def generate_with_progress(
         if not audio_path and saved_audio_paths:
             audio_path = next(iter(saved_audio_paths.values()))
         audio_path = audio_path or ""
+        extract_remaining_metadata = (
+            save_extract_remaining_audio(
+                source_audio_path=src_audio,
+                extracted_audio=extract_source_tensor,
+                sample_rate=sample_rate,
+                output_dir=temp_dir,
+                output_stem=key,
+                output_format=audio_format,
+                mp3_bitrate=mp3_bitrate,
+                mp3_sample_rate=mp3_sample_rate,
+            )
+            if task_type == "extract"
+            else {"applied": False}
+        )
         original_audio_paths = dict(saved_audio_paths)
         postprocess_metadata = postprocess_generated_sample(
             source_audio_path=audio_path,
@@ -504,10 +526,13 @@ def generate_with_progress(
                 )
                 audio_path = processed_path
         audio_params["audio_format"] = audio_format
+        if task_type == "extract":
+            audio_params["extract_output_format"] = audio_format
         audio_params["primary_audio_format"] = backend_audio_format
         audio_params["saved_audio_formats"] = list(saved_audio_paths.keys())
         audio_params["audio_paths"] = saved_audio_paths
         audio_params["audio_processing"] = postprocess_metadata
+        audio_params["extract_remaining_audio"] = extract_remaining_metadata
         if "mp3" in saved_audio_paths:
             audio_params["mp3_path"] = saved_audio_paths["mp3"]
 
@@ -547,6 +572,9 @@ def generate_with_progress(
         if i < visible_slots:
             audio_outputs[i] = audio_path
         all_audio_paths.extend(path for path in saved_audio_paths.values() if path)
+        remaining_audio_path = extract_remaining_metadata.get("remaining_audio_path")
+        if remaining_audio_path:
+            all_audio_paths.append(str(remaining_audio_path))
         if postprocess_metadata.get("metadata_path"):
             all_audio_paths.append(str(postprocess_metadata["metadata_path"]))
         all_audio_paths.extend(str(path) for path in sam_postprocess_metadata.get("files", []) if path)
@@ -588,6 +616,7 @@ def generate_with_progress(
             "audio_paths": saved_audio_paths,
             "mp3_path": saved_audio_paths.get("mp3"),
             "audio_processing": postprocess_metadata,
+            "extract_remaining_audio": extract_remaining_metadata,
             "sam_audio": sam_postprocess_metadata,
             "metadata_path": json_path,
             "audio_format": audio_format,

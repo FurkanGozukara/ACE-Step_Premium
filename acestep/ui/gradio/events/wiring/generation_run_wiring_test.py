@@ -19,73 +19,101 @@ class InlineResultPreviewTests(unittest.TestCase):
     """Verify inline latest-result preview helper behavior."""
 
     def test_build_inline_result_outputs_uses_expected_order(self):
-        """Inline preview outputs should mirror audio first, then status."""
+        """Inline preview outputs should mirror extracted, remaining, then status."""
 
         generation_section = {
             "inline_generated_audio": "audio_component",
+            "inline_remaining_audio": "remaining_component",
             "inline_generation_status": "status_component",
         }
 
         self.assertEqual(
             build_inline_result_outputs(generation_section),
-            ["audio_component", "status_component"],
+            ["audio_component", "remaining_component", "status_component"],
         )
 
     def test_clear_inline_result_preview_clears_audio_and_status(self):
         """Starting a new generation should clear the inline preview."""
 
-        self.assertEqual(clear_inline_result_preview(), (None, ""))
+        audio, remaining, status = clear_inline_result_preview()
+
+        self.assertEqual(audio["value"], None)
+        self.assertEqual(remaining["value"], None)
+        self.assertFalse(remaining["visible"])
+        self.assertEqual(status, "")
 
     def test_prepare_inline_result_preview_shows_extract_progress(self):
         """Starting Extract should show progress in the inline latest-result preview."""
 
-        self.assertEqual(
-            prepare_inline_result_preview("extract"),
-            (None, t("messages.extract_stem_processing")),
-        )
+        audio, remaining, status = prepare_inline_result_preview("extract")
+
+        self.assertEqual(audio["value"], None)
+        self.assertEqual(audio["label"], "Extracted Audio")
+        self.assertEqual(remaining["value"], None)
+        self.assertTrue(remaining["visible"])
+        self.assertEqual(status, t("messages.extract_stem_processing"))
 
     def test_prepare_inline_result_preview_keeps_non_extract_behavior(self):
         """Starting non-Extract generation should keep the existing blank status."""
 
-        self.assertEqual(prepare_inline_result_preview("text2music"), (None, ""))
+        audio, remaining, status = prepare_inline_result_preview("text2music")
+
+        self.assertEqual(audio["value"], None)
+        self.assertEqual(remaining["value"], None)
+        self.assertFalse(remaining["visible"])
+        self.assertEqual(status, "")
 
     def test_inline_result_preview_from_generation_outputs_copies_status(self):
         """Streamed generation status should be mirrored into the inline preview."""
 
-        outputs = tuple(f"out_{index}" for index in range(55))
+        outputs = list(f"out_{index}" for index in range(55))
+        outputs[8] = ["/tmp/song_remaining.mp3"]
 
-        self.assertEqual(
-            inline_result_preview_from_generation_outputs(outputs),
-            ("out_0", "out_10"),
-        )
+        audio, remaining, status = inline_result_preview_from_generation_outputs(outputs)
+
+        self.assertEqual(audio, "out_0")
+        self.assertEqual(remaining["value"], "/tmp/song_remaining.mp3")
+        self.assertTrue(remaining["visible"])
+        self.assertEqual(status, "out_10")
 
     def test_inline_result_preview_from_generation_outputs_preserves_skip_status(self):
         """No-op backend status updates should not erase the inline status."""
 
-        outputs = tuple(["sample.wav", *["unused"] * 9, gr.skip()])
+        outputs = tuple(["sample.wav", *["unused"] * 7, [], "unused", gr.skip()])
 
-        self.assertEqual(
-            inline_result_preview_from_generation_outputs(outputs),
-            ("sample.wav", gr.skip()),
-        )
+        audio, remaining, status = inline_result_preview_from_generation_outputs(outputs)
+
+        self.assertEqual(audio, "sample.wav")
+        self.assertFalse(remaining["visible"])
+        self.assertEqual(status, gr.skip())
 
     def test_append_inline_result_preview_extends_generation_outputs(self):
         """Generation wrapper outputs should include inline audio and status at the end."""
 
-        outputs = tuple(f"out_{index}" for index in range(55))
+        outputs = list(f"out_{index}" for index in range(55))
+        outputs[8] = ["/tmp/song_remaining.flac"]
+        outputs = tuple(outputs)
 
-        self.assertEqual(
-            append_inline_result_preview(outputs),
-            (*outputs, "out_0", "out_10"),
-        )
+        result = append_inline_result_preview(outputs)
+
+        self.assertEqual(result[:-3], outputs)
+        self.assertEqual(result[-3], "out_0")
+        self.assertEqual(result[-2]["value"], "/tmp/song_remaining.flac")
+        self.assertEqual(result[-1], "out_10")
 
     def test_sync_inline_result_preview_mirrors_first_sample_and_status(self):
         """Completed generation should copy Sample 1 and status into the preview."""
 
-        self.assertEqual(
-            sync_inline_result_preview("sample_1.wav", "Generation Complete"),
-            ("sample_1.wav", "Generation Complete"),
+        audio, remaining, status = sync_inline_result_preview(
+            "sample_1.wav",
+            ["/tmp/sample_1_remaining.wav"],
+            "Generation Complete",
         )
+
+        self.assertEqual(audio, "sample_1.wav")
+        self.assertEqual(remaining["value"], "/tmp/sample_1_remaining.wav")
+        self.assertTrue(remaining["visible"])
+        self.assertEqual(status, "Generation Complete")
 
 
 if __name__ == "__main__":

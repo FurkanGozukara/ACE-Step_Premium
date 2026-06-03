@@ -72,7 +72,7 @@ class SamAudioSettings:
     preserve_original: bool = True
     trim_empty_output: bool = False
     trim_threshold_db: float = SAM_AUDIO_DEFAULT_TRIM_THRESHOLD_DB
-    output_format: str = "wav"
+    output_format: str = "mp3"
     prompt_mode: str = "text"
     prompt_preset: str = DEFAULT_PROMPT
     custom_prompt: str = ""
@@ -137,7 +137,7 @@ class SamAudioSettings:
             output_format=_choice(
                 payload.get("output_format"),
                 {"wav", "flac", "mp3"},
-                "wav",
+                "mp3",
             ),
             prompt_mode=_choice(
                 payload.get("prompt_mode"),

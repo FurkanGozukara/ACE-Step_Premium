@@ -38,6 +38,7 @@ GENERATION_PRESET_EXTENSION_KEYS: tuple[str, ...] = (
     "retake_enabled",
     "retake_variance",
     "retake_seed",
+    "extract_output_format",
     "flow_edit_morph",
     "flow_edit_source_caption",
     "flow_edit_source_lyrics",

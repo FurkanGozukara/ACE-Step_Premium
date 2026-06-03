@@ -121,6 +121,7 @@ def build_generation_run_inputs(generation_section, results_section):
         generation_section["generate_lm_audio_codes"],
         generation_section["extract_trim_empty_output"],
         generation_section["extract_trim_threshold_db"],
+        generation_section["extract_output_format"],
         *audio_processing_generation_inputs(generation_section),
         *sam_audio_generation_inputs(generation_section),
     ]
@@ -361,6 +362,7 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
             generation_section["generate_lm_audio_codes"],
             generation_section["extract_trim_empty_output"],
             generation_section["extract_trim_threshold_db"],
+            generation_section["extract_output_format"],
             *audio_processing_generation_inputs(generation_section),
             *sam_audio_generation_inputs(generation_section),
         ],
@@ -426,6 +428,7 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
         fn=sync_inline_result_preview,
         inputs=[
             results_section["generated_audio_1"],
+            results_section["generated_audio_batch"],
             results_section["status_output"],
         ],
         outputs=build_inline_result_outputs(generation_section),

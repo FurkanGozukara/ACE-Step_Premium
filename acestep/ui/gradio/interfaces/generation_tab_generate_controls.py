@@ -125,15 +125,30 @@ def build_generate_row_controls(
                     "action-btn-cancel-advanced",
                 ],
             )
+            generate_row_open_outputs_folder_btn = gr.Button(
+                "Open Outputs Folder",
+                variant="secondary",
+                size="lg",
+                scale=1,
+                elem_classes=["action-btn", "action-btn-open"],
+            )
         cancel_confirmed_state = gr.State(value=False)
         with gr.Group():
             gr.Markdown(t("generation.inline_result_info"))
-            inline_generated_audio = gr.Audio(
-                label=t("generation.inline_result_audio_label"),
-                type="filepath",
-                interactive=False,
-                buttons=["download"],
-            )
+            with gr.Row():
+                inline_generated_audio = gr.Audio(
+                    label=t("generation.inline_result_audio_label"),
+                    type="filepath",
+                    interactive=False,
+                    buttons=["download"],
+                )
+                inline_remaining_audio = gr.Audio(
+                    label="Remaining Audio",
+                    type="filepath",
+                    interactive=False,
+                    buttons=["download"],
+                    visible=False,
+                )
             inline_generation_status = gr.Textbox(
                 label=t("generation.inline_result_status_label"),
                 interactive=False,
@@ -148,11 +163,13 @@ def build_generate_row_controls(
         "runtime_options_row": runtime_options_row,
         "generate_btn": generate_btn,
         "cancel_generation_btn": cancel_generation_btn,
+        "generate_row_open_outputs_folder_btn": generate_row_open_outputs_folder_btn,
         "cancel_confirmed_state": cancel_confirmed_state,
         "generate_btn_row": generate_btn_row,
         "autogen_checkbox": autogen_checkbox,
         "auto_lrc": auto_lrc,
         "inline_generated_audio": inline_generated_audio,
+        "inline_remaining_audio": inline_remaining_audio,
         "inline_generation_status": inline_generation_status,
         **batch_extract_controls,
     }

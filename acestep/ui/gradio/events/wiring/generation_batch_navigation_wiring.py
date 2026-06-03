@@ -159,6 +159,7 @@ def _build_capture_current_params_inputs(generation_section: dict[str, Any]) -> 
         generation_section["score_scale"],
         generation_section["lm_batch_chunk_size"],
         generation_section["track_name"],
+        generation_section["extract_output_format"],
         generation_section["complete_track_classes"],
         generation_section["enable_normalization"],
         generation_section["normalization_db"],
@@ -212,6 +213,7 @@ def register_generation_batch_navigation_handlers(context: GenerationWiringConte
         fn=sync_inline_result_preview,
         inputs=[
             results_section["generated_audio_1"],
+            results_section["generated_audio_batch"],
             results_section["status_output"],
         ],
         outputs=build_inline_result_outputs(generation_section),
@@ -234,6 +236,7 @@ def register_generation_batch_navigation_handlers(context: GenerationWiringConte
         fn=sync_inline_result_preview,
         inputs=[
             results_section["generated_audio_1"],
+            results_section["generated_audio_batch"],
             results_section["status_output"],
         ],
         outputs=build_inline_result_outputs(generation_section),

@@ -29,6 +29,7 @@ class TestSamAudioSettings(unittest.TestCase):
         self.assertEqual(5.0, settings.chunk_overlap_seconds)
         self.assertFalse(settings.trim_empty_output)
         self.assertEqual(-40.0, settings.trim_threshold_db)
+        self.assertEqual("mp3", settings.output_format)
         self.assertEqual("vocals", settings.effective_prompt)
 
     def test_values_follow_schema_order(self):

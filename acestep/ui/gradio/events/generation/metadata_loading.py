@@ -16,11 +16,13 @@ from acestep.inference import understand_music
 from acestep.ui.gradio.events.generation.generation_count import normalize_generation_count
 from acestep.ui.gradio.events.generation.audio_format_options import (
     DEFAULT_AUDIO_FORMAT,
+    DEFAULT_EXTRACT_AUDIO_FORMAT,
     DEFAULT_MP3_BITRATE,
     MP3_BITRATE_CHOICES,
     MP3_SAMPLE_RATE_CHOICES,
     mp3_controls_visible,
     normalize_audio_format,
+    normalize_extract_audio_format,
 )
 from acestep.ui.gradio.i18n import t
 from .validation import clamp_duration_to_gpu_limit
@@ -35,7 +37,7 @@ def load_metadata(file_obj, llm_handler=None):
     """
     if file_obj is None:
         gr.Warning(t("messages.no_file_selected"))
-        return [None] * 42 + [False]
+        return [None] * 43 + [False]
 
     try:
         if hasattr(file_obj, 'name'):
@@ -109,6 +111,12 @@ def load_metadata(file_obj, llm_handler=None):
         repainting_start = metadata.get('repainting_start', 0.0)
         repainting_end = metadata.get('repainting_end', -1)
         track_name = metadata.get('track_name')
+        extract_output_format = metadata.get("extract_output_format")
+        if extract_output_format is None and task_type == "extract":
+            extract_output_format = audio_format
+        extract_output_format = normalize_extract_audio_format(
+            extract_output_format or DEFAULT_EXTRACT_AUDIO_FORMAT
+        )
         complete_track_classes = metadata.get('complete_track_classes', [])
         shift = metadata.get('shift', 3.0)
         infer_method = metadata.get('infer_method', 'ode')
@@ -138,17 +146,17 @@ def load_metadata(file_obj, llm_handler=None):
             lm_temperature, lm_cfg_scale, lm_top_k, lm_top_p, lm_negative_prompt,
             use_cot_metas, use_cot_caption, use_cot_language, audio_cover_strength,
             cover_noise_strength, think, audio_codes, repainting_start, repainting_end,
-            track_name, complete_track_classes, instrumental,
+            track_name, extract_output_format, complete_track_classes, instrumental,
             retake_variance, retake_seed,
             True  # is_format_caption
         )
 
     except json.JSONDecodeError as e:
         gr.Warning(t("messages.invalid_json", error=str(e)))
-        return [None] * 42 + [False]
+        return [None] * 43 + [False]
     except Exception as e:
         gr.Warning(t("messages.load_error", error=str(e)))
-        return [None] * 42 + [False]
+        return [None] * 43 + [False]
 
 
 def _get_project_root() -> str:

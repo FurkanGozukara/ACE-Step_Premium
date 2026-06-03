@@ -27,12 +27,14 @@ _ASSET_FILENAME = "user_preferences.js"
 _STORAGE_KEY = "acestep.ui.user_preferences"
 _SCHEMA_VERSION = 1
 _DEFAULT_AUDIO_FORMAT = "flac_mp3"
-_DEFAULT_MP3_BITRATE = "320k"
+_DEFAULT_MP3_BITRATE = "256k"
+_DEFAULT_EXTRACT_AUDIO_FORMAT = "mp3"
 
 # Ordered list of preference keys.  The order here MUST match the order of
 # *outputs* passed to ``demo.load()`` in ``wire_preference_restore``.
 PREF_KEYS: list[str] = [
     "audio_format",
+    "extract_output_format",
     "mp3_bitrate",
     "mp3_sample_rate",
     "score_scale",
@@ -51,6 +53,7 @@ PREF_KEYS: list[str] = [
 # changed.  Keys must match ``PREF_KEYS``.
 _DEFAULTS: dict[str, Any] = {
     "audio_format": _DEFAULT_AUDIO_FORMAT,
+    "extract_output_format": _DEFAULT_EXTRACT_AUDIO_FORMAT,
     "mp3_bitrate": _DEFAULT_MP3_BITRATE,
     "mp3_sample_rate": 48000,
     "score_scale": 0.5,
