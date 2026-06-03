@@ -28,6 +28,19 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+<h3>4 June 2026 V4.3 Update</h3>
+
+- SAM Audio processing bug fixed
+- In ACESTEP XL 1.5 Advanced Extract tab, Analyze button was useless now it will show info message to use Track Name and click Extract Stem
+- Extract Stem will now show progress and status in Latest Result Status
+- Extract Stem limited to ACESTEP XL Base model since it works 100x better with Base than SFT
+- Now all advanced tab audio / video input fields will show preview
+	- If preview doesn't show immediately, click X and re-select file this fixes Gradio bug
+	- Now you can trim audio from Gradio preview as well
+- Gradio version upgraded to 6.16.0
+- ACESTEP XL 1.5 Advanced Mode Lego and Complete features improved and bugs fixed
+- Get latest zip file, overwrite previous files and run Windows_Install_or_Update.bat to update
+
 <h3>3 June 2026 V4.1 Update</h3>
 
 - V4.1 is a massive update so please carefully read all
