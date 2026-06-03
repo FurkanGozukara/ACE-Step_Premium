@@ -120,7 +120,7 @@ def create_audio_processing_page() -> dict[str, Any]:
             gr.Markdown("### Single Audio or Video")
             controls["ap_single_file"] = gr.File(
                 label="Upload Audio or Video",
-                file_count="single",
+                file_count="multiple",
                 type="filepath",
                 file_types=[
                     ".wav",
@@ -136,6 +136,9 @@ def create_audio_processing_page() -> dict[str, Any]:
                     ".webm",
                     ".avi",
                 ],
+                elem_id="acestep-audio-processing-single-upload",
+                key="audio_processing_single_upload",
+                preserved_by_key=[],
             )
             with gr.Row():
                 controls["ap_upload_audio_preview"] = gr.Audio(
@@ -148,6 +151,7 @@ def create_audio_processing_page() -> dict[str, Any]:
                     label="Uploaded Video",
                     interactive=False,
                     visible=False,
+                    elem_classes=["ace-video-preview"],
                 )
             with gr.Row(equal_height=True):
                 controls["ap_preview_btn"] = gr.Button(
@@ -182,6 +186,7 @@ def create_audio_processing_page() -> dict[str, Any]:
                 label="Processed Video",
                 interactive=False,
                 visible=False,
+                elem_classes=["ace-video-preview"],
             )
             controls["ap_spectrogram"] = gr.Plot(label="Before / After Spectrogram")
             controls["ap_single_files"] = gr.File(

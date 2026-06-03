@@ -55,6 +55,7 @@ from acestep.ui.gradio.events.results.audio_playback_updates import (
 from acestep.ui.gradio.events.results.scoring import calculate_score_handler
 from acestep.ui.gradio.events.results.lrc_utils import lrc_to_vtt_file
 from acestep.ui.gradio.events.results.session_artifacts import persist_sample_session_artifacts
+from acestep.ui.gradio.media_upload_values import latest_upload_path
 
 
 def _get_torch():
@@ -120,6 +121,8 @@ def generate_with_progress(
     run_dir = create_generation_run_dir()
     logger.info(f"[generate_with_progress] Saving run outputs to {run_dir}")
     check_generation_cancelled()
+    reference_audio = latest_upload_path(reference_audio)
+    src_audio = latest_upload_path(src_audio)
 
     # GPU memory validation
     gpu_config = get_global_gpu_config()

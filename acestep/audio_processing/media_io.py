@@ -11,6 +11,7 @@ import numpy as np
 import soundfile as sf
 
 from acestep.audio_utils import save_audio
+from .media_duration import probe_media_duration_seconds
 
 
 AUDIO_EXTENSIONS = {
@@ -62,6 +63,18 @@ def read_media_audio(path: str | Path) -> tuple[np.ndarray, int]:
         except Exception:
             pass
     return _read_with_ffmpeg(source)
+
+
+def media_audio_duration_seconds(path: str | Path) -> float:
+    """Return media audio duration from metadata without decoding full video files."""
+
+    source = Path(path).expanduser().resolve()
+    if not is_video_file(source):
+        try:
+            return float(sf.info(str(source)).duration)
+        except Exception:
+            pass
+    return probe_media_duration_seconds(source)
 
 
 def save_processed_audio(

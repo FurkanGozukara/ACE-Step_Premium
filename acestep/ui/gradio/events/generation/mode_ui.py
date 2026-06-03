@@ -4,7 +4,9 @@ import gradio as gr
 from loguru import logger
 
 from acestep.constants import MODE_TO_TASK_TYPE
+from acestep.audio_processing.media_io import media_audio_duration_seconds
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.media_upload_values import latest_upload_path
 from .model_config import (
     fallback_generation_mode_for_path,
     is_generation_mode_supported_for_path,
@@ -273,11 +275,11 @@ def handle_extract_src_audio_change(src_audio_path, mode: str):
     safe_path guard, which rejects Gradio-uploaded files stored under the
     system temp directory (e.g. AppData\\Local\\Temp\\gradio\\... on Windows).
     """
+    src_audio_path = latest_upload_path(src_audio_path)
     if mode not in ("Extract", "Lego") or not src_audio_path:
         return gr.update()
     try:
-        import soundfile as sf
-        duration = float(sf.info(src_audio_path).duration)
+        duration = media_audio_duration_seconds(src_audio_path)
         if duration > 0:
             return gr.update(value=duration)
     except Exception as e:

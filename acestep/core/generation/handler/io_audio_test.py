@@ -28,6 +28,7 @@ class ReadAudioFileTests(unittest.TestCase):
         import soundfile as sf
 
         tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        tmp.close()
         try:
             data = np.random.randn(48000).astype(np.float32)
             sf.write(tmp.name, data, 48000)
@@ -49,6 +50,19 @@ class ReadAudioFileTests(unittest.TestCase):
         self.assertEqual(sr, 44100)
         self.assertEqual(audio_np.shape[0], 44100)
         mock_load.assert_called_once_with("test.aac")
+
+    def test_reads_video_via_media_audio_decoder(self):
+        """Video files should be decoded through the shared ffmpeg media reader."""
+        fake_audio = np.zeros((48000, 2), dtype=np.float32)
+        with patch(
+            "acestep.core.generation.handler.io_audio.read_media_audio",
+            return_value=(fake_audio, 48000),
+        ) as read_media_audio_mock:
+            audio_np, sr = _read_audio_file("clip.mp4")
+
+        self.assertEqual(sr, 48000)
+        self.assertEqual(audio_np.shape, (48000, 2))
+        read_media_audio_mock.assert_called_once_with("clip.mp4")
 
     def test_raises_when_both_fail(self):
         """Should raise RuntimeError when both soundfile and torchaudio fail."""

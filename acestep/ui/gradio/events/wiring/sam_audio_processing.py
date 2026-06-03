@@ -13,6 +13,7 @@ from acestep.sam_audio_segment.progress import ProgressCallback
 from acestep.sam_audio_segment.service import SamAudioService
 from acestep.sam_audio_segment.settings import settings_from_ui_values
 from acestep.sam_audio_segment.subprocess_runner import run_sam_audio_subprocess
+from acestep.ui.gradio.media_upload_values import latest_upload_path
 
 from .sam_audio_action_helpers import release_generation_if_requested, single_status
 from .sam_audio_processing_streams import (
@@ -25,13 +26,15 @@ from .sam_audio_status_log import SamAudioStatusLog
 def process_single_file(
     dit_handler: Any,
     llm_handler: Any,
-    input_path: str | None,
-    mask_video_path: str | None,
+    input_path: Any,
+    mask_video_path: Any,
     *settings_values: Any,
     progress: Any | None = None,
 ) -> Any:
     """Process one uploaded file with SAM-Audio."""
 
+    input_path = latest_upload_path(input_path)
+    mask_video_path = latest_upload_path(mask_video_path)
     if not input_path:
         yield None, None, gr.update(visible=False), gr.update(visible=False), (
             "Upload an audio or video file first."

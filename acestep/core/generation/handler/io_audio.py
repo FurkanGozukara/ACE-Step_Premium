@@ -9,6 +9,8 @@ import torch
 import soundfile as sf
 from loguru import logger
 
+from acestep.audio_processing.media_io import is_video_file, read_media_audio
+
 
 def _read_audio_file(audio_file: str) -> Tuple[np.ndarray, int]:
     """Read an audio file, with torchaudio fallback for formats unsupported by soundfile.
@@ -27,6 +29,9 @@ def _read_audio_file(audio_file: str) -> Tuple[np.ndarray, int]:
     Raises:
         RuntimeError: If both soundfile and torchaudio fail to read the file.
     """
+    if is_video_file(audio_file):
+        return read_media_audio(audio_file)
+
     # Fast path: try soundfile directly (no torchcodec/FFmpeg overhead)
     sf_err = None
     try:

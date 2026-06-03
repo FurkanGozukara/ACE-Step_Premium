@@ -18,6 +18,7 @@ from acestep.ui.gradio.events.results.output_paths import (
     use_generation_run_name,
     use_results_dir,
 )
+from acestep.ui.gradio.media_upload_values import latest_upload_path
 
 __all__ = [
     "DEFAULT_RESULTS_DIR",
@@ -72,7 +73,7 @@ def _copy_run_asset(
     target_stem: str,
 ) -> str | None:
     """Copy an uploaded source asset into the run folder when available."""
-    raw_source = str(source_path or "").strip()
+    raw_source = latest_upload_path(source_path) or ""
     if not raw_source:
         return None
 
@@ -120,8 +121,8 @@ def persist_generation_inputs(
         "lyrics_path": lyrics_path,
         "reference_audio_path": reference_audio_path,
         "source_audio_path": source_audio_path,
-        "original_reference_audio": str(reference_audio or "").strip() or None,
-        "original_source_audio": str(src_audio or "").strip() or None,
+        "original_reference_audio": latest_upload_path(reference_audio),
+        "original_source_audio": latest_upload_path(src_audio),
     }
     request_path = write_json(
         run_path / "generation_request.json",

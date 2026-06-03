@@ -16,6 +16,7 @@ from acestep.audio_processing.presets import PRESET_VALUES, STAGE_KEYS
 from acestep.audio_processing.runs import create_audio_processing_run_dir, safe_media_stem
 from acestep.audio_processing.settings import UI_SETTING_KEYS, settings_from_ui_values
 from acestep.ui.gradio.events.local_path_dialogs import select_folder_path
+from acestep.ui.gradio.media_upload_values import latest_upload_path
 
 
 PREVIEW_SECONDS = 60.0
@@ -44,6 +45,7 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
             audio_page["ap_upload_video_preview"],
             audio_page["ap_single_status"],
         ],
+        queue=False,
     )
     audio_page["ap_preview_btn"].click(
         fn=_preview_single_file,
@@ -99,9 +101,10 @@ def _apply_builtin_preset(preset_name: str | None) -> tuple[Any, ...]:
     return tuple(gr.update(value=values[key]) for key in STAGE_KEYS)
 
 
-def _preview_upload(input_path: str | None) -> tuple[Any, Any, str]:
+def _preview_upload(input_value: Any) -> tuple[Any, Any, str]:
     """Return accurate audio/video preview updates for an uploaded file."""
 
+    input_path = latest_upload_path(input_value)
     if not input_path:
         return (
             gr.update(value=None, visible=False),
@@ -121,9 +124,10 @@ def _preview_upload(input_path: str | None) -> tuple[Any, Any, str]:
     )
 
 
-def _preview_single_file(input_path: str | None, *settings_values: Any) -> tuple[Any, ...]:
+def _preview_single_file(input_value: Any, *settings_values: Any) -> tuple[Any, ...]:
     """Process a preview slice for one uploaded media file."""
 
+    input_path = latest_upload_path(input_value)
     if not input_path:
         return None, None, None, gr.update(visible=False), "Upload an audio or video file first."
     settings = settings_from_ui_values(settings_values)
@@ -160,9 +164,10 @@ def _preview_single_file(input_path: str | None, *settings_values: Any) -> tuple
         return None, None, None, gr.update(visible=False), f"Preview failed: {exc}"
 
 
-def _process_single_file(input_path: str | None, *settings_values: Any) -> tuple[Any, ...]:
+def _process_single_file(input_value: Any, *settings_values: Any) -> tuple[Any, ...]:
     """Process one complete uploaded media file."""
 
+    input_path = latest_upload_path(input_value)
     if not input_path:
         return None, gr.update(visible=False), None, gr.update(visible=False), (
             "Upload an audio or video file first."

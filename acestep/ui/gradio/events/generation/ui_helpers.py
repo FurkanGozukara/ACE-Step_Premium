@@ -15,6 +15,7 @@ from acestep.ui.gradio.events.dcw_defaults import (
     get_dcw_defaults_for_think,
 )
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.media_upload_values import latest_upload_path
 
 from .validation import _has_reference_audio
 
@@ -144,7 +145,7 @@ def update_audio_cover_strength_visibility(task_type_value, init_llm_checked, re
 
 def convert_src_audio_to_codes_wrapper(dit_handler, src_audio):
     """Wrapper for converting src audio to codes."""
-    codes_string = dit_handler.convert_src_audio_to_codes(src_audio)
+    codes_string = dit_handler.convert_src_audio_to_codes(latest_upload_path(src_audio))
     return codes_string
 
 
@@ -184,7 +185,10 @@ def reset_format_caption_flag():
 
 def update_audio_uploads_accordion(reference_audio, src_audio):
     """Update Audio Uploads accordion open state based on whether audio files are present."""
-    has_audio = (reference_audio is not None) or (src_audio is not None)
+    has_audio = (
+        latest_upload_path(reference_audio) is not None
+        or latest_upload_path(src_audio) is not None
+    )
     return gr.Accordion(open=has_audio)
 
 

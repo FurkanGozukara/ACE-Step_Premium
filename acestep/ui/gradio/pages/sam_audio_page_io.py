@@ -33,17 +33,29 @@ def add_single_file_controls(controls: dict[str, Any]) -> None:
             with gr.Column(scale=1):
                 controls["sam_single_file"] = gr.File(
                     label="Upload Audio or Video",
-                    file_count="single",
+                    file_count="multiple",
                     type="filepath",
                     file_types=MEDIA_FILE_TYPES,
+                    elem_id="acestep-sam-single-upload",
+                    key="sam_single_upload",
+                    preserved_by_key=[],
                 )
             with gr.Column(scale=1):
                 controls["sam_visual_mask_file"] = gr.File(
                     label="Visual Mask Video",
-                    file_count="single",
+                    file_count="multiple",
                     type="filepath",
                     file_types=MASK_VIDEO_FILE_TYPES,
                     interactive=False,
+                    elem_id="acestep-sam-visual-mask-upload",
+                    key="sam_visual_mask_upload",
+                    preserved_by_key=[],
+                )
+                controls["sam_visual_mask_video_preview"] = gr.Video(
+                    label="Visual Mask Video Preview",
+                    interactive=False,
+                    visible=False,
+                    elem_classes=["ace-video-preview"],
                 )
         with gr.Row():
             controls["sam_upload_audio_preview"] = gr.Audio(
@@ -56,6 +68,7 @@ def add_single_file_controls(controls: dict[str, Any]) -> None:
                 label="Uploaded Video",
                 interactive=False,
                 visible=False,
+                elem_classes=["ace-video-preview"],
             )
         with gr.Row(equal_height=False, elem_classes=["ace-generate-action-row"]):
             controls["sam_process_btn"] = gr.Button(
@@ -93,6 +106,7 @@ def add_single_file_controls(controls: dict[str, Any]) -> None:
             label="Extracted Video",
             interactive=False,
             visible=False,
+            elem_classes=["ace-video-preview"],
         )
         controls["sam_single_files"] = gr.File(
             label="Saved Files",

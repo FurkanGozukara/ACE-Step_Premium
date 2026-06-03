@@ -123,6 +123,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                 label="Latest Song Video",
                 interactive=False,
                 visible=False,
+                elem_classes=["ace-video-preview"],
             )
             simple_generated_files = gr.File(
                 label="Generated Files (All Songs)",

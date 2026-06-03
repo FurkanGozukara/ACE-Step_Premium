@@ -63,6 +63,35 @@ class OutputManagerTests(unittest.TestCase):
                 str(copied_source_path).replace("\\", "/"),
             )
 
+    def test_persist_generation_inputs_uses_newest_stale_upload_list(self):
+        """Persisted generation assets should tolerate stale Gradio upload lists."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            run_dir = root / "0001"
+            run_dir.mkdir()
+
+            old_reference = root / "old_reference.wav"
+            old_reference.write_bytes(b"old")
+            new_reference = root / "new_reference.wav"
+            new_reference.write_bytes(b"new")
+
+            assets = persist_generation_inputs(
+                run_dir=run_dir,
+                caption="caption",
+                lyrics="lyrics",
+                reference_audio=[str(old_reference), str(new_reference)],
+                src_audio=None,
+                request_payload={},
+            )
+
+            copied_reference_path = Path(assets["reference_audio_path"])
+            self.assertEqual(copied_reference_path.read_bytes(), b"new")
+            self.assertEqual(
+                assets["original_reference_audio"],
+                str(new_reference),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

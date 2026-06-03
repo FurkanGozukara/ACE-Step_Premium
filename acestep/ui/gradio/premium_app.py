@@ -67,7 +67,7 @@ from acestep.ui.gradio.premium_features import (
 )
 
 
-APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v4.0"
+APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v4.1"
 APP_RELEASE_URL = "https://www.patreon.com/posts/157675060"
 APP_HEADER_MARKDOWN = f"# {APP_BROWSER_TITLE} : [{APP_RELEASE_URL}]({APP_RELEASE_URL})"
 _FAVICON_PATH = Path(__file__).resolve().parent / "assets" / "ace_step_premium_favicon.svg"
@@ -459,12 +459,23 @@ _PREMIUM_CSS = """
     opacity: 0.52 !important;
     pointer-events: none !important;
 }
-.ace-status-scroll-10,
-.ace-status-markdown {
-    max-height: calc(1.45em * 10 + 1rem) !important;
-    overflow-y: auto !important;
-}
-.gradio-container button[data-ace-command-button="true"] {
+  .ace-status-scroll-10,
+  .ace-status-markdown {
+      max-height: calc(1.45em * 10 + 1rem) !important;
+      overflow-y: auto !important;
+  }
+  .ace-video-preview,
+  .ace-video-preview .wrap,
+  .ace-video-preview .wrap > video,
+  .ace-video-preview video {
+      max-height: 400px !important;
+  }
+  .ace-video-preview video {
+      width: 100% !important;
+      height: auto !important;
+      object-fit: contain !important;
+  }
+  .gradio-container button[data-ace-command-button="true"] {
     background: var(--ace-btn-bg) !important;
     box-shadow: var(--ace-btn-shadow) !important;
     color: #ffffff !important;
@@ -793,10 +804,10 @@ def create_gradio_interface(
                     include_results=False,
                 )
 
-            with gr.Tab("Audio Processing", render_children=False):
+            with gr.Tab("Audio Processing", render_children=True):
                 audio_processing_page = create_audio_processing_page()
 
-            with gr.Tab("SAM Audio Segment", render_children=False):
+            with gr.Tab("SAM Audio Segment", render_children=True):
                 sam_audio_page = create_sam_audio_page()
 
             with gr.Tab("Library", render_children=True):

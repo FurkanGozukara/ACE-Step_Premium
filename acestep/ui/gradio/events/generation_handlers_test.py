@@ -94,6 +94,24 @@ class GenerationHandlersTests(unittest.TestCase):
         understand_music_mock.assert_called_once()
         warning_mock.assert_not_called()
 
+    def test_convert_src_audio_to_codes_wrapper_uses_newest_stale_upload_list(self):
+        """Audio-code conversion should tolerate Gradio stale single-file lists."""
+
+        from acestep.ui.gradio.events.generation.ui_helpers import (
+            convert_src_audio_to_codes_wrapper,
+        )
+
+        dit_handler = MagicMock()
+        dit_handler.convert_src_audio_to_codes.return_value = "codes"
+
+        result = convert_src_audio_to_codes_wrapper(
+            dit_handler,
+            ["old.wav", "new.mp4"],
+        )
+
+        self.assertEqual(result, "codes")
+        dit_handler.convert_src_audio_to_codes.assert_called_once_with("new.mp4")
+
     @patch("acestep.ui.gradio.events.generation.service_init.get_global_gpu_config")
     @patch("acestep.ui.gradio.events.generation.service_init.get_model_type_ui_settings")
     def test_init_service_wrapper_preserves_batch_size(
@@ -230,6 +248,20 @@ class GenerationHandlersTests(unittest.TestCase):
         result = generation_handlers.validate_uploaded_audio_file("ok.wav", "reference")
         self.assertEqual(result, {"__type__": "update"})
         info_mock.assert_called_once_with("ok.wav")
+        warning_mock.assert_not_called()
+
+    @patch("acestep.ui.gradio.events.generation.validation.gr.Warning")
+    @patch("acestep.ui.gradio.events.generation.validation.soundfile.info")
+    def test_validate_uploaded_audio_file_keeps_supported_video_file(
+        self,
+        info_mock,
+        warning_mock,
+    ):
+        """Supported video uploads should be preserved for backend audio extraction."""
+        info_mock.side_effect = RuntimeError("video decoded later")
+        result = generation_handlers.validate_uploaded_audio_file("clip.mp4", "source")
+        self.assertEqual(result, {"__type__": "update"})
+        info_mock.assert_called_once_with("clip.mp4")
         warning_mock.assert_not_called()
 
     @patch("acestep.ui.gradio.events.generation.validation.gr.Warning")

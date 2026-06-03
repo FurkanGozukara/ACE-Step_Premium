@@ -8,6 +8,7 @@ import gradio as gr
 
 from acestep.inference import understand_music
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.media_upload_values import latest_upload_path
 
 from .dit_auto_init import ensure_dit_ready
 from .llm_auto_init import ensure_llm_ready
@@ -40,6 +41,7 @@ def analyze_src_audio(
     """
     error_tuple = ("", "", "", "", None, None, "", "", "", False)
 
+    src_audio = latest_upload_path(src_audio)
     if not src_audio:
         gr.Warning(t("messages.no_source_audio"))
         return error_tuple

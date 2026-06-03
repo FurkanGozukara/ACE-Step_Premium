@@ -14,6 +14,7 @@ from acestep.sam_audio_segment.cancel import request_sam_audio_cancel
 from acestep.sam_audio_segment.settings import SamAudioSettings
 from acestep.sam_audio_segment.vram_presets import get_sam_vram_preset
 from acestep.ui.gradio.events.training.runtime_cleanup import prepare_parent_runtime_for_training
+from acestep.ui.gradio.media_upload_values import latest_upload_path
 
 SAM_CANCEL_CONFIRM_JS = (
     "() => [confirm('Are you sure you want to cancel the current SAM-Audio run?')]"
@@ -30,9 +31,10 @@ SAM_IN_PROCESS_STATUS = (
 )
 
 
-def preview_upload(input_path: str | None) -> tuple[Any, Any, str]:
+def preview_upload(input_value: Any) -> tuple[Any, Any, str]:
     """Return accurate audio/video preview updates for an uploaded file."""
 
+    input_path = latest_upload_path(input_value)
     if not input_path:
         return (
             gr.update(value=None, visible=False),

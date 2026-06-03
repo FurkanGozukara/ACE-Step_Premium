@@ -10,6 +10,7 @@ import gradio as gr
 
 from .. import generation_handlers as gen_h
 from .context import GenerationWiringContext
+from .generation_upload_handlers import handle_src_audio_upload
 from acestep.constants import MODE_TO_TASK_TYPE
 
 
@@ -124,21 +125,18 @@ def register_generation_mode_handlers(
         ],
     )
 
-    # Validate source audio eagerly so users get immediate feedback on invalid files.
     generation_section["src_audio"].change(
-        fn=lambda src_audio: gen_h.validate_uploaded_audio_file(src_audio, "source"),
-        inputs=[generation_section["src_audio"]],
-        outputs=[generation_section["src_audio"]],
-    )
-
-    # ========== Extract/Lego Mode: Auto-fill audio_duration from src_audio ==========
-    generation_section["src_audio"].change(
-        fn=gen_h.handle_extract_src_audio_change,
+        fn=handle_src_audio_upload,
         inputs=[
             generation_section["src_audio"],
             generation_section["generation_mode"],
         ],
-        outputs=[generation_section["audio_duration"]],
+        outputs=[
+            generation_section["src_audio_preview"],
+            generation_section["src_video_preview"],
+            generation_section["audio_duration"],
+        ],
+        queue=False,
     )
 
     # ========== Simple Mode Instrumental Checkbox ==========

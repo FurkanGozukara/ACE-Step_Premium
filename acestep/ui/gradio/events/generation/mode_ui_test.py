@@ -428,10 +428,35 @@ class ExtractSrcAudioDurationTests(unittest.TestCase):
         # gr.update(value=...) returns a plain dict; assert directly.
         self.assertEqual(result.get("value"), 42.7)
 
+    def test_reads_duration_from_video_media_helper(self):
+        """Video source uploads should use decoded media duration for Extract/Lego."""
+        from unittest.mock import patch
+        with patch(
+            "acestep.ui.gradio.events.generation.mode_ui.media_audio_duration_seconds",
+            return_value=19.5,
+        ) as duration_mock:
+            result = handle_extract_src_audio_change("clip.mp4", "Extract")
+            duration_mock.assert_called_once_with("clip.mp4")
+        self.assertEqual(result.get("value"), 19.5)
+
+    def test_reads_duration_from_latest_stale_upload_list(self):
+        """Duration extraction should tolerate Gradio stale single-file lists."""
+        from unittest.mock import patch
+        with patch(
+            "acestep.ui.gradio.events.generation.mode_ui.media_audio_duration_seconds",
+            return_value=21.0,
+        ) as duration_mock:
+            result = handle_extract_src_audio_change(["old.wav", "clip.mp4"], "Extract")
+            duration_mock.assert_called_once_with("clip.mp4")
+        self.assertEqual(result.get("value"), 21.0)
+
     def test_swallows_invalid_audio_errors(self):
         """A bad/unreadable file should be logged-and-skipped, not raised."""
         from unittest.mock import patch
-        with patch("soundfile.info", side_effect=RuntimeError("bad file")):
+        with patch(
+            "acestep.ui.gradio.events.generation.mode_ui.media_audio_duration_seconds",
+            side_effect=RuntimeError("bad file"),
+        ):
             result = handle_extract_src_audio_change("/tmp/bogus.wav", "Lego")
         self.assertNotIn("value", result)
 

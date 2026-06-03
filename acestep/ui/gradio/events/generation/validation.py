@@ -14,10 +14,12 @@ import soundfile
 
 from acestep.gpu_config import get_global_gpu_config
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.media_upload_values import latest_upload_path
 
 
 _SUPPORTED_AUDIO_SUFFIXES = {
     ".aac",
+    ".aif",
     ".aiff",
     ".flac",
     ".m4a",
@@ -26,6 +28,8 @@ _SUPPORTED_AUDIO_SUFFIXES = {
     ".opus",
     ".wav",
 }
+_SUPPORTED_VIDEO_SUFFIXES = {".avi", ".mkv", ".mov", ".mp4", ".webm"}
+_SUPPORTED_MEDIA_SUFFIXES = _SUPPORTED_AUDIO_SUFFIXES | _SUPPORTED_VIDEO_SUFFIXES
 
 
 def clamp_duration_to_gpu_limit(duration_value: Optional[float], llm_handler=None) -> Optional[float]:
@@ -94,13 +98,7 @@ def parse_and_validate_timesteps(
 
 def _has_reference_audio(reference_audio) -> bool:
     """True if *reference_audio* has a usable value."""
-    if reference_audio is None:
-        return False
-    if isinstance(reference_audio, str):
-        return bool(reference_audio.strip())
-    if isinstance(reference_audio, (list, tuple)) and reference_audio:
-        return bool(reference_audio[0])
-    return False
+    return latest_upload_path(reference_audio) is not None
 
 
 def _extract_audio_path(audio_value: Any) -> Optional[str]:
@@ -109,22 +107,14 @@ def _extract_audio_path(audio_value: Any) -> Optional[str]:
     Returns:
         Optional[str]: normalized file path or ``None``.
     """
-    if audio_value is None:
-        return None
-    if isinstance(audio_value, str):
-        return audio_value.strip() or None
-    if isinstance(audio_value, (list, tuple)) and audio_value:
-        first = audio_value[0]
-        if isinstance(first, str):
-            return first.strip() or None
-    return None
+    return latest_upload_path(audio_value)
 
 
-def _has_supported_audio_suffix(audio_path: str) -> bool:
-    """Return whether the uploaded path has a recognized audio suffix."""
+def _has_supported_media_suffix(audio_path: str) -> bool:
+    """Return whether the uploaded path has a recognized audio or video suffix."""
 
     suffix = Path(audio_path).suffix.lower()
-    return not suffix or suffix in _SUPPORTED_AUDIO_SUFFIXES
+    return not suffix or suffix in _SUPPORTED_MEDIA_SUFFIXES
 
 
 def validate_uploaded_audio_file(audio_value: Any, audio_role: str = "reference") -> Any:
@@ -141,7 +131,7 @@ def validate_uploaded_audio_file(audio_value: Any, audio_role: str = "reference"
     if not audio_path:
         return gr.skip()
 
-    if not _has_supported_audio_suffix(audio_path):
+    if not _has_supported_media_suffix(audio_path):
         role = t(f"generation.{audio_role}_audio")
         gr.Warning(t("messages.audio_format_invalid", role=role))
         return gr.update(value=None)

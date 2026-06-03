@@ -6,6 +6,7 @@ import gradio as gr
 
 from acestep.ui.gradio.help_content import create_help_button
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.media_file_types import MEDIA_FILE_TYPES
 from acestep.ui.gradio.premium_features import (
     DEFAULT_PRESET_CAPTION,
     DEFAULT_PRESET_LYRICS,
@@ -75,13 +76,30 @@ def build_custom_mode_controls() -> dict[str, Any]:
         create_help_button("generation_custom")
         with gr.Row(equal_height=True):
             with gr.Column(scale=2, min_width=200):
-                reference_audio = gr.Audio(
+                reference_audio = gr.File(
                     label=t("generation.reference_audio"),
+                    file_count="multiple",
                     type="filepath",
+                    file_types=MEDIA_FILE_TYPES,
                     show_label=True,
+                    elem_id="acestep-advanced-reference-audio-upload",
                     elem_classes=["has-info-container"],
+                    key="advanced_reference_audio_upload",
+                    preserved_by_key=[],
                 )
                 gr.Markdown(t("generation.reference_audio_info"))
+                reference_audio_preview = gr.Audio(
+                    label="Reference Audio Preview",
+                    type="filepath",
+                    interactive=False,
+                    visible=False,
+                )
+                reference_video_preview = gr.Video(
+                    label="Reference Video Preview",
+                    interactive=False,
+                    visible=False,
+                    elem_classes=["ace-video-preview"],
+                )
             with gr.Column(scale=8):
                 with gr.Row(equal_height=True):
                     with gr.Column(scale=1):
@@ -136,6 +154,8 @@ def build_custom_mode_controls() -> dict[str, Any]:
     return {
         "custom_mode_group": custom_mode_group,
         "reference_audio": reference_audio,
+        "reference_audio_preview": reference_audio_preview,
+        "reference_video_preview": reference_video_preview,
         "captions": captions,
         "format_caption_btn": format_caption_btn,
         "lyrics": lyrics,

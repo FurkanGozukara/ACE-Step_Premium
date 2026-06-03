@@ -18,6 +18,7 @@ from .sam_audio_action_helpers import (
     request_sam_audio_cancel_from_ui,
 )
 from .sam_audio_compatibility import apply_sam_audio_compatibility
+from .media_upload_preview import preview_video_upload
 from .sam_audio_processing import process_batch_folder, process_single_file
 
 
@@ -82,6 +83,13 @@ def register_sam_audio_handlers(
             sam_page["sam_upload_video_preview"],
             sam_page["sam_single_status"],
         ],
+        queue=False,
+    )
+    sam_page["sam_visual_mask_file"].change(
+        fn=preview_video_upload,
+        inputs=[sam_page["sam_visual_mask_file"]],
+        outputs=[sam_page["sam_visual_mask_video_preview"]],
+        queue=False,
     )
     preset_event = sam_page["sam_vram_preset"].change(
         fn=apply_vram_preset,

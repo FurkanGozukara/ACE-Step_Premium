@@ -7,6 +7,7 @@ import gradio as gr
 from acestep.constants import TRACK_NAMES
 from acestep.ui.gradio.help_content import create_help_button
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.media_file_types import MEDIA_FILE_TYPES
 
 
 def build_source_audio_controls() -> dict[str, Any]:
@@ -21,12 +22,29 @@ def build_source_audio_controls() -> dict[str, Any]:
 
     with gr.Row(equal_height=True, visible=False) as src_audio_row:
         with gr.Column(scale=10):
-            src_audio = gr.Audio(
+            src_audio = gr.File(
                 label=t("generation.source_audio"),
+                file_count="multiple",
                 type="filepath",
+                file_types=MEDIA_FILE_TYPES,
+                elem_id="acestep-advanced-source-audio-upload",
                 elem_classes=["has-info-container"],
+                key="advanced_source_audio_upload",
+                preserved_by_key=[],
             )
             gr.Markdown(t("generation.source_audio_info"))
+            src_audio_preview = gr.Audio(
+                label="Source Audio Preview",
+                type="filepath",
+                interactive=False,
+                visible=False,
+            )
+            src_video_preview = gr.Video(
+                label="Source Video Preview",
+                interactive=False,
+                visible=False,
+                elem_classes=["ace-video-preview"],
+            )
         with gr.Column(scale=1, min_width=80):
             analyze_btn = gr.Button(
                 t("generation.analyze_btn"),
@@ -51,6 +69,8 @@ def build_source_audio_controls() -> dict[str, Any]:
     return {
         "src_audio_row": src_audio_row,
         "src_audio": src_audio,
+        "src_audio_preview": src_audio_preview,
+        "src_video_preview": src_video_preview,
         "track_name": track_name,
         "analyze_btn": analyze_btn,
         "extract_help_group": extract_help_group,
@@ -100,12 +120,29 @@ def build_lm_code_hint_controls() -> dict[str, Any]:
     ) as text2music_audio_codes_group:
         with gr.Row(equal_height=True):
             with gr.Column(scale=3):
-                lm_codes_audio_upload = gr.Audio(
+                lm_codes_audio_upload = gr.File(
                     label=t("generation.lm_codes_audio_upload_label"),
+                    file_count="multiple",
                     type="filepath",
+                    file_types=MEDIA_FILE_TYPES,
+                    elem_id="acestep-advanced-lm-codes-audio-upload",
                     elem_classes=["has-info-container"],
+                    key="advanced_lm_codes_audio_upload",
+                    preserved_by_key=[],
                 )
                 gr.Markdown(t("generation.lm_codes_audio_upload_info"))
+                lm_codes_audio_preview = gr.Audio(
+                    label="Audio Code Source Preview",
+                    type="filepath",
+                    interactive=False,
+                    visible=False,
+                )
+                lm_codes_video_preview = gr.Video(
+                    label="Audio Code Video Preview",
+                    interactive=False,
+                    visible=False,
+                    elem_classes=["ace-video-preview"],
+                )
             text2music_audio_code_string = gr.Textbox(
                 label=t("generation.lm_codes_label"),
                 placeholder=t("generation.lm_codes_placeholder"),
@@ -133,6 +170,8 @@ def build_lm_code_hint_controls() -> dict[str, Any]:
     return {
         "text2music_audio_codes_group": text2music_audio_codes_group,
         "lm_codes_audio_upload": lm_codes_audio_upload,
+        "lm_codes_audio_preview": lm_codes_audio_preview,
+        "lm_codes_video_preview": lm_codes_video_preview,
         "text2music_audio_code_string": text2music_audio_code_string,
         "convert_src_to_codes_btn": convert_src_to_codes_btn,
         "transcribe_btn": transcribe_btn,
@@ -156,6 +195,8 @@ def build_source_track_and_code_controls() -> dict[str, Any]:
     return {
         "src_audio_row": source_audio_controls["src_audio_row"],
         "src_audio": source_audio_controls["src_audio"],
+        "src_audio_preview": source_audio_controls["src_audio_preview"],
+        "src_video_preview": source_audio_controls["src_video_preview"],
         "track_name": source_audio_controls["track_name"],
         "analyze_btn": source_audio_controls["analyze_btn"],
         "extract_help_group": source_audio_controls["extract_help_group"],
@@ -163,6 +204,8 @@ def build_source_track_and_code_controls() -> dict[str, Any]:
         "complete_track_classes": track_selection_controls["complete_track_classes"],
         "text2music_audio_codes_group": lm_code_hint_controls["text2music_audio_codes_group"],
         "lm_codes_audio_upload": lm_code_hint_controls["lm_codes_audio_upload"],
+        "lm_codes_audio_preview": lm_code_hint_controls["lm_codes_audio_preview"],
+        "lm_codes_video_preview": lm_code_hint_controls["lm_codes_video_preview"],
         "text2music_audio_code_string": lm_code_hint_controls["text2music_audio_code_string"],
         "convert_src_to_codes_btn": lm_code_hint_controls["convert_src_to_codes_btn"],
         "transcribe_btn": lm_code_hint_controls["transcribe_btn"],
