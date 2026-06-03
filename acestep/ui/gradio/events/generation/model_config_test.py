@@ -142,16 +142,22 @@ class GetUiControlConfigTests(unittest.TestCase):
         self.assertEqual(cfg["inference_steps_value"], 8)
 
     def test_xl_sft_path_returns_quality_steps(self):
-        """The premium default XL-SFT model should use SFT defaults and advanced modes."""
+        """The premium default XL-SFT model should use SFT defaults without Extract."""
         cfg = get_ui_control_config_for_path("acestep-v15-xl-sft")
         self.assertEqual(cfg["inference_steps_value"], 50)
         self.assertEqual(cfg["shift_value"], 3.0)
         self.assertFalse(cfg["use_adg_value"])
-        self.assertIn("Extract", get_supported_generation_modes_for_path("acestep-v15-xl-sft"))
-        self.assertTrue(is_generation_mode_supported_for_path("Extract", "acestep-v15-xl-sft"))
+        self.assertNotIn(
+            "Extract",
+            get_supported_generation_modes_for_path("acestep-v15-xl-sft"),
+        )
+        self.assertFalse(is_generation_mode_supported_for_path("Extract", "acestep-v15-xl-sft"))
         self.assertTrue(is_generation_mode_supported_for_path("Lego", "acestep-v15-xl-sft"))
         self.assertTrue(is_generation_mode_supported_for_path("Complete", "acestep-v15-xl-sft"))
-        self.assertIn("Extract", cfg["generation_mode_choices"])
+        self.assertIn(
+            ("Extract - unavailable (Base only)", "Extract"),
+            cfg["generation_mode_choices"],
+        )
         self.assertIn("Lego", cfg["generation_mode_choices"])
         self.assertIn("Complete", cfg["generation_mode_choices"])
 
@@ -169,7 +175,7 @@ class GetUiControlConfigTests(unittest.TestCase):
         self.assertEqual(cfg["inference_steps_value"], 8)
         self.assertFalse(is_generation_mode_supported_for_path("Extract", "acestep-v15-xl-turbo"))
         self.assertIn(
-            ("Extract - unavailable (Base/SFT only)", "Extract"),
+            ("Extract - unavailable (Base only)", "Extract"),
             cfg["generation_mode_choices"],
         )
 

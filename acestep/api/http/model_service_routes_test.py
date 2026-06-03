@@ -105,12 +105,12 @@ class ModelServiceRoutesTests(unittest.TestCase):
         self.assertEqual("acestep-v15-base", inventory["default_model"])
         self.assertTrue(inventory["llm_initialized"])
 
-    def test_read_model_supported_tasks_allows_sft_advanced_tasks(self):
-        """SFT inventory should advertise verified advanced task support."""
+    def test_read_model_supported_tasks_keeps_extract_base_only_for_sft(self):
+        """SFT inventory should advertise Lego/Complete but not Base-only Extract."""
 
         tasks = _read_model_supported_tasks("/tmp/non-existent", "acestep-v15-xl-sft")
 
-        self.assertIn("extract", tasks)
+        self.assertNotIn("extract", tasks)
         self.assertIn("lego", tasks)
         self.assertIn("complete", tasks)
 

@@ -57,6 +57,35 @@ class MediaUploadQueueContractTests(unittest.TestCase):
                 self.assertTrue(_all_calls_bypass_queue(calls), component_key)
                 self.assertFalse(_has_self_output(calls, component_key), component_key)
 
+    def test_generation_uploads_have_direct_preview_handlers(self) -> None:
+        """Generation uploads should preview before slower follow-up work runs."""
+
+        expected_previews = {
+            (
+                "acestep/ui/gradio/events/wiring/generation_mode_wiring.py",
+                "src_audio",
+            ): ["src_audio_preview", "src_video_preview"],
+            (
+                "acestep/ui/gradio/events/wiring/generation_metadata_wiring.py",
+                "reference_audio",
+            ): ["reference_audio_preview", "reference_video_preview"],
+            (
+                "acestep/ui/gradio/events/wiring/generation_metadata_wiring.py",
+                "lm_codes_audio_upload",
+            ): ["lm_codes_audio_preview", "lm_codes_video_preview"],
+        }
+
+        for (relative_path, component_key), outputs in expected_previews.items():
+            with self.subTest(component_key=component_key):
+                calls = _change_calls_for_component(relative_path, component_key)
+                self.assertTrue(
+                    any(
+                        _keyword_function_name(call, "fn") == "preview_audio_purpose_upload"
+                        and _component_keys_for_keyword(call, "outputs") == outputs
+                        for call in calls
+                    )
+                )
+
     def test_media_upload_files_have_isolated_gradio_state(self) -> None:
         """Media upload widgets should not preserve stale Gradio file values."""
 
@@ -244,6 +273,37 @@ def _has_self_output(calls: list[ast.Call], component_key: str) -> bool:
             if _node_contains_component_key(keyword.value, component_key):
                 return True
     return False
+
+
+def _keyword_function_name(call: ast.Call, keyword_name: str) -> str | None:
+    """Return a simple function name assigned to a call keyword."""
+
+    for keyword in call.keywords:
+        if keyword.arg != keyword_name:
+            continue
+        if isinstance(keyword.value, ast.Name):
+            return keyword.value.id
+        if isinstance(keyword.value, ast.Attribute):
+            return keyword.value.attr
+    return None
+
+
+def _component_keys_for_keyword(call: ast.Call, keyword_name: str) -> list[str]:
+    """Return component-map keys referenced by a list-valued call keyword."""
+
+    for keyword in call.keywords:
+        if keyword.arg != keyword_name:
+            continue
+        if not isinstance(keyword.value, ast.List):
+            return []
+        return [
+            item.slice.value
+            for item in keyword.value.elts
+            if isinstance(item, ast.Subscript)
+            and isinstance(item.slice, ast.Constant)
+            and isinstance(item.slice.value, str)
+        ]
+    return []
 
 
 def _node_contains_component_key(node: ast.AST, component_key: str) -> bool:

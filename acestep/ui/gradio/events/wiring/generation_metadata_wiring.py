@@ -9,7 +9,6 @@ from typing import Any, Sequence
 from .. import generation_handlers as gen_h
 from .context import GenerationWiringContext
 from .generation_text_format_wiring import register_generation_text_format_handlers
-from .generation_upload_handlers import handle_reference_media_upload
 from .media_upload_preview import preview_audio_purpose_upload
 
 
@@ -113,7 +112,15 @@ def register_generation_metadata_handlers(
         )
 
     generation_section["reference_audio"].change(
-        fn=lambda *args: handle_reference_media_upload(dit_handler, *args),
+        fn=preview_audio_purpose_upload,
+        inputs=[generation_section["reference_audio"]],
+        outputs=[
+            generation_section["reference_audio_preview"],
+            generation_section["reference_video_preview"],
+        ],
+        queue=False,
+    ).then(
+        fn=lambda *args: gen_h.update_instruction_ui(dit_handler, *args),
         inputs=[
             generation_section["task_type"],
             generation_section["track_name"],
@@ -121,12 +128,9 @@ def register_generation_metadata_handlers(
             generation_section["init_llm_checkbox"],
             generation_section["reference_audio"],
         ],
-        outputs=[
-            generation_section["instruction_display_gen"],
-            generation_section["reference_audio_preview"],
-            generation_section["reference_video_preview"],
-        ],
+        outputs=[generation_section["instruction_display_gen"]],
         queue=False,
+        show_progress="hidden",
     )
 
     # ========== Sample/Transcribe Handlers ==========

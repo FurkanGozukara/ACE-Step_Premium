@@ -269,11 +269,10 @@ class ModeUiStateClearingTests(unittest.TestCase):
         for idx in (_IDX_BPM, _IDX_KEY, _IDX_TIMESIG, _IDX_VOCAL_LANG, _IDX_DURATION):
             self.assertFalse(result[idx].get("interactive"))
 
-    def test_sft_model_allows_advanced_modes(self):
-        """SFT models should allow advanced modes after real pipeline verification."""
+    def test_sft_model_allows_non_extract_advanced_modes(self):
+        """SFT models should allow Lego and Complete, while Extract stays Base-only."""
 
         cases = {
-            "Extract": "extract",
             "Lego": "lego",
             "Complete": "complete",
         }
@@ -286,6 +285,20 @@ class ModeUiStateClearingTests(unittest.TestCase):
                 )
                 self.assertEqual(result[_IDX_TASK_TYPE], task_type)
                 self.assertEqual(result[_IDX_PREVIOUS_GENERATION_MODE], mode)
+
+    def test_sft_model_reverts_unsupported_extract_mode(self):
+        """Extract should be visible but unavailable for SFT models."""
+
+        result = compute_mode_ui_updates(
+            "Extract",
+            previous_mode="Custom",
+            config_path="ACEStep_1_5_XL_SFT_BF16",
+        )
+
+        self.assertEqual(result[_IDX_TASK_TYPE], "text2music")
+        self.assertEqual(result[_IDX_GENERATION_MODE].get("value"), "Custom")
+        self.assertIn("not available", result[_IDX_GENERATION_MODE].get("info"))
+        self.assertEqual(result[_IDX_PREVIOUS_GENERATION_MODE], "Custom")
 
     def test_extract_mode_applies_visible_controls(self):
         """Extract mode should show stem controls and hide Custom-only panels."""

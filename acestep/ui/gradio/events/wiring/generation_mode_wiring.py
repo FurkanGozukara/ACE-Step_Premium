@@ -11,6 +11,7 @@ import gradio as gr
 from .. import generation_handlers as gen_h
 from .context import GenerationWiringContext
 from .generation_upload_handlers import handle_src_audio_upload
+from .media_upload_preview import preview_audio_purpose_upload
 from acestep.constants import MODE_TO_TASK_TYPE
 
 
@@ -79,10 +80,24 @@ def register_generation_mode_handlers(
     ]
 
     # ========== Generation Mode Change ==========
-    generation_section["generation_mode"].change(
+    mode_change_event = generation_section["generation_mode"].change(
         fn=_handle_mode_change,
         inputs=mode_change_inputs,
         outputs=mode_ui_outputs,
+        queue=False,
+        show_progress="hidden",
+    )
+    mode_change_event.then(
+        fn=handle_src_audio_upload,
+        inputs=[
+            generation_section["src_audio"],
+            generation_section["generation_mode"],
+        ],
+        outputs=[
+            generation_section["src_audio_preview"],
+            generation_section["src_video_preview"],
+            generation_section["audio_duration"],
+        ],
         queue=False,
         show_progress="hidden",
     )
@@ -128,17 +143,24 @@ def register_generation_mode_handlers(
     )
 
     generation_section["src_audio"].change(
-        fn=handle_src_audio_upload,
+        fn=preview_audio_purpose_upload,
+        inputs=[generation_section["src_audio"]],
+        outputs=[
+            generation_section["src_audio_preview"],
+            generation_section["src_video_preview"],
+        ],
+        queue=False,
+    ).then(
+        fn=gen_h.handle_extract_src_audio_change,
         inputs=[
             generation_section["src_audio"],
             generation_section["generation_mode"],
         ],
         outputs=[
-            generation_section["src_audio_preview"],
-            generation_section["src_video_preview"],
             generation_section["audio_duration"],
         ],
         queue=False,
+        show_progress="hidden",
     )
 
     # ========== Simple Mode Instrumental Checkbox ==========
