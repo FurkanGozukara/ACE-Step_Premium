@@ -28,7 +28,7 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
-<h3>4 June 2026 V4.3 Update</h3>
+<h3>4 June 2026 V4.4 Update</h3>
 
 - SAM Audio processing bug fixed
 - In ACESTEP XL 1.5 Advanced Extract tab, Analyze button was useless now it will show info message to use Track Name and click Extract Stem
@@ -37,9 +37,15 @@
 - Now all advanced tab audio / video input fields will show preview
 	- If preview doesn't show immediately, click X and re-select file this fixes Gradio bug
 	- Now you can trim audio from Gradio preview as well
+- Audio previews visuality improved and trim feature visuality improved significantly for all upload audio fields and previews
+
+<img width="3537" height="482" alt="image" src="https://github.com/user-attachments/assets/00ceb8fd-b07c-4cd4-a571-087dc68c175c" />
+
 - Gradio version upgraded to 6.16.0
 - ACESTEP XL 1.5 Advanced Mode Lego and Complete features improved and bugs fixed
-- Get latest zip file, overwrite previous files and run Windows_Install_or_Update.bat to update
+- Description of how Lego mode works improved
+	- Lego: Choose a predefined instrument category such as synth, bass, drums, or guitar. The AI generates that instrument and adds it over the existing source audio; you do not upload external stems. Upload the source track for context, trim it in Source Audio Preview if needed, choose the instrument to add, and describe only that new layer.
+- Get latest zip file (4_3), overwrite previous files and run Windows_Install_or_Update.bat to update 
 
 <h3>3 June 2026 V4.1 Update</h3>
 
