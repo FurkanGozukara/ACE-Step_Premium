@@ -28,6 +28,62 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+### 4 June 2026 V4.5 Update
+
+-   SAM Audio model loading speed significantly improved like 2.5x faster than before    
+-   Unchecking Subprocess mode in SAM Audio was not working now works    
+    -   So if you uncheck, after processing, it will keep model in VRAM thus instantly starts processing next task - in batch mode it doesn't unload model even if it is checked until batch process ends        
+-   Advanced tab renamed into ACESTEP Advanced    
+-   Interface of following sections Custom, Remix, Repaint, Extract,Lego, Complete improved which are located in ACESTEP Advanced tab    
+-   **Descriptions and buggy features of each section updated and improved as below:**    
+-   **Custom**: Manual mode for precise control over caption, lyrics, BPM, key, duration, sampler settings, and advanced generation parameters. Use it when you already have a clear target and want to tune the result yourself. Switch to Generate Song main tab when you want to describe the idea in plain language and let AI fill in the details.    
+    -   **What it does:** generates new music from your manual Caption, Lyrics, BPM, key, duration, and advanced settings.        
+    -   **How to use it:** describe the target style and vocal delivery in Caption, write structured Lyrics with tags such as \[Verse\] and \[Chorus\], then set metadata only when you need tighter control. Leave Think on when you want the LM to plan; turn Think off only when using pasted LM Codes Hints.        
+    -   **Audio inputs:** Reference Audio can guide timbre, mix, performance feel, and atmosphere, but it will not copy exact melody, rhythm, or lyrics. Source Audio is ignored in normal Custom generation and is only used by the Edit morph workflow.       
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/c1898eb8-17db-42e8-950a-664ba63201c8" />
+
+-   **Remix**: Upload source audio and restyle it with your own caption and lyrics. The AI uses the original as a structural guide while applying your new style. Adjust Remix Strength to control how closely it follows the original (high = faithful cover, low = loose reinterpretation).    
+    -   **What it does:** uses Source Audio as the structural guide for melody, rhythm, chords, arrangement, and timing while applying your new Caption and Lyrics.        
+    -   **How to use it:** upload Source Audio, optionally trim it in Source Audio Preview, write the target style in Caption, provide replacement Lyrics if you want changed vocals, then adjust Remix Strength and Remix Melody Retention. Higher Remix Strength follows the source more closely; lower strength gives the model more room to reinterpret.        
+    -   **Audio inputs:** Source Audio is the important input here. Reference Audio is only an extra global style cue. If the source is instrumental-only, Remix can follow the instrumental structure but still has to invent the vocal melody and phrasing for new lyrics.        
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/a4fb990f-0c83-4709-8609-bd0cb55138fd" />
+
+-   **Repaint**: Upload Source Audio, choose a start/end range, and regenerate only that range. Caption/Lyrics describe the replacement section. Optional Reference Audio can guide style/timbre, but it is not the audio being edited.    
+-   Repaint: regenerate one time range of the source    
+    -   **What it does:** keeps the Source Audio context and redraws only the selected start/end range. Use it to fix a bad section, replace a lyric phrase, change a solo, or smooth a transition without regenerating the whole song.        
+    -   **How to use it:** upload Source Audio, set Repainting Start and End in seconds, then write Caption and Lyrics for the replacement section only. Use Conservative to protect boundaries, Balanced for normal edits, or Aggressive when the selected range should change more freely.       
+    -   **Audio inputs:** Source Audio is the audio being edited. Reference Audio can nudge style/timbre for the replacement, but it is not the editable source and will not force exact melody or lyric timing.        
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/13f1262e-d3ee-4687-a3f8-cc69f44d0798" />
+
+-   **Extract**: Isolate a single track (vocals, drums, bass, etc.) from source audio using AI stem separation. Useful for creating instrumentals, acapellas, or isolating parts for remixing. Available on Base only.    
+-   **Extract**: isolate one stem from source audio    
+    -   **What it does:** separates one selected track from Source Audio, such as vocals, drums, bass, guitar, keyboard, or other supported categories.        
+    -   **How to use it:** upload Source Audio, choose Track Name, select the Extract output format if needed, then click Extract Stem. Use the extracted stem for acapellas, instrumentals, remix prep, cleanup, or analysis.        
+    -   **Audio inputs:** Extract uses Source Audio only. Caption, Lyrics, Reference Audio, Think, BPM, and key are not creative controls for this mode.        
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/d3602265-132c-4710-ad05-b37fb786b208" />
+
+-   **Lego**: Choose a predefined instrument category such as synth, bass, drums, or guitar. The AI generates that instrument and adds it over the existing source audio; you do not upload external stems. Upload the source track for context, trim it in Source Audio Preview if needed, choose the instrument to add, and describe only that new layer. Available on Base and SFT; Base generally gives the best results.    
+-   **Lego**: add one generated track over existing audio    
+    -   **What it does:** creates the selected instrument category and layers it over Source Audio. This is for adding a new AI-generated part, not for uploading your own external stem.        
+    -   **How to use it:** upload Source Audio, choose Track Name such as vocals, backing\_vocals, drums, bass, guitar, or synth, optionally set the start/end range, then describe only the new layer in Caption. For vocals, provide Lyrics and describe the singer/delivery.        
+    -   **Audio inputs:** Source Audio gives musical context for the new layer. Reference Audio can nudge global sound, but it will not act as a guide vocal. If you add vocals to an instrumental, the model must invent the sung melody and phrasing unless the source already contains that vocal structure.        
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/dd979e0f-08b5-4014-806b-f519685557d3" />
+
+-   **Complete**: Fill in selected missing tracks from source audio. Upload a partial arrangement or single stem, trim it in Source Audio Preview if needed, choose the tracks to add, and optionally set Complete Start/End to regenerate only that section while preserving the rest of the source. Available on Base and SFT; Base generally gives the best results.    
+-   **Complete**: fill missing tracks in a partial arrangement    
+    -   **What it does:** listens to Source Audio and generates the selected missing track classes so the partial idea becomes a fuller arrangement.        
+    -   **How to use it:** upload a partial track, single stem, or incomplete mix, choose the track classes to add, optionally set Complete Start and End to limit the generated section, then describe the desired finished arrangement in Caption. Use it for adding accompaniment around vocals, drums/bass under a sketch, or missing instruments in a section.        
+    -   **Audio inputs:** Source Audio is the context that the new tracks must fit. Reference Audio can guide overall style, but it does not replace the source and does not force exact melodic or lyric timing.        
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/4be71b46-2a58-461d-9c75-6efd3fae552f" />
+
+-   Get latest zip file (4\_3), overwrite previous files and run Windows\_Install\_or\_Update.bat to update
+
 <h3>4 June 2026 V4.4 Update</h3>
 
 - SAM Audio processing bug fixed
