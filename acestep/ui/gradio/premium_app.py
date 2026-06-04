@@ -799,7 +799,7 @@ def create_gradio_interface(
             with gr.Tab("Generate Song", render_children=True):
                 simple_page = create_simple_create_page(init_params=init_params)
 
-            with gr.Tab("Advanced", render_children=True):
+            with gr.Tab("ACESTEP Advanced", render_children=True):
                 create_page = create_generation_workspace_page(
                     dit_handler=dit_handler,
                     llm_handler=llm_handler,
