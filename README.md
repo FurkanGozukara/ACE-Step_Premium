@@ -32,7 +32,11 @@
 
 -   SAM Audio model loading speed significantly improved like 2.5x faster than before    
 -   Unchecking Subprocess mode in SAM Audio was not working now works    
-    -   So if you uncheck, after processing, it will keep model in VRAM thus instantly starts processing next task - in batch mode it doesn't unload model even if it is checked until batch process ends        
+    -   So if you uncheck, after processing, it will keep model in VRAM thus instantly starts processing next task - in batch mode it doesn't unload model even if it is checked until batch process ends
+-  New feature Predict spans added to the SAM Audio
+	-  Uses SAM-Audio's span predictor to estimate target time ranges from the text prompt when you did not provide anchors
+	-  This can improve quality of results depending on source file and the task so you can compare and see if improves
+	-  This can use slightly more VRAM and slightly slower      
 -   Advanced tab renamed into ACESTEP Advanced    
 -   Interface of following sections Custom, Remix, Repaint, Extract,Lego, Complete improved which are located in ACESTEP Advanced tab    
 -   **Descriptions and buggy features of each section updated and improved as below:**    
