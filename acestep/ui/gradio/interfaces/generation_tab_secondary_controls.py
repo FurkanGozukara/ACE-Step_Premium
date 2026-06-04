@@ -19,36 +19,15 @@ from acestep.ui.gradio.premium_features import (
 
 
 def build_cover_strength_controls() -> dict[str, Any]:
-    """Create code/remix strength controls used by non-simple generation modes.
+    """Create the secondary melody-retention slider used by Remix mode.
 
     Args:
         None.
 
     Returns:
-        A component map containing audio/code strength sliders and remix help group.
+        A component map containing the melody-retention slider.
     """
 
-    audio_cover_strength = gr.Slider(
-        minimum=0.0,
-        maximum=1.0,
-        value=1.0,
-        step=0.01,
-        label=t("generation.codes_strength_label"),
-        info=t("generation.codes_strength_info"),
-        elem_classes=["has-info-container"],
-        visible=True,
-    )
-    with gr.Group(visible=False) as remix_help_group:
-        create_help_button("generation_remix")
-        no_fsq = gr.Checkbox(
-            label="no_fsq",
-            value=False,
-            info=(
-                "Use source-audio latents directly instead of FSQ-quantized "
-                "codes. Try this when Remix loses detail; leave off for the "
-                "standard cover path."
-            ),
-        )
     cover_noise_strength = gr.Slider(
         minimum=0.0,
         maximum=1.0,
@@ -60,9 +39,6 @@ def build_cover_strength_controls() -> dict[str, Any]:
         visible=False,
     )
     return {
-        "audio_cover_strength": audio_cover_strength,
-        "remix_help_group": remix_help_group,
-        "no_fsq": no_fsq,
         "cover_noise_strength": cover_noise_strength,
     }
 
@@ -78,7 +54,6 @@ def build_custom_mode_controls() -> dict[str, Any]:
     """
 
     with gr.Group(visible=True, elem_classes=["has-info-container"]) as custom_mode_group:
-        create_help_button("generation_custom")
         with gr.Row(equal_height=True):
             with gr.Column(scale=2, min_width=200):
                 reference_audio = gr.File(

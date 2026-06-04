@@ -102,6 +102,24 @@ class ServiceLoadTests(unittest.TestCase):
         self.assertFalse(model.assign)
         self.assertTrue(model.strict)
 
+    def test_load_checkpoint_into_model_passes_skip_prefixes(self):
+        """Text/span fast loading should forward skipped checkpoint prefixes."""
+
+        model = _AssignAwareModel()
+        with patch(
+            "acestep.sam_audio_segment.service.load_checkpoint",
+            return_value={"weight": torch.zeros(1)},
+        ) as load_checkpoint, patch("torch.cuda.empty_cache"):
+            _load_checkpoint_into_model(
+                model,
+                Path("SAM-Audio-Large-BF16.safetensors"),
+                torch.device("cuda"),
+                skip_prefixes=("vision_encoder.",),
+            )
+
+        load_checkpoint.assert_called_once()
+        self.assertEqual(("vision_encoder.",), load_checkpoint.call_args.kwargs["skip_prefixes"])
+
     def test_set_local_ranker_map_location_updates_nested_judge_rankers(self):
         """Nested Judge rankers should load directly on the service device."""
 

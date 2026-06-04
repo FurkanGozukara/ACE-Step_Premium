@@ -121,8 +121,9 @@ def register_generation_mode_handlers(
     )
 
     # ========== Initial Mode State on Page Load ==========
-    # compute_mode_ui_updates() controls visibility for 44 mode-dependent UI
-    # components (think_checkbox, generate_btn_row, src_audio_row, etc.) but
+    # compute_mode_ui_updates() controls visibility/content for 56
+    # mode-dependent UI components (think_checkbox, generate_btn_row,
+    # src_audio_row, composition_guide, etc.) but
     # is only triggered via the .change() event above.  Gradio does not fire
     # .change() for the initial value assignment, so mode-dependent state is
     # never applied on first render — causing the Think checkbox (and

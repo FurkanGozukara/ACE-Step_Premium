@@ -10,7 +10,7 @@ from acestep.core.generation.cancellation import GenerationCancelled
 from acestep.sam_audio_segment.batch import run_batch_sam_audio
 from acestep.sam_audio_segment.paths import create_run_dir, safe_media_stem
 from acestep.sam_audio_segment.progress import ProgressCallback
-from acestep.sam_audio_segment.service import SamAudioService
+from acestep.sam_audio_segment.service_cache import cached_sam_audio_service
 from acestep.sam_audio_segment.settings import settings_from_ui_values
 from acestep.sam_audio_segment.subprocess_runner import run_sam_audio_subprocess
 from acestep.ui.gradio.media_upload_values import latest_upload_path
@@ -163,16 +163,16 @@ def _process_single_in_process(
 ) -> tuple[dict[str, Any], list[str]]:
     """Run one SAM-Audio file inside the Gradio process and return artifacts."""
 
-    service = SamAudioService(settings, progress_callback=progress_callback)
-    try:
+    with cached_sam_audio_service(
+        settings,
+        progress_callback=progress_callback,
+    ) as service:
         artifact_obj = service.process_file(
             input_path,
             run_dir,
             output_stem=f"{safe_media_stem(input_path)}_sam",
             mask_video_path=mask_video_path,
         )
-    finally:
-        service.unload()
     return artifact_obj.__dict__, artifact_obj.file_list()
 
 

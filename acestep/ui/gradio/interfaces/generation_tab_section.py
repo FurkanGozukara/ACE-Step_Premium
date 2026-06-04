@@ -96,7 +96,10 @@ def create_generation_body_section(
     max_batch_size = defaults["max_batch_size"]
     default_batch_size = defaults["default_batch_size"]
 
-    gr.Markdown(t("generation.composition_guide"), elem_classes=["has-info-container"])
+    composition_guide = gr.Markdown(
+        t("generation.composition_guide_custom"),
+        elem_classes=["has-info-container"],
+    )
 
     hidden_state_controls = build_hidden_generation_state()
     simple_mode_controls = build_simple_mode_controls()
@@ -132,6 +135,7 @@ def create_generation_body_section(
         {
             "max_duration": max_duration,
             "max_batch_size": max_batch_size,
+            "composition_guide": composition_guide,
         }
     )
     return result

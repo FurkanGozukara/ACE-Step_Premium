@@ -7,7 +7,7 @@ from typing import Any
 
 from loguru import logger
 
-from .service import SamAudioService
+from .service_cache import cached_sam_audio_service
 from .settings import SamAudioSettings
 from .subprocess_runner import run_sam_audio_subprocess
 
@@ -38,15 +38,12 @@ def postprocess_generated_sample(
             artifacts = result["artifacts"]
             files = result.get("files", [])
         else:
-            service = SamAudioService(settings)
-            try:
+            with cached_sam_audio_service(settings) as service:
                 artifact_obj = service.process_file(
                     source_audio_path,
                     run_dir,
                     output_stem=output_stem,
                 )
-            finally:
-                service.unload()
             artifacts = artifact_obj.__dict__
             files = artifact_obj.file_list()
     except Exception as exc:

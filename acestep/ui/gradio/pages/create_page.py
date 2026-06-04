@@ -44,9 +44,10 @@ def create_generation_workspace_page(
                         elem_id="acestep-subprocess-mode-checkbox",
                     )
                     gr.Markdown(
-                        "**Execution note**\n\n"
-                        "Default downloads preload the SFT bundle. If users switch to XL Base or XL Turbo, "
-                        "the existing runtime downloader can fetch them on demand."
+                        "Execution note: The Turbo model is automatically downloaded with "
+                        "installation. To download the SFT and Base models, please use the "
+                        "Windows_Download_All_Models.bat file. RunPod and Massed Compute "
+                        "installers auto downloads all models."
                     )
 
         with gr.Group():

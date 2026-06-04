@@ -19,6 +19,21 @@ from .mode_ui_helpers import (
 )
 
 
+def _composition_guide_for_mode(mode: str) -> str:
+    """Return the mode-specific Composition guidance markdown."""
+
+    guide_keys = {
+        "Simple": "generation.composition_guide_simple",
+        "Custom": "generation.composition_guide_custom",
+        "Remix": "generation.composition_guide_remix",
+        "Repaint": "generation.composition_guide_repaint",
+        "Extract": "generation.composition_guide_extract",
+        "Lego": "generation.composition_guide_lego",
+        "Complete": "generation.composition_guide_complete",
+    }
+    return t(guide_keys.get(mode, "generation.composition_guide"))
+
+
 def compute_mode_ui_updates(
     mode: str,
     llm_handler=None,
@@ -177,6 +192,7 @@ def compute_mode_ui_updates(
         if flow_edit_supported
         else gr.update(visible=False, value=False)
     )
+    show_strength_variation_row = show_strength or is_custom or is_cover or is_repaint
 
     return (
         gr.update(visible=show_simple),                    # 0: simple_mode_group
@@ -231,6 +247,10 @@ def compute_mode_ui_updates(
         flow_edit_column_update,                           # 49: flow_edit_column
         flow_edit_morph_update,                            # 50: flow_edit_morph
         gr.update(visible=show_runtime_options),           # 51: runtime_options_row
+        gr.update(value=_composition_guide_for_mode(mode)),  # 52: composition_guide
+        gr.update(visible=is_cover),                       # 53: no_fsq_column
+        gr.update(visible=is_custom),                      # 54: custom_help_group
+        gr.update(visible=show_strength_variation_row),    # 55: strength_variation_row
     )
 
 

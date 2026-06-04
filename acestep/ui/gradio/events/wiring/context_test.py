@@ -79,6 +79,10 @@ MODE_OUTPUT_EXPECTED = [
     "flow_edit_column",
     "flow_edit_morph",
     "runtime_options_row",
+    "composition_guide",
+    "no_fsq_column",
+    "custom_help_group",
+    "strength_variation_row",
 ]
 
 

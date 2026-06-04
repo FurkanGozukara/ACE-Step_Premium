@@ -41,12 +41,16 @@ _IDX_SRC_AUDIO = 48
 _IDX_FLOW_EDIT_COLUMN = 49
 _IDX_FLOW_EDIT_MORPH = 50
 _IDX_RUNTIME_OPTIONS_ROW = 51
+_IDX_COMPOSITION_GUIDE = 52
+_IDX_NO_FSQ_COLUMN = 53
+_IDX_CUSTOM_HELP_GROUP = 54
+_IDX_STRENGTH_VARIATION_ROW = 55
 _IDX_THINK_CHECKBOX = 14
 _IDX_GENERATION_MODE = 12
 _IDX_PREVIOUS_GENERATION_MODE = 37
 _IDX_REMIX_STRENGTH = 17
 _IDX_COVER_NOISE = 18
-_EXPECTED_TUPLE_LENGTH = 52
+_EXPECTED_TUPLE_LENGTH = 56
 _IDX_BPM = 21
 _IDX_KEY = 22
 _IDX_TIMESIG = 23
@@ -67,9 +71,33 @@ class ModeUiStateClearingTests(unittest.TestCase):
     """Tests that mode switches clear stale UI state to prevent noise."""
 
     def test_tuple_length(self):
-        """compute_mode_ui_updates should return exactly 52 elements."""
+        """compute_mode_ui_updates should return exactly 56 elements."""
         result = compute_mode_ui_updates("Custom")
         self.assertEqual(len(result), _EXPECTED_TUPLE_LENGTH)
+
+    def test_composition_guide_is_mode_specific(self):
+        """Each generation mode should expose practical Composition guidance."""
+        expectations = {
+            "Simple": ("Simple", "plain-language", "does not use Source Audio"),
+            "Custom": ("Custom", "LM Codes Hints", "Source Audio is ignored"),
+            "Remix": ("Remix", "Remix Strength", "instrumental-only"),
+            "Repaint": ("Repaint", "Repainting Start and End", "replacement section"),
+            "Extract": ("Extract", "Track Name", "Caption, Lyrics, Reference Audio"),
+            "Lego": ("Lego", "Track Name", "guide vocal"),
+            "Complete": ("Complete", "track classes", "partial arrangement"),
+        }
+
+        for mode, expected_parts in expectations.items():
+            with self.subTest(mode=mode):
+                result = compute_mode_ui_updates(
+                    mode,
+                    previous_mode="Custom",
+                    config_path="ACEStep_1_5_XL_Base_BF16",
+                )
+                guide_update = result[_IDX_COMPOSITION_GUIDE]
+                guide_text = guide_update.get("value")
+                for expected in expected_parts:
+                    self.assertIn(expected, guide_text)
 
     def test_metadata_load_button_stays_hidden(self):
         """Mode changes should not reveal the deprecated metadata load button."""
@@ -145,6 +173,26 @@ class ModeUiStateClearingTests(unittest.TestCase):
         think_update = result[_IDX_THINK_CHECKBOX]
         self.assertFalse(think_update.get("value"))
         self.assertFalse(think_update.get("interactive"))
+
+    def test_no_fsq_column_is_remix_only(self):
+        """The no_fsq column should appear beside Remix Strength only in Remix."""
+        remix_result = compute_mode_ui_updates("Remix", previous_mode="Custom")
+        custom_result = compute_mode_ui_updates("Custom", previous_mode="Remix")
+
+        self.assertTrue(remix_result[_IDX_NO_FSQ_COLUMN].get("visible"))
+        self.assertFalse(custom_result[_IDX_NO_FSQ_COLUMN].get("visible"))
+
+    def test_custom_top_control_row_visibility(self):
+        """Custom should show the combined strength, help, Retake, and Edit row."""
+        custom_result = compute_mode_ui_updates("Custom", previous_mode="Remix")
+        remix_result = compute_mode_ui_updates("Remix", previous_mode="Custom")
+        simple_result = compute_mode_ui_updates("Simple", previous_mode="Custom")
+
+        self.assertTrue(custom_result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
+        self.assertTrue(custom_result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertTrue(custom_result[_IDX_FLOW_EDIT_COLUMN].get("visible"))
+        self.assertFalse(remix_result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertFalse(simple_result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
 
     def test_generation_modes_do_not_expose_raw_remix_as_top_level_mode(self):
         """Raw remix should be selected by no_fsq, not by a separate mode."""

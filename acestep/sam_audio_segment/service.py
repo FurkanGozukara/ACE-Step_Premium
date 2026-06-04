@@ -14,6 +14,11 @@ from acestep.sam_audio_vendor import ensure_vendor_path
 from .attention import attention_stats, reset_attention_stats
 from .anchors import anchors_for_settings
 from .fp8_scaled import apply_sam_fp8_scaled
+from .initialization import (
+    checkpoint_skip_prefixes_for_settings,
+    fast_checkpoint_model_initialization,
+    should_skip_visual_encoder,
+)
 from .lite_mode import apply_text_lite_mode, validate_text_lite_settings
 from .media_output import SamAudioArtifacts, save_sam_audio_outputs
 from .memory import peak_memory_metrics, reset_peak_memory
@@ -100,8 +105,13 @@ class SamAudioService:
             self.settings.low_vram_lite,
         )
         config = SAMAudioConfig(**model_config)
+        skip_visual_encoder = should_skip_visual_encoder(self.settings)
+        skip_prefixes = checkpoint_skip_prefixes_for_settings(self.settings)
         try:
-            model = SAMAudio(config).eval()
+            with fast_checkpoint_model_initialization(
+                skip_visual_encoder=skip_visual_encoder,
+            ):
+                model = SAMAudio(config).eval()
         except Exception as exc:
             raise RuntimeError(
                 f"Could not initialize SAM-Audio optional components: {exc}"
@@ -117,10 +127,16 @@ class SamAudioService:
                 self.model_path,
                 self.device,
                 direct_device_load=False,
+                skip_prefixes=skip_prefixes,
             )
             apply_text_lite_mode(model)
         else:
-            _load_checkpoint_into_model(model, self.model_path, self.device)
+            _load_checkpoint_into_model(
+                model,
+                self.model_path,
+                self.device,
+                skip_prefixes=skip_prefixes,
+            )
         report_progress(
             self.progress_callback,
             0.18,
@@ -324,13 +340,18 @@ def _load_checkpoint_into_model(
     device: torch.device,
     *,
     direct_device_load: bool = True,
+    skip_prefixes: tuple[str, ...] = (),
 ) -> None:
-    """Load a SAM-Audio checkpoint, optionally assigning CUDA safetensors directly."""
+    """Load a checkpoint into ``model``, optionally skipping unused prefixes."""
 
     load_device = _checkpoint_load_device(path, device, direct_device_load)
     state_dict: dict[str, torch.Tensor] | None = None
     try:
-        state_dict = load_checkpoint(path, device=load_device)
+        state_dict = load_checkpoint(
+            path,
+            device=load_device,
+            skip_prefixes=skip_prefixes,
+        )
         assign = load_device != "cpu"
         try:
             model.load_state_dict(state_dict, strict=True, assign=assign)
@@ -339,7 +360,11 @@ def _load_checkpoint_into_model(
                 raise
             del state_dict
             state_dict = None
-            state_dict = load_checkpoint(path, device="cpu")
+            state_dict = load_checkpoint(
+                path,
+                device="cpu",
+                skip_prefixes=skip_prefixes,
+            )
             model.load_state_dict(state_dict, strict=True)
     finally:
         state_dict = None
