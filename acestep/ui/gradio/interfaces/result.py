@@ -5,6 +5,10 @@ Contains results display section component definitions
 import gradio as gr
 from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.help_content import create_help_button
+from acestep.ui.gradio.interfaces.source_audio_preview import (
+    TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+    TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+)
 
 
 def _create_audio_column(n, visible=True):
@@ -23,7 +27,9 @@ def _create_audio_column(n, visible=True):
             label=t("results.generated_music", n=n),
             type="filepath",
             interactive=False,
-            buttons=[]
+            buttons=[],
+            elem_classes=TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+            waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
         )
         with gr.Row(equal_height=True):
             send_to_remix_btn = gr.Button(

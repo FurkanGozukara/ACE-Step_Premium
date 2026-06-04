@@ -5,6 +5,10 @@ from __future__ import annotations
 import gradio as gr
 
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.interfaces.source_audio_preview import (
+    TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+    TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+)
 
 
 def build_dataset_label_and_preview_controls() -> dict[str, object]:
@@ -94,6 +98,8 @@ def build_dataset_label_and_preview_controls() -> dict[str, object]:
                 label=t("training.audio_preview"),
                 type="filepath",
                 interactive=False,
+                elem_classes=TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+                waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
             )
 
             preview_filename = gr.Textbox(

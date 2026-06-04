@@ -32,6 +32,10 @@ from acestep.ui.gradio.interfaces.result import create_results_section
 from acestep.ui.gradio.interfaces.audio_player_preferences import (
     get_audio_player_preferences_head,
 )
+from acestep.ui.gradio.interfaces.source_audio_preview import (
+    AUDIO_PROCESSING_PREVIEW_CSS,
+    SOURCE_AUDIO_PREVIEW_CSS,
+)
 from acestep.ui.gradio.interfaces.user_preferences import (
     get_user_preferences_head,
     wire_preference_restore,
@@ -67,7 +71,7 @@ from acestep.ui.gradio.premium_features import (
 )
 
 
-APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v4.3"
+APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v4.4"
 APP_RELEASE_URL = "https://www.patreon.com/posts/157675060"
 APP_HEADER_MARKDOWN = f"# {APP_BROWSER_TITLE} : [{APP_RELEASE_URL}]({APP_RELEASE_URL})"
 _FAVICON_PATH = Path(__file__).resolve().parent / "assets" / "ace_step_premium_favicon.svg"
@@ -692,7 +696,7 @@ button.action-btn-clear {
 button.action-btn-clear:hover {
     box-shadow: 0 10px 24px rgba(234, 88, 12, 0.32) !important;
 }
-""" + HELP_MODAL_CSS
+""" + SOURCE_AUDIO_PREVIEW_CSS + AUDIO_PROCESSING_PREVIEW_CSS + HELP_MODAL_CSS
 
 
 def _build_head(service_mode: bool) -> str:

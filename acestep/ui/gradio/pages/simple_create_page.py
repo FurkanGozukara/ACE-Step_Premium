@@ -16,6 +16,10 @@ from acestep.ui.gradio.events.generation.generation_count import (
     generation_count_info,
     normalize_generation_count,
 )
+from acestep.ui.gradio.interfaces.source_audio_preview import (
+    TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+    TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+)
 from acestep.ui.gradio.language_choices import language_dropdown_choices
 from acestep.ui.gradio.premium_features import (
     DEFAULT_PRESET_CAPTION,
@@ -118,6 +122,8 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                 type="filepath",
                 interactive=False,
                 buttons=["download"],
+                elem_classes=TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+                waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
             )
             simple_latest_video = gr.Video(
                 label="Latest Song Video",

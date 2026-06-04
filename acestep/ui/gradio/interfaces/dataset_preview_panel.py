@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import gradio as gr
 
+from acestep.ui.gradio.interfaces.source_audio_preview import (
+    TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+    TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+)
+
 
 def build_dataset_preview_controls() -> dict[str, object]:
     """Render playable song preview and complete metadata controls."""
@@ -23,6 +28,8 @@ def build_dataset_preview_controls() -> dict[str, object]:
                     label="Song Audio",
                     type="filepath",
                     interactive=False,
+                    elem_classes=TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+                    waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
                 )
                 use_src_checkbox = gr.Checkbox(
                     label="Use Source Audio from Dataset",
@@ -74,12 +81,16 @@ def build_dataset_preview_controls() -> dict[str, object]:
         type="filepath",
         interactive=False,
         visible=False,
+        elem_classes=TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+        waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
     )
     item_refer_audio = gr.Audio(
         label="Reference Audio",
         type="filepath",
         interactive=False,
         visible=False,
+        elem_classes=TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+        waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
     )
     repaint_viz_plot = gr.Plot(visible=False)
     auto_fill_btn = gr.Button(

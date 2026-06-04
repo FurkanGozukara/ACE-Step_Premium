@@ -95,6 +95,20 @@ class I18nHelpKeysTests(unittest.TestCase):
             with self.subTest(expected=expected):
                 self.assertIn(expected, result)
 
+    def test_lego_copy_describes_generated_instrument_categories(self):
+        """Lego help should not imply that users upload external stems."""
+
+        i18n = I18n(default_language="en")
+        mode_text = i18n.t("generation.mode_info_lego")
+        help_text = i18n.t("help.generation_lego")
+
+        self.assertIn("predefined instrument category", mode_text)
+        self.assertIn("do not upload external stems", mode_text)
+        self.assertIn("does not import your own external stems", help_text)
+        self.assertIn("Add Instrument", help_text)
+        self.assertEqual("🎵 Add Instrument", i18n.t("generation.add_stem_btn"))
+        self.assertEqual("Instrument Start", i18n.t("generation.stem_start"))
+
 
 if __name__ == "__main__":
     unittest.main()

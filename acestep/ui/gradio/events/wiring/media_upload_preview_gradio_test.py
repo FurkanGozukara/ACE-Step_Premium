@@ -21,6 +21,21 @@ from acestep.ui.gradio.events.wiring.media_upload_preview_gradio_support import 
     free_port,
     write_wav,
 )
+from acestep.ui.gradio.interfaces.source_audio_preview import (
+    AUDIO_PROCESSING_BEFORE_PREVIEW_ELEM_ID,
+    AUDIO_PROCESSING_PREVIEW_ELEM_CLASSES,
+    AUDIO_PROCESSING_PREVIEW_WAVEFORM_OPTIONS,
+    AUDIO_PROCESSING_UPLOAD_PREVIEW_ELEM_ID,
+    GENERATION_LM_CODES_PREVIEW_ELEM_ID,
+    GENERATION_REFERENCE_PREVIEW_ELEM_ID,
+    GENERATION_UPLOAD_PREVIEW_ELEM_CLASSES,
+    SAM_AUDIO_PREVIEW_ELEM_CLASSES,
+    SAM_UPLOAD_AUDIO_PREVIEW_ELEM_ID,
+    SOURCE_AUDIO_PREVIEW_ELEM_CLASSES,
+    SOURCE_AUDIO_PREVIEW_ELEM_ID,
+    SOURCE_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+    TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+)
 
 
 class LiveGradioMediaPreviewTests(unittest.TestCase):
@@ -49,6 +64,83 @@ class LiveGradioMediaPreviewTests(unittest.TestCase):
                 self.assertTrue(source_preview.get("interactive"))
                 self.assertTrue(source_preview.get("editable"))
                 self.assertEqual(source_preview.get("sources"), ["upload"])
+                self.assertEqual(source_preview.get("elem_id"), SOURCE_AUDIO_PREVIEW_ELEM_ID)
+                self.assertEqual(
+                    source_preview.get("elem_classes"),
+                    SOURCE_AUDIO_PREVIEW_ELEM_CLASSES,
+                )
+                self.assertEqual(
+                    source_preview.get("waveform_options"),
+                    SOURCE_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+                )
+                ap_upload_preview = _component_props_by_elem_id(
+                    demo,
+                    AUDIO_PROCESSING_UPLOAD_PREVIEW_ELEM_ID,
+                )
+                self.assertTrue(ap_upload_preview.get("interactive"))
+                self.assertTrue(ap_upload_preview.get("editable"))
+                self.assertEqual(
+                    ap_upload_preview.get("elem_id"),
+                    AUDIO_PROCESSING_UPLOAD_PREVIEW_ELEM_ID,
+                )
+                self.assertEqual(
+                    ap_upload_preview.get("elem_classes"),
+                    AUDIO_PROCESSING_PREVIEW_ELEM_CLASSES,
+                )
+                self.assertEqual(
+                    ap_upload_preview.get("waveform_options"),
+                    AUDIO_PROCESSING_PREVIEW_WAVEFORM_OPTIONS,
+                )
+                ap_before_preview = _component_props_by_elem_id(
+                    demo,
+                    AUDIO_PROCESSING_BEFORE_PREVIEW_ELEM_ID,
+                )
+                self.assertFalse(ap_before_preview.get("interactive"))
+                self.assertEqual(
+                    ap_before_preview.get("elem_id"),
+                    AUDIO_PROCESSING_BEFORE_PREVIEW_ELEM_ID,
+                )
+                reference_preview = _component_props_by_elem_id(
+                    demo,
+                    GENERATION_REFERENCE_PREVIEW_ELEM_ID,
+                )
+                self.assertTrue(reference_preview.get("interactive"))
+                self.assertTrue(reference_preview.get("editable"))
+                self.assertEqual(reference_preview.get("sources"), ["upload"])
+                self.assertEqual(
+                    reference_preview.get("elem_classes"),
+                    GENERATION_UPLOAD_PREVIEW_ELEM_CLASSES,
+                )
+                self.assertEqual(
+                    reference_preview.get("waveform_options"),
+                    TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+                )
+                lm_codes_preview = _component_props_by_elem_id(
+                    demo,
+                    GENERATION_LM_CODES_PREVIEW_ELEM_ID,
+                )
+                self.assertTrue(lm_codes_preview.get("interactive"))
+                self.assertTrue(lm_codes_preview.get("editable"))
+                self.assertEqual(lm_codes_preview.get("sources"), ["upload"])
+                self.assertEqual(
+                    lm_codes_preview.get("elem_classes"),
+                    GENERATION_UPLOAD_PREVIEW_ELEM_CLASSES,
+                )
+                sam_upload_preview = _component_props_by_elem_id(
+                    demo,
+                    SAM_UPLOAD_AUDIO_PREVIEW_ELEM_ID,
+                )
+                self.assertTrue(sam_upload_preview.get("interactive"))
+                self.assertTrue(sam_upload_preview.get("editable"))
+                self.assertEqual(sam_upload_preview.get("sources"), ["upload"])
+                self.assertEqual(
+                    sam_upload_preview.get("elem_classes"),
+                    SAM_AUDIO_PREVIEW_ELEM_CLASSES,
+                )
+                self.assertEqual(
+                    sam_upload_preview.get("waveform_options"),
+                    TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+                )
                 demo.queue(default_concurrency_limit=1)
                 port = free_port()
                 demo.launch(
@@ -104,6 +196,16 @@ def _component_props(demo, component_type: str, label: str) -> dict:
         if component.get("type") == component_type and props.get("label") == label:
             return props
     raise AssertionError(f"Could not find {component_type} component {label!r}")
+
+
+def _component_props_by_elem_id(demo, elem_id: str) -> dict:
+    """Return component props by configured Gradio element id."""
+
+    for component in demo.config["components"]:
+        props = component.get("props") or {}
+        if props.get("elem_id") == elem_id:
+            return props
+    raise AssertionError(f"Could not find component with elem_id {elem_id!r}")
 
 
 if __name__ == "__main__":

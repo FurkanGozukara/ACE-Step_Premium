@@ -25,6 +25,14 @@ from acestep.audio_processing.presets import (
     STAGE_KEYS,
     STAGE_LABELS,
 )
+from acestep.ui.gradio.interfaces.source_audio_preview import (
+    AUDIO_PROCESSING_AFTER_PREVIEW_ELEM_ID,
+    AUDIO_PROCESSING_BEFORE_PREVIEW_ELEM_ID,
+    AUDIO_PROCESSING_OUTPUT_PREVIEW_ELEM_ID,
+    AUDIO_PROCESSING_PREVIEW_ELEM_CLASSES,
+    AUDIO_PROCESSING_PREVIEW_WAVEFORM_OPTIONS,
+    AUDIO_PROCESSING_UPLOAD_PREVIEW_ELEM_ID,
+)
 
 
 def create_audio_processing_page() -> dict[str, Any]:
@@ -45,7 +53,10 @@ def create_audio_processing_page() -> dict[str, Any]:
                 controls["ap_auto_postprocess"] = gr.Checkbox(
                     label="Apply automatically to generated songs",
                     value=False,
-                    info="Runs after Generate Song and Advanced generation save their original audio.",
+                    info=(
+                        "Runs after Generate Song and Advanced generation save "
+                        "their original audio."
+                    ),
                 )
                 controls["ap_preserve_original"] = gr.Checkbox(
                     label="Save original plus processed song",
@@ -144,8 +155,12 @@ def create_audio_processing_page() -> dict[str, Any]:
                 controls["ap_upload_audio_preview"] = gr.Audio(
                     label="Uploaded Audio",
                     type="filepath",
-                    interactive=False,
+                    interactive=True,
+                    editable=True,
                     visible=False,
+                    elem_id=AUDIO_PROCESSING_UPLOAD_PREVIEW_ELEM_ID,
+                    elem_classes=AUDIO_PROCESSING_PREVIEW_ELEM_CLASSES,
+                    waveform_options=AUDIO_PROCESSING_PREVIEW_WAVEFORM_OPTIONS,
                 )
                 controls["ap_upload_video_preview"] = gr.Video(
                     label="Uploaded Video",
@@ -171,16 +186,25 @@ def create_audio_processing_page() -> dict[str, Any]:
                     label="Preview Before",
                     type="filepath",
                     interactive=False,
+                    elem_id=AUDIO_PROCESSING_BEFORE_PREVIEW_ELEM_ID,
+                    elem_classes=AUDIO_PROCESSING_PREVIEW_ELEM_CLASSES,
+                    waveform_options=AUDIO_PROCESSING_PREVIEW_WAVEFORM_OPTIONS,
                 )
                 controls["ap_preview_after_audio"] = gr.Audio(
                     label="Preview After",
                     type="filepath",
                     interactive=False,
+                    elem_id=AUDIO_PROCESSING_AFTER_PREVIEW_ELEM_ID,
+                    elem_classes=AUDIO_PROCESSING_PREVIEW_ELEM_CLASSES,
+                    waveform_options=AUDIO_PROCESSING_PREVIEW_WAVEFORM_OPTIONS,
                 )
             controls["ap_output_audio"] = gr.Audio(
                 label="Processed Audio",
                 type="filepath",
                 interactive=False,
+                elem_id=AUDIO_PROCESSING_OUTPUT_PREVIEW_ELEM_ID,
+                elem_classes=AUDIO_PROCESSING_PREVIEW_ELEM_CLASSES,
+                waveform_options=AUDIO_PROCESSING_PREVIEW_WAVEFORM_OPTIONS,
             )
             controls["ap_output_video"] = gr.Video(
                 label="Processed Video",

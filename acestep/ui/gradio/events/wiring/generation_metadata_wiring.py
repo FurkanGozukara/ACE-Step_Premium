@@ -10,6 +10,7 @@ from .. import generation_handlers as gen_h
 from .context import GenerationWiringContext
 from .generation_text_format_wiring import register_generation_text_format_handlers
 from .media_upload_preview import preview_audio_purpose_upload
+from ...media_upload_values import latest_upload_path
 
 
 def register_generation_metadata_handlers(
@@ -42,8 +43,14 @@ def register_generation_metadata_handlers(
 
     # ========== Audio Conversion (LM Codes Hints accordion in Custom mode) ==========
     generation_section["convert_src_to_codes_btn"].click(
-        fn=lambda src: gen_h.convert_src_audio_to_codes_wrapper(dit_handler, src),
-        inputs=[generation_section["lm_codes_audio_upload"]],
+        fn=lambda src, preview: gen_h.convert_src_audio_to_codes_wrapper(
+            dit_handler,
+            latest_upload_path(preview) or src,
+        ),
+        inputs=[
+            generation_section["lm_codes_audio_upload"],
+            generation_section["lm_codes_audio_preview"],
+        ],
         outputs=[generation_section["text2music_audio_code_string"]],
     )
     generation_section["lm_codes_audio_upload"].change(

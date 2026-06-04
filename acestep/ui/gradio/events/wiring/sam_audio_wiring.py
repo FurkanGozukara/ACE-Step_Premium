@@ -125,6 +125,7 @@ def register_sam_audio_handlers(
         fn=single_wrapper,
         inputs=[
             sam_page["sam_single_file"],
+            sam_page["sam_upload_audio_preview"],
             sam_page["sam_visual_mask_file"],
             *settings_inputs,
         ],

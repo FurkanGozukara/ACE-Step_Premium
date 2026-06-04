@@ -9,6 +9,7 @@ from ..generation.cancel_actions import (
     CANCEL_CONFIRM_JS,
     request_generation_cancel_pair_from_ui,
 )
+from ...media_upload_values import latest_upload_path
 from .context import GenerationWiringContext
 from .audio_processing_wiring import audio_processing_generation_inputs
 from .sam_audio_wiring import sam_audio_generation_inputs
@@ -129,6 +130,19 @@ def build_generation_run_inputs(generation_section, results_section):
     ]
 
 
+def _with_effective_reference_preview(args):
+    """Replace reference audio with the edited preview from an extra tail input."""
+
+    if not args:
+        return args
+    reference_preview = args[-1]
+    forwarded_args = list(args[:-1])
+    reference_preview_path = latest_upload_path(reference_preview)
+    if reference_preview_path and len(forwarded_args) > 10:
+        forwarded_args[10] = reference_preview_path
+    return tuple(forwarded_args)
+
+
 def build_generation_run_outputs(generation_section, results_section):
     """Return ordered outputs for the generation wrapper."""
 
@@ -240,10 +254,11 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
             `res_h.generate_with_batch_management`.
         """
 
+        forwarded_args = _with_effective_reference_preview(args)
         for outputs in res_h.generate_with_batch_management(
             dit_handler,
             llm_handler,
-            *args,
+            *forwarded_args,
         ):
             yield append_inline_result_preview(outputs)
 
@@ -369,6 +384,7 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
             generation_section["extract_output_format"],
             *audio_processing_generation_inputs(generation_section),
             *sam_audio_generation_inputs(generation_section),
+            generation_section["reference_audio_preview"],
         ],
         outputs=[
             results_section["generated_audio_1"],

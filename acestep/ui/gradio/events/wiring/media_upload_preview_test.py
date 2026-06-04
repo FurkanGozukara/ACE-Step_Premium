@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, patch
 
 from acestep.ui.gradio.events.wiring.audio_processing_wiring import (
+    _effective_single_file_input,
     _preview_upload as preview_audio_processing_upload,
 )
 from acestep.ui.gradio.events.wiring.generation_upload_handlers import (
@@ -21,6 +22,9 @@ from acestep.ui.gradio.events.wiring.media_upload_preview import (
 )
 from acestep.ui.gradio.events.wiring.sam_audio_action_helpers import (
     preview_upload as preview_sam_upload,
+)
+from acestep.ui.gradio.events.wiring.sam_audio_processing import (
+    _effective_single_file_input as _sam_effective_single_file_input,
 )
 from acestep.ui.gradio.media_upload_values import (
     latest_upload_path,
@@ -66,6 +70,38 @@ class MediaUploadPreviewTests(unittest.TestCase):
                 "song_video_audio_preview.wav",
             ),
             "trimmed_preview.wav",
+        )
+
+    def test_audio_processing_prefers_trimmed_upload_preview(self):
+        """Edited Audio Processing upload preview should become the processing source."""
+
+        self.assertEqual(
+            _effective_single_file_input("original.wav", "trimmed_preview.wav"),
+            "trimmed_preview.wav",
+        )
+
+    def test_audio_processing_falls_back_to_upload_without_audio_preview(self):
+        """Video uploads without an audio preview should still process the original upload."""
+
+        self.assertEqual(
+            _effective_single_file_input("source_video.mp4", None),
+            "source_video.mp4",
+        )
+
+    def test_sam_prefers_trimmed_upload_preview(self):
+        """Edited SAM upload preview should become the processing source."""
+
+        self.assertEqual(
+            _sam_effective_single_file_input("original.wav", "trimmed_preview.wav"),
+            "trimmed_preview.wav",
+        )
+
+    def test_sam_falls_back_to_upload_without_audio_preview(self):
+        """Video-only SAM uploads should still process the original upload."""
+
+        self.assertEqual(
+            _sam_effective_single_file_input("source_video.mp4", None),
+            "source_video.mp4",
         )
 
     def test_audio_purpose_upload_shows_audio_for_audio_file(self):

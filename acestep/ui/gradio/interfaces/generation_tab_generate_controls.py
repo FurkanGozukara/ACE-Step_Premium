@@ -6,6 +6,10 @@ import gradio as gr
 
 from acestep.gpu_config import get_global_gpu_config
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.interfaces.source_audio_preview import (
+    TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+    TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+)
 from .generation_tab_batch_extract_controls import build_batch_extract_controls
 
 
@@ -141,6 +145,8 @@ def build_generate_row_controls(
                     type="filepath",
                     interactive=False,
                     buttons=["download"],
+                    elem_classes=TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+                    waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
                 )
                 inline_remaining_audio = gr.Audio(
                     label="Remaining Audio",
@@ -148,6 +154,8 @@ def build_generate_row_controls(
                     interactive=False,
                     buttons=["download"],
                     visible=False,
+                    elem_classes=TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+                    waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
                 )
             inline_generation_status = gr.Textbox(
                 label=t("generation.inline_result_status_label"),

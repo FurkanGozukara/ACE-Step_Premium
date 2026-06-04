@@ -27,13 +27,14 @@ def process_single_file(
     dit_handler: Any,
     llm_handler: Any,
     input_path: Any,
+    audio_preview_value: Any,
     mask_video_path: Any,
     *settings_values: Any,
     progress: Any | None = None,
 ) -> Any:
     """Process one uploaded file with SAM-Audio."""
 
-    input_path = latest_upload_path(input_path)
+    input_path = _effective_single_file_input(input_path, audio_preview_value)
     mask_video_path = latest_upload_path(mask_video_path)
     if not input_path:
         yield None, None, gr.update(visible=False), gr.update(visible=False), (
@@ -185,3 +186,9 @@ def _progress_callback(progress: Any | None) -> ProgressCallback | None:
         progress(float(fraction), desc=str(message))
 
     return _report
+
+
+def _effective_single_file_input(input_value: Any, audio_preview_value: Any) -> str | None:
+    """Return edited audio-preview input when present, otherwise the upload value."""
+
+    return latest_upload_path(audio_preview_value) or latest_upload_path(input_value)

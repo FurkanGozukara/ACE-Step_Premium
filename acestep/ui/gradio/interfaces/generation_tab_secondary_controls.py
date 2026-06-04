@@ -6,6 +6,11 @@ import gradio as gr
 
 from acestep.ui.gradio.help_content import create_help_button
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.interfaces.source_audio_preview import (
+    GENERATION_REFERENCE_PREVIEW_ELEM_ID,
+    GENERATION_UPLOAD_PREVIEW_ELEM_CLASSES,
+    TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+)
 from acestep.ui.gradio.media_file_types import MEDIA_FILE_TYPES
 from acestep.ui.gradio.premium_features import (
     DEFAULT_PRESET_CAPTION,
@@ -91,8 +96,13 @@ def build_custom_mode_controls() -> dict[str, Any]:
                 reference_audio_preview = gr.Audio(
                     label="Reference Audio Preview",
                     type="filepath",
-                    interactive=False,
+                    sources=["upload"],
+                    interactive=True,
+                    editable=True,
                     visible=False,
+                    elem_id=GENERATION_REFERENCE_PREVIEW_ELEM_ID,
+                    elem_classes=GENERATION_UPLOAD_PREVIEW_ELEM_CLASSES,
+                    waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
                 )
                 reference_video_preview = gr.Video(
                     label="Reference Video Preview",

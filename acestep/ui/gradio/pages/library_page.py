@@ -7,6 +7,10 @@ from typing import Any
 import gradio as gr
 
 from acestep.ui.gradio.generated_library import TABLE_HEADERS
+from acestep.ui.gradio.interfaces.source_audio_preview import (
+    TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+    TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+)
 
 
 def create_library_page() -> dict[str, Any]:
@@ -45,6 +49,8 @@ def create_library_page() -> dict[str, Any]:
                 type="filepath",
                 interactive=False,
                 buttons=["download"],
+                elem_classes=TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+                waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
             )
             library_lyrics = gr.Textbox(
                 label="Lyrics",

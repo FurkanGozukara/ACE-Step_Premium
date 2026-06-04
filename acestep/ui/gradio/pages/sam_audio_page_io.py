@@ -6,6 +6,14 @@ from typing import Any
 
 import gradio as gr
 
+from acestep.ui.gradio.interfaces.source_audio_preview import (
+    SAM_AUDIO_PREVIEW_ELEM_CLASSES,
+    SAM_RESIDUAL_AUDIO_PREVIEW_ELEM_ID,
+    SAM_TARGET_AUDIO_PREVIEW_ELEM_ID,
+    SAM_UPLOAD_AUDIO_PREVIEW_ELEM_ID,
+    TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+)
+
 MEDIA_FILE_TYPES = [
     ".wav",
     ".flac",
@@ -61,8 +69,13 @@ def add_single_file_controls(controls: dict[str, Any]) -> None:
             controls["sam_upload_audio_preview"] = gr.Audio(
                 label="Uploaded Audio",
                 type="filepath",
-                interactive=False,
+                sources=["upload"],
+                interactive=True,
+                editable=True,
                 visible=False,
+                elem_id=SAM_UPLOAD_AUDIO_PREVIEW_ELEM_ID,
+                elem_classes=SAM_AUDIO_PREVIEW_ELEM_CLASSES,
+                waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
             )
             controls["sam_upload_video_preview"] = gr.Video(
                 label="Uploaded Video",
@@ -96,11 +109,17 @@ def add_single_file_controls(controls: dict[str, Any]) -> None:
                 label="Extracted Audio",
                 type="filepath",
                 interactive=False,
+                elem_id=SAM_TARGET_AUDIO_PREVIEW_ELEM_ID,
+                elem_classes=SAM_AUDIO_PREVIEW_ELEM_CLASSES,
+                waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
             )
             controls["sam_residual_audio"] = gr.Audio(
                 label="Remaining Audio",
                 type="filepath",
                 interactive=False,
+                elem_id=SAM_RESIDUAL_AUDIO_PREVIEW_ELEM_ID,
+                elem_classes=SAM_AUDIO_PREVIEW_ELEM_CLASSES,
+                waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
             )
         controls["sam_target_video"] = gr.Video(
             label="Extracted Video",

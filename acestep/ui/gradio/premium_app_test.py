@@ -10,6 +10,9 @@ from acestep.ui.gradio.events.generation.cancel_actions import (
     BATCH_CANCEL_CONFIRM_JS,
     CANCEL_CONFIRM_JS,
 )
+from acestep.ui.gradio.interfaces.source_audio_preview import (
+    TRIM_AUDIO_PREVIEW_CLASS,
+)
 from acestep.ui.gradio.pages import sam_audio_page_io, studio_page
 
 
@@ -27,7 +30,7 @@ class PremiumAppTests(unittest.TestCase):
         """Head snippet should force the requested browser-tab branding."""
 
         head = premium_app._build_head(service_mode=False)
-        self.assertEqual(premium_app.APP_BROWSER_TITLE, "ACE-Step 1.5 XL Premium v4.3")
+        self.assertEqual(premium_app.APP_BROWSER_TITLE, "ACE-Step 1.5 XL Premium v4.4")
         self.assertIn(premium_app.APP_BROWSER_TITLE, head)
         self.assertIn('rel="icon"', head)
         self.assertIn("data:image/svg+xml,", head)
@@ -58,6 +61,36 @@ class PremiumAppTests(unittest.TestCase):
         self.assertIn("max-height: 46px", premium_app._PREMIUM_CSS)
         self.assertIn("button[data-ace-command-button", premium_app._PREMIUM_CSS)
         self.assertIn(".gradio-container .action-btn", premium_app._PREMIUM_CSS)
+
+    def test_source_audio_preview_has_scoped_trim_css(self):
+        """Source preview trim controls should be more visible without global audio CSS."""
+
+        css = premium_app._PREMIUM_CSS
+        self.assertIn(f".{TRIM_AUDIO_PREVIEW_CLASS}", css)
+        self.assertIn('button[aria-label="Trim audio to selection"]', css)
+        self.assertIn('content: "Trim"', css)
+        self.assertIn("::part(region)", css)
+        self.assertIn("::part(region-handle)", css)
+        self.assertIn("::part(region-handle-left)", css)
+        self.assertIn(".timestamps time", css)
+        self.assertIn(".timestamps #trim-duration", css)
+
+    def test_audio_processing_preview_has_scoped_trim_css(self):
+        """Audio Processing previews should use the same scoped player styling."""
+
+        css = premium_app._PREMIUM_CSS
+        self.assertIn(TRIM_AUDIO_PREVIEW_CLASS, css)
+        page_path = Path(premium_app.__file__).with_name("pages") / "audio_processing_page.py"
+        self.assertIn("AUDIO_PROCESSING_UPLOAD_PREVIEW_ELEM_ID", page_path.read_text())
+        self.assertIn('button[aria-label="Trim audio to selection"]', css)
+        self.assertIn("::part(region-handle-right)", css)
+
+    def test_sam_audio_preview_has_trim_css(self):
+        """SAM upload previews should opt into the shared trim presentation."""
+
+        self.assertIn(TRIM_AUDIO_PREVIEW_CLASS, premium_app._PREMIUM_CSS)
+        source = Path(sam_audio_page_io.__file__).read_text()
+        self.assertIn("SAM_UPLOAD_AUDIO_PREVIEW_ELEM_ID", source)
 
     def test_sam_audio_action_rows_use_fixed_button_layout(self):
         """SAM Audio buttons should use the fixed-height action row."""

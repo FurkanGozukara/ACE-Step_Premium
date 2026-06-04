@@ -11,6 +11,14 @@ from acestep.ui.gradio.events.generation.audio_format_options import (
 )
 from acestep.ui.gradio.help_content import create_help_button
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.interfaces.source_audio_preview import (
+    GENERATION_LM_CODES_PREVIEW_ELEM_ID,
+    GENERATION_UPLOAD_PREVIEW_ELEM_CLASSES,
+    SOURCE_AUDIO_PREVIEW_ELEM_CLASSES,
+    SOURCE_AUDIO_PREVIEW_ELEM_ID,
+    SOURCE_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+    TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+)
 from acestep.ui.gradio.media_file_types import MEDIA_FILE_TYPES
 
 
@@ -44,7 +52,9 @@ def build_source_audio_controls() -> dict[str, Any]:
                 interactive=True,
                 editable=True,
                 visible=False,
-                elem_classes=["has-info-container"],
+                elem_id=SOURCE_AUDIO_PREVIEW_ELEM_ID,
+                elem_classes=SOURCE_AUDIO_PREVIEW_ELEM_CLASSES,
+                waveform_options=SOURCE_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
             )
             src_video_preview = gr.Video(
                 label="Source Video Preview",
@@ -154,8 +164,13 @@ def build_lm_code_hint_controls() -> dict[str, Any]:
                 lm_codes_audio_preview = gr.Audio(
                     label="Audio Code Source Preview",
                     type="filepath",
-                    interactive=False,
+                    sources=["upload"],
+                    interactive=True,
+                    editable=True,
                     visible=False,
+                    elem_id=GENERATION_LM_CODES_PREVIEW_ELEM_ID,
+                    elem_classes=GENERATION_UPLOAD_PREVIEW_ELEM_CLASSES,
+                    waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
                 )
                 lm_codes_video_preview = gr.Video(
                     label="Audio Code Video Preview",

@@ -49,7 +49,11 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
     )
     audio_page["ap_preview_btn"].click(
         fn=_preview_single_file,
-        inputs=[audio_page["ap_single_file"], *settings_inputs],
+        inputs=[
+            audio_page["ap_single_file"],
+            audio_page["ap_upload_audio_preview"],
+            *settings_inputs,
+        ],
         outputs=[
             audio_page["ap_preview_before_audio"],
             audio_page["ap_preview_after_audio"],
@@ -61,7 +65,11 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
     )
     audio_page["ap_process_btn"].click(
         fn=_process_single_file,
-        inputs=[audio_page["ap_single_file"], *settings_inputs],
+        inputs=[
+            audio_page["ap_single_file"],
+            audio_page["ap_upload_audio_preview"],
+            *settings_inputs,
+        ],
         outputs=[
             audio_page["ap_output_audio"],
             audio_page["ap_output_video"],
@@ -124,10 +132,14 @@ def _preview_upload(input_value: Any) -> tuple[Any, Any, str]:
     )
 
 
-def _preview_single_file(input_value: Any, *settings_values: Any) -> tuple[Any, ...]:
+def _preview_single_file(
+    input_value: Any,
+    audio_preview_value: Any,
+    *settings_values: Any,
+) -> tuple[Any, ...]:
     """Process a preview slice for one uploaded media file."""
 
-    input_path = latest_upload_path(input_value)
+    input_path = _effective_single_file_input(input_value, audio_preview_value)
     if not input_path:
         return None, None, None, gr.update(visible=False), "Upload an audio or video file first."
     settings = settings_from_ui_values(settings_values)
@@ -164,10 +176,14 @@ def _preview_single_file(input_value: Any, *settings_values: Any) -> tuple[Any, 
         return None, None, None, gr.update(visible=False), f"Preview failed: {exc}"
 
 
-def _process_single_file(input_value: Any, *settings_values: Any) -> tuple[Any, ...]:
+def _process_single_file(
+    input_value: Any,
+    audio_preview_value: Any,
+    *settings_values: Any,
+) -> tuple[Any, ...]:
     """Process one complete uploaded media file."""
 
-    input_path = latest_upload_path(input_value)
+    input_path = _effective_single_file_input(input_value, audio_preview_value)
     if not input_path:
         return None, gr.update(visible=False), None, gr.update(visible=False), (
             "Upload an audio or video file first."
@@ -192,6 +208,12 @@ def _process_single_file(input_value: Any, *settings_values: Any) -> tuple[Any, 
         return None, gr.update(visible=False), None, gr.update(visible=False), (
             f"Processing failed: {exc}"
         )
+
+
+def _effective_single_file_input(input_value: Any, audio_preview_value: Any) -> str | None:
+    """Return edited audio-preview input when present, otherwise the upload value."""
+
+    return latest_upload_path(audio_preview_value) or latest_upload_path(input_value)
 
 
 def _process_batch_folder(
