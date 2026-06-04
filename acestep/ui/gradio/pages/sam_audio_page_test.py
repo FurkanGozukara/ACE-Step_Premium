@@ -1,6 +1,7 @@
 """Tests for SAM Audio Segment page construction."""
 
 import unittest
+from unittest.mock import patch
 
 import gradio as gr
 
@@ -23,6 +24,23 @@ class SamAudioPageTests(unittest.TestCase):
 
         missing = [key for key in SAM_AUDIO_PRESET_KEYS if key not in controls]
         self.assertEqual([], missing)
+
+    def test_predict_spans_checkbox_uses_full_model_default_state(self) -> None:
+        """Predict-spans should be usable when the default SAM preset loads the module."""
+
+        demo = gr.Blocks()
+        try:
+            with demo, patch(
+                "acestep.ui.gradio.pages.sam_audio_page_settings."
+                "default_sam_vram_preset_name",
+                return_value="32gb_quality",
+            ):
+                controls = create_sam_audio_page()
+        finally:
+            demo.close()
+
+        self.assertFalse(controls["sam_predict_spans"].value)
+        self.assertTrue(controls["sam_predict_spans"].interactive)
 
 
 if __name__ == "__main__":

@@ -58,9 +58,18 @@ class TestSamAudioCompatibility(unittest.TestCase):
         self.assertEqual("visual", result[0]["value"])
         self.assertTrue(result[0]["interactive"])
         self.assertTrue(result[1]["interactive"])
-        self.assertTrue(result[2]["interactive"])
+        self.assertFalse(result[2]["value"])
+        self.assertFalse(result[2]["interactive"])
         self.assertTrue(result[3]["interactive"])
         self.assertTrue(result[9]["interactive"])
+
+    def test_standard_text_mode_enables_span_prediction(self):
+        """Predict-spans should stay available for full-model text prompting."""
+
+        result = apply_sam_audio_compatibility("text", False, "chunked")
+
+        self.assertEqual("text", result[0]["value"])
+        self.assertTrue(result[2]["interactive"])
 
 
 if __name__ == "__main__":

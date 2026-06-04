@@ -36,7 +36,7 @@ def apply_sam_audio_compatibility(
     )
     text_only = lite_enabled or multidiffusion_enabled
     rankers_available = not text_only
-    spans_available = not text_only
+    spans_available = prompt_value == "text" and not text_only
     anchors_available = not multidiffusion_enabled
     visual_available = (
         prompt_value == "visual"

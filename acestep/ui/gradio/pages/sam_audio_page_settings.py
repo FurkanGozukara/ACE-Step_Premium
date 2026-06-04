@@ -81,6 +81,8 @@ def add_prompt_runtime_controls(controls: dict[str, Any]) -> None:
 def _add_prompt_controls(controls: dict[str, Any]) -> None:
     """Add prompt-specific SAM Audio controls."""
 
+    preset = get_sam_vram_preset(default_sam_vram_preset_name())
+    spans_interactive = not preset["low_vram_lite"]
     with gr.Group(elem_classes=["ace-panel", "ace-stack"]):
         gr.Markdown("### Prompt")
         controls["sam_prompt_mode"] = gr.Dropdown(
@@ -88,22 +90,25 @@ def _add_prompt_controls(controls: dict[str, Any]) -> None:
             value="text",
             label="Mode",
         )
-        controls["sam_prompt_preset"] = gr.Dropdown(
-            choices=PROMPT_PRESET_CHOICES,
-            value="vocals",
-            label="Quick Prompt",
-        )
-        controls["sam_custom_prompt"] = gr.Textbox(label="Custom Prompt", value="")
-        with gr.Row():
+        with gr.Row(equal_height=True):
+            controls["sam_prompt_preset"] = gr.Dropdown(
+                choices=PROMPT_PRESET_CHOICES,
+                value="vocals",
+                label="Quick Prompt",
+                scale=3,
+            )
             controls["sam_predict_spans"] = gr.Checkbox(
                 label="Predict spans",
-                value=False,
+                value=preset["predict_spans"],
                 info=(
                     "Uses SAM-Audio's span predictor to estimate target time ranges "
-                    "from the prompt when you did not provide anchors."
+                    "from the text prompt when you did not provide anchors."
                 ),
-                interactive=False,
+                interactive=spans_interactive,
+                scale=1,
             )
+        controls["sam_custom_prompt"] = gr.Textbox(label="Custom Prompt", value="")
+        with gr.Row():
             controls["sam_use_span_anchor"] = gr.Checkbox(
                 label="Use explicit span anchor",
                 value=False,

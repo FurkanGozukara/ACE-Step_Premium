@@ -89,6 +89,25 @@ class TestSamAudioSettings(unittest.TestCase):
         self.assertEqual(-42.0, settings.trim_threshold_db)
         self.assertTrue(settings.batch_recursive)
 
+    def test_predict_spans_and_reranking_candidates_follow_ui_values(self):
+        """Text-prompt span prediction settings should preserve submitted UI values."""
+
+        values = {key: None for key in SAM_AUDIO_PRESET_KEYS}
+        values.update(
+            {
+                "sam_prompt_mode": "text",
+                "sam_predict_spans": True,
+                "sam_reranking_candidates": 8,
+                "sam_vram_preset": "32gb_quality",
+                "sam_low_vram_lite": False,
+            }
+        )
+
+        settings = settings_from_ui_values([values[key] for key in SAM_AUDIO_PRESET_KEYS])
+
+        self.assertTrue(settings.predict_spans)
+        self.assertEqual(8, settings.reranking_candidates)
+
     def test_trim_threshold_is_clamped_to_safe_range(self):
         """Saved trim thresholds outside the UI range are clamped."""
 

@@ -11,6 +11,15 @@ from acestep.sam_audio_segment.settings import SamAudioSettings
 class TestModelConfig(unittest.TestCase):
     """Verify optional ranker config uses local assets."""
 
+    def test_span_predictor_config_tracks_predict_spans_setting(self):
+        """Span predictor should only be constructed when the option is enabled."""
+
+        disabled = config_for_settings(SamAudioSettings(predict_spans=False))
+        enabled = config_for_settings(SamAudioSettings(predict_spans=True))
+
+        self.assertIsNone(disabled["span_predictor"])
+        self.assertEqual("pe-a-frame-large", enabled["span_predictor"])
+
     def test_judge_ranker_uses_local_checkpoint(self):
         """Judge ranker config should not reference the online model id."""
 
