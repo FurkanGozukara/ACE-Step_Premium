@@ -22,6 +22,8 @@ class AudioProcessingSettingsTests(unittest.TestCase):
                 values.append(False)
             elif key == "ap_output_format":
                 values.append("flac")
+            elif key == "ap_export_audio_only":
+                values.append(True)
             elif key == "ap_trim_empty_output":
                 values.append(True)
             elif key == "ap_trim_threshold_db":
@@ -32,6 +34,22 @@ class AudioProcessingSettingsTests(unittest.TestCase):
                 values.append(20)
             elif key == "ap_trim_minclip":
                 values.append(4)
+            elif key == "ap_auto_editor_workflow_export":
+                values.append("resolve")
+            elif key == "ap_video_auto_quality":
+                values.append(False)
+            elif key == "ap_video_codec":
+                values.append("libx265")
+            elif key == "ap_video_bitrate":
+                values.append("6000k")
+            elif key == "ap_video_crf":
+                values.append(20)
+            elif key == "ap_video_preset":
+                values.append("slow")
+            elif key == "ap_video_audio_codec":
+                values.append("aac")
+            elif key == "ap_video_audio_bitrate":
+                values.append("256k")
             elif key == "ap_builtin_preset":
                 values.append("Suno")
             elif key.endswith("_enabled"):
@@ -44,11 +62,20 @@ class AudioProcessingSettingsTests(unittest.TestCase):
         self.assertTrue(settings.enabled)
         self.assertFalse(settings.preserve_original)
         self.assertEqual("flac", settings.output_format)
+        self.assertTrue(settings.export_audio_only)
         self.assertTrue(settings.trim_empty_output)
         self.assertEqual(-45.0, settings.trim_threshold_db)
         self.assertEqual(0.3, settings.trim_margin_seconds)
         self.assertEqual(20, settings.trim_mincut)
         self.assertEqual(4, settings.trim_minclip)
+        self.assertEqual("resolve", settings.workflow_export)
+        self.assertFalse(settings.video_reencode.auto_set_quality)
+        self.assertEqual("libx265", settings.video_reencode.video_codec)
+        self.assertEqual("6000k", settings.video_reencode.video_bitrate)
+        self.assertEqual(20, settings.video_reencode.video_crf)
+        self.assertEqual("slow", settings.video_reencode.video_preset)
+        self.assertEqual("aac", settings.video_reencode.audio_codec)
+        self.assertEqual("256k", settings.video_reencode.audio_bitrate)
         self.assertFalse(settings.stage_enabled("noise"))
         self.assertEqual(-16.0, settings.stage_value("lufs"))
         self.assertEqual(set(STAGE_KEYS), set(settings.values))

@@ -8,6 +8,7 @@ from typing import Iterator
 
 from loguru import logger
 
+from .auto_editor_workflow import export_auto_editor_workflow, workflow_export_enabled
 from .file_processor import process_media_file
 from .json_io import write_json
 from .media_io import is_supported_media
@@ -54,31 +55,55 @@ def run_batch_audio_processing(
         return
 
     status_lines.append(f"Found {len(files)} media file(s).")
-    status_lines.append(f"Saving processed outputs under: {run_dir}")
+    output_label = (
+        "Saving workflow exports under"
+        if workflow_export_enabled(settings.workflow_export)
+        else "Saving processed audio under"
+        if settings.export_audio_only
+        else "Saving processed outputs under"
+    )
+    status_lines.append(f"{output_label}: {run_dir}")
     yield _render_status(status_lines), generated_files
 
     for index, source in enumerate(files, start=1):
         started_at = time.time()
-        status_lines.append(f"[{index}/{len(files)}] Processing {source.name}")
+        action = (
+            "Exporting workflow"
+            if workflow_export_enabled(settings.workflow_export)
+            else "Processing"
+        )
+        status_lines.append(f"[{index}/{len(files)}] {action} {source.name}")
         yield _render_status(status_lines), generated_files
         try:
-            result = process_media_file(
-                source,
-                run_dir,
-                settings,
-                output_stem=safe_media_stem(source),
-            )
-            generated_files.extend(result.file_list())
+            result = None
+            if workflow_export_enabled(settings.workflow_export):
+                outputs = [
+                    export_auto_editor_workflow(
+                        source,
+                        run_dir,
+                        safe_media_stem(source),
+                        settings.workflow_export,
+                        settings.trim_settings(),
+                    )
+                ]
+            else:
+                result = process_media_file(
+                    source,
+                    run_dir,
+                    settings,
+                    output_stem=safe_media_stem(source),
+                )
+                outputs = result.file_list()
             rows.append(
                 {
                     "source_path": str(source),
                     "status": "completed",
                     "duration_seconds": round(max(0.0, time.time() - started_at), 3),
-                    "outputs": result.file_list(),
-                    "lufs_before": result.processed_audio.lufs_before,
-                    "lufs_after": result.processed_audio.lufs_after,
+                    "outputs": outputs,
+                    **_batch_metrics_row(result),
                 }
             )
+            generated_files.extend(outputs)
             status_lines.append(f"[{index}/{len(files)}] Done: {source.name}")
         except Exception as exc:
             logger.exception("[audio_processing_batch] Failed for {}", source)
@@ -120,6 +145,18 @@ def _write_manifest(
             "items": rows,
         },
     )
+
+
+def _batch_metrics_row(result: object) -> dict[str, object]:
+    """Return audio metrics when media processing produced them."""
+
+    processed_audio = getattr(result, "processed_audio", None)
+    if processed_audio is None:
+        return {}
+    return {
+        "lufs_before": processed_audio.lufs_before,
+        "lufs_after": processed_audio.lufs_after,
+    }
 
 
 def _render_status(lines: list[str]) -> str:

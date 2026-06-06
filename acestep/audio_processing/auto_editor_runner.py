@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 import sys
 from fractions import Fraction
 from pathlib import Path
@@ -16,9 +15,14 @@ from .auto_editor_trim_settings import (
     AUTO_EDITOR_ANALYSIS_TP,
     AutoEditorTrimSettings,
 )
+from .process_logging import ProcessCallback, run_external_command
 
 
-def create_analysis_wav(source_wav: Path, analysis_wav: Path) -> None:
+def create_analysis_wav(
+    source_wav: Path,
+    analysis_wav: Path,
+    process_callback: ProcessCallback | None = None,
+) -> None:
     """Create the loudnorm analysis WAV used by the reference app."""
 
     cmd = [
@@ -39,13 +43,14 @@ def create_analysis_wav(source_wav: Path, analysis_wav: Path) -> None:
         str(AUTO_EDITOR_ANALYSIS_CHANNELS),
         str(analysis_wav),
     ]
-    run_command(cmd, "ffmpeg loudnorm analysis failed")
+    run_command(cmd, "ffmpeg loudnorm analysis failed", process_callback=process_callback)
 
 
 def run_auto_editor(
     analysis_wav: Path,
     timeline_path: Path,
     settings: AutoEditorTrimSettings,
+    process_callback: ProcessCallback | None = None,
 ) -> None:
     """Run auto-editor and export a v3 timeline."""
 
@@ -67,9 +72,9 @@ def run_auto_editor(
         "-o",
         str(timeline_path),
         "--progress",
-        "none",
+        "ascii",
     ]
-    run_command(cmd, "auto-editor trim analysis failed")
+    run_command(cmd, "auto-editor trim analysis failed", process_callback=process_callback)
 
 
 def auto_editor_command() -> list[str]:
@@ -87,18 +92,14 @@ def auto_editor_command() -> list[str]:
     return [sys.executable, "-m", "auto_editor"]
 
 
-def run_command(cmd: list[str], message: str) -> None:
+def run_command(
+    cmd: list[str],
+    message: str,
+    process_callback: ProcessCallback | None = None,
+) -> None:
     """Run an external command and raise a compact runtime error."""
 
-    try:
-        subprocess.run(cmd, check=True, capture_output=True, timeout=1800)
-    except FileNotFoundError as exc:
-        raise RuntimeError(f"{message}: executable not found.") from exc
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(f"{message}: timed out.") from exc
-    except subprocess.CalledProcessError as exc:
-        stderr = exc.stderr.decode("utf-8", errors="ignore") if exc.stderr else str(exc)
-        raise RuntimeError(f"{message}: {stderr.strip()}") from exc
+    run_external_command(cmd, message, process_callback=process_callback, timeout=1800)
 
 
 def read_v3_audio_spans(

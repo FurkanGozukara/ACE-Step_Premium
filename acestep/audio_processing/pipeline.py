@@ -25,7 +25,7 @@ from .dsp_mastering import (
     soft_clipper,
     tape_saturation,
 )
-from .presets import STAGE_KEYS, STAGE_LABELS
+from .presets import STAGE_LABELS
 from .settings import AudioProcessingSettings
 from .silence_trim import trim_silent_edges
 
@@ -90,7 +90,9 @@ def process_audio_array(
             working = _sanitize_audio(working)
         if progress_callback:
             progress_callback(index / len(steps), label)
-    working, trim_metadata = _trim_processed_audio(working, sample_rate, settings)
+    working, trim_metadata = _trim_processed_audio(
+        working, sample_rate, settings, progress_callback=progress_callback
+    )
     lufs_after = measure_lufs(working, sample_rate)
     return ProcessedAudio(
         before=before,
@@ -181,21 +183,14 @@ def _trim_processed_audio(
     audio: np.ndarray,
     sample_rate: int,
     settings: AudioProcessingSettings,
+    progress_callback: ProgressCallback | None = None,
 ) -> tuple[np.ndarray, dict[str, object]]:
     """Apply optional edge-silence trimming to channel-last processed audio."""
 
     channel_first = torch.from_numpy(np.ascontiguousarray(audio.T))
     result = trim_silent_edges(
-        channel_first,
-        sample_rate=sample_rate,
-        enabled=settings.trim_empty_output,
-        trim_settings=settings.trim_settings(),
+        channel_first, sample_rate=sample_rate, enabled=settings.trim_empty_output,
+        trim_settings=settings.trim_settings(), process_callback=progress_callback,
     )
     trimmed = result.audio.detach().cpu().numpy().T
     return _sanitize_audio(trimmed), dict(result.metadata)
-
-
-def active_stage_labels(settings: AudioProcessingSettings) -> list[str]:
-    """Return display labels for stages currently enabled."""
-
-    return [STAGE_LABELS[key] for key in STAGE_KEYS if settings.stage_enabled(key)]

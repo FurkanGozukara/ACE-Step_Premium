@@ -167,6 +167,8 @@ class PremiumFeaturesTests(unittest.TestCase):
                 for key in keys
             ]
             values[keys.index("ap_trim_empty_output")] = True
+            values[keys.index("ap_export_audio_only")] = True
+            values[keys.index("ap_run_subprocess")] = False
             values[keys.index("ap_trim_threshold_db")] = -46.0
             values[keys.index("ap_trim_margin_seconds")] = 0.3
             values[keys.index("ap_trim_mincut")] = 20
@@ -179,11 +181,15 @@ class PremiumFeaturesTests(unittest.TestCase):
                 self._restore_project_root(original)
 
         self.assertTrue(loaded["ap_trim_empty_output"])
+        self.assertTrue(loaded["ap_export_audio_only"])
+        self.assertFalse(loaded["ap_run_subprocess"])
         self.assertEqual(-46.0, loaded["ap_trim_threshold_db"])
         self.assertEqual(0.3, loaded["ap_trim_margin_seconds"])
         self.assertEqual(20, loaded["ap_trim_mincut"])
         self.assertEqual(4, loaded["ap_trim_minclip"])
         self.assertTrue(updates[keys.index("ap_trim_empty_output")].get("value"))
+        self.assertTrue(updates[keys.index("ap_export_audio_only")].get("value"))
+        self.assertFalse(updates[keys.index("ap_run_subprocess")].get("value"))
         self.assertEqual(
             -46.0,
             updates[keys.index("ap_trim_threshold_db")].get("value"),

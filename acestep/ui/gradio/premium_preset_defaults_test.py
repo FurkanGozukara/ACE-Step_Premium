@@ -36,6 +36,12 @@ class PremiumPresetDefaultsTests(unittest.TestCase):
         self.assertEqual("mp3", ADDITIONAL_DEFAULT_PRESET_VALUES["sam_output_format"])
         self.assertEqual("256k", DEFAULT_PRESET_VALUES["mp3_bitrate"])
 
+    def test_audio_processing_subprocess_defaults_to_enabled(self) -> None:
+        """Audio Processing should process single files in a cancellable worker by default."""
+
+        self.assertTrue(ADDITIONAL_DEFAULT_PRESET_VALUES["ap_run_subprocess"])
+        self.assertFalse(ADDITIONAL_DEFAULT_PRESET_VALUES["ap_export_audio_only"])
+
 
 if __name__ == "__main__":
     unittest.main()

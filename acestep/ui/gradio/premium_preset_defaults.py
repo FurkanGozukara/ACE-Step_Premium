@@ -4,12 +4,25 @@ from __future__ import annotations
 
 from typing import Any
 
+from acestep.audio_processing.auto_editor_workflow import (
+    AUTO_EDITOR_WORKFLOW_EXPORT_KEY,
+    AUTO_EDITOR_WORKFLOW_EXPORT_NONE,
+)
 from acestep.audio_processing.presets import DEFAULT_STAGE_VALUES, STAGE_KEYS
 from acestep.audio_processing.settings import (
     AUDIO_PROCESSING_DEFAULT_TRIM_MARGIN_SECONDS,
     AUDIO_PROCESSING_DEFAULT_TRIM_MINCLIP,
     AUDIO_PROCESSING_DEFAULT_TRIM_MINCUT,
     AUDIO_PROCESSING_DEFAULT_TRIM_THRESHOLD_DB,
+)
+from acestep.audio_processing.video_reencode_settings import (
+    DEFAULT_VIDEO_AUDIO_BITRATE,
+    DEFAULT_VIDEO_AUDIO_CODEC,
+    DEFAULT_VIDEO_AUTO_QUALITY,
+    DEFAULT_VIDEO_BITRATE,
+    DEFAULT_VIDEO_CODEC,
+    DEFAULT_VIDEO_CRF,
+    DEFAULT_VIDEO_PRESET,
 )
 from acestep.constants import DEFAULT_DIT_INSTRUCTION
 from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL, DEFAULT_VAE_VARIANT
@@ -121,12 +134,22 @@ ADDITIONAL_DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "ap_auto_postprocess": False,
     "ap_preserve_original": True,
     "ap_output_format": "wav",
+    "ap_export_audio_only": False,
     "ap_trim_empty_output": False,
     "ap_trim_threshold_db": AUDIO_PROCESSING_DEFAULT_TRIM_THRESHOLD_DB,
     "ap_trim_margin_seconds": AUDIO_PROCESSING_DEFAULT_TRIM_MARGIN_SECONDS,
     "ap_trim_mincut": AUDIO_PROCESSING_DEFAULT_TRIM_MINCUT,
     "ap_trim_minclip": AUDIO_PROCESSING_DEFAULT_TRIM_MINCLIP,
+    AUTO_EDITOR_WORKFLOW_EXPORT_KEY: AUTO_EDITOR_WORKFLOW_EXPORT_NONE,
+    "ap_video_auto_quality": DEFAULT_VIDEO_AUTO_QUALITY,
+    "ap_video_codec": DEFAULT_VIDEO_CODEC,
+    "ap_video_bitrate": DEFAULT_VIDEO_BITRATE,
+    "ap_video_crf": DEFAULT_VIDEO_CRF,
+    "ap_video_preset": DEFAULT_VIDEO_PRESET,
+    "ap_video_audio_codec": DEFAULT_VIDEO_AUDIO_CODEC,
+    "ap_video_audio_bitrate": DEFAULT_VIDEO_AUDIO_BITRATE,
     "ap_builtin_preset": "Generic AI",
+    "ap_run_subprocess": True,
     **{f"ap_{key}_enabled": True for key in STAGE_KEYS},
     **{f"ap_{key}": DEFAULT_STAGE_VALUES[key] for key in STAGE_KEYS},
     "sam_auto_postprocess": False,

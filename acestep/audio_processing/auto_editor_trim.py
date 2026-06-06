@@ -15,6 +15,7 @@ from .auto_editor_trim_settings import (
     DEFAULT_AUTO_EDITOR_TRIM_SETTINGS,
     AutoEditorTrimSettings,
 )
+from .process_logging import ProcessCallback
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,7 @@ def trim_silent_edges(
     enabled: bool,
     trim_settings: AutoEditorTrimSettings | None = None,
     threshold_db: object | None = None,
+    process_callback: ProcessCallback | None = None,
 ) -> SilenceTrimResult:
     """Cut inactive audio sections with auto-editor and return metadata."""
 
@@ -51,6 +53,7 @@ def trim_silent_edges(
             sample_rate=int(sample_rate or 48000),
             settings=settings,
             temp_dir=Path(temp_dir),
+            process_callback=process_callback,
         )
 
     if not spans:
@@ -92,6 +95,7 @@ def _detect_spans_with_auto_editor(
     sample_rate: int,
     settings: AutoEditorTrimSettings,
     temp_dir: Path,
+    process_callback: ProcessCallback | None = None,
 ) -> list[tuple[int, int]]:
     """Return source sample spans kept by auto-editor."""
 
@@ -100,11 +104,16 @@ def _detect_spans_with_auto_editor(
     timeline_path = temp_dir / "timeline.v3"
     sf.write(str(source_wav), _tensor_to_channel_last(audio), sample_rate)
     if settings.normalize_analysis_audio:
-        create_analysis_wav(source_wav, analysis_wav)
+        create_analysis_wav(source_wav, analysis_wav, process_callback=process_callback)
     else:
         analysis_wav = source_wav
     try:
-        run_auto_editor(analysis_wav, timeline_path, settings)
+        run_auto_editor(
+            analysis_wav,
+            timeline_path,
+            settings,
+            process_callback=process_callback,
+        )
     except RuntimeError as exc:
         if "Timeline is empty" in str(exc):
             return []

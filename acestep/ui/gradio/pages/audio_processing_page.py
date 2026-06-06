@@ -18,20 +18,21 @@ from acestep.audio_processing.auto_editor_trim_settings import (
     AUTO_EDITOR_THRESHOLD_MAX_DB,
     AUTO_EDITOR_THRESHOLD_MIN_DB,
 )
+from acestep.audio_processing.auto_editor_workflow import (
+    AUTO_EDITOR_WORKFLOW_EXPORT_CHOICES,
+    AUTO_EDITOR_WORKFLOW_EXPORT_KEY,
+    AUTO_EDITOR_WORKFLOW_EXPORT_NONE,
+)
 from acestep.audio_processing.presets import (
-    DEFAULT_STAGE_VALUES,
     OUTPUT_FORMAT_CHOICES,
     PRESET_VALUES,
-    STAGE_KEYS,
-    STAGE_LABELS,
 )
-from acestep.ui.gradio.interfaces.source_audio_preview import (
-    AUDIO_PROCESSING_AFTER_PREVIEW_ELEM_ID,
-    AUDIO_PROCESSING_BEFORE_PREVIEW_ELEM_ID,
-    AUDIO_PROCESSING_OUTPUT_PREVIEW_ELEM_ID,
-    AUDIO_PROCESSING_PREVIEW_ELEM_CLASSES,
-    AUDIO_PROCESSING_PREVIEW_WAVEFORM_OPTIONS,
-    AUDIO_PROCESSING_UPLOAD_PREVIEW_ELEM_ID,
+from acestep.ui.gradio.pages.audio_processing_single_file_controls import (
+    add_single_file_controls,
+)
+from acestep.ui.gradio.pages.audio_processing_stage_controls import add_stage_controls
+from acestep.ui.gradio.pages.audio_processing_video_controls import (
+    add_video_auto_editor_controls,
 )
 
 
@@ -40,14 +41,6 @@ def create_audio_processing_page() -> dict[str, Any]:
 
     controls: dict[str, Any] = {}
     with gr.Column(elem_classes=["ace-page", "ace-stack"]):
-        gr.HTML(
-            """
-            <section class="ace-page-intro">
-              <span class="ace-page-eyebrow">Audio Processing</span>
-              <h2>Enhance, pre-master, and optionally post-process generated songs.</h2>
-            </section>
-            """
-        )
         with gr.Group(elem_classes=["ace-panel", "ace-stack"]):
             with gr.Row():
                 controls["ap_auto_postprocess"] = gr.Checkbox(
@@ -72,6 +65,16 @@ def create_audio_processing_page() -> dict[str, Any]:
                     choices=list(PRESET_VALUES.keys()),
                     value="Generic AI",
                     label="Processing Preset",
+                )
+                controls["ap_run_subprocess"] = gr.Checkbox(
+                    label="Run as subprocess",
+                    value=True,
+                    info="Runs Process File in an isolated worker that can be cancelled.",
+                )
+                controls["ap_export_audio_only"] = gr.Checkbox(
+                    label="Export Only Audio",
+                    value=False,
+                    info="For video inputs, save processed audio without producing video.",
                 )
             with gr.Row(equal_height=True):
                 controls["ap_trim_empty_output"] = gr.Checkbox(
@@ -126,113 +129,20 @@ def create_audio_processing_page() -> dict[str, Any]:
                     scale=2,
                     min_width=160,
                 )
+                controls[AUTO_EDITOR_WORKFLOW_EXPORT_KEY] = gr.Dropdown(
+                    choices=AUTO_EDITOR_WORKFLOW_EXPORT_CHOICES,
+                    value=AUTO_EDITOR_WORKFLOW_EXPORT_NONE,
+                    label="Auto-Editor workflow export",
+                    info="When selected, Process File exports only this workflow file.",
+                    scale=2,
+                    min_width=190,
+                )
+            add_video_auto_editor_controls(controls)
 
         with gr.Group(elem_classes=["ace-panel", "ace-stack"]):
-            gr.Markdown("### Single Audio or Video")
-            controls["ap_single_file"] = gr.File(
-                label="Upload Audio or Video",
-                file_count="multiple",
-                type="filepath",
-                file_types=[
-                    ".wav",
-                    ".flac",
-                    ".mp3",
-                    ".ogg",
-                    ".m4a",
-                    ".aac",
-                    ".opus",
-                    ".mp4",
-                    ".mov",
-                    ".mkv",
-                    ".webm",
-                    ".avi",
-                ],
-                elem_id="acestep-audio-processing-single-upload",
-                key="audio_processing_single_upload",
-                preserved_by_key=[],
-            )
-            with gr.Row():
-                controls["ap_upload_audio_preview"] = gr.Audio(
-                    label="Uploaded Audio",
-                    type="filepath",
-                    interactive=True,
-                    editable=True,
-                    visible=False,
-                    elem_id=AUDIO_PROCESSING_UPLOAD_PREVIEW_ELEM_ID,
-                    elem_classes=AUDIO_PROCESSING_PREVIEW_ELEM_CLASSES,
-                    waveform_options=AUDIO_PROCESSING_PREVIEW_WAVEFORM_OPTIONS,
-                )
-                controls["ap_upload_video_preview"] = gr.Video(
-                    label="Uploaded Video",
-                    interactive=False,
-                    visible=False,
-                    elem_classes=["ace-video-preview"],
-                )
-            with gr.Row(equal_height=True):
-                controls["ap_preview_btn"] = gr.Button(
-                    "Preview 60s",
-                    variant="secondary",
-                    size="lg",
-                    elem_classes=["action-btn", "action-btn-preview"],
-                )
-                controls["ap_process_btn"] = gr.Button(
-                    "Process File",
-                    variant="primary",
-                    size="lg",
-                    elem_classes=["action-btn", "action-btn-generate"],
-                )
-            with gr.Row():
-                controls["ap_preview_before_audio"] = gr.Audio(
-                    label="Preview Before",
-                    type="filepath",
-                    interactive=False,
-                    elem_id=AUDIO_PROCESSING_BEFORE_PREVIEW_ELEM_ID,
-                    elem_classes=AUDIO_PROCESSING_PREVIEW_ELEM_CLASSES,
-                    waveform_options=AUDIO_PROCESSING_PREVIEW_WAVEFORM_OPTIONS,
-                )
-                controls["ap_preview_after_audio"] = gr.Audio(
-                    label="Preview After",
-                    type="filepath",
-                    interactive=False,
-                    elem_id=AUDIO_PROCESSING_AFTER_PREVIEW_ELEM_ID,
-                    elem_classes=AUDIO_PROCESSING_PREVIEW_ELEM_CLASSES,
-                    waveform_options=AUDIO_PROCESSING_PREVIEW_WAVEFORM_OPTIONS,
-                )
-            controls["ap_output_audio"] = gr.Audio(
-                label="Processed Audio",
-                type="filepath",
-                interactive=False,
-                elem_id=AUDIO_PROCESSING_OUTPUT_PREVIEW_ELEM_ID,
-                elem_classes=AUDIO_PROCESSING_PREVIEW_ELEM_CLASSES,
-                waveform_options=AUDIO_PROCESSING_PREVIEW_WAVEFORM_OPTIONS,
-            )
-            controls["ap_output_video"] = gr.Video(
-                label="Processed Video",
-                interactive=False,
-                visible=False,
-                elem_classes=["ace-video-preview"],
-            )
-            controls["ap_spectrogram"] = gr.Plot(label="Before / After Spectrogram")
-            controls["ap_single_files"] = gr.File(
-                label="Saved Files",
-                file_count="multiple",
-                interactive=False,
-                visible=False,
-            )
-            controls["ap_single_status"] = gr.Markdown(
-                "Audio processing ready.",
-                elem_classes=["ace-status-scroll-10"],
-            )
+            add_single_file_controls(controls)
 
-        with gr.Row(equal_height=True):
-            with gr.Column(scale=1):
-                gr.Markdown("### Audio Enhancement")
-                for key in STAGE_KEYS[:6]:
-                    _add_stage_control(controls, key)
-            with gr.Column(scale=1):
-                gr.Markdown("### Pre-Mastering")
-                for key in STAGE_KEYS[6:]:
-                    _add_stage_control(controls, key)
+        add_stage_controls(controls)
 
         with gr.Group(elem_classes=["ace-panel", "ace-stack"]):
             gr.Markdown("### Batch Folder Processing")
@@ -270,33 +180,3 @@ def create_audio_processing_page() -> dict[str, Any]:
                 interactive=False,
             )
     return controls
-
-
-def _add_stage_control(controls: dict[str, Any], key: str) -> None:
-    """Add one enabled checkbox and value slider to the page controls."""
-
-    minimum, maximum, step = _slider_bounds(key)
-    with gr.Row(equal_height=True):
-        controls[f"ap_{key}_enabled"] = gr.Checkbox(
-            label=STAGE_LABELS[key],
-            value=True,
-            scale=1,
-        )
-        controls[f"ap_{key}"] = gr.Slider(
-            minimum=minimum,
-            maximum=maximum,
-            step=step,
-            value=DEFAULT_STAGE_VALUES[key],
-            label=STAGE_LABELS[key],
-            scale=4,
-        )
-
-
-def _slider_bounds(key: str) -> tuple[float, float, float]:
-    """Return slider bounds for an audio-processing stage."""
-
-    if key == "stereo":
-        return 1.0, 2.0, 0.05
-    if key == "lufs":
-        return -24.0, -8.0, 0.5
-    return 0.0, 1.0, 0.05

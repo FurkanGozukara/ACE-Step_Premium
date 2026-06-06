@@ -15,22 +15,32 @@ from .auto_editor_trim_settings import (
     coerce_auto_editor_smooth_value,
     coerce_auto_editor_threshold_db,
 )
-from .presets import (
-    DEFAULT_STAGE_VALUES,
-    OUTPUT_FORMAT_CHOICES,
-    PRESET_VALUES,
-    STAGE_KEYS,
+from .auto_editor_workflow import (
+    AUTO_EDITOR_WORKFLOW_EXPORT_KEY,
+    AUTO_EDITOR_WORKFLOW_EXPORT_NONE,
+    normalize_workflow_export_mode,
 )
+from .presets import DEFAULT_STAGE_VALUES, PRESET_VALUES, STAGE_KEYS
+from .settings_coercion import (
+    coerce_float_value,
+    coerce_output_format,
+    coerce_stage_enabled,
+    coerce_stage_values,
+)
+from .video_reencode_settings import VIDEO_REENCODE_UI_KEYS, VideoReencodeSettings
 
 UI_SETTING_KEYS: tuple[str, ...] = (
     "ap_auto_postprocess",
     "ap_preserve_original",
     "ap_output_format",
+    "ap_export_audio_only",
     "ap_trim_empty_output",
     "ap_trim_threshold_db",
     "ap_trim_margin_seconds",
     "ap_trim_mincut",
     "ap_trim_minclip",
+    AUTO_EDITOR_WORKFLOW_EXPORT_KEY,
+    *VIDEO_REENCODE_UI_KEYS,
     "ap_builtin_preset",
     *tuple(item for key in STAGE_KEYS for item in (f"ap_{key}_enabled", f"ap_{key}")),
 )
@@ -48,11 +58,14 @@ class AudioProcessingSettings:
     enabled: bool = False
     preserve_original: bool = True
     output_format: str = "wav"
+    export_audio_only: bool = False
     trim_empty_output: bool = False
     trim_threshold_db: float = AUDIO_PROCESSING_DEFAULT_TRIM_THRESHOLD_DB
     trim_margin_seconds: float = AUDIO_PROCESSING_DEFAULT_TRIM_MARGIN_SECONDS
     trim_mincut: int = AUDIO_PROCESSING_DEFAULT_TRIM_MINCUT
     trim_minclip: int = AUDIO_PROCESSING_DEFAULT_TRIM_MINCLIP
+    workflow_export: str = AUTO_EDITOR_WORKFLOW_EXPORT_NONE
+    video_reencode: VideoReencodeSettings = field(default_factory=VideoReencodeSettings)
     preset: str = "Generic AI"
     stages_enabled: dict[str, bool] = field(
         default_factory=lambda: {key: True for key in STAGE_KEYS}
@@ -73,11 +86,14 @@ class AudioProcessingSettings:
             "enabled": self.enabled,
             "preserve_original": self.preserve_original,
             "output_format": self.output_format,
+            "export_audio_only": self.export_audio_only,
             "trim_empty_output": self.trim_empty_output,
             "trim_threshold_db": self.trim_threshold_db,
             "trim_margin_seconds": self.trim_margin_seconds,
             "trim_mincut": self.trim_mincut,
             "trim_minclip": self.trim_minclip,
+            "workflow_export": self.workflow_export,
+            "video_reencode": self.video_reencode.to_payload(),
             "preset": self.preset,
             "stages_enabled": dict(self.stages_enabled),
             "values": dict(self.values),
@@ -99,12 +115,13 @@ class AudioProcessingSettings:
 
         if not isinstance(payload, dict):
             return cls()
-        values = _coerce_stage_values(payload.get("values", {}))
-        enabled = _coerce_stage_enabled(payload.get("stages_enabled", {}))
+        values = coerce_stage_values(payload.get("values", {}))
+        enabled = coerce_stage_enabled(payload.get("stages_enabled", {}))
         return cls(
             enabled=bool(payload.get("enabled", False)),
             preserve_original=bool(payload.get("preserve_original", True)),
-            output_format=_coerce_output_format(payload.get("output_format")),
+            output_format=coerce_output_format(payload.get("output_format")),
+            export_audio_only=bool(payload.get("export_audio_only", False)),
             trim_empty_output=bool(payload.get("trim_empty_output", False)),
             trim_threshold_db=coerce_auto_editor_threshold_db(
                 payload.get("trim_threshold_db")
@@ -120,6 +137,8 @@ class AudioProcessingSettings:
                 payload.get("trim_minclip"),
                 AUDIO_PROCESSING_DEFAULT_TRIM_MINCLIP,
             ),
+            workflow_export=normalize_workflow_export_mode(payload.get("workflow_export")),
+            video_reencode=VideoReencodeSettings.from_payload(payload.get("video_reencode")),
             preset=str(payload.get("preset") or "Generic AI"),
             stages_enabled=enabled,
             values=values,
@@ -138,7 +157,8 @@ def settings_from_ui_values(values: tuple[Any, ...] | list[Any]) -> AudioProcess
     return AudioProcessingSettings(
         enabled=bool(payload.get("ap_auto_postprocess")),
         preserve_original=bool(payload.get("ap_preserve_original", True)),
-        output_format=_coerce_output_format(payload.get("ap_output_format")),
+        output_format=coerce_output_format(payload.get("ap_output_format")),
+        export_audio_only=bool(payload.get("ap_export_audio_only", False)),
         trim_empty_output=bool(payload.get("ap_trim_empty_output", False)),
         trim_threshold_db=coerce_auto_editor_threshold_db(
             payload.get("ap_trim_threshold_db")
@@ -154,47 +174,16 @@ def settings_from_ui_values(values: tuple[Any, ...] | list[Any]) -> AudioProcess
             payload.get("ap_trim_minclip"),
             AUDIO_PROCESSING_DEFAULT_TRIM_MINCLIP,
         ),
+        workflow_export=normalize_workflow_export_mode(
+            payload.get(AUTO_EDITOR_WORKFLOW_EXPORT_KEY)
+        ),
+        video_reencode=VideoReencodeSettings.from_ui_payload(payload),
         preset=str(payload.get("ap_builtin_preset") or "Generic AI"),
         stages_enabled={
             key: bool(payload.get(f"ap_{key}_enabled", True)) for key in STAGE_KEYS
         },
         values={
-            key: _coerce_float(payload.get(f"ap_{key}"), DEFAULT_STAGE_VALUES[key])
+            key: coerce_float_value(payload.get(f"ap_{key}"), DEFAULT_STAGE_VALUES[key])
             for key in STAGE_KEYS
         },
     )
-
-
-def _coerce_output_format(value: Any) -> str:
-    """Return a supported processed-audio output format."""
-    normalized = str(value or "wav").strip().lower()
-    return normalized if normalized in {"wav", "flac", "mp3"} else "wav"
-
-
-def _coerce_stage_values(raw_values: Any) -> dict[str, float]:
-    """Return numeric stage values with defaults filled in."""
-
-    source = raw_values if isinstance(raw_values, dict) else {}
-    return {
-        key: _coerce_float(source.get(key), DEFAULT_STAGE_VALUES[key])
-        for key in STAGE_KEYS
-    }
-
-
-def _coerce_stage_enabled(raw_values: Any) -> dict[str, bool]:
-    """Return stage enabled flags with defaults filled in."""
-
-    source = raw_values if isinstance(raw_values, dict) else {}
-    return {key: bool(source.get(key, True)) for key in STAGE_KEYS}
-
-
-def _coerce_float(value: Any, fallback: float) -> float:
-    """Return a finite float or a fallback."""
-
-    try:
-        result = float(value)
-    except (TypeError, ValueError):
-        return fallback
-    if result != result or result in (float("inf"), float("-inf")):
-        return fallback
-    return result

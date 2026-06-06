@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -12,6 +11,7 @@ import soundfile as sf
 
 from acestep.audio_utils import save_audio
 from .media_duration import probe_media_duration_seconds
+from .process_logging import ProcessCallback, emit_process_message, run_external_command
 
 
 AUDIO_EXTENSIONS = {
@@ -39,11 +39,15 @@ def is_video_file(path: str | Path) -> bool:
     return Path(path).suffix.lower() in VIDEO_EXTENSIONS
 
 
-def read_media_audio(path: str | Path) -> tuple[np.ndarray, int]:
+def read_media_audio(
+    path: str | Path,
+    process_callback: ProcessCallback | None = None,
+) -> tuple[np.ndarray, int]:
     """Read audio from an audio or video file as float32 channel-last samples.
 
     Args:
         path: Audio or video file path.
+        process_callback: Optional callback for FFmpeg decode progress.
 
     Returns:
         Tuple of audio array and sample rate.
@@ -62,7 +66,7 @@ def read_media_audio(path: str | Path) -> tuple[np.ndarray, int]:
             return audio, int(sample_rate)
         except Exception:
             pass
-    return _read_with_ffmpeg(source)
+    return _read_with_ffmpeg(source, process_callback=process_callback)
 
 
 def media_audio_duration_seconds(path: str | Path) -> float:
@@ -102,6 +106,7 @@ def mux_video_with_audio(
     source_video: str | Path,
     processed_audio: str | Path,
     output_video: str | Path,
+    process_callback: ProcessCallback | None = None,
 ) -> str:
     """Copy the source video stream and replace its audio track."""
 
@@ -109,12 +114,19 @@ def mux_video_with_audio(
     audio = Path(processed_audio).expanduser().resolve()
     target = Path(output_video).expanduser().resolve()
     target.parent.mkdir(parents=True, exist_ok=True)
+    emit_process_message(
+        process_callback,
+        "Replacing video audio without video reencode (ffmpeg -c:v copy).",
+    )
     cmd = [
         "ffmpeg",
         "-y",
         "-hide_banner",
         "-loglevel",
         "error",
+        "-progress",
+        "pipe:1",
+        "-nostats",
         "-i",
         str(source),
         "-i",
@@ -130,11 +142,19 @@ def mux_video_with_audio(
         "-shortest",
         str(target),
     ]
-    _run_ffmpeg(cmd, "ffmpeg video mux failed")
+    _run_ffmpeg(
+        cmd,
+        "ffmpeg video mux failed",
+        process_callback=process_callback,
+        progress_duration_seconds=_safe_media_duration_seconds(source),
+    )
     return str(target).replace("\\", "/")
 
 
-def _read_with_ffmpeg(source: Path) -> tuple[np.ndarray, int]:
+def _read_with_ffmpeg(
+    source: Path,
+    process_callback: ProcessCallback | None = None,
+) -> tuple[np.ndarray, int]:
     """Decode media audio with ffmpeg into a temporary WAV file."""
 
     with tempfile.TemporaryDirectory(prefix="acestep_audio_decode_") as temp_dir:
@@ -145,6 +165,9 @@ def _read_with_ffmpeg(source: Path) -> tuple[np.ndarray, int]:
             "-hide_banner",
             "-loglevel",
             "error",
+            "-progress",
+            "pipe:1",
+            "-nostats",
             "-i",
             str(source),
             "-vn",
@@ -152,23 +175,40 @@ def _read_with_ffmpeg(source: Path) -> tuple[np.ndarray, int]:
             "pcm_f32le",
             str(wav_path),
         ]
-        _run_ffmpeg(cmd, "ffmpeg media decode failed")
+        _run_ffmpeg(
+            cmd,
+            "ffmpeg media decode failed",
+            process_callback=process_callback,
+            progress_duration_seconds=_safe_media_duration_seconds(source),
+        )
         audio, sample_rate = sf.read(str(wav_path), dtype="float32", always_2d=True)
         return audio, int(sample_rate)
 
 
-def _run_ffmpeg(cmd: list[str], message: str) -> None:
+def _run_ffmpeg(
+    cmd: list[str],
+    message: str,
+    process_callback: ProcessCallback | None = None,
+    progress_duration_seconds: float | None = None,
+) -> None:
     """Run ffmpeg and raise a compact error when it fails."""
 
+    run_external_command(
+        cmd,
+        message,
+        process_callback=process_callback,
+        progress_duration_seconds=progress_duration_seconds,
+        timeout=180,
+    )
+
+
+def _safe_media_duration_seconds(source: Path) -> float:
+    """Return source media duration for progress reporting when available."""
+
     try:
-        subprocess.run(cmd, check=True, capture_output=True, timeout=180)
-    except FileNotFoundError as exc:
-        raise RuntimeError("ffmpeg executable was not found on PATH.") from exc
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError(f"{message}: timed out.") from exc
-    except subprocess.CalledProcessError as exc:
-        stderr = exc.stderr.decode("utf-8", errors="ignore") if exc.stderr else str(exc)
-        raise RuntimeError(f"{message}: {stderr}") from exc
+        return probe_media_duration_seconds(source)
+    except RuntimeError:
+        return 0.0
 
 
 def _to_channel_first(audio: np.ndarray) -> np.ndarray:

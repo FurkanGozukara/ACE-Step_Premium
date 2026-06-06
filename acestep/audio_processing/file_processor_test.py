@@ -35,7 +35,10 @@ class AudioProcessingFileProcessorTests(unittest.TestCase):
             self.assertTrue(Path(result.audio_path).is_file())
             self.assertTrue(Path(result.metadata_path).is_file())
             payload = json.loads(Path(result.metadata_path).read_text(encoding="utf-8"))
-            self.assertEqual(str(source.resolve()).replace("\\", "/"), payload["_meta"]["source_path"])
+            self.assertEqual(
+                str(source.resolve()).replace("\\", "/"),
+                payload["_meta"]["source_path"],
+            )
             self.assertIn("lufs_after", payload["metrics"])
             self.assertFalse(payload["trim"]["applied"])
 
