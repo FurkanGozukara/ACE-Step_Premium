@@ -30,7 +30,19 @@
 
 ### 6 June 2026 V4.6 Update
 
--   Application branding updated to ACE-Step 1.5 XL Premium v4.6.
+-   Audio processing tab significantly improved a lots of new features added  
+-   Now supports Run as subprocess and cancel button immediately    
+-   Now fully supports video inputs    
+-   Now supports Export Only Audio - very useful for getting audio from video if you don't need video    
+-   Now avoids reencoding of videos only if audio of video is processed - Auto-Editor triggers video processing    
+-   Now supports video re-encoding profiles    
+-   Now supports Auto-Editor workflow export for Davinci Resolve, Adobe Premiere Pro, Final Cut Pro, Shotcut and Kdenlive    
+    -   Thus you can trim silent parts of your videos and continue editing in your favorite app, I use this literally to edit my tutorial videos        
+-   Now fully shows Audio Processing tab process progress in CMD and also on Gradio    
+    -   Auto-Editor video processing may take quite time since it re-encodes video        
+-   Zip file is same, just use Windows\_Install\_or\_Update.bat to update
+
+  <img height="600" alt="image" src="https://github.com/user-attachments/assets/87eb80a8-9e07-4f7b-84db-f077cd775dc6" />
 
 ### 4 June 2026 V4.5 Update
 
