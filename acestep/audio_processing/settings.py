@@ -20,6 +20,7 @@ from .auto_editor_workflow import (
     AUTO_EDITOR_WORKFLOW_EXPORT_NONE,
     normalize_workflow_export_mode,
 )
+from .diffpitcher_settings import DIFFPITCHER_UI_KEYS, DiffPitcherSettings
 from .presets import DEFAULT_STAGE_VALUES, PRESET_VALUES, STAGE_KEYS
 from .settings_coercion import (
     coerce_float_value,
@@ -41,6 +42,7 @@ UI_SETTING_KEYS: tuple[str, ...] = (
     "ap_trim_minclip",
     AUTO_EDITOR_WORKFLOW_EXPORT_KEY,
     *VIDEO_REENCODE_UI_KEYS,
+    *DIFFPITCHER_UI_KEYS,
     "ap_builtin_preset",
     *tuple(item for key in STAGE_KEYS for item in (f"ap_{key}_enabled", f"ap_{key}")),
 )
@@ -66,6 +68,7 @@ class AudioProcessingSettings:
     trim_minclip: int = AUDIO_PROCESSING_DEFAULT_TRIM_MINCLIP
     workflow_export: str = AUTO_EDITOR_WORKFLOW_EXPORT_NONE
     video_reencode: VideoReencodeSettings = field(default_factory=VideoReencodeSettings)
+    diffpitcher: DiffPitcherSettings = field(default_factory=DiffPitcherSettings)
     preset: str = "Generic AI"
     stages_enabled: dict[str, bool] = field(
         default_factory=lambda: {key: True for key in STAGE_KEYS}
@@ -94,6 +97,7 @@ class AudioProcessingSettings:
             "trim_minclip": self.trim_minclip,
             "workflow_export": self.workflow_export,
             "video_reencode": self.video_reencode.to_payload(),
+            "diffpitcher": self.diffpitcher.to_payload(),
             "preset": self.preset,
             "stages_enabled": dict(self.stages_enabled),
             "values": dict(self.values),
@@ -139,6 +143,7 @@ class AudioProcessingSettings:
             ),
             workflow_export=normalize_workflow_export_mode(payload.get("workflow_export")),
             video_reencode=VideoReencodeSettings.from_payload(payload.get("video_reencode")),
+            diffpitcher=DiffPitcherSettings.from_payload(payload.get("diffpitcher")),
             preset=str(payload.get("preset") or "Generic AI"),
             stages_enabled=enabled,
             values=values,
@@ -178,6 +183,7 @@ def settings_from_ui_values(values: tuple[Any, ...] | list[Any]) -> AudioProcess
             payload.get(AUTO_EDITOR_WORKFLOW_EXPORT_KEY)
         ),
         video_reencode=VideoReencodeSettings.from_ui_payload(payload),
+        diffpitcher=DiffPitcherSettings.from_ui_payload(payload),
         preset=str(payload.get("ap_builtin_preset") or "Generic AI"),
         stages_enabled={
             key: bool(payload.get(f"ap_{key}_enabled", True)) for key in STAGE_KEYS

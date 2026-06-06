@@ -1,0 +1,11 @@
+pitchformer:
+  n_mels: 100
+  hidden_size: 512
+  attn_layers: 4
+pitch:
+  f0_bin: 345
+  midi_min: 36
+  midi_max: 85
+audio:
+  sampling_rate: 24000
+  hop_size: 256

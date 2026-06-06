@@ -151,6 +151,7 @@ def _processed_audio(trimmed: bool = False) -> ProcessedAudio:
         lufs_before=-20.0,
         lufs_after=-18.0,
         duration_seconds=0.1,
+        diffpitcher_metadata={"enabled": False, "applied": False},
         trim_metadata={
             "enabled": trimmed,
             "applied": trimmed,

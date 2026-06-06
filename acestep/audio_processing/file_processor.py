@@ -175,6 +175,7 @@ def _write_metadata(
                 "lufs_after": processed.lufs_after,
             },
             "trim": processed.trim_metadata,
+            "diffpitcher": processed.diffpitcher_metadata,
             "outputs": {
                 "audio_path": audio_path,
                 "video_path": video_path,

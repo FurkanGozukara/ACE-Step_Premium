@@ -31,6 +31,12 @@ MAIN_MODEL_REPO = "ACE-Step/Ace-Step1.5"
 DEFAULT_SMALL_LM_MODEL = "acestep-5Hz-lm-0.6B"
 DEFAULT_LM_MODEL = "acestep-5Hz-lm-1.7B"
 DEFAULT_LARGE_LM_MODEL = "acestep-5Hz-lm-4B"
+DIFFPITCHER_MODEL_REPO = "MonsterMMORPG/Wan_GGUF"
+DIFFPITCHER_MODEL_FILES = [
+    "Diff-Pitcher_bigvgan_24khz_100band.safetensors",
+    "Diff-Pitcher_transformer_pitch_360.safetensors",
+    "Diff-Pitcher_world_fixed_40.safetensors",
+]
 SHARED_MAIN_MODEL_COMPONENTS = [
     "vae",
     "Qwen3-Embedding-0.6B",
@@ -520,7 +526,7 @@ def check_main_model_exists(checkpoints_dir: Optional[Path] = None) -> bool:
     for component in MAIN_MODEL_COMPONENTS:
         if not check_model_exists(component, checkpoints_dir):
             return False
-    return True
+    return check_diffpitcher_assets_exist(checkpoints_dir)
 
 
 def check_model_exists(model_name: str, checkpoints_dir: Optional[Path] = None) -> bool:
@@ -543,6 +549,16 @@ def check_model_exists(model_name: str, checkpoints_dir: Optional[Path] = None) 
         checkpoints_dir = Path(checkpoints_dir)
 
     return resolve_existing_model_name(model_name, checkpoints_dir) is not None
+
+
+def check_diffpitcher_assets_exist(checkpoints_dir: Optional[Path] = None) -> bool:
+    """Return whether the bundled DiffPitcher flat-file checkpoints exist."""
+    if checkpoints_dir is None:
+        checkpoints_dir = get_checkpoints_dir()
+    elif isinstance(checkpoints_dir, str):
+        checkpoints_dir = Path(checkpoints_dir)
+
+    return all((checkpoints_dir / filename).is_file() for filename in DIFFPITCHER_MODEL_FILES)
 
 
 def check_shared_main_components_exist(checkpoints_dir: Optional[Path] = None) -> bool:
@@ -601,7 +617,8 @@ def list_available_models() -> Dict[str, str]:
         "main": (
             f"{MAIN_MODEL_REPO} + "
             f"{', '.join(f'ACE-Step/{lm_model}' for lm_model in PRESET_LM_MODEL_COMPONENTS)} + "
-            f"{', '.join(MAIN_DIT_MODEL_COMPONENTS)}"
+            f"{', '.join(MAIN_DIT_MODEL_COMPONENTS)} + "
+            f"{DIFFPITCHER_MODEL_REPO}::{', '.join(DIFFPITCHER_MODEL_FILES)}"
         ),
         **SUBMODEL_REGISTRY
     }
@@ -675,6 +692,43 @@ def download_preset_lm_components(
     )
 
 
+def download_diffpitcher_models(
+    checkpoints_dir: Optional[Path] = None,
+    force: bool = False,
+    token: Optional[str] = None,
+    prefer_source: Optional[str] = None,
+) -> Tuple[bool, str]:
+    """Download the bundled DiffPitcher checkpoints into the model directory root."""
+    if checkpoints_dir is None:
+        checkpoints_dir = get_checkpoints_dir()
+    elif isinstance(checkpoints_dir, str):
+        checkpoints_dir = Path(checkpoints_dir)
+
+    checkpoints_dir.mkdir(parents=True, exist_ok=True)
+
+    if not force and check_diffpitcher_assets_exist(checkpoints_dir):
+        return True, f"DiffPitcher assets already exist at {checkpoints_dir}"
+
+    print(f"Downloading DiffPitcher assets from {DIFFPITCHER_MODEL_REPO}...")
+    print(f"Destination: {checkpoints_dir}")
+    print(f"Files: {', '.join(DIFFPITCHER_MODEL_FILES)}")
+
+    success, msg = _smart_download(
+        DIFFPITCHER_MODEL_REPO,
+        checkpoints_dir,
+        token,
+        prefer_source,
+        allow_patterns=DIFFPITCHER_MODEL_FILES,
+    )
+    if not success:
+        return False, msg
+    return (
+        True,
+        f"DiffPitcher assets are available at {checkpoints_dir} "
+        f"({', '.join(DIFFPITCHER_MODEL_FILES)})",
+    )
+
+
 def download_main_model(
     checkpoints_dir: Optional[Path] = None,
     force: bool = False,
@@ -694,6 +748,7 @@ def download_main_model(
     - ACEStep_1_5_XL_SFT_BF16 (default premium DiT model)
     - ACEStep_1_5_XL_Turbo_BF16 (default turbo DiT preset model)
     - ACEStep_1_5_XL_Base_BF16 (default base DiT preset model)
+    - DiffPitcher pitch-fix safetensors in the model directory root
 
     Args:
         checkpoints_dir: Custom checkpoints directory (optional)
@@ -719,6 +774,7 @@ def download_main_model(
     print(f"Shared components source: {MAIN_MODEL_REPO}")
     print(f"Bundled LM models: {', '.join(BUNDLED_LM_MODEL_COMPONENTS)}")
     print(f"Bundled DiT models: {', '.join(MAIN_DIT_MODEL_COMPONENTS)}")
+    print(f"DiffPitcher assets: {', '.join(DIFFPITCHER_MODEL_FILES)}")
     print("This may take a while depending on your internet connection...")
 
     shared_success, shared_msg = download_shared_main_components(
@@ -752,11 +808,20 @@ def download_main_model(
             return False, dit_msg
         downloaded_dit_models.append(dit_model)
 
+    diffpitcher_success, diffpitcher_msg = download_diffpitcher_models(
+        checkpoints_dir=checkpoints_dir,
+        force=force,
+        token=token,
+        prefer_source=prefer_source,
+    )
+    if not diffpitcher_success:
+        return False, diffpitcher_msg
+
     return (
         True,
         f"Premium main bundle is available at {checkpoints_dir} "
         f"(shared components + {', '.join(PRESET_LM_MODEL_COMPONENTS)} + "
-        f"{', '.join(downloaded_dit_models)})",
+        f"{', '.join(downloaded_dit_models)} + DiffPitcher)",
     )
 
 
@@ -780,18 +845,6 @@ def download_submodel(
     Returns:
         Tuple of (success, message)
     """
-    if model_name in GENERATED_BF16_DIT_SOURCE_MODELS:
-        source_model = GENERATED_BF16_DIT_SOURCE_MODELS[model_name]
-        return (
-            False,
-            f"Generated BF16 model '{model_name}' is not downloadable directly. "
-            f"Create it from local source checkpoint '{source_model}' or select that source model.",
-        )
-
-    if model_name not in SUBMODEL_REGISTRY:
-        available = ", ".join(SUBMODEL_REGISTRY.keys())
-        return False, f"Unknown model '{model_name}'. Available models: {available}"
-
     if checkpoints_dir is None:
         checkpoints_dir = get_checkpoints_dir()
     elif isinstance(checkpoints_dir, str):
@@ -804,6 +857,18 @@ def download_submodel(
 
     if not force and check_model_exists(model_name, checkpoints_dir):
         return True, f"Model '{model_name}' already exists at {model_path}"
+
+    if model_name in GENERATED_BF16_DIT_SOURCE_MODELS:
+        source_model = GENERATED_BF16_DIT_SOURCE_MODELS[model_name]
+        return (
+            False,
+            f"Generated BF16 model '{model_name}' is not downloadable directly. "
+            f"Create it from local source checkpoint '{source_model}' or select that source model.",
+        )
+
+    if model_name not in SUBMODEL_REGISTRY:
+        available = ", ".join(SUBMODEL_REGISTRY.keys())
+        return False, f"Unknown model '{model_name}'. Available models: {available}"
 
     repo_id = SUBMODEL_REGISTRY[model_name]
 
@@ -1196,7 +1261,7 @@ def print_model_list():
     print(
         "  Contains: "
         f"vae, Qwen3-Embedding-0.6B, {', '.join(BUNDLED_LM_MODEL_COMPONENTS)}, "
-        f"{', '.join(MAIN_DIT_MODEL_COMPONENTS)}"
+        f"{', '.join(MAIN_DIT_MODEL_COMPONENTS)}, DiffPitcher"
     )
 
     print("\n[Optional LM Models]")
@@ -1331,7 +1396,7 @@ Alternative using huggingface-cli:
     print(
         "Downloading premium default bundle "
         f"(shared runtime + {', '.join(BUNDLED_LM_MODEL_COMPONENTS)} + "
-        f"{', '.join(MAIN_DIT_MODEL_COMPONENTS)})..."
+        f"{', '.join(MAIN_DIT_MODEL_COMPONENTS)} + DiffPitcher)..."
     )
     
     # Download main model

@@ -96,6 +96,7 @@ def _processed_video_audio(
         lufs_before=source_processed.lufs_before,
         lufs_after=measure_lufs(after, final_sample_rate),
         duration_seconds=duration_seconds,
+        diffpitcher_metadata=source_processed.diffpitcher_metadata,
         trim_metadata=_video_trim_metadata(source_processed, duration_seconds, settings),
     )
 

@@ -36,6 +36,7 @@ class GeneratedPostprocessTests(unittest.TestCase):
             self.assertTrue(source.exists())
             self.assertTrue(Path(result["audio_path"]).is_file())
             self.assertTrue(Path(result["metadata_path"]).is_file())
+            self.assertFalse(result["diffpitcher"]["applied"])
 
     def test_unchecked_preserve_original_removes_source_after_success(self) -> None:
         """When preserve is off, the original generated audio is removed after processing."""

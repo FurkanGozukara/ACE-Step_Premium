@@ -7,16 +7,20 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import gradio as gr
+
 from acestep.audio_processing.settings import UI_SETTING_KEYS
 from acestep.ui.gradio.events.wiring.audio_processing_process_status import (
     make_process_log_callback,
     open_audio_processing_outputs_folder,
 )
 from acestep.ui.gradio.events.wiring.audio_processing_wiring import (
+    _preview_diffpitcher_reference,
     _preview_single_file,
     _process_single_file,
     _toggle_audio_enhancement_stages,
 )
+from acestep.ui.gradio.pages.audio_processing_page import create_audio_processing_page
 
 
 class AudioProcessingWiringTests(unittest.TestCase):
@@ -169,6 +173,27 @@ class AudioProcessingWiringTests(unittest.TestCase):
 
         self.assertEqual("Opened folder", status)
         self.assertTrue(open_folder_mock.call_args.args[0].endswith("outputs"))
+
+    def test_audio_processing_page_exposes_all_generation_settings(self) -> None:
+        """Every ordered Audio Processing setting should have a concrete UI control."""
+
+        with gr.Blocks():
+            controls = create_audio_processing_page()
+
+        for key in UI_SETTING_KEYS:
+            self.assertIn(key, controls)
+
+    def test_diffpitcher_reference_preview_supports_video_files(self) -> None:
+        """DiffPitcher reference uploads should preview video references."""
+
+        audio_update, video_update, status = _preview_diffpitcher_reference(
+            {"path": "C:/music/reference.mp4"}
+        )
+
+        self.assertFalse(audio_update["visible"])
+        self.assertTrue(video_update["visible"])
+        self.assertEqual("C:/music/reference.mp4", video_update["value"])
+        self.assertIn("Loaded reference video", status)
 
 
 def _settings_values(workflow_export: str = "none") -> list[object]:

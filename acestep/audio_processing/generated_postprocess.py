@@ -64,6 +64,7 @@ def postprocess_generated_sample(
         "lufs_before": result.processed_audio.lufs_before,
         "lufs_after": result.processed_audio.lufs_after,
         "duration_seconds": result.processed_audio.duration_seconds,
+        "diffpitcher": result.processed_audio.diffpitcher_metadata,
         "trim": result.processed_audio.trim_metadata,
     }
 

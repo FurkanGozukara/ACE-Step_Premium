@@ -25,6 +25,7 @@ from .dsp_mastering import (
     soft_clipper,
     tape_saturation,
 )
+from .diffpitcher_service import apply_diffpitcher
 from .presets import STAGE_LABELS
 from .settings import AudioProcessingSettings
 from .silence_trim import trim_silent_edges
@@ -44,6 +45,7 @@ class ProcessedAudio:
         lufs_before: Integrated loudness before processing.
         lufs_after: Integrated loudness after processing.
         duration_seconds: Processed duration in seconds.
+        diffpitcher_metadata: JSON-safe DiffPitcher metadata.
         trim_metadata: JSON-safe silence-trim metadata.
 
     Returns:
@@ -56,6 +58,7 @@ class ProcessedAudio:
     lufs_before: float
     lufs_after: float
     duration_seconds: float
+    diffpitcher_metadata: dict[str, object]
     trim_metadata: dict[str, object]
 
 
@@ -83,6 +86,13 @@ def process_audio_array(
     working = _prepare_audio(audio, sample_rate, max_seconds)
     before = working.copy()
     lufs_before = measure_lufs(before, sample_rate)
+    working, diffpitcher_metadata = apply_diffpitcher(
+        working,
+        sample_rate,
+        settings.diffpitcher,
+        progress_callback=progress_callback,
+    )
+    working = _sanitize_audio(working)
     steps = _stage_steps(sample_rate, settings)
     for index, (key, label, function) in enumerate(steps, start=1):
         if settings.stage_enabled(key):
@@ -101,6 +111,7 @@ def process_audio_array(
         lufs_before=lufs_before,
         lufs_after=lufs_after,
         duration_seconds=len(working) / float(sample_rate),
+        diffpitcher_metadata=diffpitcher_metadata,
         trim_metadata=trim_metadata,
     )
 

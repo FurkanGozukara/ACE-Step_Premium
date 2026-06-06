@@ -42,6 +42,25 @@ class PremiumPresetDefaultsTests(unittest.TestCase):
         self.assertTrue(ADDITIONAL_DEFAULT_PRESET_VALUES["ap_run_subprocess"])
         self.assertFalse(ADDITIONAL_DEFAULT_PRESET_VALUES["ap_export_audio_only"])
 
+    def test_diffpitcher_audio_processing_defaults_are_conservative(self) -> None:
+        """DiffPitcher presets should default to an opt-in pitch-fix workflow."""
+
+        self.assertFalse(ADDITIONAL_DEFAULT_PRESET_VALUES["ap_diffpitcher_enabled"])
+        self.assertEqual("template", ADDITIONAL_DEFAULT_PRESET_VALUES["ap_diffpitcher_mode"])
+        self.assertIsNone(
+            ADDITIONAL_DEFAULT_PRESET_VALUES["ap_diffpitcher_reference_audio"]
+        )
+        self.assertIsNone(ADDITIONAL_DEFAULT_PRESET_VALUES["ap_diffpitcher_midi"])
+        self.assertEqual(50, ADDITIONAL_DEFAULT_PRESET_VALUES["ap_diffpitcher_steps"])
+        self.assertEqual(
+            0.0,
+            ADDITIONAL_DEFAULT_PRESET_VALUES["ap_diffpitcher_shift_semitones"],
+        )
+        self.assertTrue(
+            ADDITIONAL_DEFAULT_PRESET_VALUES["ap_diffpitcher_mask_with_source"]
+        )
+        self.assertEqual("auto", ADDITIONAL_DEFAULT_PRESET_VALUES["ap_diffpitcher_device"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -41,6 +41,7 @@ class AudioProcessingFileProcessorTests(unittest.TestCase):
             )
             self.assertIn("lufs_after", payload["metrics"])
             self.assertFalse(payload["trim"]["applied"])
+            self.assertFalse(payload["diffpitcher"]["applied"])
 
     def test_process_wav_can_trim_silent_edges(self) -> None:
         """Audio Processing trim should shorten existing audio files when enabled."""

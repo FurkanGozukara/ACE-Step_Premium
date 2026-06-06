@@ -27,6 +27,9 @@ from acestep.audio_processing.presets import (
     OUTPUT_FORMAT_CHOICES,
     PRESET_VALUES,
 )
+from acestep.ui.gradio.pages.audio_processing_diffpitcher_controls import (
+    add_diffpitcher_controls,
+)
 from acestep.ui.gradio.pages.audio_processing_single_file_controls import (
     add_single_file_controls,
 )
@@ -144,6 +147,8 @@ def create_audio_processing_page() -> dict[str, Any]:
 
         add_stage_controls(controls)
 
+        add_diffpitcher_controls(controls)
+
         with gr.Group(elem_classes=["ace-panel", "ace-stack"]):
             gr.Markdown("### Batch Folder Processing")
             with gr.Row():
@@ -179,4 +184,10 @@ def create_audio_processing_page() -> dict[str, Any]:
                 max_lines=10,
                 interactive=False,
             )
+        gr.Markdown(
+            "### Vocal Processing Order\n"
+            "Source song -> SAM Audio / ACE-Step Extract vocals -> optional light cleanup "
+            "only: trim silence, remove obvious noise, normalize safely -> DiffPitcher "
+            "pitch fix -> Audio Enhancement / mastering -> final export"
+        )
     return controls

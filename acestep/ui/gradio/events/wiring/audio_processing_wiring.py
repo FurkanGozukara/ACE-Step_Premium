@@ -59,6 +59,16 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
         ],
         queue=False,
     )
+    audio_page["ap_diffpitcher_reference_audio"].change(
+        fn=_preview_diffpitcher_reference,
+        inputs=[audio_page["ap_diffpitcher_reference_audio"]],
+        outputs=[
+            audio_page["ap_diffpitcher_reference_audio_preview"],
+            audio_page["ap_diffpitcher_reference_video_preview"],
+            audio_page["ap_diffpitcher_reference_status"],
+        ],
+        queue=False,
+    )
     audio_page["ap_preview_btn"].click(
         fn=_preview_single_file,
         inputs=[
@@ -150,6 +160,19 @@ def _toggle_audio_enhancement_stages(*enabled_values: Any) -> tuple[Any, ...]:
 
     target = not all(bool(value) for value in enabled_values)
     return tuple(gr.update(value=target) for _ in STAGE_KEYS)
+
+
+def _preview_diffpitcher_reference(input_value: Any) -> tuple[Any, Any, str]:
+    """Return audio/video preview updates for the DiffPitcher reference guide."""
+
+    audio_update, video_update, status = _preview_upload(input_value)
+    if status.startswith("Upload"):
+        status = "Select a reference vocal audio or video file for template mode."
+    elif status.startswith("Loaded video"):
+        status = status.replace("Loaded video", "Loaded reference video", 1)
+    elif status.startswith("Loaded audio"):
+        status = status.replace("Loaded audio", "Loaded reference audio", 1)
+    return audio_update, video_update, status
 
 
 def _process_single_file_event(

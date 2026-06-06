@@ -25,6 +25,8 @@ FILE_UPLOAD_PRESET_KEYS: tuple[str, ...] = (
     "src_audio",
     "lm_codes_audio_upload",
     "simple_create_cover_image",
+    "ap_diffpitcher_reference_audio",
+    "ap_diffpitcher_midi",
 )
 
 

@@ -31,6 +31,11 @@ def _load_module():
     return mod
 
 
+def _write_diffpitcher_assets(mod, checkpoints_dir: Path) -> None:
+    for filename in mod.DIFFPITCHER_MODEL_FILES:
+        (checkpoints_dir / filename).write_text("weights", encoding="utf-8")
+
+
 class TestGetProjectRoot(unittest.TestCase):
     """Tests for model_downloader.get_project_root()."""
 
@@ -158,6 +163,7 @@ class TestCheckMainModelExists(unittest.TestCase):
                 component_dir = checkpoints_dir / component
                 component_dir.mkdir()
                 (component_dir / "model.safetensors").write_text("weights", encoding="utf-8")
+            _write_diffpitcher_assets(self.mod, checkpoints_dir)
 
             result = self.mod.check_main_model_exists(checkpoints_dir)
 
@@ -182,6 +188,7 @@ class TestCheckMainModelExists(unittest.TestCase):
                     "weights",
                     encoding="utf-8",
                 )
+            _write_diffpitcher_assets(self.mod, checkpoints_dir)
 
             result = self.mod.check_main_model_exists(checkpoints_dir)
 
@@ -199,6 +206,37 @@ class TestCheckMainModelExists(unittest.TestCase):
         self.assertIn(self.mod.DEFAULT_PREMIUM_DIT_MODEL, self.mod.MAIN_DIT_MODEL_COMPONENTS)
         self.assertIn(self.mod.DEFAULT_TURBO_DIT_MODEL, self.mod.MAIN_DIT_MODEL_COMPONENTS)
         self.assertIn(self.mod.DEFAULT_BASE_DIT_MODEL, self.mod.MAIN_DIT_MODEL_COMPONENTS)
+        self.assertIn(
+            "Diff-Pitcher_bigvgan_24khz_100band.safetensors",
+            self.mod.DIFFPITCHER_MODEL_FILES,
+        )
+        self.assertIn(
+            "Diff-Pitcher_transformer_pitch_360.safetensors",
+            self.mod.DIFFPITCHER_MODEL_FILES,
+        )
+        self.assertIn(
+            "Diff-Pitcher_world_fixed_40.safetensors",
+            self.mod.DIFFPITCHER_MODEL_FILES,
+        )
+
+    def test_returns_false_when_diffpitcher_asset_is_missing(self):
+        """A main bundle without all DiffPitcher flat-file assets is incomplete."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            checkpoints_dir = Path(tmp_dir)
+            for component in self.mod.MAIN_MODEL_COMPONENTS:
+                component_dir = checkpoints_dir / component
+                component_dir.mkdir()
+                (component_dir / "model.safetensors").write_text(
+                    "weights",
+                    encoding="utf-8",
+                )
+            for filename in self.mod.DIFFPITCHER_MODEL_FILES[:-1]:
+                (checkpoints_dir / filename).write_text("weights", encoding="utf-8")
+
+            result = self.mod.check_main_model_exists(checkpoints_dir)
+
+        self.assertFalse(result)
 
     def test_returns_false_when_turbo_bundle_model_is_missing(self):
         """A main bundle without XL-Turbo is incomplete."""
@@ -249,6 +287,7 @@ class TestCheckMainModelExists(unittest.TestCase):
                 if component == "vae":
                     weight_filename = "diffusion_pytorch_model.safetensors"
                 (component_dir / weight_filename).write_text("weights", encoding="utf-8")
+            _write_diffpitcher_assets(self.mod, checkpoints_dir)
 
             result = self.mod.check_main_model_exists(checkpoints_dir)
 
@@ -332,6 +371,58 @@ class TestDownloadSubmodel(unittest.TestCase):
         self.assertIn(self.mod.SOURCE_TURBO_DIT_MODEL, msg)
         smart_download.assert_not_called()
 
+    def test_generated_bf16_model_is_accepted_when_already_installed(self):
+        """Generated BF16 DiT directories should be skipped when weights already exist."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model_dir = Path(tmp_dir) / self.mod.DEFAULT_TURBO_DIT_MODEL
+            model_dir.mkdir()
+            (model_dir / "model.safetensors").write_text("weights", encoding="utf-8")
+            with patch.object(self.mod, "_smart_download") as smart_download:
+                success, msg = self.mod.download_submodel(
+                    self.mod.DEFAULT_TURBO_DIT_MODEL,
+                    Path(tmp_dir),
+                )
+
+        self.assertTrue(success)
+        self.assertIn("already exists", msg)
+        smart_download.assert_not_called()
+
+
+class TestDownloadDiffPitcherModels(unittest.TestCase):
+    """Tests for model_downloader.download_diffpitcher_models()."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = _load_module()
+
+    def test_downloads_root_level_diffpitcher_files_from_wan_gguf(self):
+        """DiffPitcher downloads only the three flat safetensors into checkpoints root."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target = Path(tmp_dir)
+            with patch.object(
+                self.mod,
+                "_smart_download",
+                return_value=(True, "downloaded"),
+            ) as smart_download:
+                success, msg = self.mod.download_diffpitcher_models(
+                    target,
+                    force=True,
+                    token="token",
+                    prefer_source="huggingface",
+                )
+
+        self.assertTrue(success)
+        self.assertIn("DiffPitcher", msg)
+        smart_download.assert_called_once_with(
+            self.mod.DIFFPITCHER_MODEL_REPO,
+            target,
+            "token",
+            "huggingface",
+            allow_patterns=self.mod.DIFFPITCHER_MODEL_FILES,
+        )
+
 
 class TestDownloadMainModel(unittest.TestCase):
     """Tests for model_downloader.download_main_model()."""
@@ -354,11 +445,21 @@ class TestDownloadMainModel(unittest.TestCase):
                     (True, "turbo"),
                     (True, "base"),
                 ],
-            ) as download_submodel:
+            ) as download_submodel, patch.object(
+                self.mod,
+                "download_diffpitcher_models",
+                return_value=(True, "diffpitcher"),
+            ) as download_diffpitcher:
                 success, msg = self.mod.download_main_model(Path(tmp_dir))
 
         self.assertTrue(success)
         smart_download.assert_called_once()
+        download_diffpitcher.assert_called_once_with(
+            checkpoints_dir=Path(tmp_dir),
+            force=False,
+            token=None,
+            prefer_source=None,
+        )
         downloaded = [call.args[0] for call in download_submodel.call_args_list]
         self.assertEqual(
             downloaded,
@@ -369,6 +470,7 @@ class TestDownloadMainModel(unittest.TestCase):
         self.assertIn(self.mod.DEFAULT_PREMIUM_DIT_MODEL, msg)
         self.assertIn(self.mod.DEFAULT_TURBO_DIT_MODEL, msg)
         self.assertIn(self.mod.DEFAULT_BASE_DIT_MODEL, msg)
+        self.assertIn("DiffPitcher", msg)
 
     def test_ensure_dit_model_routes_bundled_turbo_to_dit_bundle(self):
         """Requesting XL-Turbo should ensure only its runnable DiT bundle."""

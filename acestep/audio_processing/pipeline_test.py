@@ -9,6 +9,7 @@ import numpy as np
 import torch
 
 from acestep.audio_processing.auto_editor_trim import SilenceTrimResult
+from acestep.audio_processing.diffpitcher_settings import DiffPitcherSettings
 from acestep.audio_processing.pipeline import process_audio_array
 from acestep.audio_processing.presets import DEFAULT_STAGE_VALUES, STAGE_KEYS
 from acestep.audio_processing.settings import AudioProcessingSettings
@@ -80,6 +81,30 @@ class AudioProcessingPipelineTests(unittest.TestCase):
         self.assertEqual((300, 2), result.after.shape)
         self.assertTrue(result.trim_metadata["applied"])
         self.assertEqual("auto_editor_trimmed", result.trim_metadata["reason"])
+
+    def test_diffpitcher_runs_before_enhancement_stages(self) -> None:
+        """DiffPitcher should modify audio before the enhancement stage loop runs."""
+
+        sample_rate = 24000
+        audio = _test_tone(sample_rate, seconds=0.2)
+        settings = AudioProcessingSettings(
+            diffpitcher=DiffPitcherSettings(enabled=True),
+            stages_enabled={key: False for key in STAGE_KEYS},
+        )
+
+        def _pitch_fix(input_audio, *_args, **_kwargs):
+            return input_audio * 0.0, {"enabled": True, "applied": True, "mode": "template"}
+
+        with patch(
+            "acestep.audio_processing.pipeline.apply_diffpitcher",
+            side_effect=_pitch_fix,
+        ) as pitch_fix:
+            result = process_audio_array(audio, sample_rate, settings)
+
+        pitch_fix.assert_called_once()
+        np.testing.assert_allclose(result.after, np.zeros_like(audio), atol=1e-6)
+        np.testing.assert_allclose(result.before, audio, atol=1e-6)
+        self.assertTrue(result.diffpitcher_metadata["applied"])
 
 
 def _test_tone(sample_rate: int, seconds: float) -> np.ndarray:
