@@ -6,37 +6,55 @@
 
 **<p>Latest installer zip file : https://www.patreon.com/posts/157675060 </p>**
 
-<p>ACE Step 1.5 XL is the newest State Of The Art (SOTA) Music and Song generator model. It has 3 variants and we support all 3 variants (Turbo, SFT, Base) with fully automatic setup, models download, VRAM presets for all GPUs starting from 4 GB and with all best researched generation values / settings / configurations.</p>
+## Quick Info
+
+-   -   This app has the following repos perfectly combined into our premium app with additional improvements and features such as optimized model loading, VRAM, quality, accuracy and performance optimizations, batch folder processing and many more (all models automatically downloaded and everything installed into a Python 3.11 VENV)        
+    -   We got VRAM presets for every GPUs already set, read changelogs below to learn everything, slowly top to bottom read recommended        
+        -   ACESTEP XL 1.5 (both inference + training) : [https://github.com/Runware/ACE-Step-1.5-XL](https://github.com/Runware/ACE-Step-1.5-XL)            
+            -   [https://deepwiki.com/ace-step/ACE-Step-1.5/5-generation-features](https://deepwiki.com/ace-step/ACE-Step-1.5/5-generation-features)                
+        -   SAM-Audio Segment from Facebook / META : [https://github.com/facebookresearch/sam-audio](https://github.com/facebookresearch/sam-audio)            
+            -   Massive optimizations made for this model , it is working amazing                
+        -   Auto-Editor : [https://github.com/wyattblue/auto-editor](https://github.com/wyattblue/auto-editor)            
+        -   TrackAICleaner Post Processing : [https://github.com/mikecastrodemaria/TrackAICleaner](https://github.com/mikecastrodemaria/TrackAICleaner)            
+        -   DiffPitcher : [https://github.com/haidog-yaqub/DiffPitcher](https://github.com/haidog-yaqub/DiffPitcher)            
+    
+    **ACE Step 1.5 XL** is the newest State Of The Art (SOTA) Music and Song generator model. It has 3 variants and we support all 3 variants (Turbo, SFT, Base) with fully automatic setup, models download, VRAM presets for all GPUs starting from 4 GB and with all best researched generation values / settings / configurations.
 
 <img height="600" alt="image" src="https://github.com/user-attachments/assets/6766ac91-650f-4fa6-b0b4-3a23d85c42a5" />
 
-- The zip file contains installers for
-	- Windows : Windows_Install_or_Update.bat
-		- Please follow requirements video for Windows before starting installation : https://youtu.be/DrhUHnYfwC0
-		- Requirements tutorial is 1 time mandatory for all of my applications
-  			- Windows installer will download only ACEStep 1.5 XL Turbo model
-			- To download all models also run Windows_Download_All_Models.bat after installation
-	- RunPod and SimplePod : Runpod_SimplePod_ACE_Step_Instructions.txt
-	- Massed Compute / Local Linux : Massed_Compute_Instructions_READ.txt
- 	- RunPod, Massed Compute installers automatically downloads all 3 ACEStep 1.5 XL models, Turbo, SFT and Base
-  	- Zip file also has ACE_Step_Lyric_Generation_Instructions_For_LLMs.txt which you can use to better format your Music / Song lyrics and style by providing this file to your favorite LLM
-  	- The installers will generate a Python 3.11 VENV automatically and install everything inside there, thus your system or any other of your APPs will never be impacted
-  		- For Windows, you have to have Python 3.11 properly installed into your system, cloud images are all pre-setup by me so nothing needed just follow instructions
-  	 	- With our pre-compiled libraries for both Windows and Linux, we support literally all of the GPUs out there starting from RTX 2000 series to RTX 5000 series, or cloud GPUs like RTX PRO 6000, H100, B200, etc.
-  	  		- We have pre-compiled Flash Attention latest, xFormers latest, Sage Attention latest, Triton latest with Torch 2.9.1, CUDA 13
-  	    	- Our installer uses uv installation for all of the requirements at once thus it is lightning fast, like 100x faster than normal
+-   **Windows Requirements**    
+    -   Python 3.11.x, FFmpeg, CUDA 13, cuDNN 9.17 or above, C++ tools, MSVC and Git        
+        -   Don't worry CUDA 13 works with all GPUs - make sure you have updated NVIDIA driver            
+        -   Follow this requirements tutorial video exactly : [https://youtu.be/DrhUHnYfwC0](https://youtu.be/DrhUHnYfwC0)            
+        -   Follow its updated post with links and screenshots exactly : [https://www.patreon.com/posts/click-to-open-post-used-in-tutorial-111553210](https://www.patreon.com/posts/click-to-open-post-used-in-tutorial-111553210)
+            
+-   The zip file contains installers for    
+    -   Windows : Windows\_Install\_or\_Update.bat        
+        -   Please follow requirements video for Windows before starting installation : [https://youtu.be/DrhUHnYfwC0](https://youtu.be/DrhUHnYfwC0)            
+        -   Requirements tutorial is 1 time mandatory for all of my applications            
+        -   Windows installer will download only ACEStep 1.5 XL Turbo model            
+            -   To download all models also run Windows\_Download\_All\_Models.bat after installation                
+    -   RunPod and SimplePod : Runpod\_SimplePod\_ACE\_Step\_Instructions.txt        
+    -   Massed Compute / Local Linux : Massed\_Compute\_Instructions\_READ.txt        
+    -   RunPod, Massed Compute installers automatically downloads all 3 ACEStep 1.5 XL models, Turbo, SFT and Base        
+    -   Zip file also has ACE\_Step\_Lyric\_Generation\_Instructions\_For\_LLMs.txt which you can use to better format your Music / Song lyrics and style by providing this file to your favorite LLM        
+    -   The installers will generate a Python 3.11 VENV automatically and install everything inside there, thus your system or any other of your APPs will never be impacted        
+        -   For Windows, you have to have Python 3.11 properly installed into your system, cloud images are all pre-setup by me so nothing needed just follow instructions            
+        -   With our pre-compiled libraries for both Windows and Linux, we support literally all of the GPUs out there starting from RTX 2000 series to RTX 5000 series, or cloud GPUs like RTX PRO 6000, H100, B200, etc.            
+            -   We have pre-compiled Flash Attention latest, xFormers latest, Sage Attention latest, Triton latest with Torch 2.9.1, CUDA 13                
+            -   Our installer uses uv installation for all of the requirements at once thus it is lightning fast, like 100x faster than normal
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
 ### 6 June 2026 V4.7.1 Update
 
--   Auto-Editor platform binary downloads now fall back to the mirrored Hugging Face assets if GitHub release downloads fail
--   Windows installer now downloads the default DiffPitcher pitch-fix models automatically
--   RunPod, Massed Compute, Local Linux, and Windows Download All Models flows include DiffPitcher in the default model bundle
--   The following DiffPitcher safetensors are downloaded into `ACE-Step_Premium\models`:
-    -   `Diff-Pitcher_bigvgan_24khz_100band.safetensors`
-    -   `Diff-Pitcher_transformer_pitch_360.safetensors`
-    -   `Diff-Pitcher_world_fixed_40.safetensors`
+-   Auto-Editor executable download now has alternative source if GitHub fails - now more robust    
+-   New feature DiffPitcher Pitch Fixer implemented into Audio Processing tab since requested    
+    -   You can read more about it here : [https://github.com/haidog-yaqub/DiffPitcher](https://github.com/haidog-yaqub/DiffPitcher)        
+    -   The installer bat file will download necessary diffusion models automatically as safetensors files        
+-   Get latest zip file (4\_7), overwrite previous files and run Windows\_Install\_or\_Update.bat to update
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/9598bd46-ae11-40fc-a011-ce9de5388af5" />
 
 ### 6 June 2026 V4.6 Update
 
