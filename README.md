@@ -8,7 +8,7 @@
 
 ## Quick Info
 
--   -   This app has the following repos perfectly combined into our premium app with additional improvements and features such as optimized model loading, VRAM, quality, accuracy and performance optimizations, batch folder processing and many more (all models automatically downloaded and everything installed into a Python 3.11 VENV)        
+- This app has the following repos perfectly combined into our premium app with additional improvements and features such as optimized model loading, VRAM, quality, accuracy and performance optimizations, batch folder processing and many more (all models automatically downloaded and everything installed into a Python 3.11 VENV)        
     -   We got VRAM presets for every GPUs already set, read changelogs below to learn everything, slowly top to bottom read recommended        
         -   ACESTEP XL 1.5 (both inference + training) : [https://github.com/Runware/ACE-Step-1.5-XL](https://github.com/Runware/ACE-Step-1.5-XL)            
             -   [https://deepwiki.com/ace-step/ACE-Step-1.5/5-generation-features](https://deepwiki.com/ace-step/ACE-Step-1.5/5-generation-features)                
