@@ -7,6 +7,7 @@ import sys
 from fractions import Fraction
 from pathlib import Path
 
+from .auto_editor_binary import ensure_auto_editor_binary
 from .auto_editor_trim_settings import (
     AUTO_EDITOR_ANALYSIS_CHANNELS,
     AUTO_EDITOR_ANALYSIS_I,
@@ -80,15 +81,9 @@ def run_auto_editor(
 def auto_editor_command() -> list[str]:
     """Return the bundled auto-editor executable command."""
 
-    try:
-        import auto_editor
-
-        package_dir = Path(auto_editor.__file__).resolve().parent
-        executable = package_dir / "bin" / "auto-editor.exe"
-        if executable.is_file():
-            return [str(executable)]
-    except Exception:
-        pass
+    executable = ensure_auto_editor_binary()
+    if executable is not None:
+        return [str(executable)]
     return [sys.executable, "-m", "auto_editor"]
 
 

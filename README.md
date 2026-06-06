@@ -1,4 +1,4 @@
-<h1>ACE-Step 1.5 XL Premium v4.7 - Better Music & Song Generator Than SUNO 5.0 - Remix and Repaint Features - Windows, RunPod, Massed Compute, Linux 1-click Installers</h1>
+<h1>ACE-Step 1.5 XL Premium v4.7.1 - Better Music & Song Generator Than SUNO 5.0 - Remix and Repaint Features - Windows, RunPod, Massed Compute, Linux 1-click Installers</h1>
 
 <h2>Download app : https://www.patreon.com/posts/157675060</h2>
 
@@ -28,8 +28,9 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
-### 6 June 2026 V4.7 Update
+### 6 June 2026 V4.7.1 Update
 
+-   Auto-Editor platform binary downloads now fall back to the mirrored Hugging Face assets if GitHub release downloads fail
 -   Windows installer now downloads the default DiffPitcher pitch-fix models automatically
 -   RunPod, Massed Compute, Local Linux, and Windows Download All Models flows include DiffPitcher in the default model bundle
 -   The following DiffPitcher safetensors are downloaded into `ACE-Step_Premium\models`:
