@@ -85,6 +85,25 @@ class PremiumAppTests(unittest.TestCase):
         self.assertIn('button[aria-label="Trim audio to selection"]', css)
         self.assertIn("::part(region-handle-right)", css)
 
+    def test_audio_processing_process_cancel_buttons_use_large_lower_row(self):
+        """Audio Processing Process File and Cancel buttons should be large and scoped."""
+
+        css = premium_app._PREMIUM_CSS
+        page_path = (
+            Path(premium_app.__file__).with_name("pages")
+            / "audio_processing_single_file_controls.py"
+        )
+        source = page_path.read_text(encoding="utf-8")
+        row_start = source.index('elem_classes=["ace-audio-processing-primary-row"]')
+
+        self.assertLess(source.index('"Open Outputs Folder"'), row_start)
+        self.assertGreater(source.index('"Process File"'), row_start)
+        self.assertGreater(source.index('"Cancel"'), row_start)
+        self.assertIn("action-btn-audio-processing-main", source)
+        self.assertIn("ace-audio-processing-primary-row", css)
+        self.assertIn("action-btn-audio-processing-main", css)
+        self.assertIn("height: 92px", css)
+
     def test_sam_audio_preview_has_trim_css(self):
         """SAM upload previews should opt into the shared trim presentation."""
 

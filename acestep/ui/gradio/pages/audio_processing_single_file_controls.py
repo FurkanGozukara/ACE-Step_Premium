@@ -56,22 +56,33 @@ def add_single_file_controls(controls: dict[str, Any]) -> None:
             size="lg",
             elem_classes=["action-btn", "action-btn-preview"],
         )
-        controls["ap_process_btn"] = gr.Button(
-            "Process File",
-            variant="primary",
-            size="lg",
-            elem_classes=["action-btn", "action-btn-generate"],
-        )
         controls["ap_open_outputs_folder_btn"] = gr.Button(
             "Open Outputs Folder",
             variant="secondary",
             size="lg",
         )
+    with gr.Row(equal_height=False, elem_classes=["ace-audio-processing-primary-row"]):
+        controls["ap_process_btn"] = gr.Button(
+            "Process File",
+            variant="primary",
+            size="lg",
+            scale=1,
+            elem_classes=[
+                "action-btn",
+                "action-btn-generate",
+                "action-btn-audio-processing-main",
+            ],
+        )
         controls["ap_cancel_processing_btn"] = gr.Button(
             "Cancel",
             variant="stop",
             size="lg",
-            elem_classes=["action-btn", "action-btn-cancel"],
+            scale=1,
+            elem_classes=[
+                "action-btn",
+                "action-btn-cancel",
+                "action-btn-audio-processing-main",
+            ],
         )
     controls["ap_cancel_confirmed_state"] = gr.State(value=False)
     with gr.Row():

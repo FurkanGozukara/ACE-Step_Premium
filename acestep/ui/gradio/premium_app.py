@@ -580,6 +580,26 @@ button.action-btn:disabled {
     max-height: 46px !important;
     overflow: hidden !important;
 }
+.ace-audio-processing-primary-row,
+.ace-audio-processing-primary-row > div {
+    align-items: stretch !important;
+    min-height: 92px !important;
+    height: auto !important;
+    max-height: none !important;
+}
+.gradio-container .action-btn-audio-processing-main,
+.gradio-container button.action-btn-audio-processing-main,
+.gradio-container .action-btn-audio-processing-main button.lg[data-ace-command-button="true"],
+.gradio-container .action-btn-audio-processing-main button[data-ace-command-button="true"],
+.gradio-container .action-btn-audio-processing-main > div,
+.gradio-container .action-btn-audio-processing-main button {
+    min-height: 92px !important;
+    height: 92px !important;
+    max-height: 92px !important;
+    font-size: 18px !important;
+    padding: 0.92rem 1.15rem !important;
+    overflow: hidden !important;
+}
 .action-btn-upscale button,
 button.action-btn-upscale {
     background: linear-gradient(135deg, #2563eb 0%, #0891b2 50%, #059669 100%) !important;
