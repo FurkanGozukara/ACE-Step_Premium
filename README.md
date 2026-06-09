@@ -41,15 +41,40 @@
     -   The installers will generate a Python 3.11 VENV automatically and install everything inside there, thus your system or any other of your APPs will never be impacted        
         -   For Windows, you have to have Python 3.11 properly installed into your system, cloud images are all pre-setup by me so nothing needed just follow instructions            
         -   With our pre-compiled libraries for both Windows and Linux, we support literally all of the GPUs out there starting from RTX 2000 series to RTX 5000 series, or cloud GPUs like RTX PRO 6000, H100, B200, etc.            
-            -   We have pre-compiled Flash Attention latest, xFormers latest, Sage Attention latest, Triton latest with Torch 2.9.1, CUDA 13                
+            -   We have pre-compiled Flash Attention latest, xFormers latest, Sage Attention latest, Triton latest with Torch 2.11, CUDA 13                
             -   Our installer uses uv installation for all of the requirements at once thus it is lightning fast, like 100x faster than normal
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
-### 10 June 2026 V4.8 Update
+### 10 June 2026 V4.8 Update 
 
--   Updated app and README release branding to ACE-Step 1.5 XL Premium v4.8
--   Get latest zip file (4\_8), overwrite previous files and run Windows\_Install\_or\_Update.bat to update
+<img width="1646" height="88" alt="image" src="https://github.com/user-attachments/assets/c899ae1a-9d73-4448-a603-963e3aed4385" />
+
+-   Torch compile feature implemented for ACESTEP 1.5 XL and SAM Audio processing    
+    -   For ACESTEP XL 1.5, switch to advanced tab and enable, then you can switch back to Generate Song tab        
+    -   ACESTEP XL 1.5 training also supports torch compile but not tested and verified yet        
+-   The initial torch compile may take some time but after that, repeated usage brings massive performance boost as shown as below    
+    -   It won't recompile once compiled even if app is restarted, so it uses compile cache, if necessary it will recompile though        
+    -   Initial compile may take time and may look like frozen but both inference and training tested and working        
+-   You have to have accurately setup CUDA, MSVC and C++ Tools for this to work since Torch compile depends on it    
+    -   Therefore, follow requirements tutorial fully properly : [https://youtu.be/DrhUHnYfwC0](https://youtu.be/DrhUHnYfwC0)        
+-   The system is very robustly designed to automatically find accurate CUDA and C++ tools installation even if you have multiple installations    
+-   LoRA training speed with Torch Compile is 0.98 it / second and without Torch Compile is 0.78 it / second    
+    -   25% faster        
+-   Use latest zip file, overwrite and run Windows\_Install\_or\_Update.bat to update    
+-   ACESTEP XL 1.5 Inference Torch Compile    
+
+<img width="1451" height="366" alt="image" src="https://github.com/user-attachments/assets/f75613fb-3440-4ea7-8301-7ddf0c3d34ae" />
+
+-   SAM Audio Inference Torch Compile    
+
+<img width="1503" height="209" alt="image" src="https://github.com/user-attachments/assets/67e11a61-8d91-4cc9-a609-58e8e1cf2cae" />
+
+-   ACESTEP 1.5 XL LoRA Training Torch Compile
+
+<img width="1866" height="472" alt="image" src="https://github.com/user-attachments/assets/aa46b51c-4e96-424c-9cd0-794750c9748b" />
+
+<img width="2823" height="442" alt="image" src="https://github.com/user-attachments/assets/9c55b715-4994-47ae-b6b5-ae0b7210b0c1" />
 
 ### 6 June 2026 V4.7.1 Update
 
