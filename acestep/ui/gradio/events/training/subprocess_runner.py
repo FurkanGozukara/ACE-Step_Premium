@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from acestep.core.generation.subprocess_termination import terminate_generation_process
+from acestep.torch_compile_toolchain import prepare_compile_subprocess_env
 
 from .subprocess_console import write_console_text
 from .subprocess_control import (
@@ -60,7 +61,7 @@ def stream_training_subprocess_job(
     """Launch a worker and stream status events followed by the result event."""
 
     _write_json(job.request_path, payload)
-    process = _start_worker(payload["project_root"], job)
+    process = _start_worker(payload["project_root"], job, payload)
     register_training_subprocess(process)
     try:
         yield from _read_worker_events(process)
@@ -84,10 +85,18 @@ def stream_training_subprocess_job(
     yield {"kind": "result", "result": result}
 
 
-def _start_worker(project_root: str, job: TrainingSubprocessJob) -> subprocess.Popen:
+def _start_worker(
+    project_root: str,
+    job: TrainingSubprocessJob,
+    payload: dict[str, Any],
+) -> subprocess.Popen:
     """Start the CLI worker with JSON request/result paths."""
 
-    env = os.environ.copy()
+    env = prepare_compile_subprocess_env(
+        os.environ,
+        project_root=project_root,
+        compile_requested=_payload_requests_compile(payload),
+    )
     env.setdefault("PYTHONIOENCODING", "utf-8")
     env.setdefault("ACESTEP_PROJECT_ROOT", str(project_root))
     command = [
@@ -110,6 +119,16 @@ def _start_worker(project_root: str, job: TrainingSubprocessJob) -> subprocess.P
         errors="replace",
         bufsize=1,
     )
+
+
+def _payload_requests_compile(payload: dict[str, Any]) -> bool:
+    """Return whether a training worker payload asks for torch.compile."""
+
+    training_args = payload.get("training_args")
+    if isinstance(training_args, dict) and training_args.get("compile_model"):
+        return True
+    init_params = payload.get("dit_init_params")
+    return bool(isinstance(init_params, dict) and init_params.get("compile_model"))
 
 
 def _read_worker_events(process: subprocess.Popen) -> Iterator[dict[str, Any]]:

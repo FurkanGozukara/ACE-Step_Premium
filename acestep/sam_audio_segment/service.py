@@ -10,6 +10,7 @@ import torch
 from loguru import logger
 
 from acestep.sam_audio_vendor import ensure_vendor_path
+from acestep.torch_compile_runtime import TorchCompileResult, compile_module_forward
 
 from .attention import attention_stats, reset_attention_stats
 from .anchors import anchors_for_settings
@@ -58,6 +59,7 @@ class SamAudioService:
         self.dtype = resolve_dtype(self.device)
         self.model = None
         self.processor = None
+        self.compile_result: TorchCompileResult | None = None
         self.progress_callback = progress_callback
         self.sample_rate = 48000
 
@@ -152,6 +154,23 @@ class SamAudioService:
                 f"Applying SAM-Audio FP8 cache for {model_name}",
             )
             apply_sam_fp8_scaled(model, checkpoint_path=self.model_path, device=self.device)
+        if self.settings.compile_model:
+            report_progress(
+                self.progress_callback,
+                0.23,
+                f"Compiling SAM-Audio forward for {model_name}",
+            )
+        self.compile_result = compile_module_forward(
+            model,
+            label="SAM-Audio",
+            enabled=bool(self.settings.compile_model),
+        )
+        if self.settings.compile_model:
+            if not self.compile_result.compiled:
+                logger.warning(
+                    "[sam_audio] torch.compile disabled: {}",
+                    self.compile_result.detail,
+                )
 
         self.model = model
         self.processor = SAMAudioProcessor(
@@ -286,6 +305,7 @@ class SamAudioService:
                 "path": str(self.model_path).replace("\\", "/"),
                 "device": str(self.device),
                 "dtype": str(self.dtype),
+                "torch_compile": self._compile_metadata(),
             },
             "prompt": {
                 "mode": self.settings.prompt_mode,
@@ -324,6 +344,23 @@ class SamAudioService:
             raise ValueError("Visual prompting requires a mask video/image file.")
         mask = Path(mask_video_path).expanduser().resolve()
         return [load_masked_video_tensor(source, mask)]
+
+    def _compile_metadata(self) -> dict[str, object]:
+        """Return torch.compile metadata for the loaded model."""
+
+        result = self.compile_result
+        return {
+            "requested": bool(self.settings.compile_model),
+            "compiled": bool(getattr(self.model, "_acestep_torch_compiled", False)),
+            "attempts": int(
+                getattr(self.model, "_acestep_torch_compile_attempts", 0)
+            ),
+            "detail": getattr(
+                self.model,
+                "_acestep_torch_compile_detail",
+                result.detail if result is not None else "",
+            ),
+        }
 
 
 def _ranker_kind(config: object) -> str:

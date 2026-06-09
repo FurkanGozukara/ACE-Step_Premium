@@ -27,6 +27,7 @@ from acestep.llm_backend_compat import get_vllm_preflight_warning
 from acestep.constrained_logits_processor import MetadataConstrainedLogitsProcessor
 from acestep.constants import DEFAULT_LM_INSTRUCTION, DEFAULT_LM_UNDERSTAND_INSTRUCTION, DEFAULT_LM_INSPIRED_INSTRUCTION, DEFAULT_LM_REWRITE_INSTRUCTION, DURATION_MIN, DURATION_MAX
 from acestep.gpu_config import get_lm_gpu_memory_ratio, get_gpu_memory_gb, get_lm_model_size, get_global_gpu_config
+from acestep.torch_compile_runtime import compile_module_forward
 
 # Minimum free VRAM (GB) required to attempt vLLM initialization.
 # vLLM's KV cache allocator adapts to available memory, so we only need a
@@ -421,7 +422,12 @@ class LLMHandler:
         )
         return prompt
 
-    def _load_pytorch_model(self, model_path: str, device: str) -> Tuple[bool, str]:
+    def _load_pytorch_model(
+        self,
+        model_path: str,
+        device: str,
+        compile_model: bool = False,
+    ) -> Tuple[bool, str]:
         """Load PyTorch model from path and return (success, status_message)"""
         try:
             self.llm = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
@@ -432,6 +438,13 @@ class LLMHandler:
             self.llm.eval()
             self.llm_backend = "pt"
             self.llm_initialized = True
+            compile_result = compile_module_forward(
+                self.llm,
+                label="5Hz LM PyTorch",
+                enabled=compile_model,
+            )
+            if compile_model and not compile_result.compiled:
+                logger.warning("[5Hz LM] torch.compile disabled: {}", compile_result.detail)
             logger.info(f"5Hz LM initialized successfully using PyTorch backend on {device}")
             status_msg = f"✅ 5Hz LM initialized successfully\nModel: {model_path}\nBackend: PyTorch\nDevice: {device}"
             return True, status_msg
@@ -527,6 +540,7 @@ class LLMHandler:
         device: str = "auto",
         offload_to_cpu: bool = False,
         dtype: Optional[torch.dtype] = None,
+        compile_model: bool = False,
     ) -> Tuple[str, bool]:
         """
         Initialize 5Hz LM model
@@ -538,6 +552,7 @@ class LLMHandler:
             device: Device type ("auto", "cuda", "mps", "xpu", or "cpu")
             offload_to_cpu: Whether to offload to CPU
             dtype: Data type (if None, auto-detect based on device)
+            compile_model: Whether to compile the PyTorch LM forward path.
 
         Returns:
             (status_message, success)
@@ -621,6 +636,7 @@ class LLMHandler:
                 "device": device,
                 "offload_to_cpu": offload_to_cpu,
                 "dtype": self.dtype,
+                "compile_model": compile_model,
             }
 
             # Proactive CUDA cleanup before LM load to reduce fragmentation on mode/model switch
@@ -710,7 +726,11 @@ class LLMHandler:
                         if backend == "mlx":
                             # User explicitly requested MLX, fall back to PyTorch
                             logger.warning("MLX explicitly requested but failed, falling back to PyTorch backend")
-                            success, status_msg = self._load_pytorch_model(full_lm_model_path, device)
+                            success, status_msg = self._load_pytorch_model(
+                                full_lm_model_path,
+                                device,
+                                compile_model=compile_model,
+                            )
                             if not success:
                                 return status_msg, False
                             status_msg = f"✅ 5Hz LM initialized (PyTorch fallback from MLX)\nModel: {full_lm_model_path}\nBackend: PyTorch"
@@ -719,7 +739,11 @@ class LLMHandler:
                 elif backend == "mlx":
                     logger.warning("MLX not available (requires Apple Silicon + mlx-lm package)")
                     # Fall back to PyTorch
-                    success, status_msg = self._load_pytorch_model(full_lm_model_path, device)
+                    success, status_msg = self._load_pytorch_model(
+                        full_lm_model_path,
+                        device,
+                        compile_model=compile_model,
+                    )
                     if not success:
                         return status_msg, False
                     status_msg = f"✅ 5Hz LM initialized (PyTorch fallback, MLX not available)\nModel: {full_lm_model_path}\nBackend: PyTorch"
@@ -759,7 +783,11 @@ class LLMHandler:
                     logger.warning(
                         f"vLLM disabled due to insufficient free VRAM (total={total_gb:.2f}GB, free={free_gb:.2f}GB, need>={VRAM_SAFE_FREE_GB}GB free) — falling back to PyTorch backend"
                     )
-                    success, status_msg = self._load_pytorch_model(full_lm_model_path, device)
+                    success, status_msg = self._load_pytorch_model(
+                        full_lm_model_path,
+                        device,
+                        compile_model=compile_model,
+                    )
                     if not success:
                         return status_msg, False
                     status_msg = f"✅ 5Hz LM initialized successfully (PyTorch fallback)\nModel: {full_lm_model_path}\nBackend: PyTorch"
@@ -781,14 +809,22 @@ class LLMHandler:
                                     return mlx_status, True
                                 logger.warning(f"MLX also failed: {mlx_status}, falling back to PyTorch")
                             logger.warning("Falling back to PyTorch backend")
-                            success, status_msg = self._load_pytorch_model(full_lm_model_path, device)
+                            success, status_msg = self._load_pytorch_model(
+                                full_lm_model_path,
+                                device,
+                                compile_model=compile_model,
+                            )
                             if not success:
                                 return status_msg, False
                             status_msg = f"✅ 5Hz LM initialized successfully (PyTorch fallback)\nModel: {full_lm_model_path}\nBackend: PyTorch"
                             if vllm_fallback_note is not None:
                                 status_msg += f"\nNote: {vllm_fallback_note}"
             elif backend != "mlx":
-                success, status_msg = self._load_pytorch_model(full_lm_model_path, device)
+                success, status_msg = self._load_pytorch_model(
+                    full_lm_model_path,
+                    device,
+                    compile_model=compile_model,
+                )
                 if not success:
                     return status_msg, False
                 if vllm_preflight_warning is not None:

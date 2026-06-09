@@ -8,6 +8,7 @@ import torch
 from loguru import logger
 
 from acestep import gpu_config
+from acestep.torch_compile_runtime import compile_module_forward
 from .fp8_scaled_quantization import apply_fp8_scaled_quantization
 from .init_service_loader_components import InitServiceLoaderComponentsMixin
 
@@ -247,9 +248,20 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
             self.model = self.model.to("cpu").to(self.dtype)
         self.model.eval()
 
+        decoder = getattr(self.model, "decoder", self.model)
         if compile_model:
-            self._ensure_len_for_compile(self.model, "model")
-            self.model = torch.compile(self.model)
+            self._ensure_len_for_compile(decoder, "model.decoder")
+        compile_result = compile_module_forward(
+            decoder,
+            label="ACE-Step DiT decoder",
+            enabled=compile_model,
+        )
+        if compile_model:
+            if not compile_result.compiled:
+                logger.warning(
+                    "[initialize_service] torch.compile disabled for DiT decoder: {}",
+                    compile_result.detail,
+                )
         self._apply_dit_quantization(
             quantization,
             model_checkpoint_path=model_checkpoint_path,

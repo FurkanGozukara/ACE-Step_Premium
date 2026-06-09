@@ -629,6 +629,7 @@ class PremiumFeaturesTests(unittest.TestCase):
             "lora_activation_cpu_offload": True,
             "lora_offload_non_decoder": False,
             "lora_keep_frozen_bf16": True,
+            "lora_compile_model": True,
             "lora_base_quantization": "FP8 scaled",
             "lora_empty_cache_every_n_steps": 19,
             "lora_sample_enabled": True,

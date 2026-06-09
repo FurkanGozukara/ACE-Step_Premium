@@ -62,6 +62,11 @@ def add_generation_controls(controls: dict[str, Any]) -> None:
                 label="Subprocess mode",
                 value=True,
             )
+            controls["sam_compile_model"] = gr.Checkbox(
+                label="Compile Model",
+                value=False,
+                info="Use torch.compile for repeated SAM-Audio runs. First use may be slower.",
+            )
             controls["sam_unload_generation"] = gr.Checkbox(
                 label="Unload generation model first",
                 value=True,

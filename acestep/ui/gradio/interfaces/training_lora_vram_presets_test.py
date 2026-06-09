@@ -108,7 +108,7 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
 
         updates = lora_vram_preset_updates(LORA_VRAM_PRESET_10GB_PLUS)
 
-        self.assertEqual(10, len(updates))
+        self.assertEqual(11, len(updates))
         self.assertEqual(32, updates[0]["value"])
         self.assertTrue(updates[3]["value"])
 
@@ -117,27 +117,27 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
 
         expected_values = {
             LORA_VRAM_PRESET_8_TO_10GB: [
-                16, 128, True, True, True, True, "adamw8bit",
+                16, 128, True, True, True, True, False, "adamw8bit",
                 "constant", "FP8 scaled", 5,
             ],
             LORA_VRAM_PRESET_10GB_PLUS: [
-                32, 128, True, True, True, True, "adamw8bit",
+                32, 128, True, True, True, True, False, "adamw8bit",
                 "constant", "FP8 scaled", 5,
             ],
             LORA_VRAM_PRESET_12_TO_16GB: [
-                64, 128, True, False, True, True, "adamw8bit",
+                64, 128, True, False, True, True, False, "adamw8bit",
                 "constant", "Disabled", 10,
             ],
             LORA_VRAM_PRESET_16_TO_24GB: [
-                128, 128, True, False, True, True, "adamw",
+                128, 128, True, False, True, True, False, "adamw",
                 "constant", "Disabled", 0,
             ],
             LORA_VRAM_PRESET_24GB_PLUS: [
-                128, 128, True, False, True, True, "adamw",
+                128, 128, True, False, True, True, False, "adamw",
                 "constant", "Disabled", 0,
             ],
             LORA_VRAM_PRESET_32GB_PLUS: [
-                128, 128, True, False, True, False, "adamw",
+                128, 128, True, False, True, False, False, "adamw",
                 "constant", "Disabled", 0,
             ],
         }
@@ -153,9 +153,9 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
 
         updates = lora_vram_preset_updates(LORA_VRAM_PRESET_8_TO_10GB)
 
-        self.assertEqual(10, len(updates))
+        self.assertEqual(11, len(updates))
         self.assertEqual(16, updates[0]["value"])
-        self.assertEqual("FP8 scaled", updates[8]["value"])
+        self.assertEqual("FP8 scaled", updates[9]["value"])
 
 
 if __name__ == "__main__":

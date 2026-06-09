@@ -62,6 +62,7 @@ def _llm_needs_reinit(
     backend: str,
     device: str,
     offload_to_cpu: bool,
+    compile_model: bool,
 ) -> bool:
     """Return whether the current LM runtime must be initialized or refreshed."""
 
@@ -84,6 +85,8 @@ def _llm_needs_reinit(
     if device != "auto" and last_init_params.get("device") != device:
         return True
     if bool(last_init_params.get("offload_to_cpu")) != bool(offload_to_cpu):
+        return True
+    if bool(last_init_params.get("compile_model")) != bool(compile_model):
         return True
     return False
 
@@ -118,6 +121,13 @@ def ensure_llm_ready(
     resolved_backend = resolve_lm_backend(requested_backend, gpu_config)
     resolved_device = str(device or "auto").strip() or "auto"
     resolved_offload = bool(offload_to_cpu)
+    resolved_compile = os.getenv("ACESTEP_COMPILE_MODEL", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "y",
+        "on",
+    }
 
     if not _llm_needs_reinit(
         llm_handler,
@@ -125,6 +135,7 @@ def ensure_llm_ready(
         backend=resolved_backend,
         device=resolved_device,
         offload_to_cpu=resolved_offload,
+        compile_model=resolved_compile,
     ):
         return True, ""
 
@@ -148,12 +159,14 @@ def ensure_llm_ready(
         device=resolved_device,
         offload_to_cpu=resolved_offload,
         dtype=None,
+        compile_model=resolved_compile,
     )
     llm_handler.last_init_params = {
         "lm_model_path": requested_model,
         "backend": resolved_backend,
         "device": resolved_device,
         "offload_to_cpu": resolved_offload,
+        "compile_model": resolved_compile,
     }
     if not init_ok:
         return False, init_status

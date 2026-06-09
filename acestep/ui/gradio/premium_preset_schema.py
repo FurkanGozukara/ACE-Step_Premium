@@ -102,6 +102,7 @@ LORA_TRAINING_PRESET_KEYS: tuple[str, ...] = (
     "lora_activation_cpu_offload",
     "lora_offload_non_decoder",
     "lora_keep_frozen_bf16",
+    "lora_compile_model",
     "lora_base_quantization",
     "lora_empty_cache_every_n_steps",
     "lora_sample_enabled",

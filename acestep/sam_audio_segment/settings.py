@@ -55,6 +55,7 @@ SAM_AUDIO_PRESET_KEYS: tuple[str, ...] = (
     "sam_chunk_seconds",
     "sam_chunk_overlap_seconds",
     "sam_subprocess",
+    "sam_compile_model",
     "sam_unload_generation",
     "sam_include_residual",
     "sam_include_video",
@@ -97,6 +98,7 @@ class SamAudioSettings:
     chunk_seconds: float = 20.0
     chunk_overlap_seconds: float = 5.0
     subprocess: bool = True
+    compile_model: bool = False
     unload_generation: bool = True
     include_residual: bool = True
     include_video: bool = True
@@ -211,6 +213,7 @@ class SamAudioSettings:
                 SAM_AUDIO_MAX_OVERLAP_SECONDS,
             ),
             subprocess=bool(payload.get("subprocess", preset["subprocess"])),
+            compile_model=bool(payload.get("compile_model", False)),
             unload_generation=bool(payload.get("unload_generation", True)),
             include_residual=bool(payload.get("include_residual", True)),
             include_video=bool(payload.get("include_video", True)),

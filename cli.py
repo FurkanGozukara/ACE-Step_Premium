@@ -1519,6 +1519,7 @@ def main():
             device=device,
             offload_to_cpu=args.offload_to_cpu,
             dtype=None,
+            compile_model=compile_model,
         )
     else:
         if args.task_type in skip_lm_tasks:

@@ -73,6 +73,7 @@ class LlmAutoInitTests(unittest.TestCase):
                     "device": "auto",
                     "offload_to_cpu": True,
                     "dtype": None,
+                    "compile_model": False,
                 }
             ],
         )
@@ -83,6 +84,7 @@ class LlmAutoInitTests(unittest.TestCase):
                 "backend": "pt",
                 "device": "auto",
                 "offload_to_cpu": True,
+                "compile_model": False,
             },
         )
 
@@ -134,6 +136,7 @@ class LlmAutoInitTests(unittest.TestCase):
             "backend": "pt",
             "device": "auto",
             "offload_to_cpu": False,
+            "compile_model": False,
         }
 
         with patch(
@@ -157,6 +160,50 @@ class LlmAutoInitTests(unittest.TestCase):
         self.assertEqual(status, "")
         ensure_model.assert_not_called()
         self.assertEqual(handler.initialize_calls, [])
+
+    def test_ensure_llm_ready_reinitializes_when_compile_option_changes(self):
+        """Changing the compile setting should refresh the LM runtime."""
+
+        handler = _FakeLLMHandler()
+        handler.llm_initialized = True
+        handler.last_init_params = {
+            "lm_model_path": "acestep-5Hz-lm-1.7B",
+            "backend": "pt",
+            "device": "auto",
+            "offload_to_cpu": False,
+            "compile_model": False,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            with patch.dict(
+                os.environ,
+                {
+                    "ACESTEP_PROJECT_ROOT": tmp_dir,
+                    "ACESTEP_COMPILE_MODEL": "1",
+                },
+                clear=False,
+            ):
+                with patch(
+                    "acestep.ui.gradio.events.generation.llm_auto_init.get_global_gpu_config",
+                    return_value=types.SimpleNamespace(recommended_backend="pt"),
+                ), patch(
+                    "acestep.ui.gradio.events.generation.llm_auto_init.resolve_lm_backend",
+                    return_value="pt",
+                ), patch(
+                    "acestep.ui.gradio.events.generation.llm_auto_init.ensure_lm_model",
+                    return_value=(True, "downloaded"),
+                ):
+                    ok, _status = ensure_llm_ready(
+                        handler,
+                        lm_model_path="acestep-5Hz-lm-1.7B",
+                        backend="pt",
+                        device="auto",
+                        offload_to_cpu=False,
+                    )
+
+        self.assertTrue(ok)
+        self.assertTrue(handler.initialize_calls[0]["compile_model"])
+        self.assertTrue(handler.last_init_params["compile_model"])
 
     def test_handle_format_lyrics_auto_initializes_before_formatting(self):
         """Enhance Lyrics should auto-init the LM instead of failing immediately."""

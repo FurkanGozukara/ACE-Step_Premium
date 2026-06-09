@@ -26,6 +26,7 @@ def create_service_config_content(
     llm_handler: Any,
     defaults: dict[str, Any],
     init_params: dict[str, Any] | None,
+    show_compile_toggle: bool = True,
 ) -> dict[str, Any]:
     """Build service-configuration controls embedded inside the Settings accordion.
 
@@ -34,6 +35,7 @@ def create_service_config_content(
         llm_handler: LM service handler used for LM model/backend options.
         defaults: Precomputed defaults from ``compute_init_defaults``.
         init_params: Optional startup state used to prefill control values.
+        show_compile_toggle: Whether to render the service compile checkbox visibly.
 
     Returns:
         A keyed component dictionary for all service configuration controls.
@@ -85,6 +87,7 @@ def create_service_config_content(
             default_compile=defaults["default_compile"],
             default_quantization=defaults["default_quantization"],
             gpu_config=defaults["gpu_config"],
+            show_compile_toggle=show_compile_toggle,
         )
         init_controls = build_service_init_controls(
             service_pre_initialized=service_pre_initialized,

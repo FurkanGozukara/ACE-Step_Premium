@@ -1,4 +1,4 @@
-<h1>ACE-Step 1.5 XL Premium v4.7.1 - Better Music & Song Generator Than SUNO 5.0 - Remix and Repaint Features - Windows, RunPod, Massed Compute, Linux 1-click Installers</h1>
+<h1>ACE-Step 1.5 XL Premium v4.8 - Better Music & Song Generator Than SUNO 5.0 - Remix and Repaint Features - Windows, RunPod, Massed Compute, Linux 1-click Installers</h1>
 
 <h2>Download app : https://www.patreon.com/posts/157675060</h2>
 
@@ -45,6 +45,11 @@
             -   Our installer uses uv installation for all of the requirements at once thus it is lightning fast, like 100x faster than normal
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
+
+### 10 June 2026 V4.8 Update
+
+-   Updated app and README release branding to ACE-Step 1.5 XL Premium v4.8
+-   Get latest zip file (4\_8), overwrite previous files and run Windows\_Install\_or\_Update.bat to update
 
 ### 6 June 2026 V4.7.1 Update
 

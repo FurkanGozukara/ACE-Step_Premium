@@ -4,6 +4,9 @@ import os
 from typing import Optional
 
 import torch
+from loguru import logger
+
+from acestep.torch_compile_runtime import compile_module_callable
 
 
 class InitServiceLoaderComponentsMixin:
@@ -61,7 +64,18 @@ class InitServiceLoaderComponentsMixin:
 
         if compile_model:
             self._ensure_len_for_compile(self.vae, "vae")
-            self.vae = torch.compile(self.vae)
+        compile_result = compile_module_callable(
+            self.vae,
+            attribute_name="decode",
+            label="ACE-Step VAE decode",
+            enabled=compile_model,
+        )
+        if compile_model:
+            if not compile_result.compiled:
+                logger.warning(
+                    "[initialize_service] torch.compile disabled for VAE decode: {}",
+                    compile_result.detail,
+                )
 
         return vae_checkpoint_path
 

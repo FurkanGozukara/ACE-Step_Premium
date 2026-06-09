@@ -228,6 +228,7 @@ def start_training(
     activation_cpu_offload: bool = False,
     offload_non_decoder: bool = True,
     keep_frozen_base_in_compute_dtype: bool = True,
+    compile_model: bool = False,
     use_8bit_adam: bool | None = None,
     base_quantization: str = "Disabled",
     empty_cache_every_n_steps: int = 10,
@@ -308,7 +309,11 @@ def start_training(
             yield f"\u274c {mismatch}", "", None, training_state
             return
 
-    dit_ready, dit_status = ensure_dit_ready(dit_handler, config_path=model_config)
+    dit_ready, dit_status = ensure_dit_ready(
+        dit_handler,
+        config_path=model_config,
+        training_safe=True,
+    )
     if not dit_ready:
         status = dit_status or "Model not initialized. Please initialize the service first."
         yield f"\u274c {status}", "", None, training_state
@@ -431,6 +436,7 @@ def start_training(
             activation_cpu_offload=_as_bool(activation_cpu_offload),
             offload_non_decoder=_as_bool(offload_non_decoder),
             keep_frozen_base_in_compute_dtype=_as_bool(keep_frozen_base_in_compute_dtype),
+            compile_model=_as_bool(compile_model),
             use_8bit_adam=selected_optimizer_type == "adamw8bit",
             optimizer_type=selected_optimizer_type,
             scheduler_type=selected_scheduler_type,
@@ -471,7 +477,7 @@ def start_training(
             "Training options: adapter={}, target_mlp={}, optimizer={}, "
             "scheduler={}, timestep_mode={}, adaptive_timestep_ratio={}, "
             "val_split={}, save_best={}, save_best_after={}, "
-            "save_best_smoothing_window={}, save_best_min_delta={}",
+            "save_best_smoothing_window={}, save_best_min_delta={}, compile_model={}",
             adapter_label,
             selected_target_mlp,
             selected_optimizer_type,
@@ -483,6 +489,7 @@ def start_training(
             training_config.save_best_after,
             training_config.save_best_smoothing_window,
             training_config.save_best_min_delta,
+            training_config.compile_model,
         )
         _save_training_config_snapshot(lora_config, training_config)
 

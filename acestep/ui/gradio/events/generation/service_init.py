@@ -133,6 +133,7 @@ def init_service_wrapper(
             device=lm_device,
             offload_to_cpu=offload_to_cpu,
             dtype=None,
+            compile_model=compile_model,
         )
 
         if lm_success:
@@ -144,6 +145,7 @@ def init_service_wrapper(
             "backend": backend,
             "device": device,
             "offload_to_cpu": offload_to_cpu,
+            "compile_model": compile_model,
         }
 
     is_model_initialized = dit_handler.model is not None

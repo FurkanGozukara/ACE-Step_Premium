@@ -72,6 +72,7 @@ def register_reinitialize_route(
                         "device": lm_device,
                         "offload_to_cpu": lm_offload,
                         "dtype": None,
+                        "compile_model": env_bool("ACESTEP_COMPILE_MODEL", False),
                     }
 
                 status, ok = llm.initialize(**llm_params)

@@ -22,6 +22,7 @@ from acestep.core.generation.cancellation import (
     unregister_generation_subprocess,
 )
 from acestep.core.generation.subprocess_termination import terminate_generation_process
+from acestep.torch_compile_toolchain import prepare_compile_subprocess_env
 from acestep.ui.gradio.events.results.audio_playback_updates import build_audio_slot_update
 from acestep.ui.gradio.events.results.batch_management_helpers import _extract_scores
 
@@ -110,7 +111,12 @@ def stream_subprocess_generation(request_payload: dict[str, Any]) -> Iterator[di
     with request_path.open("w", encoding="utf-8") as handle:
         json.dump(request_payload, handle, indent=2, ensure_ascii=False)
 
-    env = os.environ.copy()
+    service_payload = request_payload.get("service") or {}
+    env = prepare_compile_subprocess_env(
+        os.environ,
+        project_root=project_root,
+        compile_requested=bool(service_payload.get("compile_model")),
+    )
     env.setdefault("PYTHONIOENCODING", "utf-8")
     if request_payload.get("output_dir"):
         env["ACESTEP_OUTPUT_DIR"] = str(request_payload["output_dir"])

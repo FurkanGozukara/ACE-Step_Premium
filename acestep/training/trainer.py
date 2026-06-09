@@ -62,6 +62,7 @@ from acestep.training.save_best import BestMetricTracker
 from acestep.training.sample_generation_inprocess import run_training_sample_inprocess
 from acestep.training.timestep_schedule import build_shifted_timestep_schedule
 from acestep.training_v2.timestep_sampling import apply_cfg_dropout, sample_timesteps
+from acestep.torch_compile_runtime import compile_module_forward
 from acestep.training.vram_optimizations import (
     apply_training_fp8_scaled,
     cast_training_parameter_dtypes,
@@ -470,6 +471,25 @@ def _configure_training_memory_features(decoder: nn.Module) -> Tuple[bool, bool,
     return checkpointing_enabled, cache_disabled, input_grads_enabled
 
 
+def _compile_training_decoder_if_requested(
+    decoder: nn.Module,
+    training_config: TrainingConfig,
+) -> str | None:
+    """Compile the LoRA decoder forward path when requested by the user."""
+
+    requested = bool(getattr(training_config, "compile_model", False))
+    result = compile_module_forward(
+        decoder,
+        label="ACE-Step LoRA training decoder",
+        enabled=requested,
+    )
+    if not requested:
+        return None
+    if result.compiled:
+        return f"torch.compile enabled for training decoder (attempt {result.attempts})"
+    return f"torch.compile unavailable for training decoder: {result.detail}"
+
+
 def sample_discrete_timestep(bsz, timesteps_tensor):
     """Sample timesteps from the configured discrete training schedule.
 
@@ -584,31 +604,6 @@ class PreprocessedLoRAModule(nn.Module):
             self.model = model
             self.lora_info = {}
             logger.warning("PEFT not available, training without LoRA adapters")
-
-        # torch.compile: optional perf optimization.
-        # PEFT LoRA wraps the decoder in PeftModelForFeatureExtraction which is
-        # incompatible with torch.compile/inductor on PyTorch 2.7.x
-        # (AssertionError at first forward pass, not at compile time).
-        # Only compile when NOT using PEFT adapters.
-        has_peft = bool(self.lora_info)
-        if hasattr(torch, "compile") and self.device_type == "cuda" and not has_peft:
-            try:
-                logger.info("Compiling DiT decoder...")
-                self.model.decoder = torch.compile(self.model.decoder, mode="default")
-                logger.info("torch.compile successful")
-            except Exception as e:
-                logger.warning(
-                    f"torch.compile failed ({e}), continuing without compilation"
-                )
-        else:
-            if has_peft:
-                logger.info(
-                    "Skipping torch.compile (incompatible with PEFT LoRA adapters)"
-                )
-            else:
-                logger.info(
-                    "torch.compile not available on this device/PyTorch version, skipping"
-                )
 
         # Model config for flow matching
         self.config = model.config
@@ -1016,6 +1011,13 @@ class LoRATrainer:
                 f"Trainable tensor dtype fixup: "
                 f"casted {casted_trainable}/{total_trainable_tensors} to fp32"
             )
+
+        compile_status = _compile_training_decoder_if_requested(
+            self.module.model.decoder,
+            self.training_config,
+        )
+        if compile_status:
+            yield 0, 0.0, compile_status
 
         # Get dataloader
         train_loader = data_module.train_dataloader()
@@ -1556,6 +1558,12 @@ class LoRATrainer:
                 self.training_config, "keep_frozen_base_in_compute_dtype", True
             )),
         )
+        compile_status = _compile_training_decoder_if_requested(
+            self.module.model.decoder,
+            self.training_config,
+        )
+        if compile_status:
+            yield 0, 0.0, compile_status
 
         optimizer_type = str(
             getattr(self.training_config, "optimizer_type", "") or ""

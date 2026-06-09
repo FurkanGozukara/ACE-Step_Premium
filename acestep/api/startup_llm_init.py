@@ -75,6 +75,7 @@ def initialize_llm_at_startup(
         lm_device = os.getenv("ACESTEP_LM_DEVICE", device)
         lm_offload_env = os.getenv("ACESTEP_LM_OFFLOAD_TO_CPU")
         lm_offload = env_bool("ACESTEP_LM_OFFLOAD_TO_CPU", False) if lm_offload_env is not None else offload_to_cpu
+        compile_model = env_bool("ACESTEP_COMPILE_MODEL", False)
 
         lm_model_name = get_model_name(lm_model_path)
         try:
@@ -89,6 +90,7 @@ def initialize_llm_at_startup(
             device=lm_device,
             offload_to_cpu=lm_offload,
             dtype=None,
+            compile_model=compile_model,
         )
         if llm_ok:
             app.state._llm_initialized = True

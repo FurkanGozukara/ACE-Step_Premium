@@ -40,6 +40,7 @@ def stream_inline_lora_training(
         keep_frozen_base_in_compute_dtype=training_args[
             "keep_frozen_base_in_compute_dtype"
         ],
+        compile_model=training_args["compile_model"],
         use_8bit_adam=training_args["use_8bit_adam"],
         optimizer_type=training_args["optimizer_type"],
         scheduler_type=training_args["scheduler_type"],

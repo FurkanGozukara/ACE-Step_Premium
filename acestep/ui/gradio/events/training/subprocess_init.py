@@ -18,6 +18,7 @@ def build_dit_init_payload(
     params = _dit_init_params(dit_handler, model_config)
     if training_safe:
         params["quantization"] = None
+        params["compile_model"] = False
     return params
 
 

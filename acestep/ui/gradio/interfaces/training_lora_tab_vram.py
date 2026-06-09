@@ -34,6 +34,11 @@ def build_lora_vram_controls() -> dict[str, object]:
                 label="Keep frozen base in bf16/fp16",
                 value=lora_vram_defaults["keep_frozen_base_in_compute_dtype"],
             )
+            lora_compile_model = gr.Checkbox(
+                label="Compile Model",
+                value=lora_vram_defaults["compile_model"],
+                info="Use torch.compile on the training decoder. First step may be slower.",
+            )
             lora_base_quantization = gr.Dropdown(
                 label="Frozen base quantization",
                 choices=["Disabled", "FP8 scaled"],
@@ -53,6 +58,7 @@ def build_lora_vram_controls() -> dict[str, object]:
         "lora_activation_cpu_offload": lora_activation_cpu_offload,
         "lora_offload_non_decoder": lora_offload_non_decoder,
         "lora_keep_frozen_bf16": lora_keep_frozen_bf16,
+        "lora_compile_model": lora_compile_model,
         "lora_base_quantization": lora_base_quantization,
         "lora_empty_cache_every_n_steps": lora_empty_cache_every_n_steps,
     }

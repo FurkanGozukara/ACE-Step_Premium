@@ -19,6 +19,7 @@ _MODEL_SETTING_FIELDS: tuple[str, ...] = (
     "ranker_mode",
     "quantization",
     "low_vram_lite",
+    "compile_model",
 )
 
 

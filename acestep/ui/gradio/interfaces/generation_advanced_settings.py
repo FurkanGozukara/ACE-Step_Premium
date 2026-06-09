@@ -29,6 +29,7 @@ def create_advanced_settings_section(
     llm_handler: Any,
     init_params: dict[str, Any] | None = None,
     language: str = "en",
+    show_compile_toggle: bool = True,
 ) -> dict[str, Any]:
     """Create the Settings accordion and return advanced generation controls.
 
@@ -37,6 +38,7 @@ def create_advanced_settings_section(
         llm_handler: LM service handler used for LM/service configuration controls.
         init_params: Optional startup state used to prefill control values.
         language: UI language code.
+        show_compile_toggle: Whether service settings render the compile checkbox visibly.
 
     Returns:
         A merged component map for service, LoRA, DiT, LM, output, and automation controls.
@@ -70,6 +72,7 @@ def create_advanced_settings_section(
             llm_handler=llm_handler,
             defaults=defaults,
             init_params=init_params,
+            show_compile_toggle=show_compile_toggle,
         )
         lora_components = build_lora_controls()
         dit_components = build_dit_controls(ui_config, think_enabled=lm_initialized)

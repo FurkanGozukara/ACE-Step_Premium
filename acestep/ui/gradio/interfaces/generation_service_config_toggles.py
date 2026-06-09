@@ -30,6 +30,7 @@ def build_service_toggles(
     default_compile: bool,
     default_quantization: bool,
     gpu_config: Any,
+    show_compile_toggle: bool = True,
 ) -> dict[str, Any]:
     """Create service toggle checkboxes for runtime and optimization settings.
 
@@ -44,6 +45,7 @@ def build_service_toggles(
         default_compile: Default value for compile-model toggle.
         default_quantization: Default value for quantization toggle.
         gpu_config: GPU configuration object used for LM availability messaging.
+        show_compile_toggle: Whether the service-settings compile toggle is visible.
 
     Returns:
         A component map for all service toggles (LLM, flash attention, offload, compile, quantization, MLX).
@@ -92,6 +94,7 @@ def build_service_toggles(
             label=t("service.compile_model_label"),
             value=params.get("compile_model", default_compile) if service_pre_initialized else default_compile,
             info=t("service.compile_model_info"),
+            visible=show_compile_toggle,
             elem_classes=["has-info-container"],
         )
         default_quantization_value_for_ui = default_quantization_value(

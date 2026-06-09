@@ -131,6 +131,7 @@ def temporary_llm_model(
                 "device": os.getenv("ACESTEP_LM_DEVICE", os.getenv("ACESTEP_DEVICE", "auto")),
                 "offload_to_cpu": env_bool("ACESTEP_LM_OFFLOAD_TO_CPU", False),
                 "dtype": None,
+                "compile_model": env_bool("ACESTEP_COMPILE_MODEL", False),
             }
             new_params["checkpoint_dir"] = checkpoint_dir
             new_params["lm_model_path"] = desired

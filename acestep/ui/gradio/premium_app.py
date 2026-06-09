@@ -71,7 +71,7 @@ from acestep.ui.gradio.premium_features import (
 )
 
 
-APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v4.7.1"
+APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v4.8"
 APP_RELEASE_URL = "https://www.patreon.com/posts/157675060"
 APP_HEADER_MARKDOWN = f"# {APP_BROWSER_TITLE} : [{APP_RELEASE_URL}]({APP_RELEASE_URL})"
 _FAVICON_PATH = Path(__file__).resolve().parent / "assets" / "ace_step_premium_favicon.svg"
@@ -868,6 +868,9 @@ def create_gradio_interface(
         generation_section["results_wrapper"] = results_wrapper
         generation_section["subprocess_mode_checkbox"] = create_page[
             "subprocess_mode_checkbox"
+        ]
+        generation_section["compile_model_checkbox"] = create_page[
+            "compile_model_checkbox"
         ]
         generation_section["simple_model_dropdown"] = simple_page[
             "simple_model_dropdown"

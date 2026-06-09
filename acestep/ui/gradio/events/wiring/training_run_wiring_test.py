@@ -84,6 +84,7 @@ class TrainingRunWiringTests(unittest.TestCase):
             self.assertTrue(kwargs["gradient_checkpointing"])
             self.assertFalse(kwargs["use_8bit_adam"])
             self.assertEqual("Disabled", kwargs["base_quantization"])
+            self.assertTrue(kwargs["compile_model"])
             self.assertFalse(kwargs["sample_generation_enabled"])
             self.assertEqual("prompt", kwargs["sample_prompt"])
             self.assertEqual("lyrics", kwargs["sample_lyrics"])
@@ -146,6 +147,7 @@ class TrainingRunWiringTests(unittest.TestCase):
                     "",
                     True,
                     False,
+                    True,
                     True,
                     True,
                     "Disabled",
@@ -218,6 +220,7 @@ class TrainingRunWiringTests(unittest.TestCase):
                     False,
                     True,
                     True,
+                    False,
                     "Disabled",
                     10,
                     False,
@@ -238,6 +241,7 @@ class TrainingRunWiringTests(unittest.TestCase):
         build_init.assert_called_once()
         training_args = stream.call_args.kwargs["training_args"]
         self.assertEqual("my-awesome-song", training_args["lora_name"])
+        self.assertFalse(training_args["compile_model"])
         self.assertEqual(64, training_args["lora_rank"])
         self.assertEqual(128, training_args["lora_alpha"])
         self.assertEqual(0.1, training_args["lora_dropout"])

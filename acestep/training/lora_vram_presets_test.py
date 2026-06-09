@@ -50,6 +50,7 @@ class LoraVramPresetTests(unittest.TestCase):
         self.assertEqual(128, preset["lora_alpha"])
         self.assertTrue(preset["activation_cpu_offload"])
         self.assertEqual("FP8 scaled", preset["base_quantization"])
+        self.assertFalse(preset["compile_model"])
 
     def test_all_presets_keep_alpha_128(self) -> None:
         """Every automatic preset should keep the expert-only alpha default."""
@@ -90,6 +91,7 @@ class LoraVramPresetTests(unittest.TestCase):
         self.assertEqual(128, preset["lora_rank"])
         self.assertFalse(preset["activation_cpu_offload"])
         self.assertTrue(preset["keep_frozen_base_in_compute_dtype"])
+        self.assertFalse(preset["compile_model"])
         self.assertEqual("adamw", preset["optimizer_type"])
 
     def test_24gb_plus_preset_keeps_frozen_compute_dtype_saver(self) -> None:

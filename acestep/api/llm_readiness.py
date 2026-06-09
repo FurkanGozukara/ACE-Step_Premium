@@ -82,6 +82,7 @@ def ensure_llm_ready_for_request(
             device=lm_device,
             offload_to_cpu=lm_offload,
             dtype=None,
+            compile_model=env_bool("ACESTEP_COMPILE_MODEL", False),
         )
         if not ok:
             app_state._llm_init_error = status

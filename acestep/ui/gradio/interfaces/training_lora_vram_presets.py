@@ -36,7 +36,7 @@ def lora_vram_preset_updates(preset_name: str):
 
     preset = get_lora_vram_preset(preset_name)
     if not preset:
-        return (gr.update(),) * 10
+        return (gr.update(),) * 11
 
     return (
         gr.update(value=preset["lora_rank"]),
@@ -45,6 +45,7 @@ def lora_vram_preset_updates(preset_name: str):
         gr.update(value=preset["activation_cpu_offload"]),
         gr.update(value=preset["offload_non_decoder"]),
         gr.update(value=preset["keep_frozen_base_in_compute_dtype"]),
+        gr.update(value=preset["compile_model"]),
         gr.update(value=preset.get("optimizer_type", "adamw8bit")),
         gr.update(value=preset.get("scheduler_type", "constant")),
         gr.update(value=preset["base_quantization"]),

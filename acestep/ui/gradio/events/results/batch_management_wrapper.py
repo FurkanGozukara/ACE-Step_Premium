@@ -161,6 +161,7 @@ def _lm_service_needs_init(
     backend_dropdown: str | None,
     device: str | None,
     offload_to_cpu: bool,
+    compile_model: bool,
 ) -> tuple[bool, str]:
     """Return whether the foreground LM handler must be initialized."""
 
@@ -184,6 +185,8 @@ def _lm_service_needs_init(
     if device and device != "auto" and last_init_params.get("device") != device:
         return True, requested_lm_model
     if bool(last_init_params.get("offload_to_cpu")) != bool(offload_to_cpu):
+        return True, requested_lm_model
+    if bool(last_init_params.get("compile_model")) != bool(compile_model):
         return True, requested_lm_model
     return False, requested_lm_model
 
@@ -321,6 +324,7 @@ def _ensure_in_process_service_ready(
         backend_dropdown=backend_dropdown,
         device=device,
         offload_to_cpu=bool(offload_to_cpu_checkbox),
+        compile_model=bool(compile_model_checkbox),
     )
     if lm_requires_init:
         models_dir = Path(project_root) / "models"
@@ -343,12 +347,14 @@ def _ensure_in_process_service_ready(
             device=device or "auto",
             offload_to_cpu=bool(offload_to_cpu_checkbox),
             dtype=None,
+            compile_model=bool(compile_model_checkbox),
         )
         llm_handler.last_init_params = {
             "lm_model_path": requested_lm_model,
             "backend": backend_dropdown,
             "device": device or "auto",
             "offload_to_cpu": bool(offload_to_cpu_checkbox),
+            "compile_model": bool(compile_model_checkbox),
         }
         status_lines.append(lm_status)
         check_generation_cancelled()

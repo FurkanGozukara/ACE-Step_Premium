@@ -73,6 +73,7 @@ def _lora_training_dit_init_params(
     params = dict(dit_init_params)
     if bool(training_args.get("offload_non_decoder")):
         params["offload_to_cpu"] = True
+    params["compile_model"] = False
     return params
 
 

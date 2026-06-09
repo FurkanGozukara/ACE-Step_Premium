@@ -700,6 +700,7 @@ def main():
                         device=args.device,
                         offload_to_cpu=args.offload_to_cpu,
                         dtype=None,
+                        compile_model=compile_model,
                     )
 
                     if lm_success:
@@ -709,6 +710,7 @@ def main():
                             "backend": args.backend,
                             "device": args.device,
                             "offload_to_cpu": args.offload_to_cpu,
+                            "compile_model": compile_model,
                         }
                         init_status += f"\n{lm_status}"
                     else:

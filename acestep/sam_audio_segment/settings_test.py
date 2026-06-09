@@ -21,6 +21,7 @@ class TestSamAudioSettings(unittest.TestCase):
 
         self.assertFalse(settings.auto_postprocess)
         self.assertTrue(settings.subprocess)
+        self.assertFalse(settings.compile_model)
         self.assertEqual(99, settings.seed)
         self.assertFalse(settings.random_seed)
         self.assertEqual("auto", settings.attention_backend)
@@ -67,6 +68,7 @@ class TestSamAudioSettings(unittest.TestCase):
                 "sam_chunk_seconds": 10.0,
                 "sam_chunk_overlap_seconds": 1.0,
                 "sam_subprocess": True,
+                "sam_compile_model": True,
                 "sam_unload_generation": True,
                 "sam_include_residual": True,
                 "sam_include_video": True,
@@ -85,6 +87,7 @@ class TestSamAudioSettings(unittest.TestCase):
         self.assertTrue(settings.random_seed)
         self.assertEqual("cudnn", settings.attention_backend)
         self.assertEqual("multidiffusion", settings.long_audio_mode)
+        self.assertTrue(settings.compile_model)
         self.assertTrue(settings.trim_empty_output)
         self.assertEqual(-42.0, settings.trim_threshold_db)
         self.assertTrue(settings.batch_recursive)

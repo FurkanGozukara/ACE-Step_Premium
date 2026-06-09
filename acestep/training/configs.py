@@ -124,6 +124,7 @@ class TrainingConfig:
     activation_cpu_offload: bool = False
     offload_non_decoder: bool = True
     keep_frozen_base_in_compute_dtype: bool = True
+    compile_model: bool = False
     use_8bit_adam: bool = True
     optimizer_type: str = "adamw8bit"
     scheduler_type: str = "constant"
@@ -215,6 +216,7 @@ class TrainingConfig:
             "activation_cpu_offload": self.activation_cpu_offload,
             "offload_non_decoder": self.offload_non_decoder,
             "keep_frozen_base_in_compute_dtype": self.keep_frozen_base_in_compute_dtype,
+            "compile_model": self.compile_model,
             "use_8bit_adam": self.use_8bit_adam,
             "optimizer_type": self.optimizer_type,
             "scheduler_type": self.scheduler_type,

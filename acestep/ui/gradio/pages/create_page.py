@@ -11,6 +11,7 @@ from acestep.ui.gradio.interfaces.generation import (
     create_generation_body_section,
     create_generation_mode_section,
 )
+from acestep.ui.gradio.interfaces.generation_defaults import compute_init_defaults
 
 
 def create_generation_workspace_page(
@@ -21,6 +22,13 @@ def create_generation_workspace_page(
     include_results: bool = True,
 ) -> dict[str, Any]:
     """Build the Create page in a single-column workflow layout."""
+
+    defaults = compute_init_defaults(init_params=init_params, language=language)
+    params = init_params or {}
+    if defaults["service_pre_initialized"]:
+        compile_default = params.get("compile_model", defaults["default_compile"])
+    else:
+        compile_default = defaults["default_compile"]
 
     with gr.Column():
         with gr.Row(equal_height=True):
@@ -37,12 +45,25 @@ def create_generation_workspace_page(
             with gr.Column(scale=5, min_width=360):
                 with gr.Group():
                     gr.Markdown("### Runtime")
-                    subprocess_mode_checkbox = gr.Checkbox(
-                        label="Use isolated subprocess generation",
-                        value=False,
-                        info="Safer memory isolation with a separate worker process. Slightly slower because models initialize inside that worker.",
-                        elem_id="acestep-subprocess-mode-checkbox",
-                    )
+                    with gr.Row():
+                        subprocess_mode_checkbox = gr.Checkbox(
+                            label="Use isolated subprocess generation",
+                            value=False,
+                            info=(
+                                "Safer memory isolation with a separate worker process. "
+                                "Slightly slower because models initialize inside that worker."
+                            ),
+                            elem_id="acestep-subprocess-mode-checkbox",
+                        )
+                        compile_model_checkbox = gr.Checkbox(
+                            label="Compile Model (torch.compile)",
+                            value=bool(compile_default),
+                            info=(
+                                "Optional PyTorch compilation for repeated inference. "
+                                "First use can be slower while graphs are compiled."
+                            ),
+                            elem_id="acestep-runtime-compile-model-checkbox",
+                        )
                     gr.Markdown(
                         "Execution note: The Turbo model is automatically downloaded with "
                         "installation. To download the SFT and Base models, please use the "
@@ -75,11 +96,13 @@ def create_generation_workspace_page(
                 llm_handler=llm_handler,
                 init_params=init_params,
                 language=language,
+                show_compile_toggle=False,
             )
 
     generation_section: dict[str, Any] = {}
     generation_section.update(mode_section)
     generation_section.update(body_section)
+    generation_section["compile_model_checkbox"] = compile_model_checkbox
     if results_wrapper is not None:
         generation_section["results_wrapper"] = results_wrapper
 
@@ -88,4 +111,5 @@ def create_generation_workspace_page(
         "settings_section": settings_section,
         "results_section": results_section,
         "subprocess_mode_checkbox": subprocess_mode_checkbox,
+        "compile_model_checkbox": compile_model_checkbox,
     }

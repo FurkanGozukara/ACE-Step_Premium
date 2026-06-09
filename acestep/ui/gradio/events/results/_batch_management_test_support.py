@@ -117,6 +117,8 @@ def load_batch_management_module(
 
     fake_torch = types.ModuleType("torch")
     fake_torch.cuda = fake_cuda
+    fake_torch.Tensor = object
+    fake_torch.nn = types.SimpleNamespace(Module=object)
 
     fake_backends_mps = types.SimpleNamespace(is_available=lambda: mps_available)
     fake_torch.backends = types.SimpleNamespace(mps=fake_backends_mps)
@@ -135,6 +137,11 @@ def load_batch_management_module(
     gradio_pkg = types.ModuleType("acestep.ui.gradio")
     events_pkg = types.ModuleType("acestep.ui.gradio.events")
     results_pkg = types.ModuleType("acestep.ui.gradio.events.results")
+    core_pkg = types.ModuleType("acestep.core")
+    generation_pkg = types.ModuleType("acestep.core.generation")
+    handler_pkg = types.ModuleType("acestep.core.generation.handler")
+    lora_pkg = types.ModuleType("acestep.core.generation.handler.lora")
+    sam_audio_pkg = types.ModuleType("acestep.sam_audio_segment")
 
     results_dir = Path(__file__).resolve().parent
     events_dir = results_dir.parent
@@ -147,6 +154,11 @@ def load_batch_management_module(
     gradio_pkg.__path__ = [str(gradio_dir)]
     events_pkg.__path__ = [str(events_dir)]
     results_pkg.__path__ = [str(results_dir)]
+    core_pkg.__path__ = [str(acestep_dir / "core")]
+    generation_pkg.__path__ = [str(acestep_dir / "core" / "generation")]
+    handler_pkg.__path__ = [str(acestep_dir / "core" / "generation" / "handler")]
+    lora_pkg.__path__ = [str(acestep_dir / "core" / "generation" / "handler" / "lora")]
+    sam_audio_pkg.__path__ = [str(acestep_dir / "sam_audio_segment")]
 
     fake_gradio = types.ModuleType("gradio")
     fake_gradio.update = _gr_update
@@ -167,6 +179,18 @@ def load_batch_management_module(
         "torch": fake_torch,
         "loguru": types.SimpleNamespace(logger=fake_logger),
         "acestep": acestep_pkg,
+        "acestep.core": core_pkg,
+        "acestep.core.generation": generation_pkg,
+        "acestep.core.generation.handler": handler_pkg,
+        "acestep.core.generation.handler.lora": lora_pkg,
+        "acestep.core.generation.handler.lora.folder_scan": types.SimpleNamespace(
+            resolve_loadable_lora_adapter_path=lambda candidate: str(candidate or "").strip()
+        ),
+        "acestep.sam_audio_segment": sam_audio_pkg,
+        "acestep.sam_audio_segment.settings": types.SimpleNamespace(
+            SAM_AUDIO_PRESET_KEYS=(),
+            settings_from_ui_values=lambda _values: types.SimpleNamespace(to_payload=lambda: {}),
+        ),
         "acestep.ui": ui_pkg,
         "acestep.ui.gradio": gradio_pkg,
         "acestep.ui.gradio.i18n": types.SimpleNamespace(t=_translate),
@@ -184,6 +208,11 @@ def load_batch_management_module(
     }
 
     acestep_pkg.ui = ui_pkg
+    acestep_pkg.core = core_pkg
+    core_pkg.generation = generation_pkg
+    generation_pkg.handler = handler_pkg
+    handler_pkg.lora = lora_pkg
+    acestep_pkg.sam_audio_segment = sam_audio_pkg
     ui_pkg.gradio = gradio_pkg
     gradio_pkg.events = events_pkg
     events_pkg.results = results_pkg

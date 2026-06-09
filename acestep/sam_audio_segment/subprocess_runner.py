@@ -20,6 +20,7 @@ from acestep.core.generation.cancellation import (
     unregister_generation_subprocess,
 )
 from acestep.core.generation.subprocess_termination import terminate_generation_process
+from acestep.torch_compile_toolchain import prepare_compile_subprocess_env
 from .cancel import (
     check_sam_audio_cancelled,
     is_sam_audio_cancelled,
@@ -43,7 +44,15 @@ def run_sam_audio_subprocess(
         request_path = temp_root / "request.json"
         result_path = temp_root / "result.json"
         request_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        env = os.environ.copy()
+        settings_payload = payload.get("settings") if isinstance(payload, dict) else {}
+        env = prepare_compile_subprocess_env(
+            os.environ,
+            project_root=project_root,
+            compile_requested=bool(
+                isinstance(settings_payload, dict)
+                and settings_payload.get("compile_model")
+            ),
+        )
         env.setdefault("ACESTEP_PROJECT_ROOT", str(project_root))
         command = [
             sys.executable,

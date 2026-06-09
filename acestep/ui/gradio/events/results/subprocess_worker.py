@@ -143,6 +143,7 @@ def main() -> int:
                 device=service.get("device") or "auto",
                 offload_to_cpu=bool(service.get("offload_to_cpu")),
                 dtype=None,
+                compile_model=bool(service.get("compile_model")),
             )
             if not lm_ok:
                 raise RuntimeError(lm_status)

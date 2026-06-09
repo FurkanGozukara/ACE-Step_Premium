@@ -91,6 +91,7 @@ def ensure_dit_ready(
     dit_handler: Any,
     *,
     config_path: str | None = None,
+    training_safe: bool = False,
 ) -> tuple[bool, str]:
     """Ensure the DiT runtime is initialized for dataset work."""
 
@@ -104,6 +105,9 @@ def ensure_dit_ready(
         return False, "Model not initialized. Please initialize the service first."
 
     params = _dit_init_params(dit_handler, config_path)
+    if training_safe:
+        params["quantization"] = None
+        params["compile_model"] = False
     logger.info(
         "[training_dataset] Auto-initializing DiT service for dataset action: {}",
         params["config_path"],

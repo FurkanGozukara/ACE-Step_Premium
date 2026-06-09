@@ -74,6 +74,36 @@ class VllmBackendCompatTests(unittest.TestCase):
 class LlmInitializeBackendCompatTests(unittest.TestCase):
     """Verify ``LLMHandler.initialize`` uses the Windows Triton preflight cleanly."""
 
+    @patch("acestep.llm_inference.compile_module_forward")
+    @patch("acestep.llm_inference.AutoModelForCausalLM.from_pretrained")
+    def test_load_pytorch_model_compiles_lm_when_requested(
+        self,
+        mock_from_pretrained: MagicMock,
+        mock_compile_forward: MagicMock,
+    ) -> None:
+        """PyTorch LM loading should forward compile requests to torch.compile."""
+
+        handler = LLMHandler()
+        model = MagicMock()
+        model.to.return_value = model
+        mock_from_pretrained.return_value = model
+        mock_compile_forward.return_value = SimpleNamespace(compiled=True, detail="ready")
+
+        ok, status = handler._load_pytorch_model(
+            "C:/repo/checkpoints/acestep-5Hz-lm-0.6B",
+            "cuda",
+            compile_model=True,
+        )
+
+        self.assertTrue(ok)
+        self.assertIn("Backend: PyTorch", status)
+        mock_compile_forward.assert_called_once_with(
+            model,
+            label="5Hz LM PyTorch",
+            enabled=True,
+        )
+        model.eval.assert_called_once()
+
     @patch("torch.cuda.synchronize")
     @patch("torch.cuda.empty_cache")
     @patch("torch.cuda.is_available", return_value=True)

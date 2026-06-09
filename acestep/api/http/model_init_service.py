@@ -156,6 +156,7 @@ def initialize_models_for_request(
                 device=lm_device,
                 offload_to_cpu=lm_offload,
                 dtype=None,
+                compile_model=compile_model,
             )
             if not llm_ok:
                 app_state._llm_initialized = False
