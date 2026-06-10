@@ -46,6 +46,43 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+### 10 June 2026 V4.9 Update 
+
+-   V4.9 is a pretty big and important update lots of fixes and improvements    
+-   Generation modes now explicity shows recommended models for ACESTEP XL 1.5    
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/5ab0217d-37bd-4a51-a53d-7620b713bf75" />
+
+-   Previously, switching models without restarting the app was causing VRAM leak and OOM    
+    -   This issue is fixed and now you can generate with Turbo model and then switch SFT or Base, and so on        
+        -   To be 100% sure not have any RAM or VRAM leak, enable Use isolated subprocess generation checkbox            
+
+<img width="727" height="202" alt="image" src="https://github.com/user-attachments/assets/ff8fc2e2-8029-4c04-a1af-e1ba9dd343bc" />
+
+-   For Remix, Repaint, Lego and Complete, now you can set Instrument Start and End of source input and it will show live preview, really useful for Repaint    
+
+<img width="3476" height="435" alt="image" src="https://github.com/user-attachments/assets/2947745b-725b-48ab-9f06-a90a5b643e9b" />
+
+-   Instrument Start and End selection was not working accurately for Remix, Repaint, Lego and Complete but this bug fixed so now you can repaint just specific part of the model    
+-   Repaint was not using accurate methodologies and automatic inner prompt to repaint song accurately and now this issue also fixed    
+    -   So now you can change specific part of the song and make it sing different vocal / lyrics etc perfectly working tested        
+-   Remix, Lego, Repaint and Complete mode errors fixed and they are made more robust    
+-   Optional Parameters, Batch Process, Settings will be closed by default now, so easier to read interface    
+    -   Click them to open them again        
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/9c41ffba-86e8-4357-8f82-24e079716409" />
+
+-   Cluttering unrelated some information from Remix, Lego, Repaint and Complete modes removed such as Custom Guide from Remix    
+-   Generated results now will show followings    
+    -   Latest Generated Result (Sample 1) : Is the full new repainted, remixed, etc song        
+    -   Next to it Original Input, the original song for quickly listen both and compare        
+    -   Latest Repainted Area, is the area of the song you repainted like between 30-40 seconds, this works for other modes too so you can listen only that particular section        
+    -   Next to it, Latest Repainted Area Original, the original part of the song that was repainted, etc. to see before after quickly        
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/aec6881d-8888-4515-b8dd-c0f590940422" />
+
+-   For update / install use latest zip file (4\_7), overwrite and run Windows\_Install\_or\_Update.bat
+
 ### 10 June 2026 V4.8 Update 
 
 <img width="1646" height="88" alt="image" src="https://github.com/user-attachments/assets/c899ae1a-9d73-4448-a603-963e3aed4385" />
