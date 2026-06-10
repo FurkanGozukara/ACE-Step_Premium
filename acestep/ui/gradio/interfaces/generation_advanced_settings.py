@@ -65,7 +65,7 @@ def create_advanced_settings_section(
 
     with gr.Accordion(
         t("generation.advanced_settings"),
-        open=True,
+        open=False,
     ) as advanced_settings_accordion:
         service_components = create_service_config_content(
             dit_handler=dit_handler,

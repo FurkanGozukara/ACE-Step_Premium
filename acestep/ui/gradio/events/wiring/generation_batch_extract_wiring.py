@@ -1,4 +1,4 @@
-"""Event wiring for Advanced-tab Batch Extract."""
+"""Event wiring for Advanced-tab batch processing."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from acestep.ui.gradio.events.wiring.generation_run_wiring import build_generati
 
 
 def register_generation_batch_extract_handlers(context: GenerationWiringContext) -> None:
-    """Register folder Batch Extract controls on the Advanced generation tab."""
+    """Register folder batch process controls on the Advanced generation tab."""
 
     generation_section = context.generation_section
     results_section = context.results_section

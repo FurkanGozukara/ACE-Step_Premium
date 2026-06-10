@@ -64,6 +64,7 @@ from acestep.ui.gradio.events.results.result_output_contract import (
     is_bounded_source_edit,
     source_audio_update_path,
 )
+from acestep.ui.gradio.events.results.latest_edit_area import create_latest_edit_area_clips
 from acestep.ui.gradio.events.results.extract_remaining_audio import (
     save_extract_remaining_audio,
 )
@@ -603,6 +604,18 @@ def generate_with_progress(
         audio_params["sam_audio"] = sam_postprocess_metadata
         audio_params["saved_audio_formats"] = list(saved_audio_paths.keys())
         audio_params["audio_paths"] = saved_audio_paths
+        latest_edit_area_metadata = {"applied": False, "reason": "not_primary_sample"}
+        if i == 0:
+            latest_edit_area_metadata = create_latest_edit_area_clips(
+                task_type=task_type,
+                generated_audio_path=audio_path,
+                source_audio_path=source_display_path,
+                run_dir=temp_dir,
+                key=key,
+                repainting_start=repainting_start,
+                repainting_end=repainting_end,
+            )
+        audio_params["latest_edit_area"] = latest_edit_area_metadata
 
         _persist_repaint_source_latents(
             source_latents=_extract_repaint_source_latents(result.extra_outputs, i),
@@ -625,6 +638,15 @@ def generate_with_progress(
         if postprocess_metadata.get("metadata_path"):
             all_audio_paths.append(str(postprocess_metadata["metadata_path"]))
         all_audio_paths.extend(str(path) for path in sam_postprocess_metadata.get("files", []) if path)
+        if latest_edit_area_metadata.get("applied"):
+            all_audio_paths.extend(
+                str(path)
+                for path in (
+                    latest_edit_area_metadata.get("generated_area_path"),
+                    latest_edit_area_metadata.get("original_area_path"),
+                )
+                if path
+            )
         all_audio_paths.append(json_path)
 
         code_str = audio_params.get("audio_codes", "")

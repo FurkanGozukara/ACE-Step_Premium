@@ -77,3 +77,24 @@ def extract_source_audio_path(all_audio_paths: Any) -> str | None:
         if stem == "source_audio":
             return path_text.replace("\\", "/")
     return None
+
+
+def extract_latest_edit_area_paths(all_audio_paths: Any) -> tuple[str | None, str | None]:
+    """Find latest edited-area generated/original clip paths in a file list."""
+
+    if not isinstance(all_audio_paths, (list, tuple)):
+        return None, None
+
+    generated_path = None
+    original_path = None
+    for path in all_audio_paths:
+        path_text = str(path or "")
+        if not path_text:
+            continue
+        stem = Path(path_text).stem.lower()
+        normalized = path_text.replace("\\", "/")
+        if stem.endswith("_latest_repainted_area_original"):
+            original_path = normalized
+        elif stem.endswith("_latest_repainted_area"):
+            generated_path = normalized
+    return generated_path, original_path

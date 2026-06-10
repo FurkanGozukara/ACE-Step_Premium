@@ -120,6 +120,18 @@ class ModeUiStateClearingTests(unittest.TestCase):
                 self.assertFalse(result[_IDX_LOAD_FILE_COL].get("visible"))
                 self.assertFalse(result[_IDX_LOAD_FILE].get("visible"))
 
+    def test_optional_parameters_stay_closed_on_mode_change(self):
+        """Mode changes should not open Optional Parameters automatically."""
+
+        result = compute_mode_ui_updates(
+            "Custom",
+            previous_mode="Simple",
+            config_path="ACEStep_1_5_XL_Base_BF16",
+        )
+
+        self.assertTrue(result[_IDX_OPTIONAL_PARAMS].get("visible"))
+        self.assertFalse(result[_IDX_OPTIONAL_PARAMS].get("open"))
+
     def test_custom_mode_preserves_audio_codes(self):
         """In Custom mode, audio_codes textbox should be visible but not cleared."""
         result = compute_mode_ui_updates("Custom")

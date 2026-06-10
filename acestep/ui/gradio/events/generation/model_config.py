@@ -63,6 +63,13 @@ _UNSUPPORTED_MODE_REASONS = {
     "Complete": "Base/SFT only",
 }
 
+_RECOMMENDED_MODE_LABELS = {
+    "Remix": "Remix (SFT Model Recommended)",
+    "Repaint": "Repaint (SFT Model Recommended)",
+    "Lego": "Lego (Base Model Recommended)",
+    "Complete": "Complete (Base Model Recommended)",
+}
+
 
 def _has_token(token: str, path: str) -> bool:
     """Check if *token* appears as a delimited word in *path*.
@@ -180,11 +187,12 @@ def get_generation_mode_display_choices(
     supported = set(supported_modes)
     choices: list[str | tuple[str, str]] = []
     for mode in GENERATION_MODES_BASE:
+        label = _RECOMMENDED_MODE_LABELS.get(mode, mode)
         if mode in supported:
-            choices.append(mode)
+            choices.append((label, mode) if label != mode else mode)
             continue
         reason = _UNSUPPORTED_MODE_REASONS.get(mode, "not supported")
-        choices.append((f"{mode} - unavailable ({reason})", mode))
+        choices.append((f"{label} - unavailable ({reason})", mode))
     return choices
 
 

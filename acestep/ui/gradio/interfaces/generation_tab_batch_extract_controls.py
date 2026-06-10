@@ -1,4 +1,4 @@
-"""Batch Extract controls for the generation tab."""
+"""Batch process controls for the generation tab."""
 
 from typing import Any
 
@@ -6,40 +6,40 @@ import gradio as gr
 
 
 def build_batch_extract_controls() -> dict[str, Any]:
-    """Create folder controls for running Extract over every audio file in a folder."""
+    """Create folder controls for running the selected task over a folder."""
 
-    with gr.Accordion("Batch Extract", open=True) as batch_extract_group:
+    with gr.Accordion("Batch Process", open=False) as batch_extract_group:
         with gr.Row():
             batch_extract_input_folder = gr.Textbox(
-                label="Batch Extract Input Folder",
+                label="Batch Process Input Folder",
                 placeholder="Folder containing source audio files",
                 scale=4,
             )
             batch_extract_input_browse_btn = gr.Button("Browse", scale=1)
         with gr.Row():
             batch_extract_output_folder = gr.Textbox(
-                label="Batch Extract Output Folder *",
-                placeholder="Required folder where extracted files will be saved",
+                label="Batch Process Output Folder *",
+                placeholder="Required folder where processed files will be saved",
                 scale=4,
             )
             batch_extract_output_browse_btn = gr.Button("Browse", scale=1)
         with gr.Row(equal_height=False, elem_classes=["ace-generate-action-row"]):
             batch_extract_btn = gr.Button(
-                "Batch Extract",
+                "Batch Process",
                 variant="primary",
                 size="lg",
                 scale=2,
                 elem_classes=["action-btn", "action-btn-generate"],
             )
             batch_extract_cancel_btn = gr.Button(
-                "Cancel Batch Extract",
+                "Cancel Batch Process",
                 variant="stop",
                 size="lg",
                 scale=1,
                 elem_classes=["action-btn", "action-btn-cancel"],
             )
         batch_extract_status = gr.Textbox(
-            label="Batch Extract Status",
+            label="Batch Process Status",
             interactive=False,
             lines=10,
             max_lines=10,

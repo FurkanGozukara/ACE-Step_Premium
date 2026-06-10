@@ -1,4 +1,4 @@
-"""Batch Extract runtime for the Advanced generation tab."""
+"""Batch process runtime for the Advanced generation tab."""
 
 from __future__ import annotations
 
@@ -64,12 +64,12 @@ def _validate_extract_settings(generation_args: Sequence[Any]) -> str:
     """Validate the current UI settings and return the selected track name."""
 
     if len(generation_args) <= TRACK_NAME_ARG_INDEX:
-        raise ValueError("Batch Extract received incomplete generation settings.")
+        raise ValueError("Batch Process received incomplete generation settings.")
     if generation_args[TASK_TYPE_ARG_INDEX] != "extract":
-        raise ValueError("Switch Generation Mode to Extract before starting Batch Extract.")
+        raise ValueError("Switch Generation Mode to Extract before starting Batch Process.")
     track_name = str(generation_args[TRACK_NAME_ARG_INDEX] or "").strip()
     if not track_name:
-        raise ValueError("Select Track Name before starting Batch Extract.")
+        raise ValueError("Select Track Name before starting Batch Process.")
     return track_name
 
 
@@ -143,7 +143,7 @@ def run_batch_extract_processing(
         try:
             status_lines.append(f"Found {len(audio_files)} audio file(s).")
             status_lines.append(f"Extracting track: {track_name}")
-            status_lines.append(f"Saving extracted files to: {target_folder}")
+            status_lines.append(f"Saving processed files to: {target_folder}")
             yield _render_status(status_lines)
 
             for index, audio_path in enumerate(audio_files, start=1):
@@ -177,13 +177,13 @@ def run_batch_extract_processing(
                     status_lines.append(f"[{index}/{len(audio_files)}] Saved: {saved_list}")
                 else:
                     status_lines.append(
-                        f"[{index}/{len(audio_files)}] No extracted audio returned. {item_status}"
+                        f"[{index}/{len(audio_files)}] No processed audio returned. {item_status}"
                     )
                 yield _render_status(status_lines)
         except GenerationCancelled:
             cleanup_runtime_memory()
             status_lines.append(CANCEL_MESSAGE)
-            status_lines.append("Batch Extract cancelled. Remaining files were not started.")
+            status_lines.append("Batch Process cancelled. Remaining files were not started.")
             yield _render_status(status_lines)
             return
         finally:
@@ -192,6 +192,6 @@ def run_batch_extract_processing(
 
     elapsed = round(max(0.0, time.time() - started_at), 1)
     status_lines.append(
-        f"Batch Extract complete: {completed}/{len(audio_files)} file(s) saved in {elapsed}s."
+        f"Batch Process complete: {completed}/{len(audio_files)} file(s) saved in {elapsed}s."
     )
     yield _render_status(status_lines)

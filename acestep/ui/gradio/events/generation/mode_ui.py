@@ -227,7 +227,7 @@ def compute_mode_ui_updates(
         gr.update(visible=show_custom_group),              # 1: custom_mode_group
         generate_btn_update,                               # 2: generate_btn
         False,                                             # 3: simple_sample_created
-        gr.update(visible=show_optional, open=True),        # 4: optional_params_accordion
+        gr.update(visible=show_optional, open=False),       # 4: optional_params_accordion
         task_type,                                         # 5: task_type (gr.State — raw value)
         gr.update(visible=show_src_audio),                 # 6: src_audio_row
         gr.update(visible=show_repainting),                # 7: repainting_group

@@ -158,8 +158,22 @@ class GetUiControlConfigTests(unittest.TestCase):
             ("Extract - unavailable (Base only)", "Extract"),
             cfg["generation_mode_choices"],
         )
-        self.assertIn("Lego", cfg["generation_mode_choices"])
-        self.assertIn("Complete", cfg["generation_mode_choices"])
+        self.assertIn(
+            ("Remix (SFT Model Recommended)", "Remix"),
+            cfg["generation_mode_choices"],
+        )
+        self.assertIn(
+            ("Repaint (SFT Model Recommended)", "Repaint"),
+            cfg["generation_mode_choices"],
+        )
+        self.assertIn(
+            ("Lego (Base Model Recommended)", "Lego"),
+            cfg["generation_mode_choices"],
+        )
+        self.assertIn(
+            ("Complete (Base Model Recommended)", "Complete"),
+            cfg["generation_mode_choices"],
+        )
 
     def test_xl_base_path_returns_quality_steps_and_base_modes(self):
         """XL-Base should use non-turbo defaults and expose base-only modes."""

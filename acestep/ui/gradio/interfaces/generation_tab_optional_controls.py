@@ -29,7 +29,7 @@ def build_optional_parameter_controls(
 
     with gr.Accordion(
         t("generation.optional_params"),
-        open=True,
+        open=False,
         visible=True,
         elem_classes=["has-info-container"],
     ) as optional_params_accordion:

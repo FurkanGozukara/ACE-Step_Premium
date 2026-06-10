@@ -18,6 +18,28 @@ _EXPECTED_NAMES = {
 class GenerationTabOptionalControlsTests(unittest.TestCase):
     """Verify optional controls start locked when Auto toggles are enabled."""
 
+    def test_optional_parameters_accordion_defaults_closed(self):
+        """Optional Parameters should be closed until the user opens it."""
+
+        module = ast.parse(_OPTIONAL_PATH.read_text(encoding="utf-8"))
+        func = next(
+            node
+            for node in module.body
+            if isinstance(node, ast.FunctionDef) and node.name == "build_optional_parameter_controls"
+        )
+        accordion_call = next(
+            node
+            for node in ast.walk(func)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "Accordion"
+        )
+        open_kw = next((kw for kw in accordion_call.keywords if kw.arg == "open"), None)
+
+        self.assertIsNotNone(open_kw)
+        self.assertIsInstance(open_kw.value, ast.Constant)
+        self.assertFalse(open_kw.value.value)
+
     def test_optional_fields_default_to_non_interactive(self):
         """Optional controls should initialize with ``interactive=False``."""
 

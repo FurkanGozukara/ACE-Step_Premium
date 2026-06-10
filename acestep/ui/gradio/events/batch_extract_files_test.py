@@ -1,4 +1,4 @@
-"""Tests for Batch Extract filesystem helpers."""
+"""Tests for batch process filesystem helpers."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from acestep.ui.gradio.events.batch_extract_files import copy_batch_extract_audi
 
 
 class BatchExtractFilesTests(unittest.TestCase):
-    """Verify Batch Extract output-copy filtering."""
+    """Verify batch process output-copy filtering."""
 
     def test_copy_stops_before_source_assets_after_manifest(self) -> None:
         """Only generated sample audio before the manifest should be copied."""

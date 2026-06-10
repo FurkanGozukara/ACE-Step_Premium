@@ -1,4 +1,4 @@
-"""Filesystem helpers for Advanced-tab Batch Extract."""
+"""Filesystem helpers for Advanced-tab batch processing."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def resolve_batch_extract_output_folder(output_folder: str | Path) -> Path:
 
     raw_value = normalize_user_path(output_folder)
     if not raw_value:
-        raise ValueError("Enter a Batch Extract Output Folder before starting.")
+        raise ValueError("Enter a Batch Process Output Folder before starting.")
     folder = Path(raw_value).expanduser().resolve()
     folder.mkdir(parents=True, exist_ok=True)
     return folder
@@ -47,7 +47,7 @@ def discover_batch_extract_audio_files(input_folder: str | Path) -> list[Path]:
         if path.is_file() and path.suffix.lower() in AUDIO_INPUT_SUFFIXES
     ]
     if not files:
-        raise ValueError("No supported audio files found in the Batch Extract input folder.")
+        raise ValueError("No supported audio files found in the Batch Process input folder.")
     return files
 
 

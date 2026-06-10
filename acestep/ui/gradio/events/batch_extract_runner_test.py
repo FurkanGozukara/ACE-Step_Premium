@@ -1,4 +1,4 @@
-"""Tests for Advanced-tab Batch Extract processing."""
+"""Tests for Advanced-tab batch processing."""
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ def _write_wav(path: Path, duration_seconds: float = 0.25) -> None:
 
 
 def _generation_args() -> list[Any]:
-    """Return generation args with the fields Batch Extract mutates populated."""
+    """Return generation args with the fields batch processing mutates populated."""
 
     args: list[Any] = [None] * 100
     args[AUDIO_DURATION_ARG_INDEX] = 999
@@ -77,7 +77,7 @@ class BatchExtractRunnerTests(unittest.TestCase):
             pass
 
     def test_processes_audio_files_and_copies_outputs_with_source_names(self) -> None:
-        """Batch Extract uses real audio files and saves outputs with input stems."""
+        """Batch processing uses real audio files and saves outputs with input stems."""
 
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -122,7 +122,7 @@ class BatchExtractRunnerTests(unittest.TestCase):
                 )
             )
 
-            self.assertIn("Batch Extract complete: 2/2 file(s) saved", statuses[-1])
+            self.assertIn("Batch Process complete: 2/2 file(s) saved", statuses[-1])
             self.assertEqual(b"flac-data", (output_dir / "Alpha.flac").read_bytes())
             self.assertEqual(
                 b"remaining-data",
@@ -163,7 +163,7 @@ class BatchExtractRunnerTests(unittest.TestCase):
                 )
             )
 
-            self.assertEqual(["Enter a Batch Extract Output Folder before starting."], statuses)
+            self.assertEqual(["Enter a Batch Process Output Folder before starting."], statuses)
             self.assertEqual([], calls)
 
     def test_cancel_stops_remaining_files(self) -> None:

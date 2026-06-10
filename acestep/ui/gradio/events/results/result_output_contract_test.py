@@ -18,6 +18,7 @@ def _load_contract_module():
 _CONTRACT = _load_contract_module()
 is_bounded_source_edit = _CONTRACT.is_bounded_source_edit
 source_audio_update_path = _CONTRACT.source_audio_update_path
+extract_latest_edit_area_paths = _CONTRACT.extract_latest_edit_area_paths
 
 
 class ResultOutputContractTests(unittest.TestCase):
@@ -45,6 +46,20 @@ class ResultOutputContractTests(unittest.TestCase):
             "C:/input/song.wav",
         )
         self.assertIsNone(source_audio_update_path("text2music", r"C:\input\song.wav"))
+
+    def test_extract_latest_edit_area_paths_finds_generated_and_original(self):
+        """Inline preview should locate edited-area clips by stable filenames."""
+
+        generated, original = extract_latest_edit_area_paths(
+            [
+                r"C:\run\sample.flac",
+                r"C:\run\sample_latest_repainted_area.wav",
+                r"C:\run\sample_latest_repainted_area_original.wav",
+            ]
+        )
+
+        self.assertEqual(generated, "C:/run/sample_latest_repainted_area.wav")
+        self.assertEqual(original, "C:/run/sample_latest_repainted_area_original.wav")
 
 
 if __name__ == "__main__":

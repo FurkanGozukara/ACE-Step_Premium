@@ -149,7 +149,7 @@ def build_output_controls(
                     else False
                 ),
                 info=(
-                    "Only applies to ACE-Step Extract and Batch Extract. Uses the "
+                    "Only applies to ACE-Step Extract and Batch Process. Uses the "
                     "Auto Encode & Shorten defaults to remove silent parts."
                 ),
                 elem_id="acestep-extract-trim-empty-output",
