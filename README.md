@@ -55,7 +55,8 @@
 
 -   Previously, switching models without restarting the app was causing VRAM leak and OOM    
     -   This issue is fixed and now you can generate with Turbo model and then switch SFT or Base, and so on        
-        -   To be 100% sure not have any RAM or VRAM leak, enable Use isolated subprocess generation checkbox            
+        -   To be 100% sure not have any RAM or VRAM leak, enable Use isolated subprocess generation checkbox
+        -   This option will slow subsequent generations and not mandatory, so enable if you are sure and needed       
 
 <img width="727" height="202" alt="image" src="https://github.com/user-attachments/assets/ff8fc2e2-8029-4c04-a1af-e1ba9dd343bc" />
 
