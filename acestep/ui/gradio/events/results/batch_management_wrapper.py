@@ -229,6 +229,56 @@ def _unload_lm_when_unused(
     return "Unloaded 5Hz LM for direct DiT generation."
 
 
+def _explicit_handler_attr(handler, attr: str):
+    """Return a handler attribute without forcing lazy runtime construction."""
+
+    if handler is None:
+        return None
+    try:
+        handler_attrs = vars(handler)
+    except TypeError:
+        handler_attrs = {}
+    if attr in handler_attrs:
+        return handler_attrs[attr]
+
+    real_handler = handler_attrs.get("_real_handler")
+    if real_handler is not None:
+        return _explicit_handler_attr(real_handler, attr)
+
+    pending_attrs = handler_attrs.get("_pending_attrs")
+    if isinstance(pending_attrs, dict) and attr in pending_attrs:
+        return pending_attrs[attr]
+    return None
+
+
+def _lm_service_has_runtime(llm_handler) -> bool:
+    """Return whether the foreground LM owns runtime objects that may hold VRAM."""
+
+    if llm_handler is None:
+        return False
+    for attr in ("llm", "llm_tokenizer", "constrained_processor", "_mlx_model"):
+        if _explicit_handler_attr(llm_handler, attr) is not None:
+            return True
+    return bool(_explicit_handler_attr(llm_handler, "llm_initialized"))
+
+
+def _unload_lm_before_service_reinit(llm_handler, *, reason: str) -> str:
+    """Unload the foreground LM before replacing DiT or LM runtime objects."""
+
+    if not _lm_service_has_runtime(llm_handler):
+        return ""
+    unload = getattr(llm_handler, "unload", None)
+    if not callable(unload):
+        return ""
+
+    logger.info(
+        "[generate_with_batch_management] Unloading foreground 5Hz LM before {}.",
+        reason,
+    )
+    unload()
+    return f"Unloaded 5Hz LM before {reason}."
+
+
 def _default_lm_model(llm_handler) -> str:
     """Return the current GPU-tier LM default for foreground generation."""
     fallback_model = "acestep-5Hz-lm-1.7B"
@@ -298,6 +348,14 @@ def _ensure_in_process_service_ready(
         mlx_dit=bool(mlx_dit_checkbox),
     )
     if dit_requires_init:
+        lm_unload_status = _unload_lm_before_service_reinit(
+            llm_handler,
+            reason="DiT reinitialization",
+        )
+        if lm_unload_status:
+            status_lines.append(lm_unload_status)
+        check_generation_cancelled()
+
         logger.info(
             "[generate_with_batch_management] Auto-initializing foreground DiT service: {}",
             selected_model,
@@ -341,6 +399,14 @@ def _ensure_in_process_service_ready(
         compile_model=bool(compile_model_checkbox),
     )
     if lm_requires_init:
+        lm_unload_status = _unload_lm_before_service_reinit(
+            llm_handler,
+            reason="5Hz LM reinitialization",
+        )
+        if lm_unload_status:
+            status_lines.append(lm_unload_status)
+        check_generation_cancelled()
+
         models_dir = Path(project_root) / "models"
         try:
             from acestep.model_downloader import get_models_dir

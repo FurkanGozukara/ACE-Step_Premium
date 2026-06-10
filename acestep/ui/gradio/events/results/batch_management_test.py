@@ -66,6 +66,88 @@ def _write_peft_adapter(path: Path) -> Path:
     return path
 
 
+def _ensure_in_process_service_ready(module):
+    """Return the foreground service auto-init helper from the loaded wrapper."""
+
+    return module.generate_with_batch_management.__globals__["_ensure_in_process_service_ready"]
+
+
+class _ForegroundDitHandler:
+    """Minimal DiT handler for foreground service auto-init tests."""
+
+    def __init__(self, events, config_path: str):
+        """Initialize handler state with an active model and init params."""
+
+        self.events = events
+        self.model = object()
+        self.last_init_params = {
+            "config_path": config_path,
+            "device": "cuda",
+            "use_flash_attention": False,
+            "offload_to_cpu": False,
+            "offload_dit_to_cpu": False,
+            "compile_model": False,
+            "quantization": None,
+            "use_mlx_dit": True,
+        }
+
+    def initialize_service(self, **kwargs):
+        """Record DiT initialization and update active init params."""
+
+        self.events.append("dit_init")
+        self.last_init_params = dict(kwargs)
+        self.model = object()
+        return "Initialized foreground DiT", True
+
+
+class _ForegroundLlmHandler:
+    """Minimal LM handler for foreground service auto-init tests."""
+
+    def __init__(self, events, lm_model_path: str = "lm-old"):
+        """Initialize handler state with active LM runtime objects."""
+
+        self.events = events
+        self.llm = object()
+        self.llm_tokenizer = object()
+        self.constrained_processor = object()
+        self._mlx_model = None
+        self.llm_initialized = True
+        self.last_init_params = {
+            "lm_model_path": lm_model_path,
+            "backend": "pt",
+            "device": "cuda",
+            "offload_to_cpu": False,
+            "compile_model": False,
+        }
+
+    def unload(self):
+        """Record unload and clear runtime state."""
+
+        self.events.append("lm_unload")
+        self.llm = None
+        self.llm_tokenizer = None
+        self.constrained_processor = None
+        self._mlx_model = None
+        self.llm_initialized = False
+
+    def initialize(self, **kwargs):
+        """Record LM initialization and update active init params."""
+
+        self.events.append("lm_init")
+        self.llm = object()
+        self.llm_tokenizer = object()
+        self.constrained_processor = object()
+        self.llm_initialized = True
+        self.last_init_params = {
+            "lm_model_path": kwargs["lm_model_path"],
+            "backend": kwargs["backend"],
+            "device": kwargs["device"],
+            "offload_to_cpu": kwargs["offload_to_cpu"],
+            "compile_model": kwargs["compile_model"],
+        }
+        return "Initialized foreground LM", True
+
+
 class BatchManagementWrapperTests(unittest.TestCase):
     """Tests for streaming and final wrapper output mapping."""
 
@@ -586,6 +668,96 @@ class BatchManagementWrapperTests(unittest.TestCase):
         dit_handler.initialize_service.assert_called_once()
         self.assertGreaterEqual(len(outputs), 2)
         self.assertIn("Initializing DiT service", outputs[0][18])
+
+    def test_foreground_dit_reinit_unloads_lm_before_loading_replacement(self):
+        """Changing DiT checkpoints should free the foreground LM before DiT init."""
+
+        module, _state = load_batch_management_module(is_windows=False)
+        events = []
+        dit_handler = _ForegroundDitHandler(events, config_path="acestep-v15-xl-turbo")
+        llm_handler = _ForegroundLlmHandler(events, lm_model_path="acestep-5Hz-lm-4B")
+
+        ok, status = _ensure_in_process_service_ready(module)(
+            dit_handler,
+            llm_handler,
+            config_path="acestep-v15-xl-sft",
+            device="cuda",
+            lm_model_path="acestep-5Hz-lm-4B",
+            backend_dropdown="pt",
+            init_llm_checkbox=True,
+            use_flash_attention_checkbox=False,
+            offload_to_cpu_checkbox=False,
+            offload_dit_to_cpu_checkbox=False,
+            compile_model_checkbox=False,
+            quantization_checkbox=False,
+            mlx_dit_checkbox=True,
+            think_checkbox=True,
+            auto_score=False,
+        )
+
+        self.assertTrue(ok)
+        self.assertEqual(events, ["lm_unload", "dit_init", "lm_init"])
+        self.assertIn("Unloaded 5Hz LM before DiT reinitialization.", status)
+
+    def test_foreground_lm_reinit_unloads_old_lm_before_loading_replacement(self):
+        """Changing LM settings should unload the old LM before loading the new one."""
+
+        module, _state = load_batch_management_module(is_windows=False)
+        events = []
+        dit_handler = _ForegroundDitHandler(events, config_path="acestep-v15-xl-sft")
+        llm_handler = _ForegroundLlmHandler(events, lm_model_path="lm-old")
+
+        ok, status = _ensure_in_process_service_ready(module)(
+            dit_handler,
+            llm_handler,
+            config_path="acestep-v15-xl-sft",
+            device="cuda",
+            lm_model_path="lm-new",
+            backend_dropdown="pt",
+            init_llm_checkbox=True,
+            use_flash_attention_checkbox=False,
+            offload_to_cpu_checkbox=False,
+            offload_dit_to_cpu_checkbox=False,
+            compile_model_checkbox=False,
+            quantization_checkbox=False,
+            mlx_dit_checkbox=True,
+            think_checkbox=True,
+            auto_score=False,
+        )
+
+        self.assertTrue(ok)
+        self.assertEqual(events, ["lm_unload", "lm_init"])
+        self.assertIn("Unloaded 5Hz LM before 5Hz LM reinitialization.", status)
+
+    def test_foreground_auto_init_keeps_matching_lm_loaded(self):
+        """Matching DiT and LM settings should not unload or reinitialize services."""
+
+        module, _state = load_batch_management_module(is_windows=False)
+        events = []
+        dit_handler = _ForegroundDitHandler(events, config_path="acestep-v15-xl-sft")
+        llm_handler = _ForegroundLlmHandler(events, lm_model_path="acestep-5Hz-lm-4B")
+
+        ok, status = _ensure_in_process_service_ready(module)(
+            dit_handler,
+            llm_handler,
+            config_path="acestep-v15-xl-sft",
+            device="cuda",
+            lm_model_path="acestep-5Hz-lm-4B",
+            backend_dropdown="pt",
+            init_llm_checkbox=True,
+            use_flash_attention_checkbox=False,
+            offload_to_cpu_checkbox=False,
+            offload_dit_to_cpu_checkbox=False,
+            compile_model_checkbox=False,
+            quantization_checkbox=False,
+            mlx_dit_checkbox=True,
+            think_checkbox=True,
+            auto_score=False,
+        )
+
+        self.assertTrue(ok)
+        self.assertEqual("", status)
+        self.assertEqual(events, [])
 
     def test_foreground_generation_applies_lora_before_inner_generation(self):
         """Selected LoRA should be loaded and enabled before generation starts."""
