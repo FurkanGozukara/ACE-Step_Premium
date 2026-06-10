@@ -169,6 +169,12 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertTrue(result[_IDX_COVER_NOISE].get("visible"))
         self.assertEqual(result[_IDX_REMIX_STRENGTH].get("value"), 0.0)
         self.assertEqual(result[_IDX_COVER_NOISE].get("value"), 0.2)
+        self.assertTrue(result[_IDX_REPAINTING_GROUP].get("visible"))
+        self.assertIn("Remix Source Segment", result[_IDX_REPAINTING_HEADER].get("value"))
+        self.assertEqual(result[_IDX_REPAINTING_START].get("label"), "Remix Source Start")
+        self.assertEqual(result[_IDX_REPAINTING_END].get("label"), "Remix Source End")
+        self.assertIn("sent into Remix", result[_IDX_REPAINTING_START].get("info"))
+        self.assertIn("does not preserve", result[_IDX_REPAINTING_END].get("info"))
 
         think_update = result[_IDX_THINK_CHECKBOX]
         self.assertFalse(think_update.get("value"))
@@ -178,9 +184,11 @@ class ModeUiStateClearingTests(unittest.TestCase):
         """The no_fsq column should appear beside Remix Strength only in Remix."""
         remix_result = compute_mode_ui_updates("Remix", previous_mode="Custom")
         custom_result = compute_mode_ui_updates("Custom", previous_mode="Remix")
+        repaint_result = compute_mode_ui_updates("Repaint", previous_mode="Remix")
 
         self.assertTrue(remix_result[_IDX_NO_FSQ_COLUMN].get("visible"))
         self.assertFalse(custom_result[_IDX_NO_FSQ_COLUMN].get("visible"))
+        self.assertFalse(repaint_result[_IDX_NO_FSQ_COLUMN].get("visible"))
 
     def test_custom_top_control_row_visibility(self):
         """Custom should show the combined strength, help, Retake, and Edit row."""
@@ -192,6 +200,11 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertTrue(custom_result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
         self.assertTrue(custom_result[_IDX_FLOW_EDIT_COLUMN].get("visible"))
         self.assertFalse(remix_result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertFalse(
+            compute_mode_ui_updates("Repaint", previous_mode="Custom")[
+                _IDX_CUSTOM_HELP_GROUP
+            ].get("visible")
+        )
         self.assertFalse(simple_result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
 
     def test_generation_modes_do_not_expose_raw_remix_as_top_level_mode(self):

@@ -149,7 +149,7 @@ def build_generate_row_controls(
                     waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
                 )
                 inline_remaining_audio = gr.Audio(
-                    label="Remaining Audio",
+                    label="Original Input",
                     type="filepath",
                     interactive=False,
                     buttons=["download"],

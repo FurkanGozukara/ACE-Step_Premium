@@ -73,8 +73,21 @@ class InlineResultPreviewTests(unittest.TestCase):
 
         self.assertEqual(audio, "out_0")
         self.assertEqual(remaining["value"], "/tmp/song_remaining.mp3")
+        self.assertEqual(remaining["label"], "Original Input")
         self.assertTrue(remaining["visible"])
         self.assertEqual(status, "out_18")
+
+    def test_inline_result_preview_prefers_original_source_audio(self):
+        """Source-edit results should show original input beside Sample 1."""
+
+        outputs = list(f"out_{index}" for index in range(63))
+        outputs[16] = ["/tmp/song_remaining.mp3", "/tmp/source_audio.wav"]
+
+        _audio, original, _status = inline_result_preview_from_generation_outputs(outputs)
+
+        self.assertEqual(original["value"], "/tmp/source_audio.wav")
+        self.assertEqual(original["label"], "Original Input")
+        self.assertTrue(original["visible"])
 
     def test_inline_result_preview_from_generation_outputs_preserves_skip_status(self):
         """No-op backend status updates should not erase the inline status."""
@@ -99,6 +112,7 @@ class InlineResultPreviewTests(unittest.TestCase):
         self.assertEqual(result[:-3], outputs)
         self.assertEqual(result[-3], "out_0")
         self.assertEqual(result[-2]["value"], "/tmp/song_remaining.flac")
+        self.assertEqual(result[-2]["label"], "Original Input")
         self.assertEqual(result[-1], "out_18")
 
     def test_sync_inline_result_preview_mirrors_first_sample_and_status(self):
@@ -112,6 +126,7 @@ class InlineResultPreviewTests(unittest.TestCase):
 
         self.assertEqual(audio, "sample_1.wav")
         self.assertEqual(remaining["value"], "/tmp/sample_1_remaining.wav")
+        self.assertEqual(remaining["label"], "Original Input")
         self.assertTrue(remaining["visible"])
         self.assertEqual(status, "Generation Complete")
 

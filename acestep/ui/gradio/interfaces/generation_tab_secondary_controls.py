@@ -4,7 +4,6 @@ from typing import Any
 
 import gradio as gr
 
-from acestep.ui.gradio.help_content import create_help_button
 from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.interfaces.source_audio_preview import (
     GENERATION_REFERENCE_PREVIEW_ELEM_ID,
@@ -16,6 +15,7 @@ from acestep.ui.gradio.premium_features import (
     DEFAULT_PRESET_CAPTION,
     DEFAULT_PRESET_LYRICS,
 )
+from .generation_tab_range_preview_controls import build_repainting_range_preview_controls
 
 
 def build_cover_strength_controls() -> dict[str, Any]:
@@ -161,7 +161,6 @@ def build_repainting_controls() -> dict[str, Any]:
     """
 
     with gr.Group(visible=False) as repainting_group:
-        create_help_button("generation_repaint")
         repainting_header_html = gr.HTML(f"<h5>{t('generation.repainting_controls')}</h5>")
         with gr.Row():
             repainting_start = gr.Number(
@@ -179,6 +178,7 @@ def build_repainting_controls() -> dict[str, Any]:
                 info=t("generation.repainting_end_info"),
                 elem_classes=["has-info-container"],
             )
+            range_preview_controls = build_repainting_range_preview_controls()
         with gr.Row():
             repaint_mode = gr.Dropdown(
                 label="Repaint Mode",
@@ -202,6 +202,12 @@ def build_repainting_controls() -> dict[str, Any]:
         "repainting_header_html": repainting_header_html,
         "repainting_start": repainting_start,
         "repainting_end": repainting_end,
+        "repainting_range_preview_audio": range_preview_controls[
+            "repainting_range_preview_audio"
+        ],
+        "repainting_range_preview_video": range_preview_controls[
+            "repainting_range_preview_video"
+        ],
         "repaint_mode": repaint_mode,
         "repaint_strength": repaint_strength,
         "repaint_strength_memory": repaint_strength_memory,

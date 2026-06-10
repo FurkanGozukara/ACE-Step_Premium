@@ -8,6 +8,7 @@ from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.events.results.result_output_contract import (
     ALL_AUDIO_PATHS_INDEX,
     STATUS_INDEX,
+    extract_source_audio_path,
 )
 
 _GENERATED_AUDIO_OUTPUT_INDEX = 0
@@ -96,12 +97,12 @@ def _status_update_from_output(status: Any) -> Any:
 
 
 def _remaining_audio_update(paths: Any) -> Any:
-    """Return a Gradio update for an ACE-Step Extract remaining-audio path."""
+    """Return an update for original source audio, falling back to remaining audio."""
 
-    path = _remaining_audio_path(paths)
+    path = extract_source_audio_path(paths) or _remaining_audio_path(paths)
     if not path:
         return gr.update(value=None, visible=False)
-    return gr.update(value=path, visible=True)
+    return gr.update(value=path, label="Original Input", visible=True)
 
 
 def _remaining_audio_path(paths: Any) -> str:

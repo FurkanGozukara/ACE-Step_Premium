@@ -15,6 +15,7 @@ from .generation_upload_handlers import (
     handle_src_audio_preview_change,
     handle_src_audio_upload,
 )
+from .generation_range_preview_wiring import register_generation_range_preview_handlers
 from acestep.constants import MODE_TO_TASK_TYPE
 
 
@@ -188,6 +189,7 @@ def register_generation_mode_handlers(
         queue=False,
         show_progress="hidden",
     )
+    register_generation_range_preview_handlers(context)
 
     # ========== Simple Mode Instrumental Checkbox ==========
     generation_section["simple_instrumental_checkbox"].change(

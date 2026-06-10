@@ -64,6 +64,9 @@ from acestep.ui.gradio.events.results.result_output_contract import (
     extract_source_audio_path,
     source_audio_paths_for_slots,
 )
+from acestep.ui.gradio.events.results.remix_source_range import (
+    resolve_remix_source_range_audio,
+)
 from acestep.ui.gradio.events.generation.generation_count import normalize_generation_count
 from acestep.ui.gradio.events.generation.audio_format_options import (
     DEFAULT_EXTRACT_AUDIO_FORMAT,
@@ -470,6 +473,12 @@ def _generate_with_batch_management_impl(
         src_audio,
         src_audio_preview,
         src_audio_preview_original,
+    )
+    src_audio = resolve_remix_source_range_audio(
+        task_type,
+        src_audio,
+        repainting_start,
+        repainting_end,
     )
     selected_model = str(config_path or "").strip() or DEFAULT_TURBO_DIT_MODEL
     logger.info(

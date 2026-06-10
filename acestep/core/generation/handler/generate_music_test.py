@@ -428,8 +428,20 @@ class GenerateMusicMixinTests(unittest.TestCase):
             host.calls["_prepare_generate_music_service_inputs"]["repainting_end"],
         )
         self.assertEqual(
+            "text2music",
+            host.calls["_prepare_generate_music_service_inputs"]["task_type"],
+        )
+        self.assertIn(
+            "clear English vocal",
+            host.calls["_prepare_generate_music_service_inputs"]["captions"],
+        )
+        self.assertEqual(
             1.0,
             host.calls["_run_generate_music_service_with_progress"]["audio_duration"],
+        )
+        self.assertEqual(
+            "text2music",
+            host.calls["_run_generate_music_service_with_progress"]["task_type"],
         )
         self.assertEqual(
             0.0,

@@ -87,7 +87,7 @@ def compute_mode_ui_updates(
     # it; the row is harmless when morph is off (just an unused upload).
     show_src_audio = is_cover or is_repaint or is_extract or is_lego or is_complete or is_custom
     show_optional = not_simple and not is_extract and not is_lego
-    show_repainting = is_repaint or is_lego or is_complete
+    show_repainting = is_cover or is_repaint or is_lego or is_complete
     show_audio_codes = is_custom
     show_complete_classes = is_complete
     show_runtime_options = not (is_extract or is_lego)
@@ -151,7 +151,7 @@ def compute_mode_ui_updates(
 
     # --- Dynamic repainting / stem area labels (indices 30-32) ---
     repainting_header_update, repainting_start_update, repainting_end_update = _compute_repainting_labels(
-        is_lego, is_repaint, is_complete,
+        is_lego, is_repaint, is_complete, is_cover,
     )
 
     # --- Auto checkbox updates (indices 37-41) ---

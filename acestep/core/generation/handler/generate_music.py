@@ -30,7 +30,9 @@ from acestep.core.generation.handler.repaint_segment_splice import (
 )
 from acestep.core.generation.handler.repaint_prompt import (
     has_repaint_lyrics,
+    resolve_repaint_vocal_language,
     resolve_repaint_span_duration,
+    strengthen_repaint_caption,
 )
 from acestep.gpu_config import (
     DIT_INFERENCE_VRAM_PER_BATCH,
@@ -389,15 +391,33 @@ class GenerateMusicMixin:
             service_repainting_start = repainting_start
             service_repainting_end = repainting_end
             service_source_repaint_latents = source_repaint_latents
+            service_task_type = task_type
+            service_instruction = instruction
+            service_captions = captions
+            service_vocal_language = vocal_language
             if use_local_lyric_repaint:
                 service_processed_src_audio = None
                 service_audio_duration = local_repaint_duration
                 service_repainting_start = 0.0
                 service_repainting_end = local_repaint_duration
                 service_source_repaint_latents = None
+                service_task_type = "text2music"
+                service_instruction = DEFAULT_DIT_INSTRUCTION
+                service_vocal_language = resolve_repaint_vocal_language(
+                    "repaint",
+                    vocal_language,
+                    lyrics,
+                )
+                service_captions = strengthen_repaint_caption(
+                    "repaint",
+                    captions,
+                    lyrics,
+                    service_vocal_language,
+                    span_duration=local_repaint_duration,
+                )
                 logger.info(
                     "[generate_music] Lyric repaint: generating selected {:.2f}s span "
-                    "locally, then splicing into source at {:.2f}-{:.2f}s.",
+                    "locally with text2music, then splicing into source at {:.2f}-{:.2f}s.",
                     local_repaint_duration,
                     float(repainting_start or 0.0),
                     float(repainting_end),
@@ -407,15 +427,15 @@ class GenerateMusicMixin:
                 actual_batch_size=actual_batch_size,
                 processed_src_audio=service_processed_src_audio,
                 audio_duration=service_audio_duration,
-                captions=captions,
+                captions=service_captions,
                 global_caption=global_caption,
                 lyrics=lyrics,
-                vocal_language=vocal_language,
-                instruction=instruction,
+                vocal_language=service_vocal_language,
+                instruction=service_instruction,
                 bpm=bpm,
                 key_scale=key_scale,
                 time_signature=time_signature,
-                task_type=task_type,
+                task_type=service_task_type,
                 audio_code_string=audio_code_string,
                 repainting_start=service_repainting_start,
                 repainting_end=service_repainting_end,
@@ -469,7 +489,7 @@ class GenerateMusicMixin:
                 repaint_crossfade_frames=resolved_cf_frames,
                 repaint_injection_ratio=injection_ratio,
                 source_repaint_latents=service_source_repaint_latents,
-                task_type=task_type,
+                task_type=service_task_type,
                 actual_retake_seed_list=actual_retake_seed_list,
                 retake_variance=retake_variance,
                 flow_edit_morph=flow_edit_morph,
