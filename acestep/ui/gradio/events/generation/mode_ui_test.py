@@ -45,12 +45,16 @@ _IDX_COMPOSITION_GUIDE = 52
 _IDX_NO_FSQ_COLUMN = 53
 _IDX_CUSTOM_HELP_GROUP = 54
 _IDX_STRENGTH_VARIATION_ROW = 55
+_IDX_RETAKE_ENABLED = 56
+_IDX_RETAKE_PANEL = 57
+_IDX_MORPH_PANEL = 58
+_IDX_NO_FSQ = 59
 _IDX_THINK_CHECKBOX = 14
 _IDX_GENERATION_MODE = 12
 _IDX_PREVIOUS_GENERATION_MODE = 37
 _IDX_REMIX_STRENGTH = 17
 _IDX_COVER_NOISE = 18
-_EXPECTED_TUPLE_LENGTH = 56
+_EXPECTED_TUPLE_LENGTH = 60
 _IDX_BPM = 21
 _IDX_KEY = 22
 _IDX_TIMESIG = 23
@@ -63,6 +67,11 @@ _IDX_ANALYZE_BTN = 29
 _IDX_REPAINTING_HEADER = 30
 _IDX_REPAINTING_START = 31
 _IDX_REPAINTING_END = 32
+_IDX_REPAINT_MODE = 33
+_IDX_REPAINT_STRENGTH = 34
+_IDX_RETAKE_VARIANCE = 35
+_IDX_RETAKE_SEED = 36
+_IDX_EXTRACT_HELP_GROUP = 40
 
 
 @unittest.skipIf(compute_mode_ui_updates is None,
@@ -71,7 +80,7 @@ class ModeUiStateClearingTests(unittest.TestCase):
     """Tests that mode switches clear stale UI state to prevent noise."""
 
     def test_tuple_length(self):
-        """compute_mode_ui_updates should return exactly 56 elements."""
+        """compute_mode_ui_updates should return exactly 60 elements."""
         result = compute_mode_ui_updates("Custom")
         self.assertEqual(len(result), _EXPECTED_TUPLE_LENGTH)
 
@@ -175,6 +184,12 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertEqual(result[_IDX_REPAINTING_END].get("label"), "Remix Source End")
         self.assertIn("sent into Remix", result[_IDX_REPAINTING_START].get("info"))
         self.assertIn("does not preserve", result[_IDX_REPAINTING_END].get("info"))
+        self.assertFalse(result[_IDX_REPAINT_MODE].get("visible"))
+        self.assertFalse(result[_IDX_REPAINT_STRENGTH].get("visible"))
+        self.assertFalse(result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertTrue(result[_IDX_RETAKE_ENABLED].get("visible", True))
+        self.assertTrue(result[_IDX_FLOW_EDIT_COLUMN].get("visible"))
+        self.assertTrue(result[_IDX_NO_FSQ_COLUMN].get("visible"))
 
         think_update = result[_IDX_THINK_CHECKBOX]
         self.assertFalse(think_update.get("value"))
@@ -189,22 +204,24 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertTrue(remix_result[_IDX_NO_FSQ_COLUMN].get("visible"))
         self.assertFalse(custom_result[_IDX_NO_FSQ_COLUMN].get("visible"))
         self.assertFalse(repaint_result[_IDX_NO_FSQ_COLUMN].get("visible"))
+        self.assertFalse(custom_result[_IDX_NO_FSQ].get("value"))
+        self.assertFalse(repaint_result[_IDX_NO_FSQ].get("value"))
 
     def test_custom_top_control_row_visibility(self):
         """Custom should show the combined strength, help, Retake, and Edit row."""
         custom_result = compute_mode_ui_updates("Custom", previous_mode="Remix")
         remix_result = compute_mode_ui_updates("Remix", previous_mode="Custom")
+        repaint_result = compute_mode_ui_updates("Repaint", previous_mode="Custom")
         simple_result = compute_mode_ui_updates("Simple", previous_mode="Custom")
 
         self.assertTrue(custom_result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
         self.assertTrue(custom_result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertTrue(custom_result[_IDX_RETAKE_ENABLED].get("visible", True))
         self.assertTrue(custom_result[_IDX_FLOW_EDIT_COLUMN].get("visible"))
         self.assertFalse(remix_result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
-        self.assertFalse(
-            compute_mode_ui_updates("Repaint", previous_mode="Custom")[
-                _IDX_CUSTOM_HELP_GROUP
-            ].get("visible")
-        )
+        self.assertTrue(remix_result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
+        self.assertFalse(repaint_result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertFalse(repaint_result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
         self.assertFalse(simple_result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
 
     def test_generation_modes_do_not_expose_raw_remix_as_top_level_mode(self):
@@ -226,6 +243,16 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertFalse(result[_IDX_FLOW_EDIT_COLUMN].get("visible"))
         self.assertFalse(result[_IDX_FLOW_EDIT_MORPH].get("visible"))
         self.assertFalse(result[_IDX_FLOW_EDIT_MORPH].get("value"))
+        self.assertFalse(result[_IDX_MORPH_PANEL].get("visible"))
+        self.assertFalse(result[_IDX_RETAKE_ENABLED].get("value"))
+        self.assertFalse(result[_IDX_RETAKE_PANEL].get("visible"))
+        self.assertEqual(result[_IDX_RETAKE_VARIANCE].get("value"), 0.0)
+        self.assertEqual(result[_IDX_RETAKE_SEED].get("value"), "")
+        self.assertFalse(result[_IDX_NO_FSQ_COLUMN].get("visible"))
+        self.assertFalse(result[_IDX_NO_FSQ].get("value"))
+        self.assertFalse(result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertTrue(result[_IDX_REPAINT_MODE].get("visible"))
+        self.assertTrue(result[_IDX_REPAINT_STRENGTH].get("visible"))
 
     def test_remix_mode_shows_edit(self):
         """Remix keeps the flow-edit overlay available."""
@@ -402,6 +429,36 @@ class ModeUiStateClearingTests(unittest.TestCase):
 
         self.assertTrue(result[_IDX_GENERATE_BTN].get("interactive"))
 
+    def test_lego_mode_hides_unrelated_remix_repaint_controls(self):
+        """Lego should expose stem controls without Remix/Edit/Retake/Repaint tuning."""
+
+        result = compute_mode_ui_updates(
+            "Lego",
+            previous_mode="Remix",
+            config_path="ACEStep_1_5_XL_Base_BF16",
+        )
+
+        self.assertTrue(result[_IDX_SRC_AUDIO_ROW].get("visible"))
+        self.assertTrue(result[_IDX_REPAINTING_GROUP].get("visible"))
+        self.assertTrue(result[_IDX_EXTRACT_HELP_GROUP].get("visible"))
+        self.assertFalse(result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
+        self.assertFalse(result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertFalse(result[_IDX_NO_FSQ_COLUMN].get("visible"))
+        self.assertFalse(result[_IDX_NO_FSQ].get("value"))
+        self.assertFalse(result[_IDX_FLOW_EDIT_COLUMN].get("visible"))
+        self.assertFalse(result[_IDX_FLOW_EDIT_MORPH].get("value"))
+        self.assertFalse(result[_IDX_MORPH_PANEL].get("visible"))
+        self.assertFalse(result[_IDX_RETAKE_ENABLED].get("value"))
+        self.assertFalse(result[_IDX_RETAKE_PANEL].get("visible"))
+        self.assertEqual(result[_IDX_RETAKE_VARIANCE].get("value"), 0.0)
+        self.assertEqual(result[_IDX_RETAKE_SEED].get("value"), "")
+        self.assertFalse(result[_IDX_REPAINT_MODE].get("visible"))
+        self.assertEqual(result[_IDX_REPAINT_MODE].get("value"), "balanced")
+        self.assertFalse(result[_IDX_REPAINT_STRENGTH].get("visible"))
+        self.assertEqual(result[_IDX_REPAINT_STRENGTH].get("value"), 0.5)
+        self.assertFalse(result[_IDX_COVER_NOISE].get("visible"))
+        self.assertEqual(result[_IDX_COVER_NOISE].get("value"), 0.0)
+
     def test_turbo_model_reverts_unsupported_extract_mode(self):
         """Unsupported advanced modes should be visible but not usable."""
         result = compute_mode_ui_updates(
@@ -426,6 +483,9 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertTrue(result[_IDX_SRC_AUDIO_ROW].get("visible"))
         self.assertTrue(result[_IDX_COMPLETE_TRACK_CLASSES].get("visible"))
         self.assertTrue(result[_IDX_REPAINTING_GROUP].get("visible"))
+        self.assertFalse(result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
+        self.assertFalse(result[_IDX_REPAINT_MODE].get("visible"))
+        self.assertFalse(result[_IDX_REPAINT_STRENGTH].get("visible"))
         self.assertIn("Complete Section", result[_IDX_REPAINTING_HEADER].get("value"))
         self.assertEqual(result[_IDX_REPAINTING_START].get("label"), "Complete Start")
         self.assertEqual(result[_IDX_REPAINTING_END].get("label"), "Complete End")

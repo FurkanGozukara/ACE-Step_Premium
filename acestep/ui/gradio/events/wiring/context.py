@@ -89,6 +89,10 @@ _MODE_UI_OUTPUT_KEYS = (
     "no_fsq_column",
     "custom_help_group",
     "strength_variation_row",
+    "retake_enabled",
+    "retake_panel",
+    "morph_panel",
+    "no_fsq",
 )
 
 

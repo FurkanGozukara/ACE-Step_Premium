@@ -122,7 +122,7 @@ def register_generation_mode_handlers(
     )
 
     # ========== Initial Mode State on Page Load ==========
-    # compute_mode_ui_updates() controls visibility/content for 56
+    # compute_mode_ui_updates() controls visibility/content for 60
     # mode-dependent UI components (think_checkbox, generate_btn_row,
     # src_audio_row, composition_guide, etc.) but
     # is only triggered via the .change() event above.  Gradio does not fire

@@ -92,8 +92,9 @@ def compute_mode_ui_updates(
     show_complete_classes = is_complete
     show_runtime_options = not (is_extract or is_lego)
 
-    # Audio cover strength
-    show_strength = not is_simple and not is_repaint and not is_extract and not is_lego
+    # Audio cover/codes strength is meaningful only for text/code guidance and Remix.
+    # Source-range tasks (Repaint/Lego/Complete) use their own source-mask paths.
+    show_strength = is_custom or is_cover
     if is_cover:
         strength_label = t("generation.remix_strength_label")
         strength_info = t("generation.remix_strength_info")
@@ -106,8 +107,12 @@ def compute_mode_ui_updates(
     strength_kwargs = {"visible": show_strength, "label": strength_label, "info": strength_info}
     if is_cover:
         strength_kwargs["value"] = 0.0
+    elif is_custom and previous_mode != "Custom":
+        strength_kwargs["value"] = 1.0
+    elif not show_strength:
+        strength_kwargs["value"] = 1.0
     strength_update = gr.update(**strength_kwargs)
-    cover_noise_update = gr.update(visible=is_cover, value=0.2) if is_cover else gr.update(visible=False)
+    cover_noise_update = gr.update(visible=is_cover, value=0.2 if is_cover else 0.0)
 
     # Think checkbox
     if is_extract or is_lego or is_cover or is_repaint:
@@ -192,7 +197,30 @@ def compute_mode_ui_updates(
         if flow_edit_supported
         else gr.update(visible=False, value=False)
     )
-    show_strength_variation_row = show_strength or is_custom or is_cover or is_repaint
+    show_retake_controls = is_custom or is_cover
+    retake_variance_update = gr.skip() if show_retake_controls else gr.update(value=0.0)
+    retake_seed_update = gr.skip() if show_retake_controls else gr.update(value="")
+    retake_enabled_update = gr.update() if show_retake_controls else gr.update(value=False)
+    retake_panel_update = gr.update() if show_retake_controls else gr.update(visible=False)
+    morph_panel_update = gr.update() if flow_edit_supported else gr.update(visible=False)
+    no_fsq_update = gr.update() if is_cover else gr.update(value=False)
+    repaint_mode_update = (
+        gr.update(visible=True)
+        if is_repaint
+        else gr.update(visible=False, value="balanced")
+    )
+    repaint_strength_update = (
+        gr.update(visible=True)
+        if is_repaint
+        else gr.update(visible=False, value=0.5)
+    )
+    show_strength_variation_row = (
+        show_strength
+        or show_retake_controls
+        or flow_edit_supported
+        or is_cover
+        or is_custom
+    )
 
     return (
         gr.update(visible=show_simple),                    # 0: simple_mode_group
@@ -228,13 +256,13 @@ def compute_mode_ui_updates(
         repainting_header_update,                          # 30: repainting_header_html
         repainting_start_update,                           # 31: repainting_start
         repainting_end_update,                             # 32: repainting_end
-        gr.skip(),                                         # 33: repaint_mode
-        gr.skip(),                                         # 34: repaint_strength
-        gr.skip(),                                         # 35: retake_variance
-        gr.skip(),                                         # 36: retake_seed
+        repaint_mode_update,                               # 33: repaint_mode
+        repaint_strength_update,                           # 34: repaint_strength
+        retake_variance_update,                            # 35: retake_variance
+        retake_seed_update,                                # 36: retake_seed
         mode,                                              # 37: previous_generation_mode
         gr.update(visible=is_cover),                       # 38: remix_help_group
-        gr.update(visible=(is_custom or is_cover or is_repaint)),  # 39: variation_group (Retake all 3; Edit honoured in Custom/Remix)
+        gr.update(visible=show_retake_controls),           # 39: variation_group (Retake in Custom/Remix)
         gr.update(visible=(is_extract or is_lego)),        # 40: extract_help_group
         gr.update(visible=is_complete),                    # 41: complete_help_group
         auto_bpm_update,                                   # 42: bpm_auto
@@ -251,6 +279,10 @@ def compute_mode_ui_updates(
         gr.update(visible=is_cover),                       # 53: no_fsq_column
         gr.update(visible=is_custom),                      # 54: custom_help_group
         gr.update(visible=show_strength_variation_row),    # 55: strength_variation_row
+        retake_enabled_update,                             # 56: retake_enabled
+        retake_panel_update,                               # 57: retake_panel
+        morph_panel_update,                                # 58: morph_panel
+        no_fsq_update,                                     # 59: no_fsq
     )
 
 
