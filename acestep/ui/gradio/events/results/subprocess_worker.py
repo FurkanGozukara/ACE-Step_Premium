@@ -22,6 +22,17 @@ from acestep.ui.gradio.events.results.batch_management_helpers import (
     _apply_param_defaults,
     _extract_scores,
 )
+from acestep.ui.gradio.events.results.result_output_contract import (
+    ALL_AUDIO_PATHS_INDEX,
+    CODES_LIST_INDEX,
+    EXTRA_OUTPUTS_INDEX,
+    GENERATION_INFO_INDEX,
+    IS_FORMAT_CAPTION_INDEX,
+    LM_METADATA_INDEX,
+    LRC_START_INDEX,
+    SEED_INDEX,
+    STATUS_INDEX,
+)
 from acestep.ui.gradio.events.results.generation_progress import generate_with_progress
 from acestep.ui.gradio.events.results.subprocess_worker_progress import worker_console_progress
 
@@ -168,19 +179,23 @@ def main() -> int:
             raise RuntimeError("generate_with_progress yielded no final result")
 
         scores = _extract_scores(final_result)
-        extra_outputs = final_result[46] if len(final_result) > 46 else {}
+        extra_outputs = (
+            final_result[EXTRA_OUTPUTS_INDEX]
+            if len(final_result) > EXTRA_OUTPUTS_INDEX
+            else {}
+        )
         result_payload = {
             "success": True,
-            "all_audio_paths": final_result[8],
-            "generation_info": final_result[9],
-            "status_output": final_result[10],
-            "seed_value": final_result[11],
+            "all_audio_paths": final_result[ALL_AUDIO_PATHS_INDEX],
+            "generation_info": final_result[GENERATION_INFO_INDEX],
+            "status_output": final_result[STATUS_INDEX],
+            "seed_value": final_result[SEED_INDEX],
             "scores": scores,
-            "lrcs": list(final_result[36:44]),
-            "lm_metadata": final_result[44],
-            "is_format_caption": final_result[45],
+            "lrcs": list(final_result[LRC_START_INDEX:LRC_START_INDEX + 8]),
+            "lm_metadata": final_result[LM_METADATA_INDEX],
+            "is_format_caption": final_result[IS_FORMAT_CAPTION_INDEX],
             "extra_outputs": _json_safe_extra(extra_outputs),
-            "codes": list(final_result[47]) if len(final_result) > 47 else [],
+            "codes": list(final_result[CODES_LIST_INDEX]) if len(final_result) > CODES_LIST_INDEX else [],
         }
         _write_result(args.result, result_payload)
         print("[Worker] Generation complete.", flush=True)

@@ -4,8 +4,54 @@ Focuses on the navigate_to_next_batch guard logic that previously
 relied on a potentially stale ``total_batches`` Gradio state value.
 """
 
+import importlib.util
+import sys
+import types
 import unittest
+from pathlib import Path
 from unittest.mock import patch, MagicMock
+
+
+def _install_batch_navigation_module():
+    """Load batch_navigation without importing the full Gradio application."""
+    module_name = "acestep.ui.gradio.events.results.batch_navigation"
+    if module_name in sys.modules:
+        return
+
+    results_dir = Path(__file__).resolve().parent
+    events_dir = results_dir.parent
+    gradio_dir = events_dir.parent
+    ui_dir = gradio_dir.parent
+    acestep_dir = ui_dir.parent
+
+    packages = {
+        "acestep": (acestep_dir, None),
+        "acestep.ui": (ui_dir, "acestep"),
+        "acestep.ui.gradio": (gradio_dir, "acestep.ui"),
+        "acestep.ui.gradio.events": (events_dir, "acestep.ui.gradio"),
+        "acestep.ui.gradio.events.results": (results_dir, "acestep.ui.gradio.events"),
+    }
+    for package_name, (package_path, parent_name) in packages.items():
+        package = sys.modules.get(package_name)
+        if package is None:
+            package = types.ModuleType(package_name)
+            package.__path__ = [str(package_path)]
+            sys.modules[package_name] = package
+        if parent_name:
+            setattr(sys.modules[parent_name], package_name.rsplit(".", 1)[-1], package)
+
+    i18n_mod = types.ModuleType("acestep.ui.gradio.i18n")
+    i18n_mod.t = lambda key, **_kwargs: key
+    sys.modules["acestep.ui.gradio.i18n"] = i18n_mod
+
+    module_path = results_dir / "batch_navigation.py"
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+
+
+_install_batch_navigation_module()
 
 
 def _make_batch(audio_path="/tmp/audio.flac"):
@@ -56,8 +102,8 @@ class NavigateToNextBatchTests(unittest.TestCase):
 
         # Should NOT have warned "at_last_batch".
         mock_gr.Warning.assert_not_called()
-        # The 11th element (index 10) is the new batch index.
-        self.assertEqual(result[10], 1)
+        # The 19th element (index 18) is the new batch index.
+        self.assertEqual(result[18], 1)
 
     def test_no_next_batch_when_truly_last(self, _mock_t, mock_gr):
         """Warning should fire when there really is no next batch."""
@@ -76,8 +122,8 @@ class NavigateToNextBatchTests(unittest.TestCase):
         result = self._run_first_yield(gen)
 
         mock_gr.Warning.assert_called_once()
-        # All 49 outputs should be gr.update() no-ops.
-        self.assertEqual(len(result), 49)
+        # All 57 outputs should be gr.update() no-ops.
+        self.assertEqual(len(result), 57)
 
     def test_batch_not_in_queue(self, _mock_t, mock_gr):
         """Warning should fire when total_batches suggests a next batch
@@ -98,7 +144,7 @@ class NavigateToNextBatchTests(unittest.TestCase):
         result = self._run_first_yield(gen)
 
         mock_gr.Warning.assert_called_once()
-        self.assertEqual(len(result), 49)
+        self.assertEqual(len(result), 57)
 
     def test_code_list_updates_do_not_require_lm_batch_flag(self, _mock_t, mock_gr):
         """Sequential Songs should restore per-song codes from list-shaped storage."""

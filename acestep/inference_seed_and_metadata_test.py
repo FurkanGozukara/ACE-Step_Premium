@@ -11,6 +11,7 @@ import torch
 from acestep.inference import (
     GenerationConfig,
     GenerationParams,
+    _has_bounded_source_edit,
     _update_metadata_from_lm,
     generate_music,
 )
@@ -91,6 +92,40 @@ class _FakeLlmHandler:
             "audio_codes": "<|audio_code_1|><|audio_code_2|>",
             "extra_outputs": {"time_costs": {}},
         }
+
+
+class BoundedSourceEditTests(unittest.TestCase):
+    """Verify source-preserving edit detection for post-processing guards."""
+
+    def test_repaint_with_valid_range_is_bounded_source_edit(self):
+        """A bounded Repaint range should preserve source regions."""
+        params = GenerationParams(
+            task_type="repaint",
+            repainting_start=40.0,
+            repainting_end=50.0,
+        )
+
+        self.assertTrue(_has_bounded_source_edit(params))
+
+    def test_full_repaint_without_end_is_not_bounded_source_edit(self):
+        """Full or open-ended edits may still use global post-processing."""
+        params = GenerationParams(
+            task_type="repaint",
+            repainting_start=0.0,
+            repainting_end=-1,
+        )
+
+        self.assertFalse(_has_bounded_source_edit(params))
+
+    def test_remix_is_not_bounded_source_edit(self):
+        """Remix does not use repaint range preservation semantics."""
+        params = GenerationParams(
+            task_type="cover",
+            repainting_start=10.0,
+            repainting_end=20.0,
+        )
+
+        self.assertFalse(_has_bounded_source_edit(params))
 
 
 class MetadataNormalizationTests(unittest.TestCase):

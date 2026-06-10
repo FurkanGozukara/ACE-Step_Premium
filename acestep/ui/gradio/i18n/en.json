@@ -312,6 +312,7 @@
   "results": {
     "title": "🎵 Results",
     "generated_music": "🎵 Generated Music (Sample {n})",
+    "original_input": "Original Input (Sample {n})",
     "send_to_remix_btn": "🔗 Send To Remix",
     "send_to_repaint_btn": "🔗 Send To Repaint",
     "save_btn": "💾 Save",

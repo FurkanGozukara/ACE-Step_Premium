@@ -1,15 +1,12 @@
 """Unit tests for ``generate_with_batch_management`` wrapper behavior."""
 
 import inspect
+import importlib.util
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-from acestep.ui.gradio.events.results.output_manager import (
-    use_generation_run_name,
-    use_results_dir,
-)
 
 try:
     from ._batch_management_test_support import build_progress_result
@@ -17,6 +14,24 @@ try:
 except ImportError:  # pragma: no cover - supports direct file execution
     from _batch_management_test_support import build_progress_result
     from _batch_management_test_support import load_batch_management_module
+
+
+def _load_output_paths_module():
+    """Load output path context helpers without importing the full Gradio package."""
+    module_name = "acestep.ui.gradio.events.results.output_paths"
+    if module_name in sys.modules:
+        return sys.modules[module_name]
+    module_path = Path(__file__).with_name("output_paths.py")
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    return module
+
+
+_OUTPUT_PATHS = _load_output_paths_module()
+use_generation_run_name = _OUTPUT_PATHS.use_generation_run_name
+use_results_dir = _OUTPUT_PATHS.use_results_dir
 
 
 def _build_call_kwargs(module):
@@ -60,15 +75,15 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield one standard progress result for wrapper streaming."""
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
         with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
             outputs = list(module.generate_with_batch_management(None, None, **kwargs))
 
         self.assertEqual(len(outputs), 2)
-        self.assertEqual(len(outputs[0]), 55)
-        self.assertEqual(len(outputs[1]), 55)
+        self.assertEqual(len(outputs[0]), 63)
+        self.assertEqual(len(outputs[1]), 63)
         self.assertEqual(outputs[0][0]["playback_position"], 0)
         self.assertEqual(outputs[1][0]["playback_position"], 0)
         self.assertEqual(len(state["store_calls"]), 1)
@@ -79,14 +94,14 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield one standard progress result for Windows final-output path."""
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
         with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
             outputs = list(module.generate_with_batch_management(None, None, **kwargs))
 
         self.assertEqual(len(outputs), 1)
-        self.assertEqual(len(outputs[0]), 55)
+        self.assertEqual(len(outputs[0]), 63)
         self.assertEqual(outputs[0][0]["playback_position"], 0)
 
     def test_all_audio_paths_none_skips_batch_storage(self):
@@ -95,14 +110,14 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield a result with no audio paths to trigger early return."""
-            yield build_progress_result(length=48, all_audio_paths=None)
+            yield build_progress_result(length=56, all_audio_paths=None)
 
         kwargs = _build_call_kwargs(module)
         with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
             outputs = list(module.generate_with_batch_management(None, None, **kwargs))
 
         self.assertEqual(len(outputs), 2)
-        self.assertEqual(outputs[1][8], None)
+        self.assertEqual(outputs[1][16], None)
         self.assertEqual(len(state["store_calls"]), 0)
 
     def test_allow_lm_batch_stores_multiple_codes(self):
@@ -111,8 +126,8 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield a result carrying a list of generated codes."""
-            result = list(build_progress_result(length=48))
-            result[47] = [f"code-{idx}" for idx in range(8)]
+            result = list(build_progress_result(length=56))
+            result[55] = [f"code-{idx}" for idx in range(8)]
             yield tuple(result)
 
         kwargs = _build_call_kwargs(module)
@@ -129,8 +144,8 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield a result carrying a list of generated codes."""
-            result = list(build_progress_result(length=48))
-            result[47] = [f"code-{idx}" for idx in range(8)]
+            result = list(build_progress_result(length=56))
+            result[55] = [f"code-{idx}" for idx in range(8)]
             yield tuple(result)
 
         kwargs = _build_call_kwargs(module)
@@ -149,7 +164,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
         def _gen(*args, **_kwargs):
             """Capture positional generation args and yield a standard result."""
             seen["args"] = args
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
         kwargs["task_type"] = "cover"
@@ -171,7 +186,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
         def _gen(*args, **_kwargs):
             """Capture positional generation args and yield a standard result."""
             seen["args"] = args
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
         kwargs["task_type"] = "cover"
@@ -197,7 +212,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
         outputs = list(module.generate_with_batch_management(None, None, **kwargs))
 
         self.assertEqual(len(outputs), 1)
-        self.assertIn("Select Track Name", outputs[0][10])
+        self.assertIn("Select Track Name", outputs[0][18])
         self.assertEqual(state["store_calls"], [])
         self.assertTrue(state["warning_messages"])
 
@@ -213,7 +228,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
         outputs = list(module.generate_with_batch_management(None, None, **kwargs))
 
         self.assertEqual(len(outputs), 1)
-        self.assertIn("Upload Source Audio", outputs[0][10])
+        self.assertIn("Upload Source Audio", outputs[0][18])
         self.assertEqual(state["store_calls"], [])
         self.assertTrue(state["warning_messages"])
 
@@ -229,7 +244,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
         outputs = list(module.generate_with_batch_management(None, None, **kwargs))
 
         self.assertEqual(len(outputs), 1)
-        self.assertIn("Select at least one Track Name", outputs[0][10])
+        self.assertIn("Select at least one Track Name", outputs[0][18])
         self.assertEqual(state["store_calls"], [])
         self.assertTrue(state["warning_messages"])
 
@@ -242,7 +257,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
         def _gen(*args, **_kwargs):
             """Capture positional generation args and yield a standard result."""
             seen["args"] = args
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
         kwargs["task_type"] = "complete"
@@ -274,7 +289,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
         def _gen(*args, **_kwargs):
             """Capture positional generation args and yield a standard result."""
             seen["args"] = args
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
         kwargs["task_type"] = "extract"
@@ -301,8 +316,8 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield a result with explicit LRC/subtitle payload."""
-            result = list(build_progress_result(length=48))
-            result[46] = {"lrcs": lrcs, "subtitles": subtitles}
+            result = list(build_progress_result(length=56))
+            result[54] = {"lrcs": lrcs, "subtitles": subtitles}
             yield tuple(result)
 
         kwargs = _build_call_kwargs(module)
@@ -311,12 +326,12 @@ class BatchManagementWrapperTests(unittest.TestCase):
         with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
             outputs = list(module.generate_with_batch_management(None, None, **kwargs))
 
-        final_batch_queue = outputs[-1][48]
+        final_batch_queue = outputs[-1][56]
         self.assertEqual(final_batch_queue[0]["lrcs"], lrcs)
         self.assertEqual(final_batch_queue[0]["subtitles"], subtitles)
 
     def test_auto_lrc_sets_lrc_display_in_final_yield(self):
-        """Final yield should carry gr.update(value=lrc) at positions 36-43."""
+        """Final yield should carry gr.update(value=lrc) at positions 44-51."""
         module, _state = load_batch_management_module(is_windows=False)
 
         lrcs = [f"[00:01.00]Line {idx}" for idx in range(8)]
@@ -324,8 +339,8 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield a result with LRC data in extra_outputs."""
-            result = list(build_progress_result(length=48))
-            result[46] = {"lrcs": lrcs, "subtitles": subtitles}
+            result = list(build_progress_result(length=56))
+            result[54] = {"lrcs": lrcs, "subtitles": subtitles}
             yield tuple(result)
 
         kwargs = _build_call_kwargs(module)
@@ -335,11 +350,11 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         final_yield = outputs[-1]
         for i in range(8):
-            lrc_val = final_yield[36 + i]
-            self.assertIsInstance(lrc_val, dict, f"LRC position {36 + i} should be a gr.update dict")
+            lrc_val = final_yield[44 + i]
+            self.assertIsInstance(lrc_val, dict, f"LRC position {44 + i} should be a gr.update dict")
             self.assertEqual(
                 lrc_val.get("value"), lrcs[i],
-                f"LRC position {36 + i} should contain the LRC text",
+                f"LRC position {44 + i} should contain the LRC text",
             )
 
     def test_auto_lrc_disabled_preserves_passthrough_values(self):
@@ -348,7 +363,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield a standard result without auto_lrc."""
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
         kwargs["auto_lrc"] = False
@@ -357,8 +372,8 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         final_yield = outputs[-1]
         for i in range(8):
-            lrc_val = final_yield[36 + i]
-            self.assertIsNone(lrc_val, f"LRC position {36 + i} should be None when auto_lrc is off")
+            lrc_val = final_yield[44 + i]
+            self.assertIsNone(lrc_val, f"LRC position {44 + i} should be None when auto_lrc is off")
 
     def test_empty_inner_generator_returns_skip_tuple_and_warning(self):
         """Empty inner generator should fail gracefully without indexing None."""
@@ -374,7 +389,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
             outputs = list(module.generate_with_batch_management(None, None, **kwargs))
 
         self.assertEqual(len(outputs), 1)
-        self.assertEqual(len(outputs[0]), 55)
+        self.assertEqual(len(outputs[0]), 63)
         self.assertTrue(all(item.get("kind") == "skip" for item in outputs[0]))
         self.assertEqual(len(state["store_calls"]), 0)
         self.assertTrue(state["warning_messages"])
@@ -389,10 +404,10 @@ class BatchManagementWrapperTests(unittest.TestCase):
         module, state = load_batch_management_module(is_windows=False)
 
         def _gen(*_args, **_kwargs):
-            """Yield a result with score values at indices 12-19."""
-            result = list(build_progress_result(length=48))
+            """Yield a result with score values at indices 20-27."""
+            result = list(build_progress_result(length=56))
             for i in range(8):
-                result[12 + i] = f"8.{i}"
+                result[20 + i] = f"8.{i}"
             yield tuple(result)
 
         kwargs = _build_call_kwargs(module)
@@ -411,7 +426,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield a short result with no score data."""
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
         with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
@@ -432,7 +447,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield one result for MPS cache-clearing path."""
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
         with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
@@ -451,7 +466,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield one result for non-MPS path."""
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
         with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
@@ -469,7 +484,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield one standard progress result."""
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
         kwargs.update(
@@ -494,7 +509,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield one result after the auto-init step completes."""
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
         kwargs.update(
@@ -534,7 +549,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         dit_handler.initialize_service.assert_called_once()
         self.assertGreaterEqual(len(outputs), 2)
-        self.assertIn("Initializing DiT service", outputs[0][10])
+        self.assertIn("Initializing DiT service", outputs[0][18])
 
     def test_foreground_generation_applies_lora_before_inner_generation(self):
         """Selected LoRA should be loaded and enabled before generation starts."""
@@ -548,7 +563,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
                 """Assert LoRA has been synchronized before generation."""
                 seen["handler"] = args[0]
                 seen["load_called_before_generation"] = args[0].load_lora.called
-                yield build_progress_result(length=48)
+                yield build_progress_result(length=56)
 
             kwargs = _build_call_kwargs(module)
             kwargs.update(

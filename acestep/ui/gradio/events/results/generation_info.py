@@ -32,13 +32,15 @@ def clear_audio_outputs_for_new_generation():
     ``value=None`` (which would remount players and risk browser-side volume
     resets).
 
-    In non-Gradio test environments, gracefully fall back to 9 ``None`` values.
+    In non-Gradio test environments, gracefully fall back to 17 ``None`` values.
     """
     try:
         import gradio as gr  # local import keeps headless tests dependency-free
     except (ModuleNotFoundError, ImportError):
-        return (None,) * 9
-    return tuple(gr.update(playback_position=0) for _ in range(8)) + (None,)
+        return (None,) * 17
+    generated = tuple(gr.update(playback_position=0) for _ in range(8))
+    originals = tuple(gr.update(value=None, visible=False, playback_position=0) for _ in range(8))
+    return generated + originals + (None,)
 
 
 def _build_generation_info(

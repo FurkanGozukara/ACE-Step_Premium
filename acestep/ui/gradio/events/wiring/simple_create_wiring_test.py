@@ -31,8 +31,8 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
     def test_extract_generation_status_formats_backend_slot(self):
         """The advanced status slot should be converted for the simple tab."""
 
-        outputs = [None] * 11
-        outputs[10] = "Generation Complete"
+        outputs = [None] * 19
+        outputs[18] = "Generation Complete"
 
         self.assertEqual(
             _extract_generation_status(outputs),
@@ -43,8 +43,8 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
         """Simple-tab generation should forward live Gradio progress."""
 
         calls = []
-        backend_outputs = [None] * 55
-        backend_outputs[10] = "Preparing generation..."
+        backend_outputs = [None] * 63
+        backend_outputs[18] = "Preparing generation..."
 
         def fake_backend(*args, **kwargs):
             calls.append((args, kwargs))

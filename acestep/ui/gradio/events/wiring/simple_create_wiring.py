@@ -26,6 +26,7 @@ from .generation_run_wiring import (
     build_generation_run_inputs,
     build_generation_run_outputs,
 )
+from ..results.result_output_contract import STATUS_INDEX
 from .inline_result_preview import (
     build_inline_result_outputs,
     clear_inline_result_preview,
@@ -42,7 +43,7 @@ from .simple_create_params import prepare_simple_generation
 from .simple_lora_wiring import register_simple_lora_sync_handlers
 
 
-_STATUS_OUTPUT_INDEX = 10
+_STATUS_OUTPUT_INDEX = STATUS_INDEX
 _SIMPLE_MODEL_LABELS = {value: label for label, value in SIMPLE_MODEL_CHOICES}
 
 

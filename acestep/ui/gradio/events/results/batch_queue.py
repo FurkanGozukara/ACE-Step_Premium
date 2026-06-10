@@ -33,6 +33,7 @@ def store_batch_in_queue(
     seeds,
     codes=None,
     scores=None,
+    source_audio_paths=None,
     allow_lm_batch=False,
     batch_size=1,
     generation_params=None,
@@ -50,6 +51,7 @@ def store_batch_in_queue(
         seeds: Seed value(s) used.
         codes: Audio codes (list for batch, string for single).
         scores: List of score display strings.
+        source_audio_paths: Original source-audio paths for comparison players.
         allow_lm_batch: Whether batch LM mode was used.
         batch_size: Batch size used.
         generation_params: Complete parameter dictionary.
@@ -87,6 +89,7 @@ def store_batch_in_queue(
         "seeds": seeds,
         "codes": codes,
         "scores": scores if scores else [""] * 8,
+        "source_audio_paths": source_audio_paths if source_audio_paths else [None] * 8,
         "allow_lm_batch": allow_lm_batch,
         "batch_size": batch_size,
         "generation_params": generation_params if generation_params else {},

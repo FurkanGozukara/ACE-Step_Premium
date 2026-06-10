@@ -5,10 +5,14 @@ from typing import Any
 import gradio as gr
 
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.events.results.result_output_contract import (
+    ALL_AUDIO_PATHS_INDEX,
+    STATUS_INDEX,
+)
 
 _GENERATED_AUDIO_OUTPUT_INDEX = 0
-_GENERATED_FILES_OUTPUT_INDEX = 8
-_STATUS_OUTPUT_INDEX = 10
+_GENERATED_FILES_OUTPUT_INDEX = ALL_AUDIO_PATHS_INDEX
+_STATUS_OUTPUT_INDEX = STATUS_INDEX
 
 
 def build_inline_result_outputs(generation_section: dict[str, Any]) -> list[Any]:

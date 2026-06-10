@@ -66,20 +66,20 @@ class InlineResultPreviewTests(unittest.TestCase):
     def test_inline_result_preview_from_generation_outputs_copies_status(self):
         """Streamed generation status should be mirrored into the inline preview."""
 
-        outputs = list(f"out_{index}" for index in range(55))
-        outputs[8] = ["/tmp/song_remaining.mp3"]
+        outputs = list(f"out_{index}" for index in range(63))
+        outputs[16] = ["/tmp/song_remaining.mp3"]
 
         audio, remaining, status = inline_result_preview_from_generation_outputs(outputs)
 
         self.assertEqual(audio, "out_0")
         self.assertEqual(remaining["value"], "/tmp/song_remaining.mp3")
         self.assertTrue(remaining["visible"])
-        self.assertEqual(status, "out_10")
+        self.assertEqual(status, "out_18")
 
     def test_inline_result_preview_from_generation_outputs_preserves_skip_status(self):
         """No-op backend status updates should not erase the inline status."""
 
-        outputs = tuple(["sample.wav", *["unused"] * 7, [], "unused", gr.skip()])
+        outputs = tuple(["sample.wav", *["unused"] * 15, [], "unused", gr.skip()])
 
         audio, remaining, status = inline_result_preview_from_generation_outputs(outputs)
 
@@ -90,8 +90,8 @@ class InlineResultPreviewTests(unittest.TestCase):
     def test_append_inline_result_preview_extends_generation_outputs(self):
         """Generation wrapper outputs should include inline audio and status at the end."""
 
-        outputs = list(f"out_{index}" for index in range(55))
-        outputs[8] = ["/tmp/song_remaining.flac"]
+        outputs = list(f"out_{index}" for index in range(63))
+        outputs[16] = ["/tmp/song_remaining.flac"]
         outputs = tuple(outputs)
 
         result = append_inline_result_preview(outputs)
@@ -99,7 +99,7 @@ class InlineResultPreviewTests(unittest.TestCase):
         self.assertEqual(result[:-3], outputs)
         self.assertEqual(result[-3], "out_0")
         self.assertEqual(result[-2]["value"], "/tmp/song_remaining.flac")
-        self.assertEqual(result[-1], "out_10")
+        self.assertEqual(result[-1], "out_18")
 
     def test_sync_inline_result_preview_mirrors_first_sample_and_status(self):
         """Completed generation should copy Sample 1 and status into the preview."""

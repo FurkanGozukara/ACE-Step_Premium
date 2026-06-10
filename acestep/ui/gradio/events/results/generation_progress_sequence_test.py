@@ -121,8 +121,8 @@ class SequentialGenerationCountTests(unittest.TestCase):
         self.assertEqual([call.batch_size for call in calls], [1, 1, 1])
         self.assertEqual([call.allow_lm_batch for call in calls], [False, False, False])
         self.assertEqual([call.seeds for call in calls], [[100], [101], [102]])
-        self.assertEqual(final[11], "100, 101, 102")
-        self.assertEqual(final[47][:3], ["code-100", "code-101", "code-102"])
+        self.assertEqual(final[19], "100, 101, 102")
+        self.assertEqual(final[55][:3], ["code-100", "code-101", "code-102"])
 
     def test_generate_with_progress_saves_outputs_beyond_visible_slots(self):
         """Songs above eight should still save files and expose all codes."""
@@ -144,9 +144,9 @@ class SequentialGenerationCountTests(unittest.TestCase):
 
         self.assertEqual(len(calls), 10)
         self.assertEqual([call.batch_size for call in calls], [1] * 10)
-        self.assertEqual(final[47][:10], [f"code-{seed}" for seed in range(200, 210)])
-        self.assertIn("song-209.flac", "\n".join(final[8]))
-        self.assertIn("song-209.json", "\n".join(final[8]))
+        self.assertEqual(final[55][:10], [f"code-{seed}" for seed in range(200, 210)])
+        self.assertIn("song-209.flac", "\n".join(final[16]))
+        self.assertIn("song-209.json", "\n".join(final[16]))
 
     def test_generate_with_progress_keeps_random_seed_mode_random_per_song(self):
         """Random seed mode should not pass fixed seeds into backend calls."""
@@ -169,8 +169,8 @@ class SequentialGenerationCountTests(unittest.TestCase):
         self.assertEqual([call.batch_size for call in calls], [1, 1])
         self.assertEqual([call.use_random_seed for call in calls], [True, True])
         self.assertEqual([call.seeds for call in calls], [None, None])
-        self.assertEqual(final[11], "901, 902")
-        self.assertEqual(final[47][:2], ["code-901", "code-902"])
+        self.assertEqual(final[19], "901, 902")
+        self.assertEqual(final[55][:2], ["code-901", "code-902"])
 
     def test_extract_trim_shortens_saved_tensor_and_metadata(self):
         """Extract trim should modify saved audio tensors and sidecar metadata."""

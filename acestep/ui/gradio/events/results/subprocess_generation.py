@@ -24,7 +24,11 @@ from acestep.core.generation.cancellation import (
 from acestep.core.generation.subprocess_termination import terminate_generation_process
 from acestep.torch_compile_toolchain import prepare_compile_subprocess_env
 from acestep.ui.gradio.events.results.audio_playback_updates import build_audio_slot_update
-from acestep.ui.gradio.events.results.batch_management_helpers import _extract_scores
+from acestep.ui.gradio.events.results.result_output_contract import (
+    AUDIO_SLOT_COUNT,
+    extract_source_audio_path,
+    source_audio_paths_for_slots,
+)
 
 
 _AUDIO_SUFFIXES = {".wav", ".mp3", ".flac", ".opus", ".aac"}
@@ -54,9 +58,10 @@ def _wait_for_process_exit(process: subprocess.Popen) -> int | None:
 
 
 def build_pending_core_outputs(status_text: str, is_format_caption: bool) -> tuple[Any, ...]:
-    """Build the 46 core outputs for an in-flight subprocess status update."""
+    """Build the core outputs for an in-flight subprocess status update."""
     return (
-        *((gr.skip(),) * 8),
+        *((gr.skip(),) * AUDIO_SLOT_COUNT),
+        *((gr.skip(),) * AUDIO_SLOT_COUNT),
         gr.skip(),
         gr.skip(),
         status_text,
@@ -71,12 +76,20 @@ def build_pending_core_outputs(status_text: str, is_format_caption: bool) -> tup
 
 
 def build_final_core_outputs(result: dict[str, Any]) -> tuple[Any, ...]:
-    """Build the 46 core UI outputs from a completed subprocess result."""
+    """Build the core UI outputs from a completed subprocess result."""
     audio_files = list(result.get("audio_files", []) or [])[:8]
     audio_updates = []
     for idx in range(8):
         path = audio_files[idx] if idx < len(audio_files) else None
         audio_updates.append(build_audio_slot_update(gr, path))
+
+    source_audio_paths = list(result.get("source_audio_paths", []) or [])[:8]
+    source_audio_updates = []
+    for idx in range(8):
+        source_path = source_audio_paths[idx] if idx < len(source_audio_paths) else None
+        source_audio_updates.append(
+            build_audio_slot_update(gr, source_path, visible=bool(source_path))
+        )
 
     scores = list(result.get("scores", []) or [])[:8]
     scores.extend([""] * (8 - len(scores)))
@@ -87,6 +100,7 @@ def build_final_core_outputs(result: dict[str, Any]) -> tuple[Any, ...]:
 
     return (
         *audio_updates,
+        *source_audio_updates,
         result.get("all_audio_paths"),
         result.get("generation_info", ""),
         result.get("status_output", "Generation Complete"),
@@ -200,6 +214,10 @@ def stream_subprocess_generation(request_payload: dict[str, Any]) -> Iterator[di
         if Path(str(path)).suffix.lower() in _AUDIO_SUFFIXES
     ]
     result_data["audio_files"] = audio_files
+    result_data["source_audio_paths"] = source_audio_paths_for_slots(
+        (request_payload.get("generation") or {}).get("task_type"),
+        extract_source_audio_path(all_audio_paths),
+    )
     result_data["status_output"] = "\n".join(log_lines[-18:]) or result_data.get(
         "status_output", "Generation Complete"
     )

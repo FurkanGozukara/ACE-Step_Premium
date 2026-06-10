@@ -5,7 +5,9 @@ import unittest
 
 import torch
 
+from acestep.constants import TASK_INSTRUCTIONS
 from acestep.core.generation.handler.generate_music_request import GenerateMusicRequestMixin
+from acestep.core.generation.handler.repaint_prompt import REPAINT_LYRICS_INFO_TEXT
 
 
 class _Host(GenerateMusicRequestMixin):
@@ -46,6 +48,28 @@ class GenerateMusicRequestMixinTests(unittest.TestCase):
         )
         self.assertEqual(task, "cover")
         self.assertNotEqual(instruction, "old")
+
+    def test_resolve_task_replaces_default_instruction_for_repaint(self):
+        """Repaint should not keep a stale generic text2music instruction."""
+        host = _Host()
+        task, instruction = host._resolve_generate_music_task(
+            task_type="repaint",
+            audio_code_string="",
+            instruction=TASK_INSTRUCTIONS["text2music"],
+        )
+        self.assertEqual(task, "repaint")
+        self.assertEqual(instruction, TASK_INSTRUCTIONS["repaint"])
+
+    def test_resolve_task_preserves_custom_repaint_instruction(self):
+        """A user-provided repaint instruction should not be overwritten."""
+        host = _Host()
+        task, instruction = host._resolve_generate_music_task(
+            task_type="repaint",
+            audio_code_string="",
+            instruction="Sing this exact new line in the masked region:",
+        )
+        self.assertEqual(task, "repaint")
+        self.assertEqual(instruction, "Sing this exact new line in the masked region:")
 
     def test_prepare_runtime_normalizes_batch_and_duration(self):
         """Runtime helper should clamp batch floor and normalize invalid duration/end values."""
@@ -267,6 +291,105 @@ class GenerateMusicRequestMixinTests(unittest.TestCase):
                 inputs["should_return_intermediate"],
                 f"should_return_intermediate must be True for task_type={task!r}",
             )
+
+    def test_repaint_with_lyrics_strengthens_caption_and_uses_explicit_mask(self):
+        """Lyric repaint should clearly condition the masked region on target words."""
+        host = _Host()
+        captured = {}
+
+        def _prepare_batch_data(
+            _actual_batch_size,
+            _processed_src_audio,
+            _audio_duration,
+            captions,
+            lyrics,
+            vocal_language,
+            instruction,
+            _bpm,
+            _key_scale,
+            _time_signature,
+        ):
+            """Capture text inputs passed into batch preparation."""
+            captured["captions"] = captions
+            captured["lyrics"] = lyrics
+            captured["vocal_language"] = vocal_language
+            return (
+                [captions],
+                [instruction],
+                [lyrics],
+                [vocal_language],
+                [{"duration": "60 seconds"}],
+            )
+
+        host.prepare_batch_data = _prepare_batch_data
+
+        inputs = host._prepare_generate_music_service_inputs(
+            actual_batch_size=1,
+            processed_src_audio=torch.ones(2, 48000),
+            audio_duration=1.0,
+            captions="modern pop rap",
+            lyrics="amazing song amazing tutorial you are doing great lets go",
+            vocal_language="unknown",
+            instruction=TASK_INSTRUCTIONS["repaint"],
+            task_type="repaint",
+            chunk_mask_mode="auto",
+            repainting_start=0.0,
+            repainting_end=1.0,
+        )
+
+        self.assertEqual(inputs["chunk_mask_modes_batch"], ["explicit"])
+        self.assertIn("selected 1-second mask", captured["captions"])
+        self.assertIn("clear English vocal", captured["captions"])
+        self.assertIn(
+            '"amazing song amazing tutorial you are doing great lets go"',
+            captured["captions"],
+        )
+        self.assertEqual(captured["vocal_language"], "en")
+        self.assertEqual(inputs["metas_batch"], [{"duration": "1 seconds"}])
+
+    def test_repaint_helper_lyrics_are_treated_as_empty(self):
+        """Repaint UI helper copy should not become target lyric conditioning."""
+        host = _Host()
+        captured = {}
+
+        def _prepare_batch_data(
+            _actual_batch_size,
+            _processed_src_audio,
+            _audio_duration,
+            captions,
+            lyrics,
+            vocal_language,
+            instruction,
+            _bpm,
+            _key_scale,
+            _time_signature,
+        ):
+            """Capture sanitized lyrics passed into batch preparation."""
+            captured["captions"] = captions
+            captured["lyrics"] = lyrics
+            captured["vocal_language"] = vocal_language
+            return ([captions], [instruction], [lyrics], [vocal_language], ["meta"])
+
+        host.prepare_batch_data = _prepare_batch_data
+
+        inputs = host._prepare_generate_music_service_inputs(
+            actual_batch_size=1,
+            processed_src_audio=torch.ones(2, 48000),
+            audio_duration=1.0,
+            captions="rap",
+            lyrics=REPAINT_LYRICS_INFO_TEXT,
+            vocal_language="unknown",
+            instruction=TASK_INSTRUCTIONS["repaint"],
+            task_type="repaint",
+            chunk_mask_mode="auto",
+            repainting_start=0.0,
+            repainting_end=1.0,
+        )
+
+        self.assertEqual(captured["lyrics"], "")
+        self.assertEqual(captured["captions"], "rap")
+        self.assertEqual(captured["vocal_language"], "unknown")
+        self.assertEqual(inputs["chunk_mask_modes_batch"], ["auto"])
 
 
 if __name__ == "__main__":

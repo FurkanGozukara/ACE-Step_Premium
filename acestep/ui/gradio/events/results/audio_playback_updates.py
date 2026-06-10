@@ -13,6 +13,7 @@ def build_audio_slot_update(
     *,
     label: Optional[str] = None,
     interactive: Optional[bool] = None,
+    visible: Optional[bool] = None,
 ) -> Any:
     """Build an audio slot update that always rewinds playback to 0.
 
@@ -21,6 +22,7 @@ def build_audio_slot_update(
         audio_path: Filepath for the audio component, or ``None`` to clear.
         label: Optional component label override.
         interactive: Optional component interactivity override.
+        visible: Optional component visibility override.
 
     Returns:
         The framework-specific update object returned by ``gr_module.update``.
@@ -33,4 +35,6 @@ def build_audio_slot_update(
         update_kwargs["label"] = label
     if interactive is not None:
         update_kwargs["interactive"] = interactive
+    if visible is not None:
+        update_kwargs["visible"] = visible
     return gr_module.update(**update_kwargs)

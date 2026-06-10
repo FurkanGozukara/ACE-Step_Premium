@@ -18,11 +18,22 @@ def _load_module():
     acestep_pkg = types.ModuleType("acestep")
     ui_pkg = types.ModuleType("acestep.ui")
     gradio_pkg = types.ModuleType("acestep.ui.gradio")
+    events_pkg = types.ModuleType("acestep.ui.gradio.events")
+    generation_pkg = types.ModuleType("acestep.ui.gradio.events.generation")
+    results_pkg = types.ModuleType("acestep.ui.gradio.events.results")
     i18n_mod = types.ModuleType("acestep.ui.gradio.i18n")
     i18n_mod.t = lambda key, **_kwargs: key
+    audio_format_mod = types.ModuleType("acestep.ui.gradio.events.generation.audio_format_options")
+    audio_format_mod.audio_format_label = lambda value: str(value)
+    output_manager_mod = types.ModuleType("acestep.ui.gradio.events.results.output_manager")
+    output_manager_mod.PROJECT_ROOT = Path(__file__).resolve().parents[5]
+    output_manager_mod.get_results_dir = lambda: output_manager_mod.PROJECT_ROOT / "outputs"
     acestep_pkg.ui = ui_pkg
     ui_pkg.gradio = gradio_pkg
     gradio_pkg.i18n = i18n_mod
+    gradio_pkg.events = events_pkg
+    events_pkg.generation = generation_pkg
+    events_pkg.results = results_pkg
 
     module_path = Path(__file__).with_name("generation_info.py")
     spec = importlib.util.spec_from_file_location("generation_info", module_path)
@@ -34,6 +45,11 @@ def _load_module():
             "acestep.ui": ui_pkg,
             "acestep.ui.gradio": gradio_pkg,
             "acestep.ui.gradio.i18n": i18n_mod,
+            "acestep.ui.gradio.events": events_pkg,
+            "acestep.ui.gradio.events.generation": generation_pkg,
+            "acestep.ui.gradio.events.generation.audio_format_options": audio_format_mod,
+            "acestep.ui.gradio.events.results": results_pkg,
+            "acestep.ui.gradio.events.results.output_manager": output_manager_mod,
         },
     ):
         spec.loader.exec_module(module)  # type: ignore[union-attr]
@@ -66,8 +82,8 @@ class ConstantsTests(unittest.TestCase):
 class ClearAudioOutputsTests(unittest.TestCase):
     """Tests for clear_audio_outputs_for_new_generation."""
 
-    def test_returns_nine_nones(self):
-        """Should return a tuple of 9 None values when Gradio import fails."""
+    def test_returns_clear_outputs_when_gradio_missing(self):
+        """Should return cleared output placeholders when Gradio import fails."""
         real_import = builtins.__import__
 
         def _mocked_import(name, *args, **kwargs):
@@ -79,7 +95,7 @@ class ClearAudioOutputsTests(unittest.TestCase):
         with patch("builtins.__import__", side_effect=_mocked_import):
             result = clear_audio_outputs_for_new_generation()
         self.assertIsInstance(result, tuple)
-        self.assertEqual(len(result), 9)
+        self.assertEqual(len(result), 17)
         for item in result:
             self.assertIsNone(item)
 
@@ -88,9 +104,13 @@ class ClearAudioOutputsTests(unittest.TestCase):
         fake_gradio = types.SimpleNamespace(update=lambda **kwargs: kwargs)
         with patch.dict("sys.modules", {"gradio": fake_gradio}):
             result = clear_audio_outputs_for_new_generation()
-        self.assertEqual(len(result), 9)
+        self.assertEqual(len(result), 17)
         self.assertEqual(result[:8], ({"playback_position": 0},) * 8)
-        self.assertIsNone(result[8])
+        for item in result[8:16]:
+            self.assertEqual(item["value"], None)
+            self.assertFalse(item["visible"])
+            self.assertEqual(item["playback_position"], 0)
+        self.assertIsNone(result[16])
 
 
 class BuildGenerationInfoTests(unittest.TestCase):

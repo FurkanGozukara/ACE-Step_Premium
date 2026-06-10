@@ -68,6 +68,22 @@ class TestApplyRepaintWaveformSplice(unittest.TestCase):
         torch.testing.assert_close(result[0, :, :start], src[0, :, :start])
         torch.testing.assert_close(result[0, :, end:], src[0, :, end:])
 
+    def test_unbatched_source_audio_is_accepted(self):
+        pred, src = self._make_tensors(samples=9600)
+        unbatched_src = src[0]
+        result = apply_repaint_waveform_splice(
+            pred,
+            unbatched_src,
+            [0.05],
+            [0.15],
+            sample_rate=48000,
+            crossfade_duration=0.0,
+        )
+        start = int(0.05 * 48000)
+        end = int(0.15 * 48000)
+        torch.testing.assert_close(result[0, :, :start], unbatched_src[:, :start])
+        torch.testing.assert_close(result[0, :, end:], unbatched_src[:, end:])
+
     def test_repaint_region_uses_pred(self):
         pred, src = self._make_tensors(samples=9600)
         result = apply_repaint_waveform_splice(

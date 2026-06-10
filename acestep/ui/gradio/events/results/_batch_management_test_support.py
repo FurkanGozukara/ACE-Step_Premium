@@ -13,23 +13,31 @@ from unittest.mock import patch
 _MISSING = object()
 
 
-def build_progress_result(*, length: int = 48, all_audio_paths: Any = _MISSING) -> tuple:
+def build_progress_result(*, length: int = 56, all_audio_paths: Any = _MISSING) -> tuple:
     """Build a minimally valid ``generate_with_progress`` result tuple."""
     result = [None] * length
-    for idx in range(8):
+    for idx in range(min(8, length)):
         result[idx] = {"value": f"audio_{idx}.flac", "playback_position": 0}
-    result[8] = ["audio_0.flac", "audio_0.json"] if all_audio_paths is _MISSING else all_audio_paths
-    result[9] = "generation info"
-    result[10] = "Generation Complete"
-    result[11] = "42"
-    result[44] = {"bpm": 120}
-    result[45] = False
-    if length > 46:
-        result[46] = {"lrcs": ["lrc"] * 8, "subtitles": ["sub"] * 8}
-    if length > 47:
-        result[47] = ["codes"] * 8
-    if length > 48:
-        result[48] = {"future_tail_field": True}
+    for idx in range(8, min(16, length)):
+        result[idx] = {"value": None, "visible": False, "playback_position": 0}
+    if length > 16:
+        result[16] = ["audio_0.flac", "audio_0.json"] if all_audio_paths is _MISSING else all_audio_paths
+    if length > 17:
+        result[17] = "generation info"
+    if length > 18:
+        result[18] = "Generation Complete"
+    if length > 19:
+        result[19] = "42"
+    if length > 52:
+        result[52] = {"bpm": 120}
+    if length > 53:
+        result[53] = False
+    if length > 54:
+        result[54] = {"lrcs": ["lrc"] * 8, "subtitles": ["sub"] * 8}
+    if length > 55:
+        result[55] = ["codes"] * 8
+    if length > 56:
+        result[56] = {"future_tail_field": True}
     return tuple(result)
 
 

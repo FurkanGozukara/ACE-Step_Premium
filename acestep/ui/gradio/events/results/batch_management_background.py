@@ -21,6 +21,16 @@ from acestep.ui.gradio.events.results.batch_management_helpers import (
     _log_background_params,
     apply_lora_selection_for_generation,
 )
+from acestep.ui.gradio.events.results.result_output_contract import (
+    ALL_AUDIO_PATHS_INDEX,
+    CODES_LIST_INDEX,
+    EXTRA_OUTPUTS_INDEX,
+    GENERATION_INFO_INDEX,
+    LM_METADATA_INDEX,
+    SEED_INDEX,
+    extract_source_audio_path,
+    source_audio_paths_for_slots,
+)
 from acestep.ui.gradio.events.generation.generation_count import normalize_generation_count
 from acestep.ui.gradio.events.results.batch_queue import store_batch_in_queue
 from acestep.ui.gradio.events.results.generation_progress import generate_with_progress
@@ -210,16 +220,25 @@ def generate_next_batch_background(
         if final_result is None:
             raise RuntimeError("generate_with_progress yielded no results")
 
-        all_audio_paths = final_result[8]
-        generation_info = final_result[9]
-        seed_value_for_ui = final_result[11]
-        lm_generated_metadata = final_result[44]
+        all_audio_paths = final_result[ALL_AUDIO_PATHS_INDEX]
+        generation_info = final_result[GENERATION_INFO_INDEX]
+        seed_value_for_ui = final_result[SEED_INDEX]
+        lm_generated_metadata = final_result[LM_METADATA_INDEX]
 
-        raw_codes_list = final_result[47] if len(final_result) > 47 else [""] * 8
+        raw_codes_list = final_result[CODES_LIST_INDEX] if len(final_result) > CODES_LIST_INDEX else [""] * 8
         generated_codes_batch = raw_codes_list if isinstance(raw_codes_list, list) else [""] * 8
         generated_codes_single = generated_codes_batch[0] if generated_codes_batch else ""
-        extra_outputs_from_bg = final_result[46] if len(final_result) > 46 and final_result[46] is not None else {}
+        extra_outputs_from_bg = (
+            final_result[EXTRA_OUTPUTS_INDEX]
+            if len(final_result) > EXTRA_OUTPUTS_INDEX
+            and final_result[EXTRA_OUTPUTS_INDEX] is not None
+            else {}
+        )
         scores_from_bg = _extract_scores(final_result)
+        source_audio_paths = source_audio_paths_for_slots(
+            params.get("task_type"),
+            extract_source_audio_path(all_audio_paths),
+        )
 
         generation_count = normalize_generation_count(params.get("batch_size_input", 1))
         allow_lm_batch_val = params.get("allow_lm_batch", False)
@@ -237,6 +256,7 @@ def generate_next_batch_background(
             all_audio_paths, generation_info, seed_value_for_ui,
             codes=codes_to_store,
             scores=scores_from_bg,
+            source_audio_paths=source_audio_paths,
             allow_lm_batch=allow_lm_batch_val,
             batch_size=generation_count,
             generation_params=params,

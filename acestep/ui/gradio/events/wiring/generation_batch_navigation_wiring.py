@@ -17,6 +17,7 @@ def _build_navigation_outputs(results_section: dict[str, Any], include_next_stat
     Args:
         results_section (dict[str, Any]): Results component map containing
             generated audio outputs (`generated_audio_1..8`,
+            `original_audio_1..8`,
             `generated_audio_batch`), navigation/status fields
             (`generation_info`, `current_batch_index`, `batch_indicator`,
             `prev_batch_btn`, `next_batch_btn`, `status_output`,
@@ -39,6 +40,14 @@ def _build_navigation_outputs(results_section: dict[str, Any], include_next_stat
         results_section["generated_audio_6"],
         results_section["generated_audio_7"],
         results_section["generated_audio_8"],
+        results_section["original_audio_1"],
+        results_section["original_audio_2"],
+        results_section["original_audio_3"],
+        results_section["original_audio_4"],
+        results_section["original_audio_5"],
+        results_section["original_audio_6"],
+        results_section["original_audio_7"],
+        results_section["original_audio_8"],
         results_section["generated_audio_batch"],
         results_section["generation_info"],
         results_section["current_batch_index"],

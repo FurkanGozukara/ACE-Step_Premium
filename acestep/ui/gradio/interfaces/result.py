@@ -12,10 +12,10 @@ from acestep.ui.gradio.interfaces.source_audio_preview import (
 
 
 def _create_audio_column(n, visible=True):
-    """Create a single audio sample column with all its sub-components.
+    """Create a single sample column with generated/source audio components.
     
     Layout:
-        Audio player
+        Audio row: [Generated audio] [Original source audio, when available]
         Row: [Send To Cover] [Send To Repaint] [Save]
         Accordion (Score & LRC & LM Codes):
             codes_display
@@ -23,14 +23,26 @@ def _create_audio_column(n, visible=True):
             Row: lrc_display + lrc_btn
     """
     with gr.Column(visible=visible) as audio_col:
-        generated_audio = gr.Audio(
-            label=t("results.generated_music", n=n),
-            type="filepath",
-            interactive=False,
-            buttons=[],
-            elem_classes=TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
-            waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
-        )
+        with gr.Row(equal_height=True):
+            with gr.Column(scale=1):
+                generated_audio = gr.Audio(
+                    label=t("results.generated_music", n=n),
+                    type="filepath",
+                    interactive=False,
+                    buttons=[],
+                    elem_classes=TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+                    waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+                )
+            with gr.Column(scale=1):
+                original_audio = gr.Audio(
+                    label=t("results.original_input", n=n),
+                    type="filepath",
+                    interactive=False,
+                    visible=False,
+                    buttons=[],
+                    elem_classes=TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+                    waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+                )
         with gr.Row(equal_height=True):
             send_to_remix_btn = gr.Button(
                 t("results.send_to_remix_btn"),
@@ -92,6 +104,7 @@ def _create_audio_column(n, visible=True):
     return {
         "audio_col": audio_col,
         "generated_audio": generated_audio,
+        "original_audio": original_audio,
         "send_to_remix_btn": send_to_remix_btn,
         "send_to_repaint_btn": send_to_repaint_btn,
         "save_btn": save_btn,
@@ -203,6 +216,7 @@ def create_results_section(dit_handler) -> dict:
     
     for idx, col_data in enumerate(all_cols, start=1):
         result[f"generated_audio_{idx}"] = col_data["generated_audio"]
+        result[f"original_audio_{idx}"] = col_data["original_audio"]
         result[f"audio_col_{idx}"] = col_data["audio_col"]
         result[f"send_to_remix_btn_{idx}"] = col_data["send_to_remix_btn"]
         result[f"send_to_repaint_btn_{idx}"] = col_data["send_to_repaint_btn"]

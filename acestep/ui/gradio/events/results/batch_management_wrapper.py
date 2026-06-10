@@ -53,6 +53,17 @@ from acestep.ui.gradio.events.results.output_manager import (
     get_active_generation_run_name,
     get_active_results_dir,
 )
+from acestep.ui.gradio.events.results.result_output_contract import (
+    ALL_AUDIO_PATHS_INDEX,
+    CODES_LIST_INDEX,
+    EXTRA_OUTPUTS_INDEX,
+    GENERATION_INFO_INDEX,
+    LM_METADATA_INDEX,
+    LRC_START_INDEX,
+    SEED_INDEX,
+    extract_source_audio_path,
+    source_audio_paths_for_slots,
+)
 from acestep.ui.gradio.events.generation.generation_count import normalize_generation_count
 from acestep.ui.gradio.events.generation.audio_format_options import (
     DEFAULT_EXTRACT_AUDIO_FORMAT,
@@ -645,11 +656,19 @@ def _generate_with_batch_management_impl(
         else:
             codes_to_store = generated_codes_single
 
+        subprocess_source_audio_paths = subprocess_result.get("source_audio_paths")
+        if subprocess_source_audio_paths is None:
+            subprocess_source_audio_paths = source_audio_paths_for_slots(
+                saved_params.get("task_type"),
+                extract_source_audio_path(all_audio_paths),
+            )
+
         batch_queue = store_batch_in_queue(
             batch_queue, current_batch_index,
             all_audio_paths, generation_info, seed_value_for_ui,
             scores=scores_from_fg,
             codes=codes_to_store,
+            source_audio_paths=subprocess_source_audio_paths,
             allow_lm_batch=allow_lm_batch,
             batch_size=generation_count,
             generation_params=saved_params,
@@ -805,10 +824,10 @@ def _generate_with_batch_management_impl(
         error_msg = t("messages.batch_failed", error="No generation result was produced")
         logger.warning("[generate_with_batch_management] generate_with_progress yielded no results")
         gr.Warning(error_msg)
-        yield (gr.skip(),) * 55
+        yield (gr.skip(),) * 63
         return
 
-    all_audio_paths = result[8]
+    all_audio_paths = result[ALL_AUDIO_PATHS_INDEX]
 
     if all_audio_paths is None:
         ui_result = _extract_ui_core_outputs(result)
@@ -818,11 +837,11 @@ def _generate_with_batch_management_impl(
         )
         return
 
-    generation_info = result[9]
-    seed_value_for_ui = result[11]
-    lm_generated_metadata = result[44]
+    generation_info = result[GENERATION_INFO_INDEX]
+    seed_value_for_ui = result[SEED_INDEX]
+    lm_generated_metadata = result[LM_METADATA_INDEX]
 
-    raw_codes_list = result[47] if len(result) > 47 else [""] * 8
+    raw_codes_list = result[CODES_LIST_INDEX] if len(result) > CODES_LIST_INDEX else [""] * 8
     generated_codes_batch = raw_codes_list if isinstance(raw_codes_list, list) else [""] * 8
     generated_codes_single = generated_codes_batch[0] if generated_codes_batch else ""
 
@@ -836,15 +855,24 @@ def _generate_with_batch_management_impl(
     next_params["text2music_audio_code_string"] = ""
     next_params["random_seed_checkbox"] = True
 
-    extra_outputs_from_result = result[46] if len(result) > 46 and result[46] is not None else {}
+    extra_outputs_from_result = (
+        result[EXTRA_OUTPUTS_INDEX]
+        if len(result) > EXTRA_OUTPUTS_INDEX and result[EXTRA_OUTPUTS_INDEX] is not None
+        else {}
+    )
 
     scores_from_fg = _extract_scores(result)
+    source_audio_paths = source_audio_paths_for_slots(
+        saved_params.get("task_type"),
+        extract_source_audio_path(all_audio_paths),
+    )
 
     batch_queue = store_batch_in_queue(
         batch_queue, current_batch_index,
         all_audio_paths, generation_info, seed_value_for_ui,
         scores=scores_from_fg,
         codes=codes_to_store,
+        source_audio_paths=source_audio_paths,
         allow_lm_batch=allow_lm_batch,
         batch_size=generation_count,
         generation_params=saved_params,
@@ -868,7 +896,7 @@ def _generate_with_batch_management_impl(
         lrcs = extra_outputs_from_result.get("lrcs", [""] * 8)
         for i in range(min(8, len(lrcs))):
             if lrcs[i]:
-                ui_core_list[36 + i] = gr.update(value=lrcs[i], visible=True)
+                ui_core_list[LRC_START_INDEX + i] = gr.update(value=lrcs[i], visible=True)
 
     logger.info(f"[generate_with_batch_management] Final yield: {len(ui_core_list)} core + 9 state")
 
@@ -901,7 +929,7 @@ def generate_with_batch_management(*args, **kwargs):
 
 
 def _cancelled_generation_outputs(is_format_caption: bool) -> tuple:
-    """Return a 55-output Gradio update tuple for cancelled generation."""
+    """Return a Gradio update tuple for cancelled generation."""
 
     return build_pending_core_outputs(CANCEL_MESSAGE, is_format_caption) + (
         gr.skip(),

@@ -287,8 +287,14 @@ class GenerateMusicMixinTests(unittest.TestCase):
     def test_complete_with_range_splices_generated_section_back_into_source(self, splice_mock):
         """Complete ranges should merge generated audio into the original source waveform."""
         host = _Host()
+        source_audio = torch.full((2, 8), 3.0)
         spliced = torch.full((1, 2, 8), 7.0)
         splice_mock.return_value = spliced
+
+        def _prepare_audio(**kwargs):
+            """Return a prepared source waveform for Complete splicing."""
+            host.calls["_prepare_reference_and_source_audio"] = kwargs
+            return [[torch.zeros(2, 10)]], source_audio, None
 
         def _prepare_service_inputs(**kwargs):
             """Return repaint-range service inputs for Complete."""
@@ -300,6 +306,7 @@ class GenerateMusicMixinTests(unittest.TestCase):
                 "target_wavs_tensor": torch.ones(1, 2, 8),
             }
 
+        host._prepare_reference_and_source_audio = _prepare_audio
         host._prepare_generate_music_service_inputs = _prepare_service_inputs
 
         out = host.generate_music(
@@ -313,6 +320,135 @@ class GenerateMusicMixinTests(unittest.TestCase):
 
         self.assertEqual(out, host._final_payload)
         splice_mock.assert_called_once()
+        self.assertIs(source_audio, splice_mock.call_args.kwargs["src_wavs"])
+        self.assertEqual(
+            10,
+            host.calls["_run_generate_music_service_with_progress"]["repaint_crossfade_frames"],
+        )
+        self.assertEqual(0.0, splice_mock.call_args.kwargs["crossfade_duration"])
+        self.assertIs(
+            spliced,
+            host.calls["_build_generate_music_success_payload"]["pred_wavs"],
+        )
+
+    @patch.object(GENERATE_MUSIC_MODULE, "apply_repaint_waveform_splice")
+    def test_aggressive_repaint_with_range_still_splices_outside_region(self, splice_mock):
+        """Non-lyric aggressive repaint preserves source waveform outside the range."""
+        host = _Host()
+        spliced = torch.full((1, 2, 8), 9.0)
+        splice_mock.return_value = spliced
+
+        def _prepare_service_inputs(**kwargs):
+            """Return bounded repaint service inputs for aggressive mode."""
+            host.calls["_prepare_generate_music_service_inputs"] = kwargs
+            return {
+                "should_return_intermediate": True,
+                "repainting_start_batch": [0.0],
+                "repainting_end_batch": [10.0],
+                "target_wavs_tensor": torch.ones(1, 2, 8),
+            }
+
+        host._prepare_generate_music_service_inputs = _prepare_service_inputs
+
+        out = host.generate_music(
+            captions="cap",
+            lyrics="",
+            task_type="repaint",
+            src_audio="source.wav",
+            repainting_start=0.0,
+            repainting_end=10.0,
+            repaint_mode="aggressive",
+            repaint_strength=1.0,
+        )
+
+        self.assertEqual(out, host._final_payload)
+        splice_mock.assert_called_once()
+        self.assertIs(
+            spliced,
+            host.calls["_build_generate_music_success_payload"]["pred_wavs"],
+        )
+
+    @patch.object(GENERATE_MUSIC_MODULE, "apply_repaint_waveform_splice")
+    @patch.object(GENERATE_MUSIC_MODULE, "apply_repaint_segment_splice")
+    def test_lyric_repaint_generates_local_span_then_splices_into_source(
+        self,
+        segment_splice_mock,
+        waveform_splice_mock,
+    ):
+        """Lyric repaint should generate only the selected span before insertion."""
+        host = _Host()
+        source_audio = torch.ones(2, 48000 * 3)
+        spliced = torch.full((1, 2, 48000 * 3), 5.0)
+        segment_splice_mock.return_value = spliced
+
+        def _prepare_audio(**kwargs):
+            """Return a three-second prepared source audio tensor."""
+            host.calls["_prepare_reference_and_source_audio"] = kwargs
+            return [[torch.zeros(2, 10)]], source_audio, None
+
+        def _prepare_service_inputs(**kwargs):
+            """Return service inputs for a one-second local repaint generation."""
+            host.calls["_prepare_generate_music_service_inputs"] = kwargs
+            return {
+                "should_return_intermediate": True,
+                "repainting_start_batch": [0.0],
+                "repainting_end_batch": [1.0],
+                "target_wavs_tensor": torch.zeros(1, 2, 48000),
+            }
+
+        host._prepare_reference_and_source_audio = _prepare_audio
+        host._prepare_generate_music_service_inputs = _prepare_service_inputs
+
+        out = host.generate_music(
+            captions="rap",
+            lyrics="new lyric line",
+            task_type="repaint",
+            src_audio="source.wav",
+            audio_duration=99.0,
+            repainting_start=1.0,
+            repainting_end=2.0,
+            repaint_mode="balanced",
+            repaint_strength=0.5,
+        )
+
+        self.assertEqual(out, host._final_payload)
+        self.assertIsNone(
+            host.calls["_prepare_generate_music_service_inputs"]["processed_src_audio"],
+        )
+        self.assertEqual(
+            1.0,
+            host.calls["_prepare_generate_music_service_inputs"]["audio_duration"],
+        )
+        self.assertEqual(
+            0.0,
+            host.calls["_prepare_generate_music_service_inputs"]["repainting_start"],
+        )
+        self.assertEqual(
+            1.0,
+            host.calls["_prepare_generate_music_service_inputs"]["repainting_end"],
+        )
+        self.assertEqual(
+            1.0,
+            host.calls["_run_generate_music_service_with_progress"]["audio_duration"],
+        )
+        self.assertEqual(
+            0.0,
+            host.calls["_run_generate_music_service_with_progress"]["repaint_injection_ratio"],
+        )
+        waveform_splice_mock.assert_not_called()
+        segment_splice_mock.assert_called_once()
+        self.assertIs(
+            source_audio,
+            segment_splice_mock.call_args.kwargs["src_wavs"],
+        )
+        self.assertEqual(
+            [1.0],
+            segment_splice_mock.call_args.kwargs["repainting_starts"],
+        )
+        self.assertEqual(
+            [2.0],
+            segment_splice_mock.call_args.kwargs["repainting_ends"],
+        )
         self.assertIs(
             spliced,
             host.calls["_build_generate_music_success_payload"]["pred_wavs"],

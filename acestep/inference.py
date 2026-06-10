@@ -43,9 +43,22 @@ _SOURCE_AUDIO_DURATION_LOCKED_TASKS = {
     "extract",
     "complete",
 }
+_BOUNDED_SOURCE_EDIT_TASKS = {"repaint", "lego", "complete"}
 
 # HuggingFace Space environment detection
 IS_HUGGINGFACE_SPACE = os.environ.get("SPACE_ID") is not None
+
+
+def _has_bounded_source_edit(params: "GenerationParams") -> bool:
+    """Return whether post-processing must preserve source audio outside a range."""
+    if params.task_type not in _BOUNDED_SOURCE_EDIT_TASKS:
+        return False
+    try:
+        start = float(params.repainting_start or 0.0)
+        end = float(params.repainting_end)
+    except (TypeError, ValueError):
+        return False
+    return end > start
 
 def _get_spaces_gpu_decorator(duration=180):
     """
@@ -1230,7 +1243,11 @@ def generate_music(
             sample_rate = dit_audio.get("sample_rate", 48000)
 
             # --- NORMALIZATION & LOGGING ---
-            if params.enable_normalization and params.normalization_db <= 0.0:
+            if (
+                params.enable_normalization
+                and params.normalization_db <= 0.0
+                and not _has_bounded_source_edit(params)
+            ):
                  try:
                      peak_before = torch.max(torch.abs(audio_tensor)).item()
                      logger.info(f"[Normalization] Audio {idx} BEFORE: Peak={peak_before:.4f}, Target={params.normalization_db}dB")
@@ -1244,6 +1261,14 @@ def generate_music(
                      # Actually we use audio_tensor variable below, so it's fine.
                  except Exception as e:
                      logger.error(f"Normalization failed: {e}")
+            elif params.enable_normalization and _has_bounded_source_edit(params):
+                logger.info(
+                    "[Normalization] Skipped for bounded {} edit to preserve source "
+                    "audio outside {:.2f}-{:.2f}s.",
+                    params.task_type,
+                    float(params.repainting_start or 0.0),
+                    float(params.repainting_end),
+                )
             # -------------------------------
 
             # --- FADE IN / FADE OUT ---

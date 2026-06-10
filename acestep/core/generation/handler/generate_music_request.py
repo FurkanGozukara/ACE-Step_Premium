@@ -6,6 +6,20 @@ import torch
 from loguru import logger
 
 from acestep.constants import TASK_INSTRUCTIONS
+from acestep.core.generation.handler.repaint_prompt import (
+    apply_repaint_span_duration_to_metas,
+    normalize_repaint_lyrics,
+    resolve_repaint_chunk_mask_mode,
+    resolve_repaint_span_duration,
+    resolve_repaint_vocal_language,
+    strengthen_repaint_caption,
+)
+
+
+def _is_default_text2music_instruction(instruction: str) -> bool:
+    """Return whether an instruction is empty or the generic text2music default."""
+    normalized = (instruction or "").strip()
+    return not normalized or normalized == TASK_INSTRUCTIONS["text2music"]
 
 
 class GenerateMusicRequestMixin:
@@ -50,9 +64,15 @@ class GenerateMusicRequestMixin:
         audio_code_string: Union[str, List[str]],
         instruction: str,
     ) -> Tuple[str, str]:
-        """Auto-switch text2music to cover task when audio codes are provided."""
+        """Resolve task type and default instruction for generation."""
         if task_type == "text2music" and self._has_non_empty_audio_codes(audio_code_string):
             return "cover", TASK_INSTRUCTIONS["cover"]
+        if _is_default_text2music_instruction(instruction) and task_type in (
+            "cover",
+            "cover-nofsq",
+            "repaint",
+        ):
+            return task_type, TASK_INSTRUCTIONS[task_type]
         return task_type, instruction
 
     def _prepare_generate_music_runtime(
@@ -222,6 +242,30 @@ class GenerateMusicRequestMixin:
         chunk_mask_mode: str = "auto",
     ) -> Dict[str, Any]:
         """Prepare service inputs (batch text, repaint spans, and optional code hints)."""
+        lyrics = normalize_repaint_lyrics(task_type, lyrics)
+        span_duration = resolve_repaint_span_duration(
+            task_type,
+            repainting_start,
+            repainting_end,
+            lyrics,
+        )
+        vocal_language = resolve_repaint_vocal_language(
+            task_type,
+            vocal_language,
+            lyrics,
+        )
+        captions = strengthen_repaint_caption(
+            task_type,
+            captions,
+            lyrics,
+            vocal_language,
+            span_duration=span_duration,
+        )
+        chunk_mask_mode = resolve_repaint_chunk_mask_mode(
+            task_type,
+            chunk_mask_mode,
+            lyrics,
+        )
         captions_batch, instructions_batch, lyrics_batch, vocal_languages_batch, metas_batch = self.prepare_batch_data(
             actual_batch_size,
             processed_src_audio,
@@ -233,6 +277,13 @@ class GenerateMusicRequestMixin:
             bpm,
             key_scale,
             time_signature,
+        )
+        metas_batch = apply_repaint_span_duration_to_metas(
+            task_type,
+            metas_batch,
+            repainting_start,
+            repainting_end,
+            lyrics,
         )
         global_captions_batch = [global_caption] * actual_batch_size
 

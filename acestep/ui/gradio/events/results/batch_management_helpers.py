@@ -15,16 +15,25 @@ from acestep.ui.gradio.events.generation.audio_format_options import (
     DEFAULT_MP3_BITRATE,
 )
 from acestep.ui.gradio.events.dcw_defaults import get_dcw_defaults_for_think
+from acestep.ui.gradio.events.results.result_output_contract import (
+    AUDIO_SLOT_COUNT,
+    CORE_OUTPUT_COUNT,
+    SCORES_START_INDEX,
+)
 
 
 def _extract_ui_core_outputs(result_tuple):
-    """Return the fixed 46 core UI outputs from a generation result tuple.
+    """Return the fixed core UI outputs from a generation result tuple.
 
-    The generate-button wiring expects 46 generation outputs from the wrapper,
+    The generate-button wiring expects generation core outputs from the wrapper,
     followed by 9 batch-state outputs. Any trailing fields from
     ``generate_with_progress`` are intentionally ignored here.
     """
-    return tuple(result_tuple[:46]) if len(result_tuple) >= 46 else tuple(result_tuple)
+    return (
+        tuple(result_tuple[:CORE_OUTPUT_COUNT])
+        if len(result_tuple) >= CORE_OUTPUT_COUNT
+        else tuple(result_tuple)
+    )
 
 
 def resolve_effective_lora_path(
@@ -279,9 +288,9 @@ def _apply_param_defaults(params):
 
 
 def _extract_scores(final_result):
-    """Extract score strings from generation tuple indices 12-19."""
+    """Extract score strings from the generation result tuple."""
     scores = []
-    for idx in range(12, 20):
+    for idx in range(SCORES_START_INDEX, SCORES_START_INDEX + AUDIO_SLOT_COUNT):
         if idx < len(final_result):
             val = final_result[idx]
             if hasattr(val, "value"):

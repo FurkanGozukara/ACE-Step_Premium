@@ -66,7 +66,7 @@ class BatchManagementBackgroundTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield one synthetic final result for background success path."""
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         with patch.dict(module.generate_next_batch_background.__globals__, {"generate_with_progress": _gen}):
             result = module.generate_next_batch_background(
@@ -93,7 +93,7 @@ class BatchManagementBackgroundTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield one synthetic final result for background success path."""
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         with patch.dict(module.generate_next_batch_background.__globals__, {"generate_with_progress": _gen}):
             module.generate_next_batch_background(
@@ -120,7 +120,7 @@ class BatchManagementBackgroundTests(unittest.TestCase):
         def _gen(*_args, **kwargs):
             """Capture generation kwargs and yield one synthetic result."""
             seen["no_fsq"] = kwargs.get("no_fsq")
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         with patch.dict(module.generate_next_batch_background.__globals__, {"generate_with_progress": _gen}):
             module.generate_next_batch_background(
@@ -149,8 +149,8 @@ class BatchManagementBackgroundTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield one result carrying LRC and subtitle lists."""
-            result = list(build_progress_result(length=48))
-            result[46] = {"lrcs": lrcs, "subtitles": subtitles}
+            result = list(build_progress_result(length=56))
+            result[54] = {"lrcs": lrcs, "subtitles": subtitles}
             yield tuple(result)
 
         with patch.dict(module.generate_next_batch_background.__globals__, {"generate_with_progress": _gen}):
@@ -177,7 +177,7 @@ class BatchManagementBackgroundTests(unittest.TestCase):
             """Request cancellation while background generation is streaming."""
 
             request_generation_cancel()
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         with patch.dict(
             module.generate_next_batch_background.__globals__,
@@ -259,7 +259,7 @@ class BatchManagementBackgroundTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield one result for MPS cache-clearing path."""
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         with patch.dict(module.generate_next_batch_background.__globals__, {"generate_with_progress": _gen}):
             module.generate_next_batch_background(
@@ -285,7 +285,7 @@ class BatchManagementBackgroundTests(unittest.TestCase):
 
         def _gen(*_args, **_kwargs):
             """Yield one result for non-MPS path."""
-            yield build_progress_result(length=48)
+            yield build_progress_result(length=56)
 
         with patch.dict(module.generate_next_batch_background.__globals__, {"generate_with_progress": _gen}):
             module.generate_next_batch_background(

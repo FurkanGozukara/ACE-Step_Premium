@@ -25,6 +25,13 @@ from acestep.core.generation.sampler_controls import (
 from acestep.core.generation.handler.repaint_waveform_splice import (
     apply_repaint_waveform_splice,
 )
+from acestep.core.generation.handler.repaint_segment_splice import (
+    apply_repaint_segment_splice,
+)
+from acestep.core.generation.handler.repaint_prompt import (
+    has_repaint_lyrics,
+    resolve_repaint_span_duration,
+)
 from acestep.gpu_config import (
     DIT_INFERENCE_VRAM_PER_BATCH,
     MODEL_VRAM,
@@ -367,10 +374,39 @@ class GenerateMusicMixin:
                     task_type,
                 )
 
+            has_target_repaint_lyrics = task_type == "repaint" and has_repaint_lyrics(lyrics)
+            local_repaint_duration = None
+            if has_target_repaint_lyrics and processed_src_audio is not None:
+                local_repaint_duration = resolve_repaint_span_duration(
+                    task_type,
+                    repainting_start,
+                    repainting_end,
+                    lyrics,
+                )
+            use_local_lyric_repaint = local_repaint_duration is not None
+            service_processed_src_audio = processed_src_audio
+            service_audio_duration = audio_duration
+            service_repainting_start = repainting_start
+            service_repainting_end = repainting_end
+            service_source_repaint_latents = source_repaint_latents
+            if use_local_lyric_repaint:
+                service_processed_src_audio = None
+                service_audio_duration = local_repaint_duration
+                service_repainting_start = 0.0
+                service_repainting_end = local_repaint_duration
+                service_source_repaint_latents = None
+                logger.info(
+                    "[generate_music] Lyric repaint: generating selected {:.2f}s span "
+                    "locally, then splicing into source at {:.2f}-{:.2f}s.",
+                    local_repaint_duration,
+                    float(repainting_start or 0.0),
+                    float(repainting_end),
+                )
+
             service_inputs = self._prepare_generate_music_service_inputs(
                 actual_batch_size=actual_batch_size,
-                processed_src_audio=processed_src_audio,
-                audio_duration=audio_duration,
+                processed_src_audio=service_processed_src_audio,
+                audio_duration=service_audio_duration,
                 captions=captions,
                 global_caption=global_caption,
                 lyrics=lyrics,
@@ -381,26 +417,34 @@ class GenerateMusicMixin:
                 time_signature=time_signature,
                 task_type=task_type,
                 audio_code_string=audio_code_string,
-                repainting_start=repainting_start,
-                repainting_end=repainting_end,
+                repainting_start=service_repainting_start,
+                repainting_end=service_repainting_end,
                 chunk_mask_mode=chunk_mask_mode,
             )
             vram_error = self._vram_preflight_check(
                 actual_batch_size=actual_batch_size,
-                audio_duration=audio_duration,
+                audio_duration=service_audio_duration,
                 guidance_scale=guidance_scale,
             )
             if vram_error is not None:
                 return vram_error
 
-            injection_ratio, resolved_cf_frames, resolved_wav_cf = (
-                _resolve_repaint_config(repaint_mode, repaint_strength)
+            effective_repaint_mode = repaint_mode
+            effective_repaint_strength = repaint_strength
+            if has_target_repaint_lyrics:
+                effective_repaint_mode = "aggressive"
+                effective_repaint_strength = 1.0
+            injection_ratio, resolved_cf_frames, resolved_wav_cf = _resolve_repaint_config(
+                effective_repaint_mode,
+                effective_repaint_strength,
             )
+            resolved_cf_frames = max(0, int(repaint_latent_crossfade_frames or 0))
+            resolved_wav_cf = max(0.0, float(repaint_wav_crossfade_sec or 0.0))
 
             service_run = self._run_generate_music_service_with_progress(
                 progress=progress,
                 actual_batch_size=actual_batch_size,
-                audio_duration=audio_duration,
+                audio_duration=service_audio_duration,
                 inference_steps=inference_steps,
                 timesteps=timesteps,
                 service_inputs=service_inputs,
@@ -424,7 +468,7 @@ class GenerateMusicMixin:
                 dcw_wavelet=dcw_wavelet,
                 repaint_crossfade_frames=resolved_cf_frames,
                 repaint_injection_ratio=injection_ratio,
-                source_repaint_latents=source_repaint_latents,
+                source_repaint_latents=service_source_repaint_latents,
                 task_type=task_type,
                 actual_retake_seed_list=actual_retake_seed_list,
                 retake_variance=retake_variance,
@@ -443,7 +487,7 @@ class GenerateMusicMixin:
                 outputs=outputs,
                 infer_steps_for_progress=infer_steps_for_progress,
                 actual_batch_size=actual_batch_size,
-                audio_duration=audio_duration,
+                audio_duration=service_audio_duration,
                 latent_shift=latent_shift,
                 latent_rescale=latent_rescale,
             )
@@ -457,14 +501,27 @@ class GenerateMusicMixin:
             repainting_start_batch = service_inputs.get("repainting_start_batch")
             repainting_end_batch = service_inputs.get("repainting_end_batch")
             do_wav_splice = (
-                repaint_mode != "aggressive"
-                and repainting_start_batch is not None
+                repainting_start_batch is not None
                 and repainting_end_batch is not None
             )
-            if do_wav_splice:
+            if use_local_lyric_repaint:
+                pred_wavs = apply_repaint_segment_splice(
+                    pred_segments=pred_wavs,
+                    src_wavs=processed_src_audio,
+                    repainting_starts=[float(repainting_start or 0.0)] * actual_batch_size,
+                    repainting_ends=[float(repainting_end)] * actual_batch_size,
+                    sample_rate=self.sample_rate,
+                    crossfade_duration=resolved_wav_cf,
+                )
+            elif do_wav_splice:
+                source_wavs_for_splice = (
+                    processed_src_audio
+                    if processed_src_audio is not None
+                    else service_inputs["target_wavs_tensor"]
+                )
                 pred_wavs = apply_repaint_waveform_splice(
                     pred_wavs=pred_wavs,
-                    src_wavs=service_inputs["target_wavs_tensor"],
+                    src_wavs=source_wavs_for_splice,
                     repainting_starts=repainting_start_batch,
                     repainting_ends=repainting_end_batch,
                     sample_rate=self.sample_rate,

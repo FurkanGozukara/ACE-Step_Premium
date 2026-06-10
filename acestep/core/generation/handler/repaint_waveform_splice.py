@@ -73,6 +73,11 @@ def apply_repaint_waveform_splice(
     Returns:
         Spliced waveform tensor with same shape as ``pred_wavs``.
     """
+    if src_wavs.dim() == 2:
+        src_wavs = src_wavs.unsqueeze(0)
+    if src_wavs.shape[0] == 1 and pred_wavs.shape[0] > 1:
+        src_wavs = src_wavs.expand(pred_wavs.shape[0], -1, -1)
+
     B = pred_wavs.shape[0]
     min_samples = min(pred_wavs.shape[-1], src_wavs.shape[-1])
 

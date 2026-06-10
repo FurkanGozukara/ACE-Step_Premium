@@ -15,12 +15,18 @@ from loguru import logger
 from acestep.audio_processing.generated_postprocess import postprocess_generated_sample
 from acestep.audio_processing.silence_trim import trim_silent_edges
 from acestep.audio_processing.settings import AudioProcessingSettings
+from acestep.constants import DEFAULT_DIT_INSTRUCTION, TASK_INSTRUCTIONS
+from acestep.core.generation.cancellation import check_generation_cancelled
+from acestep.core.generation.handler.flow_edit_params import normalize_flow_edit_n_avg
+from acestep.core.generation.handler.repaint_prompt import (
+    normalize_repaint_lyrics,
+    resolve_repaint_chunk_mask_mode,
+    resolve_repaint_vocal_language,
+)
 from acestep.sam_audio_segment.generated_postprocess import (
     postprocess_generated_sample as postprocess_generated_sam_audio,
 )
 from acestep.sam_audio_segment.settings import SamAudioSettings
-from acestep.core.generation.cancellation import check_generation_cancelled
-from acestep.core.generation.handler.flow_edit_params import normalize_flow_edit_n_avg
 from acestep.gpu_config import (
     get_global_gpu_config,
     check_duration_limit,
@@ -52,6 +58,11 @@ from acestep.ui.gradio.events.results.output_manager import (
 from acestep.ui.gradio.events.results.generation_task_type import resolve_no_fsq_task_type
 from acestep.ui.gradio.events.results.audio_playback_updates import (
     build_audio_slot_update,
+)
+from acestep.ui.gradio.events.results.result_output_contract import (
+    AUDIO_SLOT_COUNT,
+    is_bounded_source_edit,
+    source_audio_update_path,
 )
 from acestep.ui.gradio.events.results.extract_remaining_audio import (
     save_extract_remaining_audio,
@@ -116,7 +127,7 @@ def generate_with_progress(
     sample is processed, enabling progressive display of results.
 
     Yields:
-        Tuple of Gradio component updates for the 52-output generate event.
+        Tuple of Gradio component updates for the generation event.
     """
     from acestep.audio_utils import save_audio
     from acestep.inference import GenerationConfig, GenerationParams, generate_music
@@ -186,6 +197,14 @@ def generate_with_progress(
     # Only text2music (Custom mode) with thinking disabled should pass codes.
     if task_type != "text2music":
         text2music_audio_code_string = ""
+    lyrics = normalize_repaint_lyrics(task_type, lyrics or "")
+    vocal_language = resolve_repaint_vocal_language(task_type, vocal_language, lyrics or "")
+    chunk_mask_mode = resolve_repaint_chunk_mask_mode(task_type, "auto", lyrics or "")
+    if (
+        task_type in ("cover", "cover-nofsq", "repaint")
+        and str(instruction_display_gen or "").strip() in ("", DEFAULT_DIT_INSTRUCTION)
+    ):
+        instruction_display_gen = TASK_INSTRUCTIONS[task_type]
 
     gen_params = GenerationParams(
         task_type=task_type,
@@ -219,6 +238,7 @@ def generate_with_progress(
         timesteps=parsed_timesteps,
         repainting_start=repainting_start,
         repainting_end=repainting_end,
+        chunk_mask_mode=chunk_mask_mode,
         audio_cover_strength=audio_cover_strength,
         cover_noise_strength=cover_noise_strength,
         thinking=think_checkbox,
@@ -400,6 +420,15 @@ def generate_with_progress(
         for key, path in run_assets.items()
         if key.endswith("_path") and path
     ]
+    source_display_path = source_audio_update_path(
+        task_type,
+        run_assets.get("source_audio_path") or src_audio,
+    )
+    bounded_source_edit = is_bounded_source_edit(
+        task_type,
+        repainting_start,
+        repainting_end,
+    )
 
     if not result.success:
         build_generation_manifest(
@@ -417,6 +446,7 @@ def generate_with_progress(
         )
         yield (
             (None,) * 8
+            + (None,) * 8
             + (None, generation_info, result.status_message, gr.skip())
             + (gr.skip(),) * 8  # scores
             + (gr.skip(),) * 8  # codes_display
@@ -444,9 +474,14 @@ def generate_with_progress(
     clear_accordions = [gr.skip() for _ in range(8)]
     # Keep existing players mounted during generation to avoid browser volume reset.
     dump_audio = [gr.skip()] * 8
+    dump_original_audio = [
+        build_audio_slot_update(gr, None, visible=False)
+        for _ in range(AUDIO_SLOT_COUNT)
+    ]
 
     yield (
         *dump_audio,
+        *dump_original_audio,
         None, generation_info,
         f"Preparing generation... Model: {active_model}; steps: {actual_inference_steps}",
         gr.skip(),
@@ -509,13 +544,19 @@ def generate_with_progress(
             else {"applied": False}
         )
         original_audio_paths = dict(saved_audio_paths)
-        postprocess_metadata = postprocess_generated_sample(
-            source_audio_path=audio_path,
-            run_dir=temp_dir,
-            key=key,
-            settings=ap_settings,
-            original_audio_paths=original_audio_paths,
-        )
+        if bounded_source_edit:
+            postprocess_metadata = _skipped_bounded_edit_metadata(
+                ap_settings.enabled,
+                ap_settings.to_payload(),
+            )
+        else:
+            postprocess_metadata = postprocess_generated_sample(
+                source_audio_path=audio_path,
+                run_dir=temp_dir,
+                key=key,
+                settings=ap_settings,
+                original_audio_paths=original_audio_paths,
+            )
         if postprocess_metadata.get("applied"):
             processed_path = str(postprocess_metadata.get("audio_path") or "")
             if processed_path:
@@ -536,12 +577,18 @@ def generate_with_progress(
         if "mp3" in saved_audio_paths:
             audio_params["mp3_path"] = saved_audio_paths["mp3"]
 
-        sam_postprocess_metadata = postprocess_generated_sam_audio(
-            source_audio_path=audio_path,
-            run_dir=temp_dir,
-            key=key,
-            settings=sam_settings,
-        )
+        if bounded_source_edit:
+            sam_postprocess_metadata = _skipped_bounded_edit_metadata(
+                sam_settings.auto_postprocess,
+                sam_settings.to_payload(),
+            )
+        else:
+            sam_postprocess_metadata = postprocess_generated_sam_audio(
+                source_audio_path=audio_path,
+                run_dir=temp_dir,
+                key=key,
+                settings=sam_settings,
+            )
         if sam_postprocess_metadata.get("applied"):
             sam_target_path = str(sam_postprocess_metadata.get("target_audio_path") or "")
             if sam_target_path:
@@ -658,16 +705,24 @@ def generate_with_progress(
 
         # STEP 1: yield audio + clear LRC
         cur_audio = [gr.skip()] * visible_slots
+        cur_original_audio = [gr.skip()] * visible_slots
         cur_codes = [gr.skip()] * visible_slots
         cur_accordions = [gr.skip()] * 8
         lrc_clear = [gr.skip()] * visible_slots
         if i < visible_slots:
             cur_audio[i] = build_audio_slot_update(gr, audio_path)
+            if source_display_path:
+                cur_original_audio[i] = build_audio_slot_update(
+                    gr,
+                    source_display_path,
+                    visible=True,
+                )
             cur_codes[i] = gr.update(value=code_str, visible=True)
             lrc_clear[i] = gr.update(value="", visible=True)
 
         yield (
             *cur_audio,
+            *cur_original_audio,
             all_audio_paths, generation_info, f"Encoding & Ready: {i + 1}/{len(audios)}", seed_value_for_ui,
             *scores_ui_updates, *cur_codes, *cur_accordions, *lrc_clear,
             lm_generated_metadata, is_format_caption, None, None,
@@ -680,6 +735,7 @@ def generate_with_progress(
             lrc_set = [gr.skip()] * visible_slots
             lrc_set[i] = gr.update(value=final_lrcs_list[i], visible=True)
             yield (
+                *skip8,
                 *skip8,
                 gr.skip(), gr.skip(), gr.skip(), gr.skip(),
                 *skip8, *skip8, *skip8, *lrc_set,
@@ -727,13 +783,22 @@ def generate_with_progress(
     all_audio_paths.extend(run_asset_paths)
 
     audio_playback_updates = []
+    source_playback_updates = []
     for idx in range(8):
         path = audio_outputs[idx]
         if path:
             audio_playback_updates.append(build_audio_slot_update(gr, path))
+            source_playback_updates.append(
+                build_audio_slot_update(
+                    gr,
+                    source_display_path,
+                    visible=bool(source_display_path),
+                )
+            )
             logger.info(f"[generate_with_progress] Audio {idx + 1} path: {path}")
         else:
             audio_playback_updates.append(build_audio_slot_update(gr, None))
+            source_playback_updates.append(build_audio_slot_update(gr, None, visible=False))
 
     final_codes_display = [gr.skip()] * 8
     final_accordions = [gr.skip()] * 8
@@ -749,6 +814,7 @@ def generate_with_progress(
 
     yield (
         *audio_playback_updates,
+        *source_playback_updates,
         all_audio_paths, generation_info, "Generation Complete", seed_value_for_ui,
         *final_scores_list, *final_codes_display, *final_accordions,
         *final_lrcs_list[:visible_slots],
@@ -1017,6 +1083,19 @@ def _sam_audio_settings(raw_settings):
     if isinstance(raw_settings, SamAudioSettings):
         return raw_settings
     return SamAudioSettings.from_payload(raw_settings)
+
+
+def _skipped_bounded_edit_metadata(enabled, settings_payload):
+    """Return post-processing metadata for preserved bounded source edits."""
+
+    if not enabled:
+        return {"applied": False}
+    return {
+        "applied": False,
+        "skipped": True,
+        "reason": "bounded_source_edit_preserves_original_range",
+        "settings": settings_payload,
+    }
 
 
 def _trim_extract_audio(audio_tensor, *, sample_rate, task_type, enabled, threshold_db):

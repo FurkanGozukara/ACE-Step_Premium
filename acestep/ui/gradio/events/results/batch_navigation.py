@@ -25,17 +25,17 @@ def navigate_to_previous_batch(current_batch_index, batch_queue):
     """Navigate to the previous batch (result view only).
 
     Yields:
-        Two tuples of 48 Gradio component updates each.
+        Two tuples of 56 Gradio component updates each.
     """
     if current_batch_index <= 0:
         gr.Warning(t("messages.at_first_batch"))
-        yield tuple([gr.update()] * 48)
+        yield tuple([gr.update()] * 56)
         return
 
     new_idx = current_batch_index - 1
     if new_idx not in batch_queue:
         gr.Warning(t("messages.batch_not_found", n=new_idx + 1))
-        yield tuple([gr.update()] * 48)
+        yield tuple([gr.update()] * 56)
         return
 
     batch_data = batch_queue[new_idx]
@@ -49,6 +49,7 @@ def navigate_to_previous_batch(current_batch_index, batch_queue):
         else build_audio_slot_update(gr, None)
         for i in range(8)
     ]
+    source_audio_updates = _build_source_audio_updates(batch_data)
 
     total_batches = len(batch_queue)
     batch_indicator_text = update_batch_indicator(new_idx, total_batches)
@@ -64,6 +65,7 @@ def navigate_to_previous_batch(current_batch_index, batch_queue):
     # STEP 1: audio + clear LRC
     yield (
         *audio_updates,
+        *source_audio_updates,
         audio_paths, generation_info_text, new_idx, batch_indicator_text,
         gr.update(interactive=can_prev), gr.update(interactive=can_next),
         t("messages.viewing_batch", n=new_idx + 1),
@@ -77,6 +79,7 @@ def navigate_to_previous_batch(current_batch_index, batch_queue):
     skip8 = [gr.skip()] * 8
     yield (
         *skip8,
+        *skip8,
         gr.skip(), gr.skip(), gr.skip(), gr.skip(),
         gr.skip(), gr.skip(), gr.skip(),
         *skip8, *skip8, *lrc_updates, *skip8,
@@ -88,7 +91,7 @@ def navigate_to_next_batch(autogen_enabled, current_batch_index, total_batches, 
     """Navigate to the next batch (result view only).
 
     Yields:
-        Two tuples of 49 Gradio component updates each.
+        Two tuples of 57 Gradio component updates each.
     """
     # Derive actual total from batch_queue so we never rely on a stale
     # total_batches state value (the background generator may have added
@@ -97,13 +100,13 @@ def navigate_to_next_batch(autogen_enabled, current_batch_index, total_batches, 
 
     if current_batch_index >= total_batches - 1:
         gr.Warning(t("messages.at_last_batch"))
-        yield tuple([gr.update()] * 49)
+        yield tuple([gr.update()] * 57)
         return
 
     new_idx = current_batch_index + 1
     if new_idx not in batch_queue:
         gr.Warning(t("messages.batch_not_found", n=new_idx + 1))
-        yield tuple([gr.update()] * 49)
+        yield tuple([gr.update()] * 57)
         return
 
     batch_data = batch_queue[new_idx]
@@ -117,6 +120,7 @@ def navigate_to_next_batch(autogen_enabled, current_batch_index, total_batches, 
         else build_audio_slot_update(gr, None)
         for i in range(8)
     ]
+    source_audio_updates = _build_source_audio_updates(batch_data)
 
     batch_indicator_text = update_batch_indicator(new_idx, total_batches)
     can_prev, can_next = update_navigation_buttons(new_idx, total_batches)
@@ -135,6 +139,7 @@ def navigate_to_next_batch(autogen_enabled, current_batch_index, total_batches, 
     # STEP 1: audio + clear LRC
     yield (
         *audio_updates,
+        *source_audio_updates,
         audio_paths, generation_info_text, new_idx, batch_indicator_text,
         gr.update(interactive=can_prev), gr.update(interactive=can_next),
         t("messages.viewing_batch", n=new_idx + 1), next_batch_status_text,
@@ -147,6 +152,7 @@ def navigate_to_next_batch(autogen_enabled, current_batch_index, total_batches, 
     # STEP 2: skip audio + set actual LRC
     skip8 = [gr.skip()] * 8
     yield (
+        *skip8,
         *skip8,
         gr.skip(), gr.skip(), gr.skip(), gr.skip(),
         gr.skip(), gr.skip(),
@@ -188,3 +194,13 @@ def _build_detail_updates(batch_data, lrc_displays):
         accordion_updates.append(gr.skip())
 
     return codes_updates, lrc_updates, lrc_clears, accordion_updates
+
+
+def _build_source_audio_updates(batch_data):
+    """Build comparison-source audio updates for a stored batch."""
+    source_audio_paths = batch_data.get("source_audio_paths", [None] * 8) or [None] * 8
+    updates = []
+    for i in range(8):
+        path = source_audio_paths[i] if i < len(source_audio_paths) else None
+        updates.append(build_audio_slot_update(gr, path, visible=bool(path)))
+    return updates
