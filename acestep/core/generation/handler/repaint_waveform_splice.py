@@ -58,6 +58,7 @@ def apply_repaint_waveform_splice(
     repainting_ends: List[float],
     sample_rate: int = 48000,
     crossfade_duration: float = 0.01,
+    replacement_strength: float = 1.0,
 ) -> torch.Tensor:
     """Splice original user waveform into non-repaint regions after VAE decode.
 
@@ -69,6 +70,8 @@ def apply_repaint_waveform_splice(
         sample_rate: Audio sample rate (default 48000).
         crossfade_duration: Crossfade length in seconds at splice boundaries
             (default 0.01 = 10 ms).
+        replacement_strength: Generated-audio mix inside the repaint region.
+            ``0.0`` preserves source audio; ``1.0`` uses the generated audio.
 
     Returns:
         Spliced waveform tensor with same shape as ``pred_wavs``.
@@ -93,6 +96,7 @@ def apply_repaint_waveform_splice(
         device=pred_trimmed.device, dtype=pred_trimmed.dtype,
     )
 
+    replacement_strength = max(0.0, min(1.0, float(replacement_strength)))
     crossfade_samples = int(crossfade_duration * sample_rate)
     result = pred_trimmed.clone()
 
@@ -102,13 +106,10 @@ def apply_repaint_waveform_splice(
         start_sample = max(0, min(start_sample, min_samples))
         end_sample = max(start_sample, min(end_sample, min_samples))
 
-        if start_sample == 0 and end_sample >= min_samples:
-            continue
-
         mask = _build_waveform_crossfade_mask(
             min_samples, start_sample, end_sample, crossfade_samples,
             device=pred_trimmed.device,
-        )
+        ) * replacement_strength
         m = mask.unsqueeze(0).expand_as(result[b])
         result[b] = m * pred_trimmed[b] + (1.0 - m) * src_trimmed[b]
 

@@ -1,17 +1,16 @@
 """Waveform insertion for locally generated repaint replacement segments."""
 
-from typing import List
-
 import torch
 
 
 def apply_repaint_segment_splice(
     pred_segments: torch.Tensor,
     src_wavs: torch.Tensor,
-    repainting_starts: List[float],
-    repainting_ends: List[float],
+    repainting_starts: list[float],
+    repainting_ends: list[float],
     sample_rate: int = 48000,
     crossfade_duration: float = 0.0,
+    replacement_strength: float = 1.0,
 ) -> torch.Tensor:
     """Insert locally generated repaint segments into the original waveform.
 
@@ -22,9 +21,12 @@ def apply_repaint_segment_splice(
         repainting_ends: Per-batch insertion end time in seconds.
         sample_rate: Audio sample rate.
         crossfade_duration: Optional in-region fade length at both boundaries.
+        replacement_strength: Generated-audio mix in the replacement segment.
+            ``0.0`` preserves source audio; ``1.0`` uses the generated audio.
 
     Returns:
-        Full-length source waveform with each generated segment inserted.
+        Source waveform with the selected region replaced by the generated audible
+        segment, shrinking or expanding output to match the replacement length.
     """
     if src_wavs.dim() == 2:
         src_wavs = src_wavs.unsqueeze(0)
@@ -32,37 +34,46 @@ def apply_repaint_segment_splice(
         src_wavs = src_wavs.expand(pred_segments.shape[0], -1, -1)
 
     batch_size = min(pred_segments.shape[0], src_wavs.shape[0])
-    result = src_wavs[:batch_size].to(
+    source_batch = src_wavs[:batch_size].to(
         device=pred_segments.device,
         dtype=pred_segments.dtype,
-    ).clone()
+    )
     crossfade_samples = int(crossfade_duration * sample_rate)
+    replacement_strength = max(0.0, min(1.0, float(replacement_strength)))
+    spliced_wavs = []
 
     for b in range(batch_size):
+        source = source_batch[b]
         start_sample, end_sample = _resolve_segment_bounds(
             repainting_starts[b],
             repainting_ends[b],
-            result.shape[-1],
+            source.shape[-1],
             sample_rate,
         )
         target_samples = end_sample - start_sample
         if target_samples <= 0:
+            spliced_wavs.append(source.clone())
             continue
 
-        segment = _fit_segment_to_region(
+        segment = _prepare_replacement_segment(
             pred_segments[b],
-            target_channels=result.shape[1],
-            target_samples=target_samples,
+            target_channels=source.shape[0],
+            sample_rate=sample_rate,
         )
-        existing = result[b, :, start_sample:end_sample]
-        mask = _build_segment_crossfade_mask(
-            target_samples,
-            crossfade_samples,
-            pred_segments.device,
-        ).unsqueeze(0)
-        result[b, :, start_sample:end_sample] = mask * segment + (1.0 - mask) * existing
+        segment = _mix_segment_with_source(
+            segment,
+            source[:, start_sample:end_sample],
+            replacement_strength,
+        )
+        segment = _apply_segment_edge_fades(segment, crossfade_samples)
+        spliced_wavs.append(
+            torch.cat(
+                [source[:, :start_sample], segment, source[:, end_sample:]],
+                dim=-1,
+            )
+        )
 
-    return result
+    return _stack_spliced_wavs(spliced_wavs)
 
 
 def _resolve_segment_bounds(
@@ -79,38 +90,96 @@ def _resolve_segment_bounds(
     return start_sample, end_sample
 
 
-def _fit_segment_to_region(
+def _prepare_replacement_segment(
     segment: torch.Tensor,
     target_channels: int,
-    target_samples: int,
+    sample_rate: int,
 ) -> torch.Tensor:
-    """Return segment audio with the requested channel count and duration."""
+    """Return audible segment audio with the requested channel count."""
     if segment.shape[0] != target_channels:
         if segment.shape[0] == 1 and target_channels == 2:
             segment = segment.expand(2, -1)
         else:
             segment = segment[:target_channels]
 
-    if segment.shape[-1] > target_samples:
-        return segment[..., :target_samples]
-    if segment.shape[-1] < target_samples:
-        return torch.nn.functional.pad(segment, (0, target_samples - segment.shape[-1]))
-    return segment
+    return _trim_trailing_silence(segment, sample_rate=sample_rate)
 
 
-def _build_segment_crossfade_mask(
-    total_samples: int,
-    crossfade_samples: int,
-    device: torch.device,
+def _mix_segment_with_source(
+    segment: torch.Tensor,
+    source_region: torch.Tensor,
+    replacement_strength: float,
 ) -> torch.Tensor:
-    """Build a local replacement mask with optional fades inside the segment."""
-    mask = torch.ones(total_samples, device=device)
-    fade_samples = min(crossfade_samples, total_samples // 2)
-    if fade_samples <= 0:
-        return mask
+    """Blend a generated replacement segment with the selected source audio."""
+    if replacement_strength >= 1.0 or segment.shape[-1] == 0:
+        return segment
 
-    fade_in = torch.linspace(0.0, 1.0, fade_samples + 2, device=device)[1:-1]
-    fade_out = torch.linspace(1.0, 0.0, fade_samples + 2, device=device)[1:-1]
-    mask[:fade_samples] = fade_in
-    mask[-fade_samples:] = torch.minimum(mask[-fade_samples:], fade_out)
-    return mask
+    source_mix = _fit_source_region_to_segment(source_region, segment.shape[-1])
+    if replacement_strength <= 0.0:
+        return source_mix
+    return replacement_strength * segment + (1.0 - replacement_strength) * source_mix
+
+
+def _fit_source_region_to_segment(
+    source_region: torch.Tensor,
+    target_samples: int,
+) -> torch.Tensor:
+    """Return source-region audio with exactly ``target_samples`` samples."""
+    if source_region.shape[-1] > target_samples:
+        return source_region[..., :target_samples]
+    if source_region.shape[-1] < target_samples:
+        return torch.nn.functional.pad(source_region, (0, target_samples - source_region.shape[-1]))
+    return source_region
+
+
+def _trim_trailing_silence(
+    segment: torch.Tensor,
+    sample_rate: int,
+    silence_rms_threshold: float = 0.005,
+    window_seconds: float = 0.25,
+) -> torch.Tensor:
+    """Remove sustained low-RMS trailing silence from a generated segment."""
+    if segment.shape[-1] == 0:
+        return segment
+
+    window_samples = max(1, int(sample_rate * window_seconds))
+    total_samples = segment.shape[-1]
+    end = total_samples
+
+    while end > 0:
+        start = max(0, end - window_samples)
+        window = segment[:, start:end]
+        rms = torch.sqrt(torch.mean(window.float() * window.float()))
+        if float(rms.item()) >= silence_rms_threshold:
+            return segment[..., :end]
+        end = start
+
+    return segment[..., :0]
+
+
+def _apply_segment_edge_fades(
+    segment: torch.Tensor,
+    crossfade_samples: int,
+) -> torch.Tensor:
+    """Apply optional short fades to a variable-length replacement segment."""
+    fade_samples = min(crossfade_samples, segment.shape[-1] // 2)
+    if fade_samples <= 0:
+        return segment
+
+    faded = segment.clone()
+    fade_in = torch.linspace(0.0, 1.0, fade_samples + 2, device=segment.device)[1:-1]
+    fade_out = torch.linspace(1.0, 0.0, fade_samples + 2, device=segment.device)[1:-1]
+    faded[:, :fade_samples] *= fade_in.unsqueeze(0)
+    faded[:, -fade_samples:] *= fade_out.unsqueeze(0)
+    return faded
+
+
+def _stack_spliced_wavs(spliced_wavs: list[torch.Tensor]) -> torch.Tensor:
+    """Stack variable-length spliced waveforms, padding only for batch shape."""
+    max_samples = max(wav.shape[-1] for wav in spliced_wavs)
+    padded_wavs = []
+    for wav in spliced_wavs:
+        if wav.shape[-1] < max_samples:
+            wav = torch.nn.functional.pad(wav, (0, max_samples - wav.shape[-1]))
+        padded_wavs.append(wav)
+    return torch.stack(padded_wavs, dim=0)

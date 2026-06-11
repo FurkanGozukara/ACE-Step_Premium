@@ -200,7 +200,7 @@ class GenerationParams:
     repaint_latent_crossfade_frames: int = 10  # latent-level boundary blend width (25Hz frames, 10≈0.4s)
     repaint_wav_crossfade_sec: float = 0.0  # waveform-level splice crossfade (seconds, 0=hard cut)
     repaint_mode: str = "balanced"  # "conservative", "balanced", or "aggressive"
-    repaint_strength: float = 0.5  # 0.0=aggressive, 1.0=conservative (balanced mode only)
+    repaint_strength: float = 0.5  # 0.0=conservative, 1.0=aggressive (balanced mode only)
     # Retake (issue #1155): variance-preserving noise mixing for variation generation.
     # retake_variance=0 is a no-op; the retake_seed is only consumed when variance>0.
     retake_seed: Optional[Union[str, int]] = None
