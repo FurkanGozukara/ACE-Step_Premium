@@ -19,8 +19,18 @@ from pathlib import Path
 from typing import Any
 
 from acestep.audio_processing.auto_editor_trim_settings import (
+    AUTO_EDITOR_MARGIN_DEFAULT_SECONDS,
+    AUTO_EDITOR_MINCLIP_DEFAULT,
+    AUTO_EDITOR_MINCUT_DEFAULT,
     AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
+    coerce_auto_editor_margin_seconds,
+    coerce_auto_editor_smooth_value,
     coerce_auto_editor_threshold_db,
+)
+from acestep.audio_processing.auto_editor_workflow import (
+    AUTO_EDITOR_WORKFLOW_EXPORT_KEY,
+    AUTO_EDITOR_WORKFLOW_EXPORT_NONE,
+    normalize_workflow_export_mode,
 )
 
 _ASSET_FILENAME = "user_preferences.js"
@@ -44,6 +54,12 @@ PREF_KEYS: list[str] = [
     "fade_out_duration",
     "extract_trim_empty_output",
     "extract_trim_threshold_db",
+    "ap_trim_empty_output",
+    "ap_trim_threshold_db",
+    "ap_trim_margin_seconds",
+    "ap_trim_mincut",
+    "ap_trim_minclip",
+    AUTO_EDITOR_WORKFLOW_EXPORT_KEY,
     "latent_shift",
     "latent_rescale",
     "lm_batch_chunk_size",
@@ -63,6 +79,12 @@ _DEFAULTS: dict[str, Any] = {
     "fade_out_duration": 0.0,
     "extract_trim_empty_output": False,
     "extract_trim_threshold_db": AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
+    "ap_trim_empty_output": False,
+    "ap_trim_threshold_db": AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
+    "ap_trim_margin_seconds": AUTO_EDITOR_MARGIN_DEFAULT_SECONDS,
+    "ap_trim_mincut": AUTO_EDITOR_MINCUT_DEFAULT,
+    "ap_trim_minclip": AUTO_EDITOR_MINCLIP_DEFAULT,
+    AUTO_EDITOR_WORKFLOW_EXPORT_KEY: AUTO_EDITOR_WORKFLOW_EXPORT_NONE,
     "latent_shift": 0.0,
     "latent_rescale": 1.0,
     "lm_batch_chunk_size": 8,
@@ -232,6 +254,16 @@ def restore_preferences(
             results.append(_normalize_extract_audio_format(v))
         elif i < n_prefs and PREF_KEYS[i] == "extract_trim_threshold_db":
             results.append(coerce_auto_editor_threshold_db(v))
+        elif i < n_prefs and PREF_KEYS[i] == "ap_trim_threshold_db":
+            results.append(coerce_auto_editor_threshold_db(v))
+        elif i < n_prefs and PREF_KEYS[i] == "ap_trim_margin_seconds":
+            results.append(coerce_auto_editor_margin_seconds(v))
+        elif i < n_prefs and PREF_KEYS[i] == "ap_trim_mincut":
+            results.append(coerce_auto_editor_smooth_value(v, AUTO_EDITOR_MINCUT_DEFAULT))
+        elif i < n_prefs and PREF_KEYS[i] == "ap_trim_minclip":
+            results.append(coerce_auto_editor_smooth_value(v, AUTO_EDITOR_MINCLIP_DEFAULT))
+        elif i < n_prefs and PREF_KEYS[i] == AUTO_EDITOR_WORKFLOW_EXPORT_KEY:
+            results.append(normalize_workflow_export_mode(v))
         else:
             results.append(v)
     return tuple(results)

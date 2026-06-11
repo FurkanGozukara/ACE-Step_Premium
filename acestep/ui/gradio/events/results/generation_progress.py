@@ -28,7 +28,10 @@ from acestep.core.generation.handler.lego_prompt import normalize_lego_lyrics
 from acestep.sam_audio_segment.generated_postprocess import (
     postprocess_generated_sample as postprocess_generated_sam_audio,
 )
-from acestep.sam_audio_segment.settings import SamAudioSettings
+from acestep.sam_audio_segment.settings import (
+    SamAudioSettings,
+    with_auto_editor_trim_settings,
+)
 from acestep.gpu_config import (
     get_global_gpu_config,
     check_duration_limit,
@@ -188,7 +191,10 @@ def generate_with_progress(
         backend_audio_format = audio_format
     auxiliary_audio_format = _auxiliary_audio_format(backend_audio_format)
     ap_settings = replace(ap_settings, output_format=auxiliary_audio_format)
-    sam_settings = replace(sam_settings, output_format=auxiliary_audio_format)
+    sam_settings = with_auto_editor_trim_settings(
+        replace(sam_settings, output_format=auxiliary_audio_format),
+        ap_settings.trim_settings(),
+    )
 
     # text2music never uses src_audio EXCEPT when flow_edit_morph is on:
     # the morph overlay needs the source audio for ``zt_src``/``zt_tar``
@@ -512,6 +518,7 @@ def generate_with_progress(
             sample_rate=sample_rate,
             task_type=task_type,
             enabled=extract_trim_empty_output,
+            trim_settings=ap_settings.trim_settings(),
             threshold_db=extract_trim_threshold_db,
         )
         audio_params["extract_trim"] = extract_trim_metadata
@@ -1209,7 +1216,15 @@ def _skipped_bounded_edit_metadata(enabled, settings_payload):
     }
 
 
-def _trim_extract_audio(audio_tensor, *, sample_rate, task_type, enabled, threshold_db):
+def _trim_extract_audio(
+    audio_tensor,
+    *,
+    sample_rate,
+    task_type,
+    enabled,
+    trim_settings,
+    threshold_db,
+):
     """Return trimmed ACE-Step Extract audio plus metadata."""
 
     normalized_task_type = str(task_type or "").strip()
@@ -1227,6 +1242,8 @@ def _trim_extract_audio(audio_tensor, *, sample_rate, task_type, enabled, thresh
         audio_tensor,
         sample_rate=int(sample_rate or 48000),
         enabled=True,
+        trim_settings=trim_settings,
+        threshold_db=None if trim_settings is not None else threshold_db,
     )
     metadata = dict(trim_result.metadata)
     metadata["task_type"] = normalized_task_type

@@ -84,9 +84,11 @@ def create_audio_processing_page() -> dict[str, Any]:
                     label="Auto-Editor trim silent sections",
                     value=False,
                     info=(
-                        "Optional. Uses auto-editor to trim out silent sections "
-                        "after audio processing."
+                        "Runs Auto-Editor after processing. It keeps sections louder "
+                        "than the threshold and cuts quiet gaps; ACE-Step Extract and "
+                        "SAM Audio auto trim use these same trim behavior values."
                     ),
+                    elem_id="acestep-ap-trim-empty-output",
                     scale=2,
                     min_width=220,
                 )
@@ -97,8 +99,11 @@ def create_audio_processing_page() -> dict[str, Any]:
                     value=AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
                     label="Auto-Editor threshold (dB)",
                     info=(
-                        "Default -40 dB, matching Auto Encode & Shorten."
+                        "Volume level used to decide what is active audio. Less "
+                        "negative is more aggressive: -35 dB cuts more room tone, "
+                        "while -55 dB keeps quieter breaths and reverb tails."
                     ),
+                    elem_id="acestep-ap-trim-threshold-db",
                     scale=2,
                     min_width=180,
                 )
@@ -108,7 +113,12 @@ def create_audio_processing_page() -> dict[str, Any]:
                     step=0.1,
                     value=AUTO_EDITOR_MARGIN_DEFAULT_SECONDS,
                     label="Auto-Editor margin (s)",
-                    info="Keeps this much audio before and after non-silent sections.",
+                    info=(
+                        "Extra audio kept before and after each kept section. "
+                        "Example: 0.3 keeps 0.3 seconds around a detected vocal or "
+                        "beat so the cut does not clip the attack or tail."
+                    ),
+                    elem_id="acestep-ap-trim-margin-seconds",
                     scale=2,
                     min_width=180,
                 )
@@ -118,7 +128,12 @@ def create_audio_processing_page() -> dict[str, Any]:
                     step=1,
                     value=AUTO_EDITOR_MINCUT_DEFAULT,
                     label="Auto-Editor mincut",
-                    info="Default 20, matching Auto Encode & Shorten.",
+                    info=(
+                        "Shortest quiet gap Auto-Editor may remove, in timeline "
+                        "frames, usually 30 per second. Example: 20 is about 0.67s, "
+                        "so a 0.3s pause stays but a 1s gap can be cut."
+                    ),
+                    elem_id="acestep-ap-trim-mincut",
                     scale=2,
                     min_width=160,
                 )
@@ -128,7 +143,12 @@ def create_audio_processing_page() -> dict[str, Any]:
                     step=1,
                     value=AUTO_EDITOR_MINCLIP_DEFAULT,
                     label="Auto-Editor minclip",
-                    info="Default 4, matching Auto Encode & Shorten.",
+                    info=(
+                        "Shortest active section Auto-Editor may keep, in timeline "
+                        "frames. Example: 4 is about 0.13s and keeps quick consonants; "
+                        "higher values can discard tiny noises but may remove short hits."
+                    ),
+                    elem_id="acestep-ap-trim-minclip",
                     scale=2,
                     min_width=160,
                 )
@@ -136,7 +156,12 @@ def create_audio_processing_page() -> dict[str, Any]:
                     choices=AUTO_EDITOR_WORKFLOW_EXPORT_CHOICES,
                     value=AUTO_EDITOR_WORKFLOW_EXPORT_NONE,
                     label="Auto-Editor workflow export",
-                    info="When selected, Process File exports only this workflow file.",
+                    info=(
+                        "For Process File only. Exports an Auto-Editor timeline or "
+                        "editor project instead of rendering media, using the current "
+                        "trim settings so you can inspect or edit the planned cuts."
+                    ),
+                    elem_id="acestep-ap-auto-editor-workflow-export",
                     scale=2,
                     min_width=190,
                 )

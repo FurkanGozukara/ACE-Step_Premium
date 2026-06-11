@@ -45,8 +45,9 @@ def add_generation_controls(controls: dict[str, Any]) -> None:
                     label="Auto-Editor trim output",
                     value=False,
                     info=(
-                        "Uses the Auto Encode & Shorten defaults to remove "
-                        "silent parts from the extracted target audio."
+                        "Removes quiet sections from the SAM target audio. "
+                        "Threshold, margin, mincut, and minclip come from "
+                        "the Audio Processing tab."
                     ),
                 )
                 controls["sam_trim_threshold_db"] = gr.Number(

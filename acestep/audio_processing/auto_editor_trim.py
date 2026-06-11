@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -14,6 +14,7 @@ from .auto_editor_runner import create_analysis_wav, read_v3_audio_spans, run_au
 from .auto_editor_trim_settings import (
     DEFAULT_AUTO_EDITOR_TRIM_SETTINGS,
     AutoEditorTrimSettings,
+    coerce_auto_editor_threshold_db,
 )
 from .process_logging import ProcessCallback
 
@@ -38,7 +39,7 @@ def trim_silent_edges(
     """Cut inactive audio sections with auto-editor and return metadata."""
 
     sample_count = audio_sample_count(audio)
-    settings = trim_settings or DEFAULT_AUTO_EDITOR_TRIM_SETTINGS
+    settings = _effective_trim_settings(trim_settings, threshold_db)
     metadata = _base_metadata(enabled, sample_rate, sample_count, settings)
     if not enabled:
         metadata["reason"] = "disabled"
@@ -87,6 +88,18 @@ def audio_sample_count(audio: torch.Tensor) -> int:
     if audio.ndim == 1:
         return int(audio.shape[0])
     return int(audio.shape[-1])
+
+
+def _effective_trim_settings(
+    trim_settings: AutoEditorTrimSettings | None,
+    threshold_db: object | None,
+) -> AutoEditorTrimSettings:
+    """Return trim settings with an optional threshold override applied."""
+
+    settings = trim_settings or DEFAULT_AUTO_EDITOR_TRIM_SETTINGS
+    if threshold_db is None:
+        return settings
+    return replace(settings, threshold_db=coerce_auto_editor_threshold_db(threshold_db))
 
 
 def _detect_spans_with_auto_editor(

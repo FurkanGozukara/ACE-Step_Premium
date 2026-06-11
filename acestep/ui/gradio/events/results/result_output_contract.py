@@ -21,6 +21,18 @@ CODES_LIST_INDEX = 55
 
 SOURCE_COMPARE_TASKS = frozenset({"cover", "cover-nofsq", "repaint", "lego", "complete"})
 BOUNDED_SOURCE_EDIT_TASKS = frozenset({"repaint", "lego", "complete"})
+LATEST_EDIT_AREA_KINDS_BY_SUFFIX = (
+    ("_latest_remixed_area", "remix"),
+    ("_latest_repainted_area", "repaint"),
+    ("_latest_lego_area", "lego"),
+    ("_latest_completed_area", "complete"),
+)
+LATEST_EDIT_AREA_LABELS_BY_KIND = {
+    "remix": ("Latest Remixed Area", "Latest Remixed Area Original"),
+    "repaint": ("Latest Repainted Area", "Latest Repainted Area Original"),
+    "lego": ("Latest LEGO Area", "Latest LEGO Area Original"),
+    "complete": ("Latest Completed Area", "Latest Completed Area Original"),
+}
 
 
 def should_show_source_audio(task_type: str | None) -> bool:
@@ -82,22 +94,45 @@ def extract_source_audio_path(all_audio_paths: Any) -> str | None:
 def extract_latest_edit_area_paths(all_audio_paths: Any) -> tuple[str | None, str | None]:
     """Find latest edited-area generated/original clip paths in a file list."""
 
+    generated_path, original_path, _kind = extract_latest_edit_area_info(all_audio_paths)
+    return generated_path, original_path
+
+
+def extract_latest_edit_area_info(
+    all_audio_paths: Any,
+) -> tuple[str | None, str | None, str | None]:
+    """Find latest edited-area paths and the task kind encoded in their filenames."""
+
     if not isinstance(all_audio_paths, (list, tuple)):
-        return None, None
+        return None, None, None
 
     generated_path = None
     original_path = None
+    generated_kind = None
+    original_kind = None
     for path in all_audio_paths:
         path_text = str(path or "")
         if not path_text:
             continue
         stem = Path(path_text).stem.lower()
         normalized = path_text.replace("\\", "/")
-        if stem.endswith("_latest_repainted_area_original"):
-            original_path = normalized
-        elif stem.endswith("_latest_repainted_area"):
-            generated_path = normalized
-    return generated_path, original_path
+        for suffix, kind in LATEST_EDIT_AREA_KINDS_BY_SUFFIX:
+            if stem.endswith(f"{suffix}_original"):
+                original_path = normalized
+                original_kind = kind
+            elif stem.endswith(suffix):
+                generated_path = normalized
+                generated_kind = kind
+    return generated_path, original_path, generated_kind or original_kind
+
+
+def latest_edit_area_labels(task_kind: str | None) -> tuple[str, str]:
+    """Return generated/original labels for a latest edited-area task kind."""
+
+    return LATEST_EDIT_AREA_LABELS_BY_KIND.get(
+        task_kind or "repaint",
+        LATEST_EDIT_AREA_LABELS_BY_KIND["repaint"],
+    )
 
 
 def extract_lego_generated_track_path(all_audio_paths: Any) -> str | None:

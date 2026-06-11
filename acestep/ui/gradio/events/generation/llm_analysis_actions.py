@@ -25,6 +25,9 @@ def analyze_src_audio(
     device: str | None = None,
     offload_to_cpu: bool = False,
     task_type: str | None = None,
+    current_caption: str | None = None,
+    current_lyrics: str | None = None,
+    update_caption_lyrics: bool = False,
     **dit_init_kwargs,
 ):
     """Analyze source audio and optionally transcribe generated audio codes.
@@ -35,18 +38,45 @@ def analyze_src_audio(
         src_audio: Path to source audio file.
         constrained_decoding_debug: Whether constrained-decoding debug logs are enabled.
         task_type: Current generation task type, used to reject Extract-mode Analyze.
+        current_caption: Existing caption text in the UI.
+        current_lyrics: Existing lyrics text in the UI.
+        update_caption_lyrics: Whether Analyze may replace non-empty caption/lyrics.
         dit_init_kwargs: Selected DiT model/runtime options for on-demand init.
 
     Returns:
         Tuple of ``(audio_codes, status, caption, lyrics, bpm, duration,
         keyscale, language, timesignature, is_format_caption)``.
     """
-    error_tuple = ("", "", "", "", None, None, "", "", "", False)
+    current_caption_text = _current_text(current_caption)
+    current_lyrics_text = _current_text(current_lyrics)
+    error_tuple = (
+        "",
+        "",
+        current_caption_text,
+        current_lyrics_text,
+        None,
+        None,
+        "",
+        "",
+        "",
+        False,
+    )
 
     if str(task_type or "").strip().lower() == "extract":
         message = t("messages.extract_mode_analyze_not_useful")
         gr.Info(message)
-        return ("", message, "", "", None, None, "", "", "", False)
+        return (
+            "",
+            message,
+            current_caption_text,
+            current_lyrics_text,
+            None,
+            None,
+            "",
+            "",
+            "",
+            False,
+        )
 
     src_audio = latest_upload_path(src_audio)
     if not src_audio:
@@ -74,8 +104,8 @@ def analyze_src_audio(
         return (
             codes_string or "",
             t("messages.no_audio_codes_generated"),
-            "",
-            "",
+            current_caption_text,
+            current_lyrics_text,
             None,
             None,
             "",
@@ -97,8 +127,8 @@ def analyze_src_audio(
         return (
             codes_string,
             status_message,
-            "",
-            "",
+            current_caption_text,
+            current_lyrics_text,
             None,
             None,
             "",
@@ -118,8 +148,8 @@ def analyze_src_audio(
         return (
             codes_string,
             result.status_message,
-            "",
-            "",
+            current_caption_text,
+            current_lyrics_text,
             None,
             None,
             "",
@@ -137,8 +167,8 @@ def analyze_src_audio(
     return (
         codes_string,
         status_message,
-        result.caption,
-        result.lyrics,
+        _analyze_text_value(current_caption, result.caption, update_caption_lyrics),
+        _analyze_text_value(current_lyrics, result.lyrics, update_caption_lyrics),
         result.bpm,
         clamped_duration,
         result.keyscale,
@@ -146,6 +176,25 @@ def analyze_src_audio(
         result.timesignature,
         True,
     )
+
+
+def _analyze_text_value(
+    current_value: str | None,
+    analyzed_value: str | None,
+    update_caption_lyrics: bool,
+) -> str:
+    """Return analysis text only when replacement is allowed or the UI field is blank."""
+
+    current_text = "" if current_value is None else str(current_value)
+    if update_caption_lyrics or not current_text.strip():
+        return analyzed_value or ""
+    return current_text
+
+
+def _current_text(value: str | None) -> str:
+    """Return the existing UI text as a string without treating whitespace as blank."""
+
+    return "" if value is None else str(value)
 
 
 def transcribe_audio_codes(

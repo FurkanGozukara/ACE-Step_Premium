@@ -35,6 +35,14 @@
                               { elemId: "acestep-extract-trim-empty-output", type: "checkbox" },
         extract_trim_threshold_db:
                               { elemId: "acestep-extract-trim-threshold-db", type: "slider"   },
+        ap_trim_empty_output: { elemId: "acestep-ap-trim-empty-output", type: "checkbox" },
+        ap_trim_threshold_db: { elemId: "acestep-ap-trim-threshold-db", type: "slider" },
+        ap_trim_margin_seconds:
+                              { elemId: "acestep-ap-trim-margin-seconds", type: "slider" },
+        ap_trim_mincut:       { elemId: "acestep-ap-trim-mincut", type: "slider" },
+        ap_trim_minclip:      { elemId: "acestep-ap-trim-minclip", type: "slider" },
+        ap_auto_editor_workflow_export:
+                              { elemId: "acestep-ap-auto-editor-workflow-export", type: "dropdown" },
         latent_shift:        { elemId: "acestep-latent-shift",        type: "slider"   },
         latent_rescale:      { elemId: "acestep-latent-rescale",      type: "slider"   },
         lm_batch_chunk_size: { elemId: "acestep-lm-batch-chunk-size", type: "number"   },

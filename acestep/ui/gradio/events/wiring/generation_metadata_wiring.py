@@ -28,17 +28,43 @@ def register_generation_metadata_handlers(
     def analyze_source_audio_for_mode(*args: Any) -> Any:
         """Analyze source audio unless the current mode uses Extract flow."""
 
+        (
+            src_audio,
+            constrained_decoding_debug,
+            lm_model_path,
+            backend,
+            device,
+            offload_to_cpu,
+            config_path,
+            use_flash_attention,
+            offload_dit_to_cpu,
+            compile_model,
+            quantization,
+            mlx_dit,
+            task_type,
+            current_caption,
+            current_lyrics,
+            update_caption_lyrics,
+        ) = args
         return gen_h.analyze_src_audio(
             dit_handler,
             llm_handler,
-            *args[:6],
-            config_path=args[6],
-            use_flash_attention=args[7],
-            offload_dit_to_cpu=args[8],
-            compile_model=args[9],
-            quantization=args[10],
-            mlx_dit=args[11],
-            task_type=args[12],
+            src_audio,
+            constrained_decoding_debug,
+            lm_model_path,
+            backend,
+            device,
+            offload_to_cpu,
+            config_path=config_path,
+            use_flash_attention=use_flash_attention,
+            offload_dit_to_cpu=offload_dit_to_cpu,
+            compile_model=compile_model,
+            quantization=quantization,
+            mlx_dit=mlx_dit,
+            task_type=task_type,
+            current_caption=current_caption,
+            current_lyrics=current_lyrics,
+            update_caption_lyrics=update_caption_lyrics,
         )
 
     # ========== Audio Conversion (LM Codes Hints accordion in Custom mode) ==========
@@ -80,6 +106,9 @@ def register_generation_metadata_handlers(
             generation_section["quantization_checkbox"],
             generation_section["mlx_dit_checkbox"],
             generation_section["task_type"],
+            generation_section["captions"],
+            generation_section["lyrics"],
+            generation_section["analyze_update_caption_lyrics"],
         ],
         outputs=[
             generation_section["text2music_audio_code_string"],

@@ -9,8 +9,9 @@ from acestep.ui.gradio.events.results.result_output_contract import (
     ALL_AUDIO_PATHS_INDEX,
     STATUS_INDEX,
     extract_lego_generated_track_path,
-    extract_latest_edit_area_paths,
+    extract_latest_edit_area_info,
     extract_source_audio_path,
+    latest_edit_area_labels,
 )
 
 _GENERATED_AUDIO_OUTPUT_INDEX = 0
@@ -77,9 +78,7 @@ def inline_result_preview_from_generation_outputs(
         return gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip()
     audio_update = _output_at(outputs, _GENERATED_AUDIO_OUTPUT_INDEX)
     generated_files = _output_at(outputs, _GENERATED_FILES_OUTPUT_INDEX)
-    remaining_update = _remaining_audio_update(
-        generated_files
-    )
+    remaining_update = _remaining_audio_update(generated_files)
     edit_area_update, edit_area_original_update = _edit_area_updates(generated_files)
     lego_part_update = _lego_part_update(generated_files)
     status_update = _status_update_from_output(_output_at(outputs, _STATUS_OUTPUT_INDEX))
@@ -141,14 +140,15 @@ def _remaining_audio_update(paths: Any) -> Any:
 def _edit_area_updates(paths: Any) -> tuple[Any, Any]:
     """Return updates for generated/original latest edited-area players."""
 
-    generated_path, original_path = extract_latest_edit_area_paths(paths)
+    generated_path, original_path, task_kind = extract_latest_edit_area_info(paths)
     if not generated_path or not original_path:
         return _hidden_repainted_area_update(), _hidden_repainted_area_original_update()
+    generated_label, original_label = latest_edit_area_labels(task_kind)
     return (
-        gr.update(value=generated_path, label="Latest Repainted Area", visible=True),
+        gr.update(value=generated_path, label=generated_label, visible=True),
         gr.update(
             value=original_path,
-            label="Latest Repainted Area Original",
+            label=original_label,
             visible=True,
         ),
     )

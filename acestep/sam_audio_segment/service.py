@@ -276,6 +276,7 @@ class SamAudioService:
             include_video=self.settings.include_video,
             metadata=metadata,
             trim_empty_output=self.settings.trim_empty_output,
+            trim_settings=self.settings.trim_settings(),
             trim_threshold_db=self.settings.trim_threshold_db,
         )
         report_progress(self.progress_callback, 1.0, "SAM-Audio complete")

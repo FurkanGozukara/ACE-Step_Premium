@@ -123,6 +123,82 @@ class GenerationHandlersTests(unittest.TestCase):
         understand_music_mock.assert_called_once()
         warning_mock.assert_not_called()
 
+    @patch("acestep.ui.gradio.events.generation.llm_analysis_actions.gr.Warning")
+    @patch("acestep.ui.gradio.events.generation.llm_analysis_actions.understand_music")
+    def test_analyze_src_audio_preserves_existing_text_when_update_disabled(
+        self,
+        understand_music_mock,
+        warning_mock,
+    ):
+        """Analyze should not replace non-empty caption/lyrics when text updates are off."""
+
+        dit_handler = _FakeDitHandler("<|audio_code_123|><|audio_code_456|>")
+        llm_handler = SimpleNamespace(llm_initialized=True)
+        understand_music_mock.return_value = SimpleNamespace(
+            success=True,
+            status_message="ok",
+            caption="new caption",
+            lyrics="new lyrics",
+            bpm=120,
+            duration=30.0,
+            keyscale="C major",
+            language="en",
+            timesignature="4",
+        )
+
+        result = generation_handlers.analyze_src_audio(
+            dit_handler=dit_handler,
+            llm_handler=llm_handler,
+            src_audio="real.mp3",
+            constrained_decoding_debug=False,
+            current_caption="existing caption",
+            current_lyrics="existing lyrics",
+            update_caption_lyrics=False,
+        )
+
+        self.assertEqual(result[2], "existing caption")
+        self.assertEqual(result[3], "existing lyrics")
+        self.assertEqual(result[4], 120)
+        self.assertEqual(result[6], "C major")
+        warning_mock.assert_not_called()
+
+    @patch("acestep.ui.gradio.events.generation.llm_analysis_actions.gr.Warning")
+    @patch("acestep.ui.gradio.events.generation.llm_analysis_actions.understand_music")
+    def test_analyze_src_audio_fills_blank_text_when_update_disabled(
+        self,
+        understand_music_mock,
+        warning_mock,
+    ):
+        """Analyze may populate blank caption/lyrics even when text updates are off."""
+
+        dit_handler = _FakeDitHandler("<|audio_code_123|><|audio_code_456|>")
+        llm_handler = SimpleNamespace(llm_initialized=True)
+        understand_music_mock.return_value = SimpleNamespace(
+            success=True,
+            status_message="ok",
+            caption="new caption",
+            lyrics="new lyrics",
+            bpm=120,
+            duration=30.0,
+            keyscale="C major",
+            language="en",
+            timesignature="4",
+        )
+
+        result = generation_handlers.analyze_src_audio(
+            dit_handler=dit_handler,
+            llm_handler=llm_handler,
+            src_audio="real.mp3",
+            constrained_decoding_debug=False,
+            current_caption=" ",
+            current_lyrics="",
+            update_caption_lyrics=False,
+        )
+
+        self.assertEqual(result[2], "new caption")
+        self.assertEqual(result[3], "new lyrics")
+        warning_mock.assert_not_called()
+
     def test_convert_src_audio_to_codes_wrapper_uses_newest_stale_upload_list(self):
         """Audio-code conversion should tolerate Gradio stale single-file lists."""
 

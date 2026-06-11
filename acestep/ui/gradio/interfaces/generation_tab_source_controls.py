@@ -4,6 +4,10 @@ from typing import Any
 
 import gradio as gr
 
+from acestep.audio_processing.auto_editor_trim_settings import (
+    AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
+    coerce_auto_editor_threshold_db,
+)
 from acestep.constants import TRACK_NAMES
 from acestep.ui.gradio.events.generation.audio_format_options import (
     AUDIO_FORMAT_CHOICES,
@@ -11,6 +15,7 @@ from acestep.ui.gradio.events.generation.audio_format_options import (
     DEFAULT_EXTRACT_AUDIO_FORMAT,
     EXTRACT_AUDIO_FORMAT_CHOICES,
     normalize_audio_format,
+    normalize_extract_audio_format,
 )
 from acestep.ui.gradio.help_content import create_help_button
 from acestep.ui.gradio.i18n import t
@@ -33,7 +38,7 @@ def build_source_audio_controls(
 
     Args:
         service_mode: Whether server-provided generation settings are locked.
-        init_params: Optional startup state used to prefill output format.
+        init_params: Optional startup state used to prefill output and trim values.
 
     Returns:
         A component map containing source audio controls and the Extract/Lego track selector.
@@ -42,6 +47,12 @@ def build_source_audio_controls(
     params = init_params or {}
     initial_audio_format = normalize_audio_format(
         params.get("audio_format", DEFAULT_AUDIO_FORMAT)
+    )
+    initial_extract_output_format = normalize_extract_audio_format(
+        params.get("extract_output_format", DEFAULT_EXTRACT_AUDIO_FORMAT)
+    )
+    initial_extract_trim_threshold_db = coerce_auto_editor_threshold_db(
+        params.get("extract_trim_threshold_db", AUTO_EDITOR_THRESHOLD_DEFAULT_DB)
     )
     with gr.Row(equal_height=True, visible=False) as src_audio_row:
         with gr.Column(scale=10):
@@ -91,6 +102,13 @@ def build_source_audio_controls(
                 size="lg",
                 elem_classes=["action-btn", "action-btn-preview"],
             )
+            analyze_update_caption_lyrics = gr.Checkbox(
+                label=t("generation.analyze_update_caption_lyrics_label"),
+                value=False,
+                interactive=not service_mode,
+                info=t("generation.analyze_update_caption_lyrics_info"),
+                elem_classes=["has-info-container"],
+            )
 
     with gr.Group(visible=False) as extract_help_group:
         with gr.Row(equal_height=True):
@@ -105,7 +123,7 @@ def build_source_audio_controls(
             )
             extract_output_format = gr.Dropdown(
                 choices=EXTRACT_AUDIO_FORMAT_CHOICES,
-                value=DEFAULT_EXTRACT_AUDIO_FORMAT,
+                value=initial_extract_output_format,
                 label="Output",
                 info="ACE-Step Extract output format.",
                 elem_id="acestep-extract-output-format",
@@ -113,6 +131,24 @@ def build_source_audio_controls(
                 visible=True,
                 scale=2,
             )
+            with gr.Column(scale=2, min_width=190):
+                extract_trim_empty_output = gr.Checkbox(
+                    label="Auto-Editor trim output",
+                    value=bool(params.get("extract_trim_empty_output", False)),
+                    info=(
+                        "Uses the Auto Encode & Shorten defaults to remove "
+                        "silent parts from the Extract output."
+                    ),
+                    elem_id="acestep-extract-trim-empty-output",
+                    elem_classes=["has-info-container"],
+                    visible=True,
+                    interactive=not service_mode,
+                )
+                extract_trim_threshold_db = gr.Number(
+                    value=initial_extract_trim_threshold_db,
+                    visible=False,
+                    elem_id="acestep-extract-trim-threshold-db",
+                )
             with gr.Column(scale=1, min_width=48):
                 create_help_button("generation_extract")
     return {
@@ -125,7 +161,10 @@ def build_source_audio_controls(
         "audio_format": audio_format,
         "track_name": track_name,
         "extract_output_format": extract_output_format,
+        "extract_trim_empty_output": extract_trim_empty_output,
+        "extract_trim_threshold_db": extract_trim_threshold_db,
         "analyze_btn": analyze_btn,
+        "analyze_update_caption_lyrics": analyze_update_caption_lyrics,
         "extract_help_group": extract_help_group,
     }
 
@@ -244,7 +283,7 @@ def build_source_track_and_code_controls(
 
     Args:
         service_mode: Whether server-provided generation settings are locked.
-        init_params: Optional startup state used to prefill output format.
+        init_params: Optional startup state used to prefill output and trim values.
 
     Returns:
         A component map containing source audio actions, track selectors, and LM code controls.
@@ -267,7 +306,12 @@ def build_source_track_and_code_controls(
         "audio_format": source_audio_controls["audio_format"],
         "track_name": source_audio_controls["track_name"],
         "extract_output_format": source_audio_controls["extract_output_format"],
+        "extract_trim_empty_output": source_audio_controls["extract_trim_empty_output"],
+        "extract_trim_threshold_db": source_audio_controls["extract_trim_threshold_db"],
         "analyze_btn": source_audio_controls["analyze_btn"],
+        "analyze_update_caption_lyrics": source_audio_controls[
+            "analyze_update_caption_lyrics"
+        ],
         "extract_help_group": source_audio_controls["extract_help_group"],
         "complete_help_group": track_selection_controls["complete_help_group"],
         "complete_track_classes": track_selection_controls["complete_track_classes"],

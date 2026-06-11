@@ -146,6 +146,44 @@ class InlineResultPreviewTests(unittest.TestCase):
         self.assertTrue(area_original["visible"])
         self.assertFalse(lego_part["visible"])
 
+    def test_inline_result_preview_shows_latest_remixed_area_label(self):
+        """Remix outputs should not use repaint labels for latest-area clips."""
+
+        outputs = list(f"out_{index}" for index in range(63))
+        outputs[16] = [
+            "/tmp/song_latest_remixed_area.wav",
+            "/tmp/song_latest_remixed_area_original.wav",
+        ]
+
+        _audio, _remaining, area, area_original, lego_part, _status = (
+            inline_result_preview_from_generation_outputs(outputs)
+        )
+
+        self.assertEqual(area["label"], "Latest Remixed Area")
+        self.assertEqual(area_original["label"], "Latest Remixed Area Original")
+        self.assertTrue(area["visible"])
+        self.assertTrue(area_original["visible"])
+        self.assertFalse(lego_part["visible"])
+
+    def test_inline_result_preview_shows_latest_lego_area_label(self):
+        """Lego edited-area clips should use Lego labels."""
+
+        outputs = list(f"out_{index}" for index in range(63))
+        outputs[16] = [
+            "/tmp/song_latest_lego_area.wav",
+            "/tmp/song_latest_lego_area_original.wav",
+        ]
+
+        _audio, _remaining, area, area_original, lego_part, _status = (
+            inline_result_preview_from_generation_outputs(outputs)
+        )
+
+        self.assertEqual(area["label"], "Latest LEGO Area")
+        self.assertEqual(area_original["label"], "Latest LEGO Area Original")
+        self.assertTrue(area["visible"])
+        self.assertTrue(area_original["visible"])
+        self.assertFalse(lego_part["visible"])
+
     def test_inline_result_preview_shows_full_lego_generated_track_separately(self):
         """The raw full Lego layer should show in its own third row."""
 

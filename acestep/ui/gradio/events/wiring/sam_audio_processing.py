@@ -6,12 +6,21 @@ from typing import Any
 
 import gradio as gr
 
+from acestep.audio_processing.trim_ui_settings import (
+    AUTO_EDITOR_TRIM_UI_KEYS,
+    trim_settings_from_ui_values,
+)
 from acestep.core.generation.cancellation import GenerationCancelled
 from acestep.sam_audio_segment.batch import run_batch_sam_audio
 from acestep.sam_audio_segment.paths import create_run_dir, safe_media_stem
 from acestep.sam_audio_segment.progress import ProgressCallback
 from acestep.sam_audio_segment.service_cache import cached_sam_audio_service
-from acestep.sam_audio_segment.settings import settings_from_ui_values
+from acestep.sam_audio_segment.settings import (
+    SAM_AUDIO_PRESET_KEYS,
+    SamAudioSettings,
+    settings_from_ui_values,
+    with_auto_editor_trim_settings,
+)
 from acestep.sam_audio_segment.subprocess_runner import run_sam_audio_subprocess
 from acestep.ui.gradio.media_upload_values import latest_upload_path
 
@@ -41,7 +50,7 @@ def process_single_file(
             "Upload an audio or video file first."
         )
         return
-    settings = settings_from_ui_values(settings_values)
+    settings = _settings_from_input_values(settings_values)
     status_log = SamAudioStatusLog(progress)
     status_log.callback(0.0, "Preparing SAM-Audio request")
     cleanup_status = release_generation_if_requested(dit_handler, llm_handler, settings)
@@ -100,7 +109,7 @@ def process_batch_folder(
     """Stream or run SAM-Audio batch-folder processing."""
 
     status_log = SamAudioStatusLog(progress)
-    settings = settings_from_ui_values(settings_values)
+    settings = _settings_from_input_values(settings_values)
     cleanup_status = release_generation_if_requested(dit_handler, llm_handler, settings)
     if settings.subprocess:
         yield from stream_batch_subprocess(
@@ -186,6 +195,21 @@ def _progress_callback(progress: Any | None) -> ProgressCallback | None:
         progress(float(fraction), desc=str(message))
 
     return _report
+
+
+def _settings_from_input_values(values: tuple[Any, ...]) -> SamAudioSettings:
+    """Build SAM-Audio settings and apply shared Audio Processing trim values."""
+
+    sam_count = len(SAM_AUDIO_PRESET_KEYS)
+    trim_count = len(AUTO_EDITOR_TRIM_UI_KEYS)
+    settings = settings_from_ui_values(values[:sam_count])
+    trim_values = values[sam_count : sam_count + trim_count]
+    if len(trim_values) == trim_count:
+        return with_auto_editor_trim_settings(
+            settings,
+            trim_settings_from_ui_values(trim_values),
+        )
+    return settings
 
 
 def _effective_single_file_input(input_value: Any, audio_preview_value: Any) -> str | None:

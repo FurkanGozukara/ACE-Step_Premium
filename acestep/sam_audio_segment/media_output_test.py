@@ -10,6 +10,7 @@ import soundfile as sf
 import torch
 
 from acestep.audio_processing.auto_editor_trim import SilenceTrimResult
+from acestep.audio_processing.auto_editor_trim_settings import AutoEditorTrimSettings
 from acestep.sam_audio_segment.media_output import save_sam_audio_outputs
 
 
@@ -26,10 +27,16 @@ class TestSamAudioMediaOutput(unittest.TestCase):
             root = Path(temp_dir)
             trimmed = target[:, sample_rate : sample_rate * 2]
             metadata = {"enabled": True, "applied": True, "reason": "auto_editor_trimmed"}
+            trim_settings = AutoEditorTrimSettings(
+                threshold_db=-35.0,
+                margin_seconds=0.8,
+                mincut=12,
+                minclip=6,
+            )
             with patch(
                 "acestep.sam_audio_segment.media_output.trim_silent_edges",
                 return_value=SilenceTrimResult(trimmed, metadata),
-            ):
+            ) as trim_mock:
                 artifacts = save_sam_audio_outputs(
                     source_path=root / "source.wav",
                     output_dir=root / "out",
@@ -42,14 +49,18 @@ class TestSamAudioMediaOutput(unittest.TestCase):
                     include_video=False,
                     metadata={"settings": {}},
                     trim_empty_output=True,
-                    trim_threshold_db=-40.0,
+                    trim_settings=trim_settings,
+                    trim_threshold_db=-99.0,
                 )
 
             audio_info = sf.info(artifacts.target_audio_path)
             saved_metadata = json.loads(Path(artifacts.metadata_path).read_text())
+            trim_kwargs = trim_mock.call_args.kwargs
 
         self.assertEqual(sample_rate, audio_info.frames)
         self.assertAlmostEqual(1.0, artifacts.duration_seconds, places=3)
+        self.assertIs(trim_settings, trim_kwargs["trim_settings"])
+        self.assertIsNone(trim_kwargs["threshold_db"])
         self.assertTrue(saved_metadata["trim"]["applied"])
         self.assertEqual("auto_editor_trimmed", saved_metadata["trim"]["reason"])
         self.assertEqual(1.0, saved_metadata["metrics"]["duration_seconds"])

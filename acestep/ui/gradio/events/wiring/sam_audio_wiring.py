@@ -6,9 +6,10 @@ from typing import Any
 
 import gradio as gr
 
+from acestep.audio_processing.trim_ui_settings import AUTO_EDITOR_TRIM_UI_KEYS
 from acestep.sam_audio_segment.settings import SAM_AUDIO_PRESET_KEYS
-from acestep.ui.gradio.premium_features import open_outputs_folder
 from acestep.ui.gradio.events.local_path_dialogs import select_folder_path
+from acestep.ui.gradio.premium_features import open_outputs_folder
 
 from .sam_audio_action_helpers import (
     SAM_BATCH_CANCEL_CONFIRM_JS,
@@ -33,10 +34,14 @@ def register_sam_audio_handlers(
     *,
     dit_handler: Any,
     llm_handler: Any,
+    audio_processing_page: dict[str, Any] | None = None,
 ) -> None:
     """Register SAM Audio Segment handlers."""
 
-    settings_inputs = sam_audio_generation_inputs(sam_page)
+    settings_inputs = [
+        *sam_audio_generation_inputs(sam_page),
+        *_audio_processing_trim_inputs(audio_processing_page),
+    ]
     compatibility_inputs = [
         sam_page["sam_prompt_mode"],
         sam_page["sam_low_vram_lite"],
@@ -85,6 +90,7 @@ def register_sam_audio_handlers(
         ],
         queue=False,
     )
+
     sam_page["sam_visual_mask_file"].change(
         fn=preview_video_upload,
         inputs=[sam_page["sam_visual_mask_file"]],
@@ -199,3 +205,11 @@ def register_sam_audio_handlers(
         queue=False,
         show_progress="hidden",
     )
+
+
+def _audio_processing_trim_inputs(component_map: dict[str, Any] | None) -> list[Any]:
+    """Return shared Audio Processing trim controls for standalone SAM runs."""
+
+    if component_map is None:
+        return []
+    return [component_map[key] for key in AUTO_EDITOR_TRIM_UI_KEYS]

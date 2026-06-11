@@ -68,6 +68,26 @@ class TestSilenceTrim(unittest.TestCase):
         self.assertEqual(-100.0, clamp_trim_threshold_db(-120.0))
         self.assertEqual(0.0, clamp_trim_threshold_db(120.0))
 
+    def test_threshold_override_reaches_auto_editor_settings(self) -> None:
+        """Saved trim thresholds should be applied to auto-editor detection."""
+
+        audio = torch.ones(1, 4)
+
+        with patch(
+            "acestep.audio_processing.auto_editor_trim._detect_spans_with_auto_editor",
+            return_value=[(0, 4)],
+        ) as detect_mock:
+            result = trim_silent_edges(
+                audio,
+                sample_rate=4,
+                enabled=True,
+                threshold_db=-55.0,
+            )
+
+        settings = detect_mock.call_args.kwargs["settings"]
+        self.assertEqual(-55.0, settings.threshold_db)
+        self.assertEqual(-55.0, result.metadata["settings"]["threshold_db"])
+
 
 if __name__ == "__main__":
     unittest.main()

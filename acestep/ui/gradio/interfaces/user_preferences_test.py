@@ -70,6 +70,12 @@ class SaveScriptTests(unittest.TestCase):
             "acestep-fade-out-duration",
             "acestep-extract-trim-empty-output",
             "acestep-extract-trim-threshold-db",
+            "acestep-ap-trim-empty-output",
+            "acestep-ap-trim-threshold-db",
+            "acestep-ap-trim-margin-seconds",
+            "acestep-ap-trim-mincut",
+            "acestep-ap-trim-minclip",
+            "acestep-ap-auto-editor-workflow-export",
             "acestep-latent-shift",
             "acestep-latent-rescale",
             "acestep-lm-batch-chunk-size",
@@ -169,7 +175,8 @@ class RestoreTests(unittest.TestCase):
         """Non-None values are passed through unchanged."""
         values = (
             "wav", "wav", "320k", 44100, 0.8, False, -3.0, 0.5, 1.0,
-            True, -45.0, 0.05, 0.95, 4,
+            True, -45.0, True, -45.0, 0.7, 20, 4, "premiere",
+            0.05, 0.95, 4,
         )
         result = restore_preferences(*values)
         for i in range(len(PREF_KEYS)):
@@ -203,6 +210,24 @@ class RestoreTests(unittest.TestCase):
 
         self.assertEqual(-100.0, result[threshold_index])
 
+    def test_restore_preferences_clamps_audio_processing_trim_settings(self):
+        """Saved shared Auto-Editor trim preferences should stay within UI ranges."""
+
+        values = list((None,) * len(PREF_KEYS))
+        values[PREF_KEYS.index("ap_trim_threshold_db")] = -120.0
+        values[PREF_KEYS.index("ap_trim_margin_seconds")] = 20.0
+        values[PREF_KEYS.index("ap_trim_mincut")] = 999
+        values[PREF_KEYS.index("ap_trim_minclip")] = -5
+        values[PREF_KEYS.index("ap_auto_editor_workflow_export")] = "bad-mode"
+
+        result = restore_preferences(*values)
+
+        self.assertEqual(-100.0, result[PREF_KEYS.index("ap_trim_threshold_db")])
+        self.assertEqual(5.0, result[PREF_KEYS.index("ap_trim_margin_seconds")])
+        self.assertEqual(300, result[PREF_KEYS.index("ap_trim_mincut")])
+        self.assertEqual(0, result[PREF_KEYS.index("ap_trim_minclip")])
+        self.assertEqual("none", result[PREF_KEYS.index("ap_auto_editor_workflow_export")])
+
     def test_restore_preferences_converts_none_to_gr_update(self):
         """None values from JS should become gr.update() (no-op)."""
         values = (None,) * (len(PREF_KEYS) + 1)
@@ -216,7 +241,8 @@ class RestoreTests(unittest.TestCase):
         gr.update(visible=...) not raw bools."""
         values = (
             "mp3", "mp3", "256k", 48000, 0.5, True, -1.0, 0.0, 0.0,
-            False, -50.0, 0.0, 1.0, 8, True, True, True,
+            False, -50.0, False, -40.0, 0.3, 20, 4, "none",
+            0.0, 1.0, 8, True, True, True,
         )
         result = restore_preferences(*values)
         row_index = len(PREF_KEYS)

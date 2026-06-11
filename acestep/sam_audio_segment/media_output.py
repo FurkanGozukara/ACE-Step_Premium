@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 import torch
 
+from acestep.audio_processing.auto_editor_trim_settings import AutoEditorTrimSettings
 from acestep.audio_processing.json_io import write_json
 from acestep.audio_processing.media_io import (
     is_video_file,
@@ -55,6 +56,7 @@ def save_sam_audio_outputs(
     include_video: bool,
     metadata: dict[str, Any],
     trim_empty_output: bool = False,
+    trim_settings: AutoEditorTrimSettings | None = None,
     trim_threshold_db: float = -40.0,
 ) -> SamAudioArtifacts:
     """Save target, residual, optional video mux, and metadata."""
@@ -67,7 +69,8 @@ def save_sam_audio_outputs(
         target,
         sample_rate=sample_rate,
         enabled=trim_empty_output,
-        threshold_db=trim_threshold_db,
+        trim_settings=trim_settings,
+        threshold_db=None if trim_settings is not None else trim_threshold_db,
     )
     target_to_save = trim_result.audio
     target_audio = save_processed_audio(

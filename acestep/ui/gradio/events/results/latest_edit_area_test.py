@@ -109,6 +109,42 @@ class LatestEditAreaTests(unittest.TestCase):
 
         self.assertTrue(result["applied"])
         self.assertEqual(seen_segments, [(0.0, None), (0.0, None)])
+        self.assertTrue(result["generated_area_path"].endswith("_latest_remixed_area.wav"))
+        self.assertTrue(
+            result["original_area_path"].endswith("_latest_remixed_area_original.wav")
+        )
+
+    def test_lego_uses_lego_area_filename(self) -> None:
+        """Lego clips should use Lego-specific names for inline preview labels."""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            generated = _touch(root / "generated.flac")
+            source = _touch(root / "source.wav")
+
+            def fake_extract(_source, target, segment, **_kwargs):
+                return str(target).replace("\\", "/")
+
+            with patch(
+                "acestep.ui.gradio.events.results.latest_edit_area."
+                "_extract_audio_segment",
+                side_effect=fake_extract,
+            ):
+                result = create_latest_edit_area_clips(
+                    task_type="lego",
+                    generated_audio_path=str(generated),
+                    source_audio_path=str(source),
+                    run_dir=root,
+                    key="sample",
+                    repainting_start=10.0,
+                    repainting_end=15.0,
+                )
+
+        self.assertTrue(result["applied"])
+        self.assertTrue(result["generated_area_path"].endswith("_latest_lego_area.wav"))
+        self.assertTrue(
+            result["original_area_path"].endswith("_latest_lego_area_original.wav")
+        )
 
     def test_invalid_bounded_range_hides_clips(self) -> None:
         """Invalid Repaint/Lego/Complete ranges should not create clips."""

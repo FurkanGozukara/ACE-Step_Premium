@@ -4,9 +4,6 @@ from typing import Any
 
 import gradio as gr
 
-from acestep.audio_processing.auto_editor_trim_settings import (
-    AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
-)
 from acestep.ui.gradio.events.generation.audio_format_options import (
     DEFAULT_AUDIO_FORMAT,
     DEFAULT_MP3_BITRATE,
@@ -126,26 +123,6 @@ def build_output_controls(
                 elem_classes=["has-info-container"],
             )
         with gr.Row():
-            extract_trim_empty_output = gr.Checkbox(
-                label="Auto-Editor trim Extract output",
-                value=(
-                    params.get("extract_trim_empty_output", False)
-                    if service_pre_initialized
-                    else False
-                ),
-                info=(
-                    "Only applies to ACE-Step Extract and Batch Process. Uses the "
-                    "Auto Encode & Shorten defaults to remove silent parts."
-                ),
-                elem_id="acestep-extract-trim-empty-output",
-                elem_classes=["has-info-container"],
-            )
-            extract_trim_threshold_db = gr.Number(
-                value=AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
-                visible=False,
-                elem_id="acestep-extract-trim-threshold-db",
-            )
-        with gr.Row():
             latent_shift = gr.Slider(
                 label=t("generation.latent_shift"),
                 minimum=-0.2,
@@ -175,8 +152,6 @@ def build_output_controls(
         "normalization_db": normalization_db,
         "fade_in_duration": fade_in_duration,
         "fade_out_duration": fade_out_duration,
-        "extract_trim_empty_output": extract_trim_empty_output,
-        "extract_trim_threshold_db": extract_trim_threshold_db,
         "latent_shift": latent_shift,
         "latent_rescale": latent_rescale,
     }

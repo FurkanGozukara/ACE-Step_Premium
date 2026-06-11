@@ -12,6 +12,13 @@ from loguru import logger
 
 EDIT_AREA_COMPARE_TASKS = frozenset({"cover", "cover-nofsq", "repaint", "lego", "complete"})
 _RANGE_TASKS = frozenset({"repaint", "lego", "complete"})
+_CLIP_STEMS_BY_TASK = {
+    "cover": "latest_remixed_area",
+    "cover-nofsq": "latest_remixed_area",
+    "repaint": "latest_repainted_area",
+    "lego": "latest_lego_area",
+    "complete": "latest_completed_area",
+}
 _FFMPEG_TIMEOUT_SECONDS = 120.0
 _MIN_DURATION_SECONDS = 0.05
 
@@ -62,8 +69,9 @@ def create_latest_edit_area_clips(
 
     target_dir = Path(run_dir)
     clip_format = _clip_output_format(output_format)
-    generated_target = target_dir / f"{key}_latest_repainted_area.{clip_format}"
-    original_target = target_dir / f"{key}_latest_repainted_area_original.{clip_format}"
+    clip_stem = _clip_stem_for_task(task)
+    generated_target = target_dir / f"{key}_{clip_stem}.{clip_format}"
+    original_target = target_dir / f"{key}_{clip_stem}_original.{clip_format}"
     try:
         generated_clip = _extract_audio_segment(
             generated,
@@ -93,6 +101,12 @@ def create_latest_edit_area_clips(
         "end": None if segment[1] is None else segment[0] + segment[1],
         "task_type": task,
     }
+
+
+def _clip_stem_for_task(task_type: str) -> str:
+    """Return the task-specific latest-area filename stem."""
+
+    return _CLIP_STEMS_BY_TASK.get(task_type, "latest_repainted_area")
 
 
 def _segment_for_task(

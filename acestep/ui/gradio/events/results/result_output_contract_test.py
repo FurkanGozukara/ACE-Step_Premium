@@ -19,6 +19,7 @@ _CONTRACT = _load_contract_module()
 is_bounded_source_edit = _CONTRACT.is_bounded_source_edit
 source_audio_update_path = _CONTRACT.source_audio_update_path
 extract_latest_edit_area_paths = _CONTRACT.extract_latest_edit_area_paths
+extract_latest_edit_area_info = _CONTRACT.extract_latest_edit_area_info
 extract_lego_generated_track_path = _CONTRACT.extract_lego_generated_track_path
 
 
@@ -61,6 +62,20 @@ class ResultOutputContractTests(unittest.TestCase):
 
         self.assertEqual(generated, "C:/run/sample_latest_repainted_area.wav")
         self.assertEqual(original, "C:/run/sample_latest_repainted_area_original.wav")
+
+    def test_extract_latest_edit_area_info_returns_task_kind(self):
+        """Inline preview labels should use the task kind encoded in filenames."""
+
+        generated, original, kind = extract_latest_edit_area_info(
+            [
+                r"C:\run\sample_latest_remixed_area.wav",
+                r"C:\run\sample_latest_remixed_area_original.wav",
+            ]
+        )
+
+        self.assertEqual(generated, "C:/run/sample_latest_remixed_area.wav")
+        self.assertEqual(original, "C:/run/sample_latest_remixed_area_original.wav")
+        self.assertEqual(kind, "remix")
 
     def test_extract_latest_edit_area_paths_ignores_full_lego_generated_track(self):
         """The full raw Lego layer should not be shown as the edited-area clip."""

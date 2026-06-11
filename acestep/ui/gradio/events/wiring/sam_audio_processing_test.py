@@ -8,8 +8,11 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-from acestep.sam_audio_segment.settings import SamAudioSettings
-from acestep.ui.gradio.events.wiring.sam_audio_processing import _process_single_in_process
+from acestep.sam_audio_segment.settings import SAM_AUDIO_PRESET_KEYS, SamAudioSettings
+from acestep.ui.gradio.events.wiring.sam_audio_processing import (
+    _process_single_in_process,
+    _settings_from_input_values,
+)
 
 
 class _Artifact:
@@ -67,6 +70,33 @@ class SamAudioProcessingTests(unittest.TestCase):
         _, _, kwargs = service.process_file.mock_calls[0]
         self.assertEqual("My Song_sam", kwargs["output_stem"])
         self.assertIsNone(kwargs["mask_video_path"])
+
+    def test_settings_from_input_values_uses_audio_processing_trim_tail(self) -> None:
+        """Standalone SAM handlers should use shared Audio Processing trim values."""
+
+        sam_values = {key: None for key in SAM_AUDIO_PRESET_KEYS}
+        sam_values.update(
+            {
+                "sam_trim_empty_output": True,
+                "sam_trim_threshold_db": -60.0,
+                "sam_output_format": "mp3",
+            }
+        )
+        settings = _settings_from_input_values(
+            (
+                *[sam_values[key] for key in SAM_AUDIO_PRESET_KEYS],
+                -35.0,
+                0.8,
+                12,
+                6,
+            )
+        )
+
+        self.assertTrue(settings.trim_empty_output)
+        self.assertEqual(-35.0, settings.trim_threshold_db)
+        self.assertEqual(0.8, settings.trim_margin_seconds)
+        self.assertEqual(12, settings.trim_mincut)
+        self.assertEqual(6, settings.trim_minclip)
 
 
 if __name__ == "__main__":

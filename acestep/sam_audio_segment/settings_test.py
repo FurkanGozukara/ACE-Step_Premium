@@ -3,11 +3,13 @@
 import unittest
 from unittest.mock import patch
 
+from acestep.audio_processing.auto_editor_trim_settings import AutoEditorTrimSettings
 from acestep.sam_audio_segment.settings import (
     SAM_AUDIO_MAX_CHUNK_SECONDS,
     SAM_AUDIO_PRESET_KEYS,
     SamAudioSettings,
     settings_from_ui_values,
+    with_auto_editor_trim_settings,
 )
 
 
@@ -30,6 +32,9 @@ class TestSamAudioSettings(unittest.TestCase):
         self.assertEqual(5.0, settings.chunk_overlap_seconds)
         self.assertFalse(settings.trim_empty_output)
         self.assertEqual(-40.0, settings.trim_threshold_db)
+        self.assertEqual(0.3, settings.trim_margin_seconds)
+        self.assertEqual(20, settings.trim_mincut)
+        self.assertEqual(4, settings.trim_minclip)
         self.assertEqual("mp3", settings.output_format)
         self.assertEqual("vocals", settings.effective_prompt)
 
@@ -91,6 +96,27 @@ class TestSamAudioSettings(unittest.TestCase):
         self.assertTrue(settings.trim_empty_output)
         self.assertEqual(-42.0, settings.trim_threshold_db)
         self.assertTrue(settings.batch_recursive)
+
+    def test_shared_auto_editor_trim_settings_override_sam_threshold_only_defaults(self):
+        """Audio Processing trim controls should define SAM trim behavior."""
+
+        settings = with_auto_editor_trim_settings(
+            SamAudioSettings(trim_empty_output=True, output_format="flac"),
+            AutoEditorTrimSettings(
+                threshold_db=-35.0,
+                margin_seconds=0.8,
+                mincut=12,
+                minclip=6,
+            ),
+        )
+
+        self.assertTrue(settings.trim_empty_output)
+        self.assertEqual("flac", settings.output_format)
+        self.assertEqual(-35.0, settings.trim_threshold_db)
+        self.assertEqual(0.8, settings.trim_margin_seconds)
+        self.assertEqual(12, settings.trim_mincut)
+        self.assertEqual(6, settings.trim_minclip)
+        self.assertEqual(-35.0, settings.trim_settings().threshold_db)
 
     def test_predict_spans_and_reranking_candidates_follow_ui_values(self):
         """Text-prompt span prediction settings should preserve submitted UI values."""

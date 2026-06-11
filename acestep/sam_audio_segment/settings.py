@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
-from acestep.audio_processing.silence_trim import (
-    TRIM_THRESHOLD_DEFAULT_DB,
-    TRIM_THRESHOLD_MAX_DB,
-    TRIM_THRESHOLD_MIN_DB,
+from acestep.audio_processing.auto_editor_trim_settings import (
+    AUTO_EDITOR_MARGIN_DEFAULT_SECONDS,
+    AUTO_EDITOR_MINCLIP_DEFAULT,
+    AUTO_EDITOR_MINCUT_DEFAULT,
+    AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
+    AUTO_EDITOR_THRESHOLD_MAX_DB,
+    AUTO_EDITOR_THRESHOLD_MIN_DB,
+    AutoEditorTrimSettings,
+    coerce_auto_editor_margin_seconds,
+    coerce_auto_editor_smooth_value,
+    coerce_auto_editor_threshold_db,
 )
 
 from .attention import normalize_attention_backend
@@ -19,9 +26,12 @@ from .vram_presets import get_sam_vram_preset, normalize_sam_vram_preset
 SAM_AUDIO_MIN_CHUNK_SECONDS = 1.0
 SAM_AUDIO_MAX_CHUNK_SECONDS = 60.0
 SAM_AUDIO_MAX_OVERLAP_SECONDS = 10.0
-SAM_AUDIO_DEFAULT_TRIM_THRESHOLD_DB = TRIM_THRESHOLD_DEFAULT_DB
-SAM_AUDIO_MIN_TRIM_THRESHOLD_DB = TRIM_THRESHOLD_MIN_DB
-SAM_AUDIO_MAX_TRIM_THRESHOLD_DB = TRIM_THRESHOLD_MAX_DB
+SAM_AUDIO_DEFAULT_TRIM_THRESHOLD_DB = AUTO_EDITOR_THRESHOLD_DEFAULT_DB
+SAM_AUDIO_MIN_TRIM_THRESHOLD_DB = AUTO_EDITOR_THRESHOLD_MIN_DB
+SAM_AUDIO_MAX_TRIM_THRESHOLD_DB = AUTO_EDITOR_THRESHOLD_MAX_DB
+SAM_AUDIO_DEFAULT_TRIM_MARGIN_SECONDS = AUTO_EDITOR_MARGIN_DEFAULT_SECONDS
+SAM_AUDIO_DEFAULT_TRIM_MINCUT = AUTO_EDITOR_MINCUT_DEFAULT
+SAM_AUDIO_DEFAULT_TRIM_MINCLIP = AUTO_EDITOR_MINCLIP_DEFAULT
 SAM_AUDIO_LONG_MODE_CHUNKED = "chunked"
 SAM_AUDIO_LONG_MODE_MULTIDIFFUSION = "multidiffusion"
 
@@ -73,6 +83,9 @@ class SamAudioSettings:
     preserve_original: bool = True
     trim_empty_output: bool = False
     trim_threshold_db: float = SAM_AUDIO_DEFAULT_TRIM_THRESHOLD_DB
+    trim_margin_seconds: float = SAM_AUDIO_DEFAULT_TRIM_MARGIN_SECONDS
+    trim_mincut: int = SAM_AUDIO_DEFAULT_TRIM_MINCUT
+    trim_minclip: int = SAM_AUDIO_DEFAULT_TRIM_MINCLIP
     output_format: str = "mp3"
     prompt_mode: str = "text"
     prompt_preset: str = DEFAULT_PROMPT
@@ -118,6 +131,16 @@ class SamAudioSettings:
 
         return dict(self.__dict__)
 
+    def trim_settings(self) -> AutoEditorTrimSettings:
+        """Return Auto-Editor trim behavior settings for SAM-Audio output."""
+
+        return AutoEditorTrimSettings(
+            threshold_db=self.trim_threshold_db,
+            margin_seconds=self.trim_margin_seconds,
+            mincut=self.trim_mincut,
+            minclip=self.trim_minclip,
+        )
+
     @classmethod
     def from_payload(cls, payload: Any) -> "SamAudioSettings":
         """Build settings from a saved JSON-like payload."""
@@ -135,6 +158,17 @@ class SamAudioSettings:
                 SAM_AUDIO_DEFAULT_TRIM_THRESHOLD_DB,
                 SAM_AUDIO_MIN_TRIM_THRESHOLD_DB,
                 SAM_AUDIO_MAX_TRIM_THRESHOLD_DB,
+            ),
+            trim_margin_seconds=coerce_auto_editor_margin_seconds(
+                payload.get("trim_margin_seconds")
+            ),
+            trim_mincut=coerce_auto_editor_smooth_value(
+                payload.get("trim_mincut"),
+                SAM_AUDIO_DEFAULT_TRIM_MINCUT,
+            ),
+            trim_minclip=coerce_auto_editor_smooth_value(
+                payload.get("trim_minclip"),
+                SAM_AUDIO_DEFAULT_TRIM_MINCLIP,
             ),
             output_format=_choice(
                 payload.get("output_format"),
@@ -232,6 +266,29 @@ def settings_from_ui_values(values: tuple[Any, ...] | list[Any]) -> SamAudioSett
         for key, value in raw.items()
     }
     return SamAudioSettings.from_payload(payload)
+
+
+def with_auto_editor_trim_settings(
+    settings: SamAudioSettings,
+    trim_settings: AutoEditorTrimSettings,
+) -> SamAudioSettings:
+    """Return SAM-Audio settings with shared Auto-Editor trim behavior applied."""
+
+    return replace(
+        settings,
+        trim_threshold_db=coerce_auto_editor_threshold_db(trim_settings.threshold_db),
+        trim_margin_seconds=coerce_auto_editor_margin_seconds(
+            trim_settings.margin_seconds
+        ),
+        trim_mincut=coerce_auto_editor_smooth_value(
+            trim_settings.mincut,
+            SAM_AUDIO_DEFAULT_TRIM_MINCUT,
+        ),
+        trim_minclip=coerce_auto_editor_smooth_value(
+            trim_settings.minclip,
+            SAM_AUDIO_DEFAULT_TRIM_MINCLIP,
+        ),
+    )
 
 
 def _choice(value: Any, allowed: set[str], fallback: str) -> str:

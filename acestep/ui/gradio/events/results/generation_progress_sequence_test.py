@@ -177,6 +177,7 @@ class SequentialGenerationCountTests(unittest.TestCase):
 
         saved_shapes = []
         json_payloads = []
+        trim_settings = []
 
         def fake_generate_music(_dit_handler, _llm_handler, *, params, config, progress):
             return _fake_tensor_result(str(config.seeds[0]))
@@ -189,7 +190,8 @@ class SequentialGenerationCountTests(unittest.TestCase):
             json_payloads.append(payload)
             return str(_path)
 
-        def fake_trim(audio_tensor, **_kwargs):
+        def fake_trim(audio_tensor, **kwargs):
+            trim_settings.append(kwargs["trim_settings"])
             metadata = {
                 "enabled": True,
                 "applied": True,
@@ -208,12 +210,22 @@ class SequentialGenerationCountTests(unittest.TestCase):
                     fake_generate_music,
                     task_type="extract",
                     extract_trim_empty_output=True,
-                    extract_trim_threshold_db=-40.0,
+                    extract_trim_threshold_db=-42.0,
+                    audio_processing_settings={
+                        "trim_threshold_db": -35.0,
+                        "trim_margin_seconds": 0.8,
+                        "trim_mincut": 12,
+                        "trim_minclip": 6,
+                    },
                     save_audio_side_effect=fake_save_audio,
                     write_json_side_effect=fake_write_json,
                 )
 
         self.assertEqual([(1, 4)], saved_shapes)
+        self.assertEqual([-35.0], [settings.threshold_db for settings in trim_settings])
+        self.assertEqual([0.8], [settings.margin_seconds for settings in trim_settings])
+        self.assertEqual([12], [settings.mincut for settings in trim_settings])
+        self.assertEqual([6], [settings.minclip for settings in trim_settings])
         sample_sidecar = next(payload for payload in json_payloads if "extract_trim" in payload)
         self.assertTrue(sample_sidecar["extract_trim"]["applied"])
         self.assertEqual(2, sample_sidecar["extract_trim"]["segments"][0]["start_sample"])

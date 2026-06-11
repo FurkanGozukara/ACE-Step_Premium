@@ -100,6 +100,8 @@
     "source_audio_info": "The audio being edited, followed, or analyzed. Required for Remix, Repaint, Extract, Lego, and Complete. Use the Source Audio Preview to listen and trim quickly; if you trim the preview, that trimmed audio is used for generation. In Remix, the Remix Source Segment start/end trims the source sent into Remix. In Repaint, Lego, and Complete, start/end controls are relative to the source being used and preserve audio outside the selected edit range.",
     "convert_codes_btn": "Convert to Codes",
     "analyze_btn": "🔍 Analyze",
+    "analyze_update_caption_lyrics_label": "Update caption/lyrics",
+    "analyze_update_caption_lyrics_info": "When off, Analyze keeps non-empty caption and lyrics unchanged while still filling blank fields and detected metadata.",
     "sample_btn": "🎲 Click Me",
     "lm_codes_hints": "🎼 LM Codes Hints",
     "lm_codes_audio_upload_label": "Audio → Codes (utility)",

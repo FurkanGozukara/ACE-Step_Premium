@@ -951,6 +951,7 @@ def create_gradio_interface(
             sam_audio_page,
             dit_handler=dit_handler,
             llm_handler=llm_handler,
+            audio_processing_page=audio_processing_page,
         )
         register_library_handlers(library_page, demo=demo)
 
