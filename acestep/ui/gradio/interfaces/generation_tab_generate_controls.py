@@ -176,6 +176,16 @@ def build_generate_row_controls(
                     elem_classes=TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
                     waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
                 )
+            with gr.Row():
+                inline_lego_part_audio = gr.Audio(
+                    label="Latest LEGO Part Only",
+                    type="filepath",
+                    interactive=False,
+                    buttons=["download"],
+                    visible=False,
+                    elem_classes=TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
+                    waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
+                )
             inline_generation_status = gr.Textbox(
                 label=t("generation.inline_result_status_label"),
                 interactive=False,
@@ -199,6 +209,7 @@ def build_generate_row_controls(
         "inline_remaining_audio": inline_remaining_audio,
         "inline_repainted_area_audio": inline_repainted_area_audio,
         "inline_repainted_area_original_audio": inline_repainted_area_original_audio,
+        "inline_lego_part_audio": inline_lego_part_audio,
         "inline_generation_status": inline_generation_status,
         **batch_extract_controls,
     }

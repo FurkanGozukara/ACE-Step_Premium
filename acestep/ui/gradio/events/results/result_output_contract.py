@@ -98,3 +98,19 @@ def extract_latest_edit_area_paths(all_audio_paths: Any) -> tuple[str | None, st
         elif stem.endswith("_latest_repainted_area"):
             generated_path = normalized
     return generated_path, original_path
+
+
+def extract_lego_generated_track_path(all_audio_paths: Any) -> str | None:
+    """Find the full raw Lego generated-track path in a file list."""
+
+    if not isinstance(all_audio_paths, (list, tuple)):
+        return None
+
+    for path in all_audio_paths:
+        path_text = str(path or "")
+        if not path_text:
+            continue
+        stem = Path(path_text).stem.lower()
+        if stem.endswith("_lego_generated_track"):
+            return path_text.replace("\\", "/")
+    return None

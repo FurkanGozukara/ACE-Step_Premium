@@ -107,6 +107,26 @@ class GenerateMusicPayloadMixinTests(unittest.TestCase):
         self.assertEqual(payload["extra_outputs"]["pred_latents"].device.type, "cpu")
         self.assertEqual(progress_calls[0][0], 0.99)
 
+    def test_build_success_payload_preserves_lego_layer_audio(self):
+        """It keeps the raw generated Lego layer for UI preview/export."""
+
+        host = _Host()
+        payload = host._build_generate_music_success_payload(
+            outputs={},
+            pred_wavs=torch.zeros(1, 2, 8),
+            pred_latents_cpu=torch.ones(1, 4, 3),
+            time_costs={"total_time_cost": 2.0},
+            seed_value_for_ui=11,
+            actual_batch_size=1,
+            progress=None,
+            lego_layer_wavs=torch.ones(1, 2, 8) * 0.5,
+        )
+
+        layer_wavs = payload["extra_outputs"]["lego_layer_wavs"]
+        self.assertIsNotNone(layer_wavs)
+        self.assertEqual(layer_wavs.device.type, "cpu")
+        torch.testing.assert_close(layer_wavs, torch.ones(1, 2, 8) * 0.5)
+
     def test_build_success_payload_handles_missing_optional_outputs_without_progress(self):
         """It handles absent optional output keys and no progress callback."""
         host = _Host()

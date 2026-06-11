@@ -19,6 +19,7 @@ _CONTRACT = _load_contract_module()
 is_bounded_source_edit = _CONTRACT.is_bounded_source_edit
 source_audio_update_path = _CONTRACT.source_audio_update_path
 extract_latest_edit_area_paths = _CONTRACT.extract_latest_edit_area_paths
+extract_lego_generated_track_path = _CONTRACT.extract_lego_generated_track_path
 
 
 class ResultOutputContractTests(unittest.TestCase):
@@ -60,6 +61,31 @@ class ResultOutputContractTests(unittest.TestCase):
 
         self.assertEqual(generated, "C:/run/sample_latest_repainted_area.wav")
         self.assertEqual(original, "C:/run/sample_latest_repainted_area_original.wav")
+
+    def test_extract_latest_edit_area_paths_ignores_full_lego_generated_track(self):
+        """The full raw Lego layer should not be shown as the edited-area clip."""
+
+        generated, original = extract_latest_edit_area_paths(
+            [
+                r"C:\run\sample.flac",
+                r"C:\run\sample_lego_generated_track.wav",
+            ]
+        )
+
+        self.assertIsNone(generated)
+        self.assertIsNone(original)
+
+    def test_extract_lego_generated_track_path_finds_raw_lego_layer(self):
+        """The raw Lego layer should be exposed through its own output row."""
+
+        path = extract_lego_generated_track_path(
+            [
+                r"C:\run\sample.flac",
+                r"C:\run\sample_lego_generated_track.wav",
+            ]
+        )
+
+        self.assertEqual(path, "C:/run/sample_lego_generated_track.wav")
 
 
 if __name__ == "__main__":

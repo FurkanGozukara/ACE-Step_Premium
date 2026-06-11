@@ -2,8 +2,9 @@
 
 from typing import Any, Dict
 
-from acestep.gpu_config import get_global_gpu_config
 from loguru import logger
+
+from acestep.gpu_config import get_global_gpu_config
 
 
 class GenerateMusicPayloadMixin:
@@ -20,6 +21,7 @@ class GenerateMusicPayloadMixin:
         progress: Any,
         retake_seed_value_for_ui: str = "",
         retake_variance: float = 0.0,
+        lego_layer_wavs=None,
     ) -> Dict[str, Any]:
         """Assemble final success response from decoded tensors and model outputs.
 
@@ -52,6 +54,11 @@ class GenerateMusicPayloadMixin:
         # In save-memory mode, skip storing intermediate tensors to reduce RAM
         # usage (~4-8 GB per generation). Only non-tensor metadata is kept.
         save_memory = get_global_gpu_config().save_memory_mode
+        lego_layer_wavs_cpu = (
+            lego_layer_wavs.detach().cpu()
+            if lego_layer_wavs is not None
+            else None
+        )
 
         if save_memory:
             extra_outputs = {
@@ -60,6 +67,7 @@ class GenerateMusicPayloadMixin:
                 "seed_value": seed_value_for_ui,
                 "retake_seed_value": retake_seed_value_for_ui,
                 "retake_variance": retake_variance,
+                "lego_layer_wavs": lego_layer_wavs_cpu,
             }
         else:
             src_latents = outputs.get("src_latents")
@@ -84,6 +92,7 @@ class GenerateMusicPayloadMixin:
                 "seed_value": seed_value_for_ui,
                 "retake_seed_value": retake_seed_value_for_ui,
                 "retake_variance": retake_variance,
+                "lego_layer_wavs": lego_layer_wavs_cpu,
                 "encoder_hidden_states": (
                     encoder_hidden_states.detach().cpu()
                     if encoder_hidden_states is not None

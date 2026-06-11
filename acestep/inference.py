@@ -34,6 +34,7 @@ from acestep.core.generation.sampler_controls import (
     normalize_sampler_timesteps,
 )
 from acestep.gpu_config import get_dit_type_from_path
+from acestep.core.generation.handler.lego_prompt import normalize_lego_lyrics
 
 _SOURCE_AUDIO_DURATION_LOCKED_TASKS = {
     "cover",
@@ -768,6 +769,18 @@ def generate_music(
         dit_input_caption = params.caption
         dit_input_vocal_language = params.vocal_language
         dit_input_lyrics = params.lyrics
+        normalized_lego_lyrics = normalize_lego_lyrics(
+            params.task_type,
+            params.instruction,
+            dit_input_lyrics,
+        )
+        if normalized_lego_lyrics != (dit_input_lyrics or ""):
+            logger.info(
+                "[generate_music] Lego non-vocal track detected; using instrumental "
+                "lyrics conditioning instead of user lyric text."
+            )
+            dit_input_lyrics = normalized_lego_lyrics
+            params.lyrics = normalized_lego_lyrics
         cached_repaint_source = (
             _load_cached_repaint_source(params.src_audio)
             if params.task_type == "repaint"

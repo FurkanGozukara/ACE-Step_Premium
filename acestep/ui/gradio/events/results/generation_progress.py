@@ -23,6 +23,7 @@ from acestep.core.generation.handler.repaint_prompt import (
     resolve_repaint_chunk_mask_mode,
     resolve_repaint_vocal_language,
 )
+from acestep.core.generation.handler.lego_prompt import normalize_lego_lyrics
 from acestep.sam_audio_segment.generated_postprocess import (
     postprocess_generated_sample as postprocess_generated_sam_audio,
 )
@@ -199,6 +200,7 @@ def generate_with_progress(
     if task_type != "text2music":
         text2music_audio_code_string = ""
     lyrics = normalize_repaint_lyrics(task_type, lyrics or "")
+    lyrics = normalize_lego_lyrics(task_type, instruction_display_gen, lyrics)
     vocal_language = resolve_repaint_vocal_language(task_type, vocal_language, lyrics or "")
     chunk_mask_mode = resolve_repaint_chunk_mask_mode(task_type, "auto", lyrics or "")
     if (
@@ -606,6 +608,16 @@ def generate_with_progress(
         audio_params["audio_paths"] = saved_audio_paths
         latest_edit_area_metadata = {"applied": False, "reason": "not_primary_sample"}
         if i == 0:
+            lego_layer_path = _save_lego_layer_preview(
+                save_audio,
+                _extract_lego_layer_tensor(result.extra_outputs, i),
+                sample_rate=sample_rate,
+                temp_dir=temp_dir,
+                key=key,
+                task_type=task_type,
+            )
+            if lego_layer_path:
+                audio_params["lego_generated_track_path"] = lego_layer_path
             latest_edit_area_metadata = create_latest_edit_area_clips(
                 task_type=task_type,
                 generated_audio_path=audio_path,
@@ -638,6 +650,9 @@ def generate_with_progress(
         if postprocess_metadata.get("metadata_path"):
             all_audio_paths.append(str(postprocess_metadata["metadata_path"]))
         all_audio_paths.extend(str(path) for path in sam_postprocess_metadata.get("files", []) if path)
+        lego_layer_path = audio_params.get("lego_generated_track_path")
+        if lego_layer_path:
+            all_audio_paths.append(str(lego_layer_path))
         if latest_edit_area_metadata.get("applied"):
             all_audio_paths.extend(
                 str(path)
@@ -874,6 +889,52 @@ def _extract_sample_tensor(extra_outputs, sample_idx):
             "[Auto Score] Failed to prepare tensor data for sample {}: {}", sample_idx, e
         )
         return None
+
+
+def _extract_lego_layer_tensor(extra_outputs, sample_idx):
+    """Return one raw Lego generated-layer waveform from extra outputs."""
+
+    try:
+        lego_layer_wavs = extra_outputs.get("lego_layer_wavs") if extra_outputs else None
+        if lego_layer_wavs is None or not hasattr(lego_layer_wavs, "dim"):
+            return None
+        if lego_layer_wavs.dim() == 3:
+            if sample_idx >= lego_layer_wavs.shape[0]:
+                return None
+            return lego_layer_wavs[sample_idx].detach().cpu()
+        if lego_layer_wavs.dim() == 2 and sample_idx == 0:
+            return lego_layer_wavs.detach().cpu()
+    except Exception as exc:
+        logger.warning("[lego_preview] Failed to extract Lego layer tensor: {}", exc)
+    return None
+
+
+def _save_lego_layer_preview(
+    save_audio_fn,
+    layer_tensor,
+    *,
+    sample_rate,
+    temp_dir,
+    key,
+    task_type,
+):
+    """Save a raw Lego layer preview file for the latest-area player."""
+
+    if str(task_type or "").strip().lower() != "lego" or layer_tensor is None:
+        return ""
+    target_path = os.path.join(temp_dir, f"{key}_lego_generated_track.wav").replace("\\", "/")
+    try:
+        saved_path = save_audio_fn(
+            audio_data=layer_tensor,
+            output_path=target_path,
+            sample_rate=sample_rate,
+            format="wav",
+            channels_first=True,
+        )
+    except Exception as exc:
+        logger.warning("[lego_preview] Failed to save raw Lego generated track: {}", exc)
+        return ""
+    return str(saved_path).replace("\\", "/") if saved_path else ""
 
 
 def _build_request_payload(

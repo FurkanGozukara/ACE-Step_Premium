@@ -8,6 +8,7 @@ from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.events.results.result_output_contract import (
     ALL_AUDIO_PATHS_INDEX,
     STATUS_INDEX,
+    extract_lego_generated_track_path,
     extract_latest_edit_area_paths,
     extract_source_audio_path,
 )
@@ -25,11 +26,12 @@ def build_inline_result_outputs(generation_section: dict[str, Any]) -> list[Any]
         generation_section["inline_remaining_audio"],
         generation_section["inline_repainted_area_audio"],
         generation_section["inline_repainted_area_original_audio"],
+        generation_section["inline_lego_part_audio"],
         generation_section["inline_generation_status"],
     ]
 
 
-def clear_inline_result_preview() -> tuple[Any, Any, Any, Any, str]:
+def clear_inline_result_preview() -> tuple[Any, Any, Any, Any, Any, str]:
     """Clear the inline latest-result preview before a new generation starts."""
 
     return (
@@ -37,13 +39,14 @@ def clear_inline_result_preview() -> tuple[Any, Any, Any, Any, str]:
         gr.update(value=None, visible=False),
         _hidden_repainted_area_update(),
         _hidden_repainted_area_original_update(),
+        _hidden_lego_part_update(),
         "",
     )
 
 
 def prepare_inline_result_preview(
     task_type: str | None = None,
-) -> tuple[Any, Any, Any, Any, str]:
+) -> tuple[Any, Any, Any, Any, Any, str]:
     """Clear the inline preview and show Extract-mode foreground progress."""
 
     if str(task_type or "").strip().lower() == "extract":
@@ -52,6 +55,7 @@ def prepare_inline_result_preview(
             gr.update(value=None, visible=True),
             _hidden_repainted_area_update(),
             _hidden_repainted_area_original_update(),
+            _hidden_lego_part_update(),
             t("messages.extract_stem_processing"),
         )
     return clear_inline_result_preview()
@@ -64,26 +68,36 @@ def append_inline_result_preview(outputs: Any) -> tuple[Any, ...]:
     return (*output_tuple, *inline_result_preview_from_generation_outputs(output_tuple))
 
 
-def inline_result_preview_from_generation_outputs(outputs: Any) -> tuple[Any, Any, Any, Any, Any]:
+def inline_result_preview_from_generation_outputs(
+    outputs: Any,
+) -> tuple[Any, Any, Any, Any, Any, Any]:
     """Return inline audio/status updates from a streamed generation output tuple."""
 
     if not isinstance(outputs, (list, tuple)):
-        return gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip()
+        return gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip()
     audio_update = _output_at(outputs, _GENERATED_AUDIO_OUTPUT_INDEX)
     generated_files = _output_at(outputs, _GENERATED_FILES_OUTPUT_INDEX)
     remaining_update = _remaining_audio_update(
         generated_files
     )
     edit_area_update, edit_area_original_update = _edit_area_updates(generated_files)
+    lego_part_update = _lego_part_update(generated_files)
     status_update = _status_update_from_output(_output_at(outputs, _STATUS_OUTPUT_INDEX))
-    return audio_update, remaining_update, edit_area_update, edit_area_original_update, status_update
+    return (
+        audio_update,
+        remaining_update,
+        edit_area_update,
+        edit_area_original_update,
+        lego_part_update,
+        status_update,
+    )
 
 
 def sync_inline_result_preview(
     generated_audio: Any,
     generated_files: Any,
     status: Any,
-) -> tuple[Any, Any, Any, Any, str]:
+) -> tuple[Any, Any, Any, Any, Any, str]:
     """Mirror the first generated sample and status into the inline preview."""
 
     edit_area_update, edit_area_original_update = _edit_area_updates(generated_files)
@@ -92,6 +106,7 @@ def sync_inline_result_preview(
         _remaining_audio_update(generated_files),
         edit_area_update,
         edit_area_original_update,
+        _lego_part_update(generated_files),
         str(status or ""),
     )
 
@@ -139,6 +154,15 @@ def _edit_area_updates(paths: Any) -> tuple[Any, Any]:
     )
 
 
+def _lego_part_update(paths: Any) -> Any:
+    """Return an update for the raw generated Lego instrument player."""
+
+    path = extract_lego_generated_track_path(paths)
+    if not path:
+        return _hidden_lego_part_update()
+    return gr.update(value=path, label="Latest LEGO Part Only", visible=True)
+
+
 def _remaining_audio_path(paths: Any) -> str:
     """Return the first saved remaining-audio path from a generation file list."""
 
@@ -168,3 +192,9 @@ def _hidden_repainted_area_original_update() -> Any:
     """Return a hidden update for the original edited-area player."""
 
     return gr.update(value=None, label="Latest Repainted Area Original", visible=False)
+
+
+def _hidden_lego_part_update() -> Any:
+    """Return a hidden update for the raw generated Lego instrument player."""
+
+    return gr.update(value=None, label="Latest LEGO Part Only", visible=False)

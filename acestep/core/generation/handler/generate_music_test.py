@@ -333,6 +333,60 @@ class GenerateMusicMixinTests(unittest.TestCase):
         )
 
     @patch.object(GENERATE_MUSIC_MODULE, "apply_repaint_waveform_splice")
+    @patch.object(GENERATE_MUSIC_MODULE, "apply_lego_layer_mix")
+    def test_lego_with_range_mixes_generated_layer_over_source(
+        self,
+        lego_mix_mock,
+        waveform_splice_mock,
+    ):
+        """Lego ranges should add the generated layer instead of replacing source."""
+        host = _Host()
+        source_audio = torch.full((2, 8), 3.0)
+        mixed = torch.full((1, 2, 8), 7.0)
+        lego_mix_mock.return_value = mixed
+
+        def _prepare_audio(**kwargs):
+            """Return a prepared source waveform for Lego layer mixing."""
+            host.calls["_prepare_reference_and_source_audio"] = kwargs
+            return [[torch.zeros(2, 10)]], source_audio, None
+
+        def _prepare_service_inputs(**kwargs):
+            """Return repaint-range service inputs for Lego."""
+            host.calls["_prepare_generate_music_service_inputs"] = kwargs
+            return {
+                "should_return_intermediate": True,
+                "repainting_start_batch": [0.0],
+                "repainting_end_batch": [2.0],
+                "target_wavs_tensor": torch.ones(1, 2, 8),
+            }
+
+        host._prepare_reference_and_source_audio = _prepare_audio
+        host._prepare_generate_music_service_inputs = _prepare_service_inputs
+
+        out = host.generate_music(
+            captions="cap",
+            lyrics="[Instrumental]",
+            task_type="lego",
+            src_audio="source.wav",
+            repainting_start=0.0,
+            repainting_end=2.0,
+        )
+
+        self.assertEqual(out, host._final_payload)
+        lego_mix_mock.assert_called_once()
+        waveform_splice_mock.assert_not_called()
+        self.assertIs(source_audio, lego_mix_mock.call_args.kwargs["src_wavs"])
+        self.assertEqual(0.0, lego_mix_mock.call_args.kwargs["crossfade_duration"])
+        self.assertIs(
+            mixed,
+            host.calls["_build_generate_music_success_payload"]["pred_wavs"],
+        )
+        torch.testing.assert_close(
+            torch.ones(1, 2, 8),
+            host.calls["_build_generate_music_success_payload"]["lego_layer_wavs"],
+        )
+
+    @patch.object(GENERATE_MUSIC_MODULE, "apply_repaint_waveform_splice")
     def test_aggressive_repaint_with_range_still_splices_outside_region(self, splice_mock):
         """Non-lyric aggressive repaint preserves source waveform outside the range."""
         host = _Host()

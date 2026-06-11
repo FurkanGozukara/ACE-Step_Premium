@@ -219,6 +219,59 @@ class SequentialGenerationCountTests(unittest.TestCase):
         self.assertEqual(2, sample_sidecar["extract_trim"]["segments"][0]["start_sample"])
         self.assertEqual(6, sample_sidecar["extract_trim"]["segments"][0]["end_sample"])
 
+    def test_lego_saves_raw_track_while_latest_area_uses_mix(self):
+        """Lego latest-area preview should crop the mix and expose the raw layer separately."""
+
+        import torch
+
+        saved_paths = []
+        latest_area_metadata = {
+            "applied": True,
+            "generated_area_path": "/tmp/song_latest_repainted_area.wav",
+            "original_area_path": "/tmp/song_latest_repainted_area_original.wav",
+        }
+
+        def fake_generate_music(_dit_handler, _llm_handler, *, params, config, progress):
+            result = _fake_result(str(config.seeds[0]))
+            result.extra_outputs["lego_layer_wavs"] = torch.ones(1, 2, 8) * 0.5
+            return result
+
+        def fake_save_audio(audio_data, output_path, **_kwargs):
+            saved_paths.append((output_path, audio_data))
+            return output_path
+
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+            generation_progress,
+            "create_latest_edit_area_clips",
+            return_value=latest_area_metadata,
+        ) as latest_area_mock:
+            final = self._run_generation(
+                tmp,
+                fake_generate_music,
+                task_type="lego",
+                src_audio="source.wav",
+                repainting_start=0.0,
+                repainting_end=-1,
+                save_audio_side_effect=fake_save_audio,
+            )
+
+        layer_paths = [
+            path for path, _audio_data in saved_paths
+            if path.endswith("_lego_generated_track.wav")
+        ]
+        self.assertEqual(1, len(layer_paths))
+        latest_area_mock.assert_called_once()
+        self.assertNotEqual(
+            latest_area_mock.call_args.kwargs["generated_audio_path"],
+            layer_paths[0],
+        )
+        self.assertTrue(latest_area_mock.call_args.kwargs["generated_audio_path"].endswith(".flac"))
+        self.assertIn(layer_paths[0], final[16])
+        self.assertIn(latest_area_metadata["generated_area_path"], final[16])
+        self.assertIn(latest_area_metadata["original_area_path"], final[16])
+        layer_audio = next(audio_data for path, audio_data in saved_paths if path == layer_paths[0])
+        torch.testing.assert_close(layer_audio, torch.ones(2, 8) * 0.5)
+
     def _run_generation(
         self,
         tmp: str,

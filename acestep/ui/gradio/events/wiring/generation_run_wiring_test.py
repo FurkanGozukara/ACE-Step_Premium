@@ -26,6 +26,7 @@ class InlineResultPreviewTests(unittest.TestCase):
             "inline_remaining_audio": "remaining_component",
             "inline_repainted_area_audio": "area_component",
             "inline_repainted_area_original_audio": "area_original_component",
+            "inline_lego_part_audio": "lego_part_component",
             "inline_generation_status": "status_component",
         }
 
@@ -36,6 +37,7 @@ class InlineResultPreviewTests(unittest.TestCase):
                 "remaining_component",
                 "area_component",
                 "area_original_component",
+                "lego_part_component",
                 "status_component",
             ],
         )
@@ -43,7 +45,7 @@ class InlineResultPreviewTests(unittest.TestCase):
     def test_clear_inline_result_preview_clears_audio_and_status(self):
         """Starting a new generation should clear the inline preview."""
 
-        audio, remaining, area, area_original, status = clear_inline_result_preview()
+        audio, remaining, area, area_original, lego_part, status = clear_inline_result_preview()
 
         self.assertEqual(audio["value"], None)
         self.assertEqual(remaining["value"], None)
@@ -52,12 +54,16 @@ class InlineResultPreviewTests(unittest.TestCase):
         self.assertFalse(area["visible"])
         self.assertEqual(area_original["value"], None)
         self.assertFalse(area_original["visible"])
+        self.assertEqual(lego_part["value"], None)
+        self.assertFalse(lego_part["visible"])
         self.assertEqual(status, "")
 
     def test_prepare_inline_result_preview_shows_extract_progress(self):
         """Starting Extract should show progress in the inline latest-result preview."""
 
-        audio, remaining, area, area_original, status = prepare_inline_result_preview("extract")
+        audio, remaining, area, area_original, lego_part, status = (
+            prepare_inline_result_preview("extract")
+        )
 
         self.assertEqual(audio["value"], None)
         self.assertEqual(audio["label"], "Extracted Audio")
@@ -65,18 +71,22 @@ class InlineResultPreviewTests(unittest.TestCase):
         self.assertTrue(remaining["visible"])
         self.assertFalse(area["visible"])
         self.assertFalse(area_original["visible"])
+        self.assertFalse(lego_part["visible"])
         self.assertEqual(status, t("messages.extract_stem_processing"))
 
     def test_prepare_inline_result_preview_keeps_non_extract_behavior(self):
         """Starting non-Extract generation should keep the existing blank status."""
 
-        audio, remaining, area, area_original, status = prepare_inline_result_preview("text2music")
+        audio, remaining, area, area_original, lego_part, status = (
+            prepare_inline_result_preview("text2music")
+        )
 
         self.assertEqual(audio["value"], None)
         self.assertEqual(remaining["value"], None)
         self.assertFalse(remaining["visible"])
         self.assertFalse(area["visible"])
         self.assertFalse(area_original["visible"])
+        self.assertFalse(lego_part["visible"])
         self.assertEqual(status, "")
 
     def test_inline_result_preview_from_generation_outputs_copies_status(self):
@@ -85,7 +95,7 @@ class InlineResultPreviewTests(unittest.TestCase):
         outputs = list(f"out_{index}" for index in range(63))
         outputs[16] = ["/tmp/song_remaining.mp3"]
 
-        audio, remaining, area, area_original, status = (
+        audio, remaining, area, area_original, lego_part, status = (
             inline_result_preview_from_generation_outputs(outputs)
         )
 
@@ -95,6 +105,7 @@ class InlineResultPreviewTests(unittest.TestCase):
         self.assertTrue(remaining["visible"])
         self.assertFalse(area["visible"])
         self.assertFalse(area_original["visible"])
+        self.assertFalse(lego_part["visible"])
         self.assertEqual(status, "out_18")
 
     def test_inline_result_preview_prefers_original_source_audio(self):
@@ -103,7 +114,7 @@ class InlineResultPreviewTests(unittest.TestCase):
         outputs = list(f"out_{index}" for index in range(63))
         outputs[16] = ["/tmp/song_remaining.mp3", "/tmp/source_audio.wav"]
 
-        _audio, original, _area, _area_original, _status = (
+        _audio, original, _area, _area_original, _lego_part, _status = (
             inline_result_preview_from_generation_outputs(outputs)
         )
 
@@ -120,7 +131,7 @@ class InlineResultPreviewTests(unittest.TestCase):
             "/tmp/song_latest_repainted_area_original.wav",
         ]
 
-        _audio, _remaining, area, area_original, _status = (
+        _audio, _remaining, area, area_original, lego_part, _status = (
             inline_result_preview_from_generation_outputs(outputs)
         )
 
@@ -133,13 +144,30 @@ class InlineResultPreviewTests(unittest.TestCase):
         )
         self.assertEqual(area_original["label"], "Latest Repainted Area Original")
         self.assertTrue(area_original["visible"])
+        self.assertFalse(lego_part["visible"])
+
+    def test_inline_result_preview_shows_full_lego_generated_track_separately(self):
+        """The raw full Lego layer should show in its own third row."""
+
+        outputs = list(f"out_{index}" for index in range(63))
+        outputs[16] = ["/tmp/song_lego_generated_track.wav"]
+
+        _audio, _remaining, area, area_original, lego_part, _status = (
+            inline_result_preview_from_generation_outputs(outputs)
+        )
+
+        self.assertFalse(area["visible"])
+        self.assertFalse(area_original["visible"])
+        self.assertEqual(lego_part["value"], "/tmp/song_lego_generated_track.wav")
+        self.assertEqual(lego_part["label"], "Latest LEGO Part Only")
+        self.assertTrue(lego_part["visible"])
 
     def test_inline_result_preview_from_generation_outputs_preserves_skip_status(self):
         """No-op backend status updates should not erase the inline status."""
 
         outputs = tuple(["sample.wav", *["unused"] * 15, [], "unused", gr.skip()])
 
-        audio, remaining, area, area_original, status = (
+        audio, remaining, area, area_original, lego_part, status = (
             inline_result_preview_from_generation_outputs(outputs)
         )
 
@@ -147,6 +175,7 @@ class InlineResultPreviewTests(unittest.TestCase):
         self.assertFalse(remaining["visible"])
         self.assertFalse(area["visible"])
         self.assertFalse(area_original["visible"])
+        self.assertFalse(lego_part["visible"])
         self.assertEqual(status, gr.skip())
 
     def test_append_inline_result_preview_extends_generation_outputs(self):
@@ -158,10 +187,11 @@ class InlineResultPreviewTests(unittest.TestCase):
 
         result = append_inline_result_preview(outputs)
 
-        self.assertEqual(result[:-5], outputs)
-        self.assertEqual(result[-5], "out_0")
-        self.assertEqual(result[-4]["value"], "/tmp/song_remaining.flac")
-        self.assertEqual(result[-4]["label"], "Original Input")
+        self.assertEqual(result[:-6], outputs)
+        self.assertEqual(result[-6], "out_0")
+        self.assertEqual(result[-5]["value"], "/tmp/song_remaining.flac")
+        self.assertEqual(result[-5]["label"], "Original Input")
+        self.assertFalse(result[-4]["visible"])
         self.assertFalse(result[-3]["visible"])
         self.assertFalse(result[-2]["visible"])
         self.assertEqual(result[-1], "out_18")
@@ -169,7 +199,7 @@ class InlineResultPreviewTests(unittest.TestCase):
     def test_sync_inline_result_preview_mirrors_first_sample_and_status(self):
         """Completed generation should copy Sample 1 and status into the preview."""
 
-        audio, remaining, area, area_original, status = sync_inline_result_preview(
+        audio, remaining, area, area_original, lego_part, status = sync_inline_result_preview(
             "sample_1.wav",
             ["/tmp/sample_1_remaining.wav"],
             "Generation Complete",
@@ -181,6 +211,7 @@ class InlineResultPreviewTests(unittest.TestCase):
         self.assertTrue(remaining["visible"])
         self.assertFalse(area["visible"])
         self.assertFalse(area_original["visible"])
+        self.assertFalse(lego_part["visible"])
         self.assertEqual(status, "Generation Complete")
 
 

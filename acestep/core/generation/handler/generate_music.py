@@ -28,6 +28,9 @@ from acestep.core.generation.handler.repaint_waveform_splice import (
 from acestep.core.generation.handler.repaint_segment_splice import (
     apply_repaint_segment_splice,
 )
+from acestep.core.generation.handler.lego_layer_mix import (
+    apply_lego_layer_mix,
+)
 from acestep.core.generation.handler.repaint_prompt import (
     has_repaint_lyrics,
     resolve_repaint_vocal_language,
@@ -521,6 +524,7 @@ class GenerateMusicMixin:
                 repainting_start_batch is not None
                 and repainting_end_batch is not None
             )
+            lego_layer_wavs = None
             if use_local_lyric_repaint:
                 pred_wavs = apply_repaint_segment_splice(
                     pred_segments=pred_wavs,
@@ -536,14 +540,25 @@ class GenerateMusicMixin:
                     if processed_src_audio is not None
                     else service_inputs["target_wavs_tensor"]
                 )
-                pred_wavs = apply_repaint_waveform_splice(
-                    pred_wavs=pred_wavs,
-                    src_wavs=source_wavs_for_splice,
-                    repainting_starts=repainting_start_batch,
-                    repainting_ends=repainting_end_batch,
-                    sample_rate=self.sample_rate,
-                    crossfade_duration=resolved_wav_cf,
-                )
+                if task_type == "lego":
+                    lego_layer_wavs = pred_wavs.detach().clone()
+                    pred_wavs = apply_lego_layer_mix(
+                        pred_wavs=pred_wavs,
+                        src_wavs=source_wavs_for_splice,
+                        repainting_starts=repainting_start_batch,
+                        repainting_ends=repainting_end_batch,
+                        sample_rate=self.sample_rate,
+                        crossfade_duration=resolved_wav_cf,
+                    )
+                else:
+                    pred_wavs = apply_repaint_waveform_splice(
+                        pred_wavs=pred_wavs,
+                        src_wavs=source_wavs_for_splice,
+                        repainting_starts=repainting_start_batch,
+                        repainting_ends=repainting_end_batch,
+                        sample_rate=self.sample_rate,
+                        crossfade_duration=resolved_wav_cf,
+                    )
             result = self._build_generate_music_success_payload(
                 outputs=outputs,
                 pred_wavs=pred_wavs,
@@ -554,6 +569,7 @@ class GenerateMusicMixin:
                 progress=progress,
                 retake_seed_value_for_ui=retake_seed_value_for_ui,
                 retake_variance=retake_variance,
+                lego_layer_wavs=lego_layer_wavs,
             )
             # Clear GPU tensor references from the mutable outputs dict so
             # accelerator memory is reclaimable before the next generation.
