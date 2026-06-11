@@ -26,7 +26,7 @@ from acestep.audio_processing.auto_editor_trim_settings import (
 _ASSET_FILENAME = "user_preferences.js"
 _STORAGE_KEY = "acestep.ui.user_preferences"
 _SCHEMA_VERSION = 1
-_DEFAULT_AUDIO_FORMAT = "flac_mp3"
+_DEFAULT_AUDIO_FORMAT = "mp3"
 _DEFAULT_MP3_BITRATE = "256k"
 _DEFAULT_EXTRACT_AUDIO_FORMAT = "mp3"
 
@@ -67,6 +67,20 @@ _DEFAULTS: dict[str, Any] = {
     "latent_rescale": 1.0,
     "lm_batch_chunk_size": 8,
 }
+
+
+def _normalize_audio_format(value: Any) -> str:
+    """Return the supported saved generation audio format."""
+
+    normalized = str(value or "").strip().lower()
+    return normalized if normalized in {"mp3", "wav"} else _DEFAULT_AUDIO_FORMAT
+
+
+def _normalize_extract_audio_format(value: Any) -> str:
+    """Return the supported saved Extract/Lego audio format."""
+
+    normalized = str(value or "").strip().lower()
+    return normalized if normalized in {"mp3", "wav"} else _DEFAULT_EXTRACT_AUDIO_FORMAT
 
 
 # ── Save-side: head script injection ────────────────────────────────────
@@ -168,9 +182,7 @@ def _build_restore_js(num_outputs: int) -> str:
             // When audioFormat is null (no stored value), push nulls so Python
             // emits gr.update() and preserves whatever init_params set.
             const audioFormat = result[0];
-            const mp3 = audioFormat === null ? null : (
-                audioFormat === "mp3" || audioFormat === "flac_mp3"
-            );
+            const mp3 = audioFormat === null ? null : audioFormat !== "wav";
             result.push(mp3, mp3, mp3);
             return result;
         }} catch (_e) {{
@@ -214,6 +226,10 @@ def restore_preferences(
         elif i > n_prefs and isinstance(v, bool):
             # mp3_bitrate, mp3_sample_rate: visibility + interactivity.
             results.append(gr.update(visible=v, interactive=v))
+        elif i < n_prefs and PREF_KEYS[i] == "audio_format":
+            results.append(_normalize_audio_format(v))
+        elif i < n_prefs and PREF_KEYS[i] == "extract_output_format":
+            results.append(_normalize_extract_audio_format(v))
         elif i < n_prefs and PREF_KEYS[i] == "extract_trim_threshold_db":
             results.append(coerce_auto_editor_threshold_db(v))
         else:

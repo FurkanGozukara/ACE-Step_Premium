@@ -8,7 +8,7 @@
  *
  * Storage schema:
  *   key   = "acestep.ui.user_preferences"
- *   value = JSON  { _version: 1, audio_format: "flac", … }
+ *   value = JSON  { _version: 1, audio_format: "mp3", ... }
  */
 (() => {
     const STORAGE_KEY = "acestep.ui.user_preferences";

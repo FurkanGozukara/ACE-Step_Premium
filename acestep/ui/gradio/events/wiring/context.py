@@ -93,6 +93,7 @@ _MODE_UI_OUTPUT_KEYS = (
     "retake_panel",
     "morph_panel",
     "no_fsq",
+    "audio_format_column",
 )
 
 

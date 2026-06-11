@@ -91,6 +91,7 @@ def compute_mode_ui_updates(
     show_audio_codes = is_custom
     show_complete_classes = is_complete
     show_runtime_options = not (is_extract or is_lego)
+    show_inline_audio_format = show_src_audio and not (is_extract or is_lego)
 
     # Audio cover/codes strength is meaningful only for text/code guidance and Remix.
     # Source-range tasks (Repaint/Lego/Complete) use their own source-mask paths.
@@ -283,6 +284,7 @@ def compute_mode_ui_updates(
         retake_panel_update,                               # 57: retake_panel
         morph_panel_update,                                # 58: morph_panel
         no_fsq_update,                                     # 59: no_fsq
+        gr.update(visible=show_inline_audio_format),       # 60: audio_format_column
     )
 
 

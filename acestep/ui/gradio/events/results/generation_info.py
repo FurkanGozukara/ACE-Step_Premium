@@ -49,7 +49,7 @@ def _build_generation_info(
     seed_value: str,
     inference_steps: int,
     num_audios: int,
-    audio_format: str = "flac",
+    audio_format: str = "mp3",
 ) -> str:
     """Build a compact generation timing summary.
 
@@ -59,7 +59,7 @@ def _build_generation_info(
         seed_value: Seed value string (unused, kept for API compat).
         inference_steps: Number of inference steps (unused, kept for API compat).
         num_audios: Number of generated audios.
-        audio_format: Output audio format name (e.g. "flac", "mp3", "wav32").
+        audio_format: Output audio format name (for example, "mp3" or "wav").
 
     Returns:
         Formatted generation info string.

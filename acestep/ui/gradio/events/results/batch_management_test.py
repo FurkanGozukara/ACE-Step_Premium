@@ -412,7 +412,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
         kwargs = _build_call_kwargs(module)
         kwargs["task_type"] = "extract"
         kwargs["track_name"] = "vocals"
-        kwargs["extract_output_format"] = "flac"
+        kwargs["extract_output_format"] = "wav"
         kwargs["captions"] = ""
         kwargs["instruction_display_gen"] = ""
         with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
@@ -422,8 +422,8 @@ class BatchManagementWrapperTests(unittest.TestCase):
         self.assertEqual(seen["args"][2], "vocals")
         self.assertEqual(seen["args"][19], "Extract the VOCALS track from the audio:")
         self.assertEqual(saved_params["track_name"], "vocals")
-        self.assertEqual(saved_params["audio_format"], "flac")
-        self.assertEqual(saved_params["extract_output_format"], "flac")
+        self.assertEqual(saved_params["audio_format"], "wav")
+        self.assertEqual(saved_params["extract_output_format"], "wav")
 
     def test_auto_lrc_copies_lrc_fields_to_batch_queue(self):
         """Auto-LRC mode should copy LRC/subtitle payloads into stored queue entry."""

@@ -20,7 +20,7 @@ class LatestEditAreaTests(unittest.TestCase):
             source = _touch(root / "source.wav")
             seen_segments = []
 
-            def fake_extract(_source, target, segment):
+            def fake_extract(_source, target, segment, **_kwargs):
                 seen_segments.append(segment)
                 return str(target).replace("\\", "/")
 
@@ -46,6 +46,39 @@ class LatestEditAreaTests(unittest.TestCase):
             result["original_area_path"].endswith("_latest_repainted_area_original.wav")
         )
 
+    def test_mp3_output_uses_mp3_clip_extension(self) -> None:
+        """Selected MP3 output should create MP3 edited-area clips."""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            generated = _touch(root / "generated.mp3")
+            source = _touch(root / "source.mp3")
+
+            def fake_extract(_source, target, segment, **_kwargs):
+                return str(target).replace("\\", "/")
+
+            with patch(
+                "acestep.ui.gradio.events.results.latest_edit_area."
+                "_extract_audio_segment",
+                side_effect=fake_extract,
+            ):
+                result = create_latest_edit_area_clips(
+                    task_type="repaint",
+                    generated_audio_path=str(generated),
+                    source_audio_path=str(source),
+                    run_dir=root,
+                    key="sample",
+                    repainting_start=10.0,
+                    repainting_end=15.0,
+                    output_format="mp3",
+                )
+
+        self.assertTrue(result["applied"])
+        self.assertTrue(result["generated_area_path"].endswith("_latest_repainted_area.mp3"))
+        self.assertTrue(
+            result["original_area_path"].endswith("_latest_repainted_area_original.mp3")
+        )
+
     def test_remix_uses_resolved_whole_source_segment(self) -> None:
         """Remix clips should compare the whole resolved Remix source segment."""
 
@@ -55,7 +88,7 @@ class LatestEditAreaTests(unittest.TestCase):
             source = _touch(root / "source.wav")
             seen_segments = []
 
-            def fake_extract(_source, target, segment):
+            def fake_extract(_source, target, segment, **_kwargs):
                 seen_segments.append(segment)
                 return str(target).replace("\\", "/")
 

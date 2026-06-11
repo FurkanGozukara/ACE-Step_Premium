@@ -586,13 +586,13 @@ class LoadMetadataMp3SanitizationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             file_obj = self._write_json(tmpdir, {
                 "task_type": "extract",
-                "audio_format": "flac",
+                "audio_format": "wav",
                 "track_name": "vocals",
             })
             result = generation_handlers.load_metadata(file_obj, None)
 
         self.assertEqual(result[37], "vocals")
-        self.assertEqual(result[38], "flac")
+        self.assertEqual(result[38], "wav")
 
 @unittest.skipIf(generation_handlers is None, f"generation_handlers import unavailable: {_IMPORT_ERROR}")
 class AutoCheckboxTests(unittest.TestCase):

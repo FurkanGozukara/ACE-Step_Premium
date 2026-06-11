@@ -103,7 +103,10 @@ def create_generation_body_section(
 
     hidden_state_controls = build_hidden_generation_state()
     simple_mode_controls = build_simple_mode_controls()
-    source_track_code_controls = build_source_track_and_code_controls()
+    source_track_code_controls = build_source_track_and_code_controls(
+        service_mode=service_mode,
+        init_params=init_params,
+    )
     variation_morph_controls = build_variation_morph_controls()
     cover_controls = build_cover_strength_controls()
     custom_mode_controls = build_custom_mode_controls()

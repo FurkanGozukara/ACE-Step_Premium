@@ -33,7 +33,7 @@ def _progress_args(**overrides):
         "velocity_norm_threshold": 0.0, "velocity_ema_factor": 0.0,
         "dcw_enabled": True, "dcw_mode": "double", "dcw_scaler": 0.02,
         "dcw_high_scaler": 0.06, "dcw_wavelet": "haar",
-        "custom_timesteps": "", "audio_format": "flac",
+        "custom_timesteps": "", "audio_format": "mp3",
         "mp3_bitrate": "320k", "mp3_sample_rate": 48000,
         "lm_temperature": 0.85, "think_checkbox": False, "lm_cfg_scale": 2.0,
         "lm_top_k": 0, "lm_top_p": 0.9,
@@ -145,7 +145,7 @@ class SequentialGenerationCountTests(unittest.TestCase):
         self.assertEqual(len(calls), 10)
         self.assertEqual([call.batch_size for call in calls], [1] * 10)
         self.assertEqual(final[55][:10], [f"code-{seed}" for seed in range(200, 210)])
-        self.assertIn("song-209.flac", "\n".join(final[16]))
+        self.assertIn("song-209.mp3", "\n".join(final[16]))
         self.assertIn("song-209.json", "\n".join(final[16]))
 
     def test_generate_with_progress_keeps_random_seed_mode_random_per_song(self):
@@ -227,8 +227,8 @@ class SequentialGenerationCountTests(unittest.TestCase):
         saved_paths = []
         latest_area_metadata = {
             "applied": True,
-            "generated_area_path": "/tmp/song_latest_repainted_area.wav",
-            "original_area_path": "/tmp/song_latest_repainted_area_original.wav",
+            "generated_area_path": "/tmp/song_latest_repainted_area.mp3",
+            "original_area_path": "/tmp/song_latest_repainted_area_original.mp3",
         }
 
         def fake_generate_music(_dit_handler, _llm_handler, *, params, config, progress):
@@ -257,7 +257,7 @@ class SequentialGenerationCountTests(unittest.TestCase):
 
         layer_paths = [
             path for path, _audio_data in saved_paths
-            if path.endswith("_lego_generated_track.wav")
+            if path.endswith("_lego_generated_track.mp3")
         ]
         self.assertEqual(1, len(layer_paths))
         latest_area_mock.assert_called_once()
@@ -265,7 +265,7 @@ class SequentialGenerationCountTests(unittest.TestCase):
             latest_area_mock.call_args.kwargs["generated_audio_path"],
             layer_paths[0],
         )
-        self.assertTrue(latest_area_mock.call_args.kwargs["generated_audio_path"].endswith(".flac"))
+        self.assertTrue(latest_area_mock.call_args.kwargs["generated_audio_path"].endswith(".mp3"))
         self.assertIn(layer_paths[0], final[16])
         self.assertIn(latest_area_metadata["generated_area_path"], final[16])
         self.assertIn(latest_area_metadata["original_area_path"], final[16])

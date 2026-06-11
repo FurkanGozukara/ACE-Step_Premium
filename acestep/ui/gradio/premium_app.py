@@ -40,6 +40,9 @@ from acestep.ui.gradio.interfaces.user_preferences import (
     get_user_preferences_head,
     wire_preference_restore,
 )
+from acestep.ui.gradio.interfaces.generation_advanced_output_controls import (
+    _update_mp3_control_visibility,
+)
 from acestep.ui.gradio.pages import (
     create_audio_processing_page,
     create_batch_folder_page,
@@ -910,6 +913,7 @@ def create_gradio_interface(
             dataset_section=dataset_section,
             generation_section=generation_section,
             results_section=results_section,
+            service_mode=service_mode,
         )
 
         setup_training_event_handlers(
@@ -997,7 +1001,18 @@ def create_gradio_interface(
         load_preset_action_with_specs.__name__ = "load_preset_action"
         delete_preset_action_with_specs.__name__ = "delete_preset_action"
 
-        demo.load(
+        def sync_preset_audio_format_visibility(audio_format: str) -> tuple[Any, ...]:
+            """Refresh MP3-only controls after preset audio-format updates."""
+
+            return _update_mp3_control_visibility(audio_format, service_mode=service_mode)
+
+        preset_audio_visibility_outputs = [
+            generation_section["mp3_controls_row"],
+            generation_section["mp3_bitrate"],
+            generation_section["mp3_sample_rate"],
+        ]
+
+        startup_preset_event = demo.load(
             fn=startup_preset_updates_with_specs,
             outputs=preset_components
             + [
@@ -1008,6 +1023,11 @@ def create_gradio_interface(
                 studio_page["studio_overview"],
             ],
         )
+        startup_preset_event.then(
+            fn=sync_preset_audio_format_visibility,
+            inputs=[generation_section["audio_format"]],
+            outputs=preset_audio_visibility_outputs,
+        )
         preset_load_outputs = preset_components + [
             generation_section["lora_status"],
             generation_section["use_lora_checkbox"],
@@ -1015,15 +1035,25 @@ def create_gradio_interface(
             studio_page["preset_status"],
             studio_page["studio_overview"],
         ]
-        studio_page["preset_dropdown"].change(
+        preset_dropdown_event = studio_page["preset_dropdown"].change(
             fn=load_preset_action_with_specs,
             inputs=[studio_page["preset_dropdown"]],
             outputs=preset_load_outputs,
         )
-        studio_page["load_preset_btn"].click(
+        preset_dropdown_event.then(
+            fn=sync_preset_audio_format_visibility,
+            inputs=[generation_section["audio_format"]],
+            outputs=preset_audio_visibility_outputs,
+        )
+        preset_load_event = studio_page["load_preset_btn"].click(
             fn=load_preset_action_with_specs,
             inputs=[studio_page["preset_dropdown"]],
             outputs=preset_load_outputs,
+        )
+        preset_load_event.then(
+            fn=sync_preset_audio_format_visibility,
+            inputs=[generation_section["audio_format"]],
+            outputs=preset_audio_visibility_outputs,
         )
         studio_page["save_preset_btn"].click(
             fn=save_preset_action,
@@ -1038,7 +1068,7 @@ def create_gradio_interface(
                 studio_page["studio_overview"],
             ],
         )
-        studio_page["delete_preset_btn"].click(
+        preset_delete_event = studio_page["delete_preset_btn"].click(
             fn=delete_preset_action_with_specs,
             inputs=[
                 studio_page["preset_dropdown"],
@@ -1046,6 +1076,11 @@ def create_gradio_interface(
                 studio_page["preset_name_input"],
             ],
             outputs=preset_load_outputs,
+        )
+        preset_delete_event.then(
+            fn=sync_preset_audio_format_visibility,
+            inputs=[generation_section["audio_format"]],
+            outputs=preset_audio_visibility_outputs,
         )
         studio_page["refresh_dashboard_btn"].click(
             fn=refresh_dashboard,

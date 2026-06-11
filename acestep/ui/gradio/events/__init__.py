@@ -22,9 +22,35 @@ from .wiring import (
     register_training_preprocess_handler,
     register_training_run_handlers,
 )
+from acestep.ui.gradio.interfaces.generation_advanced_output_controls import (
+    _update_mp3_control_visibility,
+)
 
 
-def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, dataset_section, generation_section, results_section):
+def _register_audio_format_visibility_handler(generation_section, service_mode: bool = False):
+    """Keep MP3 quality controls synced with the shared output-format selector."""
+
+    generation_section["audio_format"].change(
+        fn=lambda value: _update_mp3_control_visibility(value, service_mode=service_mode),
+        inputs=[generation_section["audio_format"]],
+        outputs=[
+            generation_section["mp3_controls_row"],
+            generation_section["mp3_bitrate"],
+            generation_section["mp3_sample_rate"],
+        ],
+    )
+
+
+def setup_event_handlers(
+    demo,
+    dit_handler,
+    llm_handler,
+    dataset_handler,
+    dataset_section,
+    generation_section,
+    results_section,
+    service_mode: bool = False,
+):
     """Setup generation/results event wiring for the Gradio UI.
 
     Args:
@@ -35,6 +61,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         dataset_section (dict[str, Any]): Dataset UI component map.
         generation_section (dict[str, Any]): Generation UI component map.
         results_section (dict[str, Any]): Results UI component map.
+        service_mode (bool): Whether generation controls are locked by startup params.
 
     Local wiring values:
         wiring_context (GenerationWiringContext): Shared typed context for
@@ -73,6 +100,7 @@ def setup_event_handlers(demo, dit_handler, llm_handler, dataset_handler, datase
         auto_checkbox_inputs=auto_checkbox_inputs,
         auto_checkbox_outputs=auto_checkbox_outputs,
     )
+    _register_audio_format_visibility_handler(generation_section, service_mode=service_mode)
 
     register_generation_mode_handlers(
         wiring_context,

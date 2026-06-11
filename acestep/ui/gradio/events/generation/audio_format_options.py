@@ -4,28 +4,18 @@ from __future__ import annotations
 
 
 DUAL_AUDIO_FORMAT = "flac_mp3"
-DEFAULT_AUDIO_FORMAT = DUAL_AUDIO_FORMAT
+DEFAULT_AUDIO_FORMAT = "mp3"
 DEFAULT_MP3_BITRATE = "256k"
 DEFAULT_EXTRACT_AUDIO_FORMAT = "mp3"
 
 AUDIO_FORMAT_CHOICES = [
-    ("FLAC + MP3", DUAL_AUDIO_FORMAT),
-    ("FLAC", "flac"),
     ("MP3", "mp3"),
-    ("Opus", "opus"),
-    ("AAC", "aac"),
-    ("WAV (16-bit)", "wav"),
-    ("WAV (32-bit Float)", "wav32"),
+    ("WAV", "wav"),
 ]
 
 SUPPORTED_AUDIO_FORMATS = {
-    DUAL_AUDIO_FORMAT,
-    "flac",
     "mp3",
-    "opus",
-    "aac",
     "wav",
-    "wav32",
 }
 
 MP3_BITRATE_CHOICES = [
@@ -38,12 +28,11 @@ MP3_BITRATE_CHOICES = [
 MP3_SAMPLE_RATE_CHOICES = [("48 kHz", 48000), ("44.1 kHz", 44100)]
 
 EXTRACT_AUDIO_FORMAT_CHOICES = [
-    ("WAV", "wav"),
     ("MP3", "mp3"),
-    ("FLAC", "flac"),
+    ("WAV", "wav"),
 ]
 
-SUPPORTED_EXTRACT_AUDIO_FORMATS = {"wav", "mp3", "flac"}
+SUPPORTED_EXTRACT_AUDIO_FORMATS = {"mp3", "wav"}
 
 
 def normalize_audio_format(value: object) -> str:
@@ -65,10 +54,7 @@ def normalize_extract_audio_format(value: object) -> str:
 def output_audio_formats(value: object) -> list[str]:
     """Return concrete audio formats that should be written for a UI selection."""
 
-    normalized = normalize_audio_format(value)
-    if normalized == DUAL_AUDIO_FORMAT:
-        return ["flac", "mp3"]
-    return [normalized]
+    return [normalize_audio_format(value)]
 
 
 def primary_audio_format(value: object) -> str:
@@ -80,21 +66,16 @@ def primary_audio_format(value: object) -> str:
 def audio_file_extension(value: object) -> str:
     """Return the file extension for a concrete audio format."""
 
-    return "wav" if normalize_audio_format(value) == "wav32" else normalize_audio_format(value)
+    return normalize_audio_format(value)
 
 
 def mp3_controls_visible(value: object) -> bool:
     """Return whether MP3 bitrate controls should be visible."""
 
-    return normalize_audio_format(value) in {DUAL_AUDIO_FORMAT, "mp3"}
+    return normalize_audio_format(value) == "mp3"
 
 
 def audio_format_label(value: object) -> str:
     """Return a display label for a UI audio-format value."""
 
-    normalized = normalize_audio_format(value)
-    if normalized == DUAL_AUDIO_FORMAT:
-        return "FLAC + MP3"
-    if normalized == "wav32":
-        return "WAV 32-bit"
-    return normalized.upper()
+    return normalize_audio_format(value).upper()

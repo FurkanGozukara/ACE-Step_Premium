@@ -25,6 +25,9 @@ def create_latest_edit_area_clips(
     key: str,
     repainting_start: Any,
     repainting_end: Any,
+    output_format: str = "wav",
+    mp3_bitrate: str | None = None,
+    mp3_sample_rate: int | None = None,
 ) -> dict[str, Any]:
     """Create generated/original edited-area clips for source-edit tasks.
 
@@ -36,6 +39,9 @@ def create_latest_edit_area_clips(
         key: Sample key used to name clip files.
         repainting_start: Selected source range start in seconds.
         repainting_end: Selected source range end in seconds, or ``-1`` for source end.
+        output_format: Selected clip output format, ``mp3`` or ``wav``.
+        mp3_bitrate: Optional MP3 bitrate override.
+        mp3_sample_rate: Optional MP3 sample-rate override.
 
     Returns:
         Metadata with ``applied`` plus generated/original clip paths when available.
@@ -55,11 +61,26 @@ def create_latest_edit_area_clips(
         return {"applied": False, "reason": "invalid_range"}
 
     target_dir = Path(run_dir)
-    generated_target = target_dir / f"{key}_latest_repainted_area.wav"
-    original_target = target_dir / f"{key}_latest_repainted_area_original.wav"
+    clip_format = _clip_output_format(output_format)
+    generated_target = target_dir / f"{key}_latest_repainted_area.{clip_format}"
+    original_target = target_dir / f"{key}_latest_repainted_area_original.{clip_format}"
     try:
-        generated_clip = _extract_audio_segment(generated, generated_target, segment)
-        original_clip = _extract_audio_segment(source, original_target, segment)
+        generated_clip = _extract_audio_segment(
+            generated,
+            generated_target,
+            segment,
+            output_format=clip_format,
+            mp3_bitrate=mp3_bitrate,
+            mp3_sample_rate=mp3_sample_rate,
+        )
+        original_clip = _extract_audio_segment(
+            source,
+            original_target,
+            segment,
+            output_format=clip_format,
+            mp3_bitrate=mp3_bitrate,
+            mp3_sample_rate=mp3_sample_rate,
+        )
     except RuntimeError as exc:
         logger.warning(f"Failed to create latest edited-area clips: {exc}")
         return {"applied": False, "reason": "clip_failed", "error": str(exc)}
@@ -107,6 +128,12 @@ def _parse_seconds(value: Any) -> float | None:
     return seconds
 
 
+def _clip_output_format(value: str) -> str:
+    """Return the supported edited-area clip format."""
+
+    return "mp3" if str(value or "").strip().lower() == "mp3" else "wav"
+
+
 def _existing_file(path: str | None) -> Path | None:
     """Return an existing media path or ``None``."""
 
@@ -124,8 +151,12 @@ def _extract_audio_segment(
     source: Path,
     target: Path,
     segment: tuple[float, float | None],
+    *,
+    output_format: str,
+    mp3_bitrate: str | None,
+    mp3_sample_rate: int | None,
 ) -> str:
-    """Extract an audio segment to WAV and return the normalized path."""
+    """Extract an audio segment and return the normalized path."""
 
     start, duration = segment
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -143,9 +174,31 @@ def _extract_audio_segment(
     ]
     if duration is not None:
         cmd.extend(["-t", f"{duration:.3f}"])
-    cmd.extend(["-vn", "-acodec", "pcm_s16le", "-ar", "48000", str(target)])
+    cmd.extend(_ffmpeg_audio_output_args(output_format, mp3_bitrate, mp3_sample_rate))
+    cmd.append(str(target))
     _run_ffmpeg(cmd)
     return str(target.resolve()).replace("\\", "/")
+
+
+def _ffmpeg_audio_output_args(
+    output_format: str,
+    mp3_bitrate: str | None,
+    mp3_sample_rate: int | None,
+) -> list[str]:
+    """Return ffmpeg audio arguments for edited-area clip output."""
+
+    if output_format == "mp3":
+        bitrate = str(mp3_bitrate or "256k").strip().lower()
+        if bitrate not in {"128k", "192k", "256k", "320k"}:
+            bitrate = "256k"
+        try:
+            sample_rate = int(mp3_sample_rate or 48000)
+        except (TypeError, ValueError):
+            sample_rate = 48000
+        if sample_rate not in {44100, 48000}:
+            sample_rate = 48000
+        return ["-vn", "-acodec", "libmp3lame", "-b:a", bitrate, "-ar", str(sample_rate)]
+    return ["-vn", "-acodec", "pcm_s16le", "-ar", "48000"]
 
 
 def _run_ffmpeg(cmd: list[str]) -> None:

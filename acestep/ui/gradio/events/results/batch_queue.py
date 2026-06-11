@@ -15,6 +15,8 @@ from acestep.ui.gradio.events.generation.audio_format_options import (
     MP3_BITRATE_CHOICES,
     MP3_SAMPLE_RATE_CHOICES,
     mp3_controls_visible,
+    normalize_audio_format,
+    normalize_extract_audio_format,
 )
 from acestep.ui.gradio.i18n import t
 
@@ -231,7 +233,7 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     audio_duration = params.get("audio_duration", -1)
     batch_size_input = params.get("batch_size_input", 1)
     inference_steps = params.get("inference_steps", 8)
-    audio_format = params.get("audio_format", DEFAULT_AUDIO_FORMAT)
+    audio_format = normalize_audio_format(params.get("audio_format", DEFAULT_AUDIO_FORMAT))
     mp3_bitrate = params.get("mp3_bitrate", DEFAULT_MP3_BITRATE)
     mp3_sample_rate = params.get("mp3_sample_rate", 48000)
     lm_temperature = params.get("lm_temperature", 0.85)
@@ -243,7 +245,9 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     use_cot_language = params.get("use_cot_language", True)
     allow_lm_batch = params.get("allow_lm_batch", True)
     track_name = params.get("track_name", None)
-    extract_output_format = params.get("extract_output_format", DEFAULT_EXTRACT_AUDIO_FORMAT)
+    extract_output_format = normalize_extract_audio_format(
+        params.get("extract_output_format", DEFAULT_EXTRACT_AUDIO_FORMAT)
+    )
     complete_track_classes = params.get("complete_track_classes", [])
     enable_normalization = params.get("enable_normalization", True)
     normalization_db = params.get("normalization_db", -1.0)

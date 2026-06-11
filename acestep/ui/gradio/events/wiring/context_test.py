@@ -87,6 +87,7 @@ MODE_OUTPUT_EXPECTED = [
     "retake_panel",
     "morph_panel",
     "no_fsq",
+    "audio_format_column",
 ]
 
 

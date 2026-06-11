@@ -182,7 +182,7 @@
     "random_seed_label": "Random Seed",
     "random_seed_info": "When enabled, generates a new random seed each time so every generation is unique. Disable this and set a fixed seed to reproduce a specific result.",
     "audio_format_label": "Audio Format",
-    "audio_format_info": "FLAC = lossless, large files. MP3 = small files, slight quality loss. WAV 32-bit = studio quality, largest files. Opus/AAC = efficient lossy compression. Choose FLAC or WAV for production, MP3 for sharing.",
+    "audio_format_info": "MP3 = small files for sharing. WAV = uncompressed files for editing or production.",
     "use_adg_label": "Use ADG (Angle Domain Guidance)",
     "use_adg_info": "Alternative guidance method that can improve prompt adherence with fewer artifacts than standard CFG. Try enabling if you get distortion at high guidance scales. Experimental — may not always improve results.",
     "shift_label": "Shift",

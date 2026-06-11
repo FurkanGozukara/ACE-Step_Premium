@@ -278,7 +278,7 @@ class GenerationConfig:
             - int: Single seed value (will be converted to list and padded)
         lm_batch_chunk_size: Batch chunk size for LM processing
         constrained_decoding_debug: Whether to enable constrained decoding debug
-        audio_format: Output audio format, one of "mp3", "wav", "flac", "wav32", "opus", "aac". Default: "flac"
+        audio_format: Output audio format, one of "mp3", "wav", "flac", "wav32", "opus", "aac". Default: "mp3"
         mp3_bitrate: MP3 bitrate used when audio_format="mp3". Default: "256k"
         mp3_sample_rate: MP3 output sample rate used when audio_format="mp3". Default: 48000
     """
@@ -288,13 +288,21 @@ class GenerationConfig:
     seeds: Optional[List[int]] = None
     lm_batch_chunk_size: int = 8
     constrained_decoding_debug: bool = False
-    audio_format: str = "flac"  # Default to FLAC for fast saving
+    audio_format: str = "mp3"
     mp3_bitrate: str = "256k"
     mp3_sample_rate: int = 48000
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert config to dictionary for JSON serialization."""
         return asdict(self)
+
+
+def _normalize_generation_audio_format(value: Any) -> str:
+    """Return a concrete audio format for backend generation saves."""
+
+    normalized = str(value or "").strip().lower()
+    supported = {"mp3", "wav", "flac", "wav32", "opus", "aac"}
+    return normalized if normalized in supported else "mp3"
 
 
 @dataclass(frozen=True)
@@ -1197,7 +1205,7 @@ def generate_music(
         )
 
         # Save audio files using AudioSaver (format from config)
-        audio_format = str(config.audio_format).strip().lower() if config.audio_format else "flac"
+        audio_format = _normalize_generation_audio_format(config.audio_format)
         audio_saver = AudioSaver(default_format=audio_format)
 
         # Use handler's temp_dir for saving files

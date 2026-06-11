@@ -50,6 +50,10 @@ from acestep.training.dataset_vram_presets import (
 from acestep.ui.gradio.events.generation.model_config import (
     get_ui_control_config_for_path,
 )
+from acestep.ui.gradio.events.generation.audio_format_options import (
+    normalize_audio_format,
+    normalize_extract_audio_format,
+)
 from acestep.ui.gradio.events.dcw_defaults import get_dcw_defaults_for_think
 from acestep.ui.gradio.events.generation.quantization import default_quantization_value
 from acestep.ui.gradio.events.results.output_manager import get_results_dir
@@ -321,7 +325,7 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "cfg_interval_start": 0.0,
     "cfg_interval_end": 1.0,
     "extract_output_format": "mp3",
-    "audio_format": "flac_mp3",
+    "audio_format": "mp3",
     "mp3_bitrate": "256k",
     "mp3_sample_rate": 48000,
     "enable_normalization": True,
@@ -937,6 +941,10 @@ def _payload_to_component_updates(
             elif key in TRIM_MINCLIP_PRESET_KEYS:
                 value = coerce_auto_editor_smooth_value(value, AUTO_EDITOR_MINCLIP_DEFAULT)
                 updates.append(gr.update(value=value))
+            elif key == "audio_format":
+                updates.append(gr.update(value=normalize_audio_format(value)))
+            elif key == "extract_output_format":
+                updates.append(gr.update(value=normalize_extract_audio_format(value)))
             else:
                 value = coerce_preset_value(key, value, component_specs)
                 updates.append(gr.update(value=value))

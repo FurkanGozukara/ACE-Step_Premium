@@ -8,6 +8,7 @@ auto-LRC in a single streaming pass.
 import os
 import sys
 import time as time_module
+from dataclasses import replace
 
 import gradio as gr
 from loguru import logger
@@ -185,6 +186,9 @@ def generate_with_progress(
     if task_type == "extract":
         audio_format = normalize_extract_audio_format(audio_format)
         backend_audio_format = audio_format
+    auxiliary_audio_format = _auxiliary_audio_format(backend_audio_format)
+    ap_settings = replace(ap_settings, output_format=auxiliary_audio_format)
+    sam_settings = replace(sam_settings, output_format=auxiliary_audio_format)
 
     # text2music never uses src_audio EXCEPT when flow_edit_morph is on:
     # the morph overlay needs the source audio for ``zt_src``/``zt_tar``
@@ -416,6 +420,9 @@ def generate_with_progress(
         reference_audio=reference_audio,
         src_audio=src_audio,
         request_payload=request_payload,
+        audio_format=auxiliary_audio_format,
+        mp3_bitrate=mp3_bitrate,
+        mp3_sample_rate=mp3_sample_rate,
     )
     request_payload["saved_run_assets"] = run_assets
     run_asset_paths = [
@@ -615,6 +622,9 @@ def generate_with_progress(
                 temp_dir=temp_dir,
                 key=key,
                 task_type=task_type,
+                output_format=auxiliary_audio_format,
+                mp3_bitrate=mp3_bitrate,
+                mp3_sample_rate=mp3_sample_rate,
             )
             if lego_layer_path:
                 audio_params["lego_generated_track_path"] = lego_layer_path
@@ -626,6 +636,9 @@ def generate_with_progress(
                 key=key,
                 repainting_start=repainting_start,
                 repainting_end=repainting_end,
+                output_format=auxiliary_audio_format,
+                mp3_bitrate=mp3_bitrate,
+                mp3_sample_rate=mp3_sample_rate,
             )
         audio_params["latest_edit_area"] = latest_edit_area_metadata
 
@@ -917,24 +930,39 @@ def _save_lego_layer_preview(
     temp_dir,
     key,
     task_type,
+    output_format,
+    mp3_bitrate=None,
+    mp3_sample_rate=None,
 ):
     """Save a raw Lego layer preview file for the latest-area player."""
 
     if str(task_type or "").strip().lower() != "lego" or layer_tensor is None:
         return ""
-    target_path = os.path.join(temp_dir, f"{key}_lego_generated_track.wav").replace("\\", "/")
+    target_format = _auxiliary_audio_format(output_format)
+    target_path = os.path.join(
+        temp_dir,
+        f"{key}_lego_generated_track.{audio_file_extension(target_format)}",
+    ).replace("\\", "/")
     try:
         saved_path = save_audio_fn(
             audio_data=layer_tensor,
             output_path=target_path,
             sample_rate=sample_rate,
-            format="wav",
+            format=target_format,
             channels_first=True,
+            mp3_bitrate=mp3_bitrate,
+            mp3_sample_rate=mp3_sample_rate,
         )
     except Exception as exc:
         logger.warning("[lego_preview] Failed to save raw Lego generated track: {}", exc)
         return ""
     return str(saved_path).replace("\\", "/") if saved_path else ""
+
+
+def _auxiliary_audio_format(value):
+    """Return the single-file auxiliary output format for saved artifacts."""
+
+    return "mp3" if str(value or "").strip().lower() == "mp3" else "wav"
 
 
 def _build_request_payload(

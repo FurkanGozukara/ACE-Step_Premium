@@ -6,6 +6,8 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from acestep.ui.gradio.events.results.output_manager import persist_generation_inputs
 
@@ -91,6 +93,45 @@ class OutputManagerTests(unittest.TestCase):
                 assets["original_reference_audio"],
                 str(new_reference),
             )
+
+    def test_persist_generation_inputs_transcodes_source_to_selected_mp3(self):
+        """Saved source audio should use MP3 when the generation output is MP3."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            run_dir = root / "0001"
+            run_dir.mkdir()
+
+            source_audio = root / "source.wav"
+            source_audio.write_bytes(b"source-bytes")
+
+            with (
+                patch(
+                    "acestep.ui.gradio.events.results.output_manager.read_media_audio",
+                    return_value=(SimpleNamespace(T="channel-first-audio"), 48000),
+                ) as read_audio_mock,
+                patch(
+                    "acestep.ui.gradio.events.results.output_manager.save_audio",
+                    return_value=str(run_dir / "source_audio.mp3"),
+                ) as save_audio_mock,
+            ):
+                assets = persist_generation_inputs(
+                    run_dir=run_dir,
+                    caption="caption",
+                    lyrics="lyrics",
+                    reference_audio=None,
+                    src_audio=str(source_audio),
+                    request_payload={},
+                    audio_format="mp3",
+                    mp3_bitrate="320k",
+                    mp3_sample_rate=44100,
+                )
+
+        read_audio_mock.assert_called_once_with(source_audio.resolve())
+        self.assertEqual(Path(assets["source_audio_path"]).suffix, ".mp3")
+        self.assertEqual(save_audio_mock.call_args.kwargs["format"], "mp3")
+        self.assertEqual(save_audio_mock.call_args.kwargs["mp3_bitrate"], "320k")
+        self.assertEqual(save_audio_mock.call_args.kwargs["mp3_sample_rate"], 44100)
 
 
 if __name__ == "__main__":

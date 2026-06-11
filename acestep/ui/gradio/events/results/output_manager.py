@@ -8,6 +8,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
+
+from acestep.audio_processing.media_io import read_media_audio
+from acestep.audio_utils import save_audio
+from acestep.ui.gradio.events.generation.audio_format_options import audio_file_extension
 from acestep.ui.gradio.events.results.output_paths import (
     DEFAULT_RESULTS_DIR,
     PROJECT_ROOT,
@@ -71,6 +76,9 @@ def _copy_run_asset(
     run_dir: str | Path,
     source_path: Any,
     target_stem: str,
+    target_format: str | None = None,
+    mp3_bitrate: str | None = None,
+    mp3_sample_rate: int | None = None,
 ) -> str | None:
     """Copy an uploaded source asset into the run folder when available."""
     raw_source = latest_upload_path(source_path) or ""
@@ -86,10 +94,68 @@ def _copy_run_asset(
     if not source.exists() or not source.is_file():
         return None
 
+    audio_format = _saved_asset_audio_format(target_format)
+    if audio_format:
+        saved_path = _transcode_run_asset(
+            run_dir=run_dir,
+            source=source,
+            target_stem=target_stem,
+            target_format=audio_format,
+            mp3_bitrate=mp3_bitrate,
+            mp3_sample_rate=mp3_sample_rate,
+        )
+        if saved_path:
+            return saved_path
+
     suffix = source.suffix or ".bin"
     target = Path(run_dir) / f"{target_stem}{suffix}"
     shutil.copy2(source, target)
     return str(target.resolve()).replace("\\", "/")
+
+
+def _saved_asset_audio_format(value: str | None) -> str | None:
+    """Return the selected run-asset audio format, or ``None`` to copy as-is."""
+
+    normalized = str(value or "").strip().lower()
+    return normalized if normalized in {"mp3", "wav"} else None
+
+
+def _transcode_run_asset(
+    *,
+    run_dir: str | Path,
+    source: Path,
+    target_stem: str,
+    target_format: str,
+    mp3_bitrate: str | None,
+    mp3_sample_rate: int | None,
+) -> str | None:
+    """Save an uploaded media asset in the selected generation audio format."""
+
+    target = Path(run_dir) / f"{target_stem}.{audio_file_extension(target_format)}"
+    if source.suffix.lower() == target.suffix.lower():
+        shutil.copy2(source, target)
+        return str(target.resolve()).replace("\\", "/")
+
+    try:
+        audio, sample_rate = read_media_audio(source)
+        saved_path = save_audio(
+            audio.T,
+            target,
+            sample_rate=int(sample_rate),
+            format=target_format,
+            channels_first=True,
+            mp3_bitrate=mp3_bitrate,
+            mp3_sample_rate=mp3_sample_rate,
+        )
+    except Exception as exc:
+        logger.warning(
+            "[output_manager] Could not transcode run asset {} to {}: {}",
+            source,
+            target_format,
+            exc,
+        )
+        return None
+    return str(Path(saved_path).resolve()).replace("\\", "/")
 
 
 def persist_generation_inputs(
@@ -100,6 +166,9 @@ def persist_generation_inputs(
     reference_audio: Any,
     src_audio: Any,
     request_payload: dict[str, Any] | None = None,
+    audio_format: str | None = None,
+    mp3_bitrate: str | None = None,
+    mp3_sample_rate: int | None = None,
 ) -> dict[str, Any]:
     """Persist the user inputs and a full request snapshot inside the run folder."""
     run_path = Path(run_dir)
@@ -109,11 +178,17 @@ def persist_generation_inputs(
         run_dir=run_path,
         source_path=reference_audio,
         target_stem="reference_audio",
+        target_format=audio_format,
+        mp3_bitrate=mp3_bitrate,
+        mp3_sample_rate=mp3_sample_rate,
     )
     source_audio_path = _copy_run_asset(
         run_dir=run_path,
         source_path=src_audio,
         target_stem="source_audio",
+        target_format=audio_format,
+        mp3_bitrate=mp3_bitrate,
+        mp3_sample_rate=mp3_sample_rate,
     )
 
     assets = {

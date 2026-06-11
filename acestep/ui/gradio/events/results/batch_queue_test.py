@@ -286,10 +286,10 @@ class CaptureCurrentParamsTests(unittest.TestCase):
     def test_capture_preserves_extract_output_format(self):
         """Extract output format must be captured for queued batch generation."""
 
-        args = self._build_args(extract_output_format="flac")
+        args = self._build_args(extract_output_format="wav")
         result = capture_current_params(*args)
 
-        self.assertEqual(result["extract_output_format"], "flac")
+        self.assertEqual(result["extract_output_format"], "wav")
 
 
 if __name__ == "__main__":

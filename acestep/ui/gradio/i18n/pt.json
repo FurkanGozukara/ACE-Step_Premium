@@ -159,7 +159,7 @@
     "random_seed_label": "Semente Aleatória",
     "random_seed_info": "Quando ativado, gera uma nova semente aleatória a cada vez para que cada geração seja única. Desative e defina uma semente fixa para reproduzir um resultado específico.",
     "audio_format_label": "Formato de Áudio",
-    "audio_format_info": "FLAC = sem perdas, arquivos grandes. MP3 = arquivos pequenos, leve perda de qualidade. WAV 32-bit = qualidade de estúdio, arquivos maiores. Opus/AAC = compressão com perdas eficiente. Escolha FLAC ou WAV para produção, MP3 para compartilhamento.",
+    "audio_format_info": "MP3 = arquivos pequenos para compartilhamento. WAV = arquivos sem compressão para edição ou produção.",
     "use_adg_label": "Usar ADG (Orientação por Domínio Angular)",
     "use_adg_info": "Método alternativo de orientação que pode melhorar a aderência ao prompt com menos artefatos do que o CFG padrão. Tente ativar se houver distorção em escalas de orientação altas. Experimental — pode não melhorar sempre os resultados.",
     "shift_label": "Deslocamento",

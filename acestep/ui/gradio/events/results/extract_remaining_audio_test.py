@@ -136,7 +136,7 @@ class ExtractRemainingAudioTests(unittest.TestCase):
                 sample_rate=sample_rate,
                 output_dir=root,
                 output_stem="mono",
-                output_format="flac",
+                output_format="wav",
             )
 
             remaining, _sample_rate = sf.read(

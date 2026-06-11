@@ -162,18 +162,30 @@ class RestoreTests(unittest.TestCase):
         js = _build_restore_js(_NUM_OUTPUTS)
         self.assertIn("audioFormat", js)
         self.assertIn('result.push(', js)
-        self.assertIn('"mp3"', js)
-        self.assertIn('"flac_mp3"', js)
+        self.assertIn('"wav"', js)
+        self.assertIn('audioFormat !== "wav"', js)
 
     def test_restore_preferences_passes_through_values(self):
         """Non-None values are passed through unchanged."""
         values = (
-            "flac", "wav", "320k", 44100, 0.8, False, -3.0, 0.5, 1.0,
+            "wav", "wav", "320k", 44100, 0.8, False, -3.0, 0.5, 1.0,
             True, -45.0, 0.05, 0.95, 4,
         )
         result = restore_preferences(*values)
         for i in range(len(PREF_KEYS)):
             self.assertEqual(result[i], values[i])
+
+    def test_restore_preferences_normalizes_legacy_formats(self):
+        """Old browser format values should restore to MP3."""
+
+        values = list((None,) * len(PREF_KEYS))
+        values[PREF_KEYS.index("audio_format")] = "flac_mp3"
+        values[PREF_KEYS.index("extract_output_format")] = "flac"
+
+        result = restore_preferences(*values)
+
+        self.assertEqual(result[PREF_KEYS.index("audio_format")], "mp3")
+        self.assertEqual(result[PREF_KEYS.index("extract_output_format")], "mp3")
 
     def test_restore_preferences_clamps_extract_trim_threshold(self):
         """Saved browser trim preferences should stay within the UI range."""
@@ -243,10 +255,10 @@ class RestoreTests(unittest.TestCase):
         for key in PREF_KEYS:
             self.assertIn(key, _DEFAULTS, f"Key {key!r} missing from _DEFAULTS")
 
-    def test_quality_output_defaults_save_lossless_and_mp3(self):
-        """Fresh installs should default to FLAC+MP3, Extract MP3, and 256k MP3."""
+    def test_quality_output_defaults_save_mp3(self):
+        """Fresh installs should default to MP3 outputs and 256k MP3."""
 
-        self.assertEqual(_DEFAULTS["audio_format"], "flac_mp3")
+        self.assertEqual(_DEFAULTS["audio_format"], "mp3")
         self.assertEqual(_DEFAULTS["extract_output_format"], "mp3")
         self.assertEqual(_DEFAULTS["mp3_bitrate"], "256k")
 

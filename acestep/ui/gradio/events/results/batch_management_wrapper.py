@@ -592,6 +592,8 @@ def _generate_with_batch_management_impl(
         if task_type == "extract":
             captions = selected_track_name
             audio_format = normalize_extract_audio_format(extract_output_format)
+        elif task_type == "lego":
+            audio_format = normalize_extract_audio_format(extract_output_format)
 
     saved_params = _build_saved_params(
         captions, lyrics, bpm, key_scale, time_signature, vocal_language,

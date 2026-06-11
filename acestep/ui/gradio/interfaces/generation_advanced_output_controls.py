@@ -8,7 +8,6 @@ from acestep.audio_processing.auto_editor_trim_settings import (
     AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
 )
 from acestep.ui.gradio.events.generation.audio_format_options import (
-    AUDIO_FORMAT_CHOICES,
     DEFAULT_AUDIO_FORMAT,
     DEFAULT_MP3_BITRATE,
     MP3_BITRATE_CHOICES,
@@ -51,15 +50,6 @@ def build_output_controls(
     with gr.Accordion(t("generation.advanced_output_section"), open=True, elem_classes=["has-info-container"]):
         with gr.Row():
             with gr.Column(scale=1):
-                audio_format = gr.Dropdown(
-                    choices=AUDIO_FORMAT_CHOICES,
-                    value=initial_audio_format,
-                    label=t("generation.audio_format_label"),
-                    info=t("generation.audio_format_info"),
-                    elem_id="acestep-audio-format",
-                    elem_classes=["has-info-container"],
-                    interactive=not service_mode,
-                )
                 with gr.Row(visible=initial_mp3_visible) as mp3_controls_row:
                     mp3_bitrate = gr.Dropdown(
                         choices=MP3_BITRATE_CHOICES,
@@ -96,11 +86,6 @@ def build_output_controls(
                     scale=1,
                     visible=not service_mode,
                 )
-        audio_format.change(
-            fn=lambda value: _update_mp3_control_visibility(value, service_mode),
-            inputs=[audio_format],
-            outputs=[mp3_controls_row, mp3_bitrate, mp3_sample_rate],
-        )
         with gr.Row():
             enable_normalization = gr.Checkbox(
                 label=t("generation.enable_normalization"),
@@ -182,7 +167,6 @@ def build_output_controls(
                 elem_classes=["has-info-container"],
             )
     return {
-        "audio_format": audio_format,
         "mp3_controls_row": mp3_controls_row,
         "mp3_bitrate": mp3_bitrate,
         "mp3_sample_rate": mp3_sample_rate,

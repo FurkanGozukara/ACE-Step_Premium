@@ -36,7 +36,7 @@ def save_extract_remaining_audio(
         sample_rate: Extracted tensor sample rate.
         output_dir: Directory where the remaining-audio file should be written.
         output_stem: Base filename stem for the generated sample.
-        output_format: Target format: wav, mp3, or flac.
+        output_format: Target format: mp3 or wav.
         mp3_bitrate: Optional MP3 bitrate override.
         mp3_sample_rate: Optional MP3 sample-rate override.
 

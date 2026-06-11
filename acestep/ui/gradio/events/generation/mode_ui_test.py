@@ -54,7 +54,8 @@ _IDX_GENERATION_MODE = 12
 _IDX_PREVIOUS_GENERATION_MODE = 37
 _IDX_REMIX_STRENGTH = 17
 _IDX_COVER_NOISE = 18
-_EXPECTED_TUPLE_LENGTH = 60
+_IDX_AUDIO_FORMAT_COLUMN = 60
+_EXPECTED_TUPLE_LENGTH = 61
 _IDX_BPM = 21
 _IDX_KEY = 22
 _IDX_TIMESIG = 23
@@ -80,7 +81,7 @@ class ModeUiStateClearingTests(unittest.TestCase):
     """Tests that mode switches clear stale UI state to prevent noise."""
 
     def test_tuple_length(self):
-        """compute_mode_ui_updates should return exactly 60 elements."""
+        """compute_mode_ui_updates should return exactly 61 elements."""
         result = compute_mode_ui_updates("Custom")
         self.assertEqual(len(result), _EXPECTED_TUPLE_LENGTH)
 
@@ -427,6 +428,7 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertFalse(result[_IDX_AUTOGEN].get("visible"))
         self.assertFalse(result[_IDX_AUTO_LRC].get("visible"))
         self.assertNotIn("visible", result[_IDX_ANALYZE_BTN])
+        self.assertFalse(result[_IDX_AUDIO_FORMAT_COLUMN].get("visible"))
         self.assertIn("Extract", result[_IDX_GENERATE_BTN].get("value"))
 
     def test_extract_mode_enables_generate_when_track_is_selected(self):
@@ -453,6 +455,7 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertTrue(result[_IDX_SRC_AUDIO_ROW].get("visible"))
         self.assertTrue(result[_IDX_REPAINTING_GROUP].get("visible"))
         self.assertTrue(result[_IDX_EXTRACT_HELP_GROUP].get("visible"))
+        self.assertFalse(result[_IDX_AUDIO_FORMAT_COLUMN].get("visible"))
         self.assertFalse(result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
         self.assertFalse(result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
         self.assertFalse(result[_IDX_NO_FSQ_COLUMN].get("visible"))
@@ -495,6 +498,7 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertTrue(result[_IDX_SRC_AUDIO_ROW].get("visible"))
         self.assertTrue(result[_IDX_COMPLETE_TRACK_CLASSES].get("visible"))
         self.assertTrue(result[_IDX_REPAINTING_GROUP].get("visible"))
+        self.assertTrue(result[_IDX_AUDIO_FORMAT_COLUMN].get("visible"))
         self.assertFalse(result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
         self.assertFalse(result[_IDX_REPAINT_MODE].get("visible"))
         self.assertFalse(result[_IDX_REPAINT_STRENGTH].get("visible"))

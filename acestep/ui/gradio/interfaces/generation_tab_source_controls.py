@@ -6,8 +6,11 @@ import gradio as gr
 
 from acestep.constants import TRACK_NAMES
 from acestep.ui.gradio.events.generation.audio_format_options import (
+    AUDIO_FORMAT_CHOICES,
+    DEFAULT_AUDIO_FORMAT,
     DEFAULT_EXTRACT_AUDIO_FORMAT,
     EXTRACT_AUDIO_FORMAT_CHOICES,
+    normalize_audio_format,
 )
 from acestep.ui.gradio.help_content import create_help_button
 from acestep.ui.gradio.i18n import t
@@ -22,16 +25,24 @@ from acestep.ui.gradio.interfaces.source_audio_preview import (
 from acestep.ui.gradio.media_file_types import MEDIA_FILE_TYPES
 
 
-def build_source_audio_controls() -> dict[str, Any]:
+def build_source_audio_controls(
+    service_mode: bool = False,
+    init_params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Create source-audio controls used by remix/repaint/extract flows.
 
     Args:
-        None.
+        service_mode: Whether server-provided generation settings are locked.
+        init_params: Optional startup state used to prefill output format.
 
     Returns:
         A component map containing source audio controls and the Extract/Lego track selector.
     """
 
+    params = init_params or {}
+    initial_audio_format = normalize_audio_format(
+        params.get("audio_format", DEFAULT_AUDIO_FORMAT)
+    )
     with gr.Row(equal_height=True, visible=False) as src_audio_row:
         with gr.Column(scale=10):
             src_audio = gr.File(
@@ -63,6 +74,16 @@ def build_source_audio_controls() -> dict[str, Any]:
                 elem_classes=["ace-video-preview"],
             )
             src_audio_preview_original = gr.State(value=None)
+        with gr.Column(scale=1, min_width=120) as audio_format_column:
+            audio_format = gr.Dropdown(
+                choices=AUDIO_FORMAT_CHOICES,
+                value=initial_audio_format,
+                label=t("generation.audio_format_label"),
+                info=t("generation.audio_format_info"),
+                elem_id="acestep-audio-format",
+                elem_classes=["has-info-container"],
+                interactive=not service_mode,
+            )
         with gr.Column(scale=1, min_width=80):
             analyze_btn = gr.Button(
                 t("generation.analyze_btn"),
@@ -100,6 +121,8 @@ def build_source_audio_controls() -> dict[str, Any]:
         "src_audio_preview": src_audio_preview,
         "src_audio_preview_original": src_audio_preview_original,
         "src_video_preview": src_video_preview,
+        "audio_format_column": audio_format_column,
+        "audio_format": audio_format,
         "track_name": track_name,
         "extract_output_format": extract_output_format,
         "analyze_btn": analyze_btn,
@@ -213,17 +236,24 @@ def build_lm_code_hint_controls() -> dict[str, Any]:
     }
 
 
-def build_source_track_and_code_controls() -> dict[str, Any]:
+def build_source_track_and_code_controls(
+    service_mode: bool = False,
+    init_params: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Create source-audio, track-selector, and LM-code hint controls.
 
     Args:
-        None.
+        service_mode: Whether server-provided generation settings are locked.
+        init_params: Optional startup state used to prefill output format.
 
     Returns:
         A component map containing source audio actions, track selectors, and LM code controls.
     """
 
-    source_audio_controls = build_source_audio_controls()
+    source_audio_controls = build_source_audio_controls(
+        service_mode=service_mode,
+        init_params=init_params,
+    )
     track_selection_controls = build_track_selection_controls()
     lm_code_hint_controls = build_lm_code_hint_controls()
 
@@ -233,6 +263,8 @@ def build_source_track_and_code_controls() -> dict[str, Any]:
         "src_audio_preview": source_audio_controls["src_audio_preview"],
         "src_audio_preview_original": source_audio_controls["src_audio_preview_original"],
         "src_video_preview": source_audio_controls["src_video_preview"],
+        "audio_format_column": source_audio_controls["audio_format_column"],
+        "audio_format": source_audio_controls["audio_format"],
         "track_name": source_audio_controls["track_name"],
         "extract_output_format": source_audio_controls["extract_output_format"],
         "analyze_btn": source_audio_controls["analyze_btn"],
