@@ -42,6 +42,12 @@ class PremiumPresetDefaultsTests(unittest.TestCase):
         self.assertTrue(ADDITIONAL_DEFAULT_PRESET_VALUES["ap_run_subprocess"])
         self.assertFalse(ADDITIONAL_DEFAULT_PRESET_VALUES["ap_export_audio_only"])
 
+    def test_generated_song_postprocessing_defaults_to_opt_in(self) -> None:
+        """Generated-song post-processing should stay unchecked by default."""
+
+        self.assertFalse(ADDITIONAL_DEFAULT_PRESET_VALUES["ap_auto_postprocess"])
+        self.assertFalse(ADDITIONAL_DEFAULT_PRESET_VALUES["sam_auto_postprocess"])
+
     def test_diffpitcher_audio_processing_defaults_are_conservative(self) -> None:
         """DiffPitcher presets should default to an opt-in pitch-fix workflow."""
 
