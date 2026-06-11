@@ -10,7 +10,6 @@ def apply_repaint_segment_splice(
     repainting_ends: list[float],
     sample_rate: int = 48000,
     crossfade_duration: float = 0.0,
-    replacement_strength: float = 1.0,
 ) -> torch.Tensor:
     """Insert locally generated repaint segments into the original waveform.
 
@@ -21,8 +20,6 @@ def apply_repaint_segment_splice(
         repainting_ends: Per-batch insertion end time in seconds.
         sample_rate: Audio sample rate.
         crossfade_duration: Optional in-region fade length at both boundaries.
-        replacement_strength: Generated-audio mix in the replacement segment.
-            ``0.0`` preserves source audio; ``1.0`` uses the generated audio.
 
     Returns:
         Source waveform with the selected region replaced by the generated audible
@@ -39,7 +36,6 @@ def apply_repaint_segment_splice(
         dtype=pred_segments.dtype,
     )
     crossfade_samples = int(crossfade_duration * sample_rate)
-    replacement_strength = max(0.0, min(1.0, float(replacement_strength)))
     spliced_wavs = []
 
     for b in range(batch_size):
@@ -59,11 +55,6 @@ def apply_repaint_segment_splice(
             pred_segments[b],
             target_channels=source.shape[0],
             sample_rate=sample_rate,
-        )
-        segment = _mix_segment_with_source(
-            segment,
-            source[:, start_sample:end_sample],
-            replacement_strength,
         )
         segment = _apply_segment_edge_fades(segment, crossfade_samples)
         spliced_wavs.append(
@@ -103,33 +94,6 @@ def _prepare_replacement_segment(
             segment = segment[:target_channels]
 
     return _trim_trailing_silence(segment, sample_rate=sample_rate)
-
-
-def _mix_segment_with_source(
-    segment: torch.Tensor,
-    source_region: torch.Tensor,
-    replacement_strength: float,
-) -> torch.Tensor:
-    """Blend a generated replacement segment with the selected source audio."""
-    if replacement_strength >= 1.0 or segment.shape[-1] == 0:
-        return segment
-
-    source_mix = _fit_source_region_to_segment(source_region, segment.shape[-1])
-    if replacement_strength <= 0.0:
-        return source_mix
-    return replacement_strength * segment + (1.0 - replacement_strength) * source_mix
-
-
-def _fit_source_region_to_segment(
-    source_region: torch.Tensor,
-    target_samples: int,
-) -> torch.Tensor:
-    """Return source-region audio with exactly ``target_samples`` samples."""
-    if source_region.shape[-1] > target_samples:
-        return source_region[..., :target_samples]
-    if source_region.shape[-1] < target_samples:
-        return torch.nn.functional.pad(source_region, (0, target_samples - source_region.shape[-1]))
-    return source_region
 
 
 def _trim_trailing_silence(

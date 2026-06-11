@@ -84,25 +84,8 @@ class RepaintSegmentSpliceTests(unittest.TestCase):
         self.assertTrue(torch.equal(result[..., 2:4], torch.ones(1, 2, 2)))
         self.assertTrue(torch.equal(result[..., 4:], torch.full((1, 2, 4), 9.0)))
 
-    def test_replacement_strength_zero_preserves_selected_source_audio(self):
-        """Strength zero should use selected source audio instead of generated audio."""
-        source = torch.arange(10, dtype=torch.float32).view(1, 1, 10).expand(1, 2, 10)
-        segment = torch.full((1, 2, 4), 99.0)
-
-        result = apply_repaint_segment_splice(
-            pred_segments=segment,
-            src_wavs=source,
-            repainting_starts=[0.2],
-            repainting_ends=[0.6],
-            sample_rate=10,
-            replacement_strength=0.0,
-        )
-
-        self.assertEqual((1, 2, 10), tuple(result.shape))
-        torch.testing.assert_close(result, source)
-
-    def test_replacement_strength_blends_selected_source_audio(self):
-        """Intermediate strength should audibly blend source and generated audio."""
+    def test_selected_region_uses_generated_segment_without_source_mix(self):
+        """The inserted segment should not be mixed with selected source audio."""
         source = torch.full((1, 2, 10), 9.0)
         segment = torch.ones(1, 2, 4)
 
@@ -112,11 +95,10 @@ class RepaintSegmentSpliceTests(unittest.TestCase):
             repainting_starts=[0.2],
             repainting_ends=[0.6],
             sample_rate=10,
-            replacement_strength=0.5,
         )
 
         self.assertEqual((1, 2, 10), tuple(result.shape))
-        self.assertTrue(torch.equal(result[..., 2:6], torch.full((1, 2, 4), 5.0)))
+        self.assertTrue(torch.equal(result[..., 2:6], torch.ones(1, 2, 4)))
 
     def test_long_segment_expands_output_without_overwriting_source_tail(self):
         """Long generated segments should expand output and push source tail later."""

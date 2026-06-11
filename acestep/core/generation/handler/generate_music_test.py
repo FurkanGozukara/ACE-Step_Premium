@@ -321,7 +321,7 @@ class GenerateMusicMixinTests(unittest.TestCase):
         self.assertEqual(out, host._final_payload)
         splice_mock.assert_called_once()
         self.assertIs(source_audio, splice_mock.call_args.kwargs["src_wavs"])
-        self.assertEqual(0.5, splice_mock.call_args.kwargs["replacement_strength"])
+        self.assertNotIn("replacement_strength", splice_mock.call_args.kwargs)
         self.assertEqual(
             10,
             host.calls["_run_generate_music_service_with_progress"]["repaint_crossfade_frames"],
@@ -364,7 +364,7 @@ class GenerateMusicMixinTests(unittest.TestCase):
 
         self.assertEqual(out, host._final_payload)
         splice_mock.assert_called_once()
-        self.assertEqual(1.0, splice_mock.call_args.kwargs["replacement_strength"])
+        self.assertNotIn("replacement_strength", splice_mock.call_args.kwargs)
         self.assertIs(
             spliced,
             host.calls["_build_generate_music_success_payload"]["pred_wavs"],
@@ -455,10 +455,7 @@ class GenerateMusicMixinTests(unittest.TestCase):
             source_audio,
             segment_splice_mock.call_args.kwargs["src_wavs"],
         )
-        self.assertEqual(
-            0.5,
-            segment_splice_mock.call_args.kwargs["replacement_strength"],
-        )
+        self.assertNotIn("replacement_strength", segment_splice_mock.call_args.kwargs)
         self.assertEqual(
             [1.0],
             segment_splice_mock.call_args.kwargs["repainting_starts"],

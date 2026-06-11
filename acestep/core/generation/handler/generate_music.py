@@ -451,11 +451,10 @@ class GenerateMusicMixin:
 
             effective_repaint_mode = repaint_mode
             effective_repaint_strength = repaint_strength
-            injection_ratio, resolved_cf_frames, resolved_wav_cf = _resolve_repaint_config(
+            injection_ratio, _, _ = _resolve_repaint_config(
                 effective_repaint_mode,
                 effective_repaint_strength,
             )
-            replacement_strength = max(0.0, min(1.0, 1.0 - injection_ratio))
             resolved_cf_frames = max(0, int(repaint_latent_crossfade_frames or 0))
             resolved_wav_cf = max(0.0, float(repaint_wav_crossfade_sec or 0.0))
 
@@ -530,7 +529,6 @@ class GenerateMusicMixin:
                     repainting_ends=[float(repainting_end)] * actual_batch_size,
                     sample_rate=self.sample_rate,
                     crossfade_duration=resolved_wav_cf,
-                    replacement_strength=replacement_strength,
                 )
             elif do_wav_splice:
                 source_wavs_for_splice = (
@@ -545,7 +543,6 @@ class GenerateMusicMixin:
                     repainting_ends=repainting_end_batch,
                     sample_rate=self.sample_rate,
                     crossfade_duration=resolved_wav_cf,
-                    replacement_strength=replacement_strength,
                 )
             result = self._build_generate_music_success_payload(
                 outputs=outputs,

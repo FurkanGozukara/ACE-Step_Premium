@@ -93,34 +93,16 @@ class TestApplyRepaintWaveformSplice(unittest.TestCase):
         end = int(0.15 * 48000)
         torch.testing.assert_close(result[0, :, start:end], pred[0, :, start:end])
 
-    def test_replacement_strength_zero_preserves_source_inside_region(self):
-        pred, src = self._make_tensors(samples=9600)
+    def test_repaint_region_is_not_mixed_with_source(self):
+        """The selected repaint range should use generated audio directly."""
+        pred = torch.ones(1, 2, 9600) * 2.0
+        src = torch.ones(1, 2, 9600) * 10.0
         result = apply_repaint_waveform_splice(
-            pred,
-            src,
-            [0.05],
-            [0.15],
-            sample_rate=48000,
-            crossfade_duration=0.0,
-            replacement_strength=0.0,
-        )
-        torch.testing.assert_close(result, src)
-
-    def test_replacement_strength_blends_repaint_region(self):
-        pred, src = self._make_tensors(samples=9600)
-        result = apply_repaint_waveform_splice(
-            pred,
-            src,
-            [0.05],
-            [0.15],
-            sample_rate=48000,
-            crossfade_duration=0.0,
-            replacement_strength=0.5,
+            pred, src, [0.05], [0.15], sample_rate=48000, crossfade_duration=0.0,
         )
         start = int(0.05 * 48000)
         end = int(0.15 * 48000)
-        expected = torch.full_like(result[0, :, start:end], 3.5)
-        torch.testing.assert_close(result[0, :, start:end], expected)
+        torch.testing.assert_close(result[0, :, start:end], pred[0, :, start:end])
 
     def test_crossfade_produces_intermediate_values(self):
         pred, src = self._make_tensors(samples=9600)
