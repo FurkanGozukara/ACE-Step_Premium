@@ -46,6 +46,24 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+### 11 June 2026 V4.9.4 Update 
+
+-   Auto-Editor trim silent parts descriptions updated    
+
+<img width="3540" height="608" alt="image" src="https://github.com/user-attachments/assets/2e14efb4-06ec-40ec-9e16-7169f76b6931" />
+
+-   Analyze button won't overwrite your lyrics anymore    
+-   Auto-Editor trim silent parts feature in SAM Audio Segment and ACESTEP XL 1.5 Extract will now use the settings / parameters set in Audio Processing tab    
+-   In ACESTEP XL 1.5 extract mode when Auto-Editor trim was selected, it was not working accurately and now will work a bug fixed    
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/f129ea9e-cd89-4991-a55b-d4e1726f5fc0" />
+
+-   Latest generated results sections labels fixed - for ACESTEP XL 1.5 advanced tab    
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/4fd58b1d-ac10-4f2b-8f7a-887d0a50ce2e" />
+
+-   For update / install use latest zip file (4\_7), overwrite and run Windows\_Install\_or\_Update.bat
+
 ### 11 June 2026 V4.9.3 Update
 
 -   In the repaint task, if generated song is shorter than the selected repaint area, it will trim thus you won't have silent parts    
