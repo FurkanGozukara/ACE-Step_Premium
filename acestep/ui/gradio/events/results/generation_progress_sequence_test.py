@@ -176,14 +176,18 @@ class SequentialGenerationCountTests(unittest.TestCase):
         """Extract trim should modify saved audio tensors and sidecar metadata."""
 
         saved_shapes = []
+        saved_peaks = []
         json_payloads = []
         trim_settings = []
+        backend_params = []
 
         def fake_generate_music(_dit_handler, _llm_handler, *, params, config, progress):
+            backend_params.append(params)
             return _fake_tensor_result(str(config.seeds[0]))
 
         def fake_save_audio(audio_data, output_path, **_kwargs):
             saved_shapes.append(tuple(audio_data.shape))
+            saved_peaks.append(float(audio_data.detach().abs().max().item()))
             return output_path
 
         def fake_write_json(_path, payload):
@@ -222,6 +226,8 @@ class SequentialGenerationCountTests(unittest.TestCase):
                 )
 
         self.assertEqual([(1, 4)], saved_shapes)
+        self.assertFalse(backend_params[0].enable_normalization)
+        self.assertAlmostEqual(0.8912509, saved_peaks[0], places=5)
         self.assertEqual([-35.0], [settings.threshold_db for settings in trim_settings])
         self.assertEqual([0.8], [settings.margin_seconds for settings in trim_settings])
         self.assertEqual([12], [settings.mincut for settings in trim_settings])

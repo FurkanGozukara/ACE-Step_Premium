@@ -135,7 +135,7 @@ def generate_with_progress(
     Yields:
         Tuple of Gradio component updates for the generation event.
     """
-    from acestep.audio_utils import save_audio
+    from acestep.audio_utils import apply_fade, normalize_audio, save_audio
     from acestep.inference import GenerationConfig, GenerationParams, generate_music
 
     request_started_at = time_module.time()
@@ -300,11 +300,16 @@ def generate_with_progress(
         mp3_sample_rate=mp3_sample_rate,
     )
 
+    backend_gen_params = _backend_generation_params(
+        gen_params,
+        task_type=task_type,
+        extract_trim_enabled=extract_trim_empty_output,
+    )
     result = generate_sequential_songs(
         generate_music,
         dit_handler,
         llm_handler,
-        params=gen_params,
+        params=backend_gen_params,
         base_config=gen_config,
         generation_count=generation_count,
         seed=seed,
@@ -520,6 +525,18 @@ def generate_with_progress(
             enabled=extract_trim_empty_output,
             trim_settings=ap_settings.trim_settings(),
             threshold_db=extract_trim_threshold_db,
+        )
+        audio_tensor = _apply_deferred_extract_audio_effects(
+            audio_tensor,
+            sample_rate=sample_rate,
+            task_type=task_type,
+            trim_enabled=extract_trim_empty_output,
+            normalization_enabled=enable_normalization,
+            normalization_db=normalization_db,
+            fade_in_duration=fade_in_duration,
+            fade_out_duration=fade_out_duration,
+            normalize_audio_fn=normalize_audio,
+            apply_fade_fn=apply_fade,
         )
         audio_params["extract_trim"] = extract_trim_metadata
 
@@ -1203,6 +1220,19 @@ def _sam_audio_settings(raw_settings):
     return SamAudioSettings.from_payload(raw_settings)
 
 
+def _backend_generation_params(params, *, task_type, extract_trim_enabled):
+    """Return backend params, deferring Extract post effects until after trim."""
+
+    if str(task_type or "").strip() != "extract" or not extract_trim_enabled:
+        return params
+    return replace(
+        params,
+        enable_normalization=False,
+        fade_in_duration=0.0,
+        fade_out_duration=0.0,
+    )
+
+
 def _skipped_bounded_edit_metadata(enabled, settings_payload):
     """Return post-processing metadata for preserved bounded source edits."""
 
@@ -1248,6 +1278,64 @@ def _trim_extract_audio(
     metadata = dict(trim_result.metadata)
     metadata["task_type"] = normalized_task_type
     return trim_result.audio, metadata
+
+
+def _apply_deferred_extract_audio_effects(
+    audio_tensor,
+    *,
+    sample_rate,
+    task_type,
+    trim_enabled,
+    normalization_enabled,
+    normalization_db,
+    fade_in_duration,
+    fade_out_duration,
+    normalize_audio_fn,
+    apply_fade_fn,
+):
+    """Apply generation normalization/fades after Extract trim when trim was enabled."""
+
+    if str(task_type or "").strip() != "extract" or not trim_enabled:
+        return audio_tensor
+    processed = audio_tensor
+    normalized_db = float(normalization_db or 0.0)
+    if normalization_enabled and normalized_db <= 0.0:
+        try:
+            peak_before = _audio_peak(processed)
+            logger.info(
+                "[Normalization] Extract post-trim BEFORE: Peak={:.4f}, Target={}dB",
+                peak_before,
+                normalized_db,
+            )
+            processed = normalize_audio_fn(processed, normalized_db)
+            logger.info(
+                "[Normalization] Extract post-trim AFTER: Peak={:.4f}",
+                _audio_peak(processed),
+            )
+        except Exception as exc:
+            logger.error("Extract post-trim normalization failed: {}", exc)
+    fade_in_samples = round(float(fade_in_duration or 0.0) * int(sample_rate or 48000))
+    fade_out_samples = round(float(fade_out_duration or 0.0) * int(sample_rate or 48000))
+    if fade_in_samples > 0 or fade_out_samples > 0:
+        try:
+            processed = apply_fade_fn(processed, fade_in_samples, fade_out_samples)
+            logger.info(
+                "[Fade] Extract post-trim: fade_in={:.2f}s ({} samples), "
+                "fade_out={:.2f}s ({} samples)",
+                float(fade_in_duration or 0.0),
+                fade_in_samples,
+                float(fade_out_duration or 0.0),
+                fade_out_samples,
+            )
+        except Exception as exc:
+            logger.error("Extract post-trim fade application failed: {}", exc)
+    return processed
+
+
+def _audio_peak(audio_tensor) -> float:
+    """Return the absolute peak of a tensor-like audio value."""
+
+    return float(audio_tensor.detach().abs().max().item())
 
 
 def _postprocessed_audio_paths(original_paths, processed_path, settings):

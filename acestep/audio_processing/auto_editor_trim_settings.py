@@ -32,7 +32,7 @@ class AutoEditorTrimSettings:
     margin_seconds: float = AUTO_EDITOR_MARGIN_DEFAULT_SECONDS
     mincut: int = AUTO_EDITOR_MINCUT_DEFAULT
     minclip: int = AUTO_EDITOR_MINCLIP_DEFAULT
-    normalize_analysis_audio: bool = True
+    normalize_analysis_audio: bool = False
 
     def to_payload(self) -> dict[str, object]:
         """Return JSON-safe settings values."""
@@ -61,7 +61,7 @@ def auto_editor_trim_settings_from_payload(payload: Any) -> AutoEditorTrimSettin
             source.get("minclip"),
             AUTO_EDITOR_MINCLIP_DEFAULT,
         ),
-        normalize_analysis_audio=bool(source.get("normalize_analysis_audio", True)),
+        normalize_analysis_audio=bool(source.get("normalize_analysis_audio", False)),
     )
 
 

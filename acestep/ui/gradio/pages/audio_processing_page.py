@@ -99,9 +99,9 @@ def create_audio_processing_page() -> dict[str, Any]:
                     value=AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
                     label="Auto-Editor threshold (dB)",
                     info=(
-                        "Volume level used to decide what is active audio. Less "
-                        "negative is more aggressive: -35 dB cuts more room tone, "
-                        "while -55 dB keeps quieter breaths and reverb tails."
+                        "Source-audio level used to decide what is active. Less "
+                        "negative is more aggressive: -15 dB cuts quiet residue, "
+                        "-40 dB keeps more tails. Auto-Editor max is 0 dB."
                     ),
                     elem_id="acestep-ap-trim-threshold-db",
                     scale=2,

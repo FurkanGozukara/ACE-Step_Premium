@@ -88,6 +88,21 @@ class TestSilenceTrim(unittest.TestCase):
         self.assertEqual(-55.0, settings.threshold_db)
         self.assertEqual(-55.0, result.metadata["settings"]["threshold_db"])
 
+    def test_default_analysis_uses_source_level_without_loudnorm_boost(self) -> None:
+        """Default trim detection should not boost quiet residue before analysis."""
+
+        audio = torch.ones(1, 4)
+
+        with patch(
+            "acestep.audio_processing.auto_editor_trim._detect_spans_with_auto_editor",
+            return_value=[(0, 4)],
+        ) as detect_mock:
+            result = trim_silent_edges(audio, sample_rate=4, enabled=True)
+
+        settings = detect_mock.call_args.kwargs["settings"]
+        self.assertFalse(settings.normalize_analysis_audio)
+        self.assertFalse(result.metadata["settings"]["normalize_analysis_audio"])
+
 
 if __name__ == "__main__":
     unittest.main()
