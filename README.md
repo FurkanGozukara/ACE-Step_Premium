@@ -46,6 +46,11 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+### 11 June 2026 V4.9.2 Update
+
+-   In the repaint task, if generated song is shorter than the selected repaint area, it will trim thus you won't have silent parts    
+-   The Repaint Strength description updated and fixed : When lyrics are provided, Repaint switches to text-to-music, so Repaint Strength has no impact when changing lyrics. To keep the same vocal audio, LoRA training and using that LoRA are mandatory.
+
 ### 10 June 2026 V4.9 Update 
 
 -   V4.9 is a pretty big and important update lots of fixes and improvements    
