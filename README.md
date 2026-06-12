@@ -46,6 +46,13 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+### 12 June 2026 V4.9.5 Update 
+
+-   In Audio Processing tab now there is None Processing Preset which unchecks all Audio Enhancement    
+-   Now there is Disable upload preview checkbox in Audio Processing tab    
+    -   Use for very large videos or containers like multi-GB MKV files. When enabled, Gradio will not render the uploaded media preview, avoiding slow browser/Gradio post-processing such as MKV-to-MP4 preview conversion. Processing still uses the original uploaded file.        
+    -   Gradio does post processing to every video file if not mp4 therefore other formats will take massive time to display if they are big : [https://github.com/gradio-app/gradio/issues/13527](https://github.com/gradio-app/gradio/issues/13527)
+
 ### 11 June 2026 V4.9.4 Update 
 
 -   Auto-Editor trim silent parts descriptions updated    
