@@ -50,6 +50,7 @@ def _run_workflow(
         settings.workflow_export,
         settings.trim_settings(),
         process_callback=progress_callback,
+        media_reference=payload.get("media_reference_path"),
     )
     return {
         "ok": True,
@@ -57,6 +58,8 @@ def _run_workflow(
         "input_path": payload["input_path"],
         "workflow_export": settings.workflow_export,
         "workflow_path": workflow_path,
+        "media_reference_path": payload.get("media_reference_path"),
+        "media_reference_is_local": bool(payload.get("media_reference_is_local")),
         "files": [workflow_path],
     }
 

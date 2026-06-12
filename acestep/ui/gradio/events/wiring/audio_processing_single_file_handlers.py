@@ -10,7 +10,6 @@ import gradio as gr
 from acestep.audio_processing.auto_editor_workflow import (
     export_auto_editor_workflow,
     workflow_export_enabled,
-    workflow_export_label,
 )
 from acestep.audio_processing.file_processor import metrics_markdown, process_media_file
 from acestep.audio_processing.media_io import save_processed_audio
@@ -21,7 +20,14 @@ from acestep.ui.gradio.events.wiring.audio_processing_process_status import (
     make_process_log_callback,
     with_process_log,
 )
-from acestep.ui.gradio.media_upload_values import latest_upload_path
+from acestep.ui.gradio.events.wiring.audio_processing_source_paths import (
+    effective_single_file_input,
+    workflow_media_reference,
+    workflow_source_input,
+)
+from acestep.ui.gradio.events.wiring.audio_processing_workflow_outputs import (
+    workflow_export_markdown,
+)
 
 
 PREVIEW_SECONDS = 60.0
@@ -30,12 +36,17 @@ PREVIEW_SECONDS = 60.0
 def preview_single_file(
     input_value: Any,
     audio_preview_value: Any,
+    local_path_value: Any = None,
     *settings_values: Any,
     progress: gr.Progress = gr.Progress(track_tqdm=True),
 ) -> tuple[Any, ...]:
-    """Process a preview slice for one uploaded media file."""
+    """Process a preview slice for one uploaded or local media file."""
 
-    input_path = _effective_single_file_input(input_value, audio_preview_value)
+    input_path = effective_single_file_input(
+        input_value,
+        audio_preview_value,
+        local_path_value,
+    )
     if not input_path:
         return None, None, None, gr.update(visible=False), "Upload an audio or video file first."
     settings = settings_from_ui_values(settings_values)
@@ -89,22 +100,29 @@ def preview_single_file(
 def process_single_file(
     input_value: Any,
     audio_preview_value: Any,
+    local_path_value: Any = None,
     *settings_values: Any,
     progress: gr.Progress = gr.Progress(track_tqdm=True),
 ) -> tuple[Any, ...]:
-    """Process one complete uploaded media file."""
+    """Process one complete uploaded or local media file."""
 
-    input_path = _effective_single_file_input(input_value, audio_preview_value)
+    settings = settings_from_ui_values(settings_values)
+    input_path = _process_input_path(
+        input_value,
+        audio_preview_value,
+        local_path_value,
+        settings.workflow_export,
+    )
     if not input_path:
         return None, gr.update(visible=False), None, gr.update(visible=False), (
             "Upload an audio or video file first."
         )
-    settings = settings_from_ui_values(settings_values)
     process_log: list[str] = []
     progress_callback = make_process_log_callback(process_log, progress)
     run_dir = create_audio_processing_run_dir()
     try:
         if workflow_export_enabled(settings.workflow_export):
+            media_reference = workflow_media_reference(input_path, local_path_value)
             workflow_path = export_auto_editor_workflow(
                 input_path,
                 run_dir,
@@ -112,19 +130,19 @@ def process_single_file(
                 settings.workflow_export,
                 settings.trim_settings(),
                 process_callback=progress_callback,
+                media_reference=media_reference,
             )
             return (
                 None,
                 gr.update(value=None, visible=False),
                 None,
                 gr.update(value=[workflow_path], visible=True),
-                with_process_log(
-                    _workflow_export_markdown(
-                        input_path,
-                        workflow_path,
-                        settings.workflow_export,
-                    ),
-                    process_log,
+                workflow_export_markdown(
+                    input_path,
+                    workflow_path,
+                    settings.workflow_export,
+                    media_reference,
+                    local_path_value,
                 ),
             )
         result = process_media_file(
@@ -151,21 +169,14 @@ def process_single_file(
         )
 
 
-def _workflow_export_markdown(input_path: str, workflow_path: str, mode: str) -> str:
-    """Return UI status for an Auto-Editor workflow-only export."""
+def _process_input_path(
+    input_value: Any,
+    audio_preview_value: Any,
+    local_path_value: Any,
+    workflow_export: Any,
+) -> str | None:
+    """Return the processing source for the selected Audio Processing mode."""
 
-    return "\n".join(
-        [
-            "### Auto-Editor Workflow Export",
-            f"- Source: `{Path(input_path).name}`",
-            f"- Workflow: `{workflow_export_label(mode)}`",
-            f"- Exported file: `{workflow_path}`",
-            "- Processed audio/video: `None`",
-        ]
-    )
-
-
-def _effective_single_file_input(input_value: Any, audio_preview_value: Any) -> str | None:
-    """Return edited audio-preview input when present, otherwise the upload value."""
-
-    return latest_upload_path(audio_preview_value) or latest_upload_path(input_value)
+    if workflow_export_enabled(workflow_export):
+        return workflow_source_input(input_value, audio_preview_value, local_path_value)
+    return effective_single_file_input(input_value, audio_preview_value, local_path_value)

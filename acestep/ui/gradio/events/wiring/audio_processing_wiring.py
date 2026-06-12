@@ -8,6 +8,7 @@ import gradio as gr
 
 from acestep.audio_processing.presets import STAGE_KEYS
 from acestep.audio_processing.settings import UI_SETTING_KEYS
+from acestep.ui.gradio.events.local_media_dialogs import select_media_file_path
 from acestep.ui.gradio.events.local_path_dialogs import select_folder_path
 from acestep.ui.gradio.events.wiring.audio_processing_batch_handlers import (
     process_batch_folder as _process_batch_folder,
@@ -24,7 +25,6 @@ from acestep.ui.gradio.events.wiring.audio_processing_process_status import (
     open_audio_processing_outputs_folder,
 )
 from acestep.ui.gradio.events.wiring.audio_processing_single_file_handlers import (
-    _effective_single_file_input,
     preview_single_file as _preview_single_file,
     process_single_file as _process_single_file,
 )
@@ -97,11 +97,17 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
         ],
         queue=False,
     )
+    audio_page["ap_single_local_path_browse_btn"].click(
+        fn=select_media_file_path,
+        inputs=[audio_page["ap_single_local_path"]],
+        outputs=[audio_page["ap_single_local_path"]],
+    )
     audio_page["ap_preview_btn"].click(
         fn=_preview_single_file,
         inputs=[
             audio_page["ap_single_file"],
             audio_page["ap_upload_audio_preview"],
+            audio_page["ap_single_local_path"],
             *settings_inputs,
         ],
         outputs=[
@@ -119,6 +125,7 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
             audio_page["ap_single_file"],
             audio_page["ap_upload_audio_preview"],
             audio_page["ap_run_subprocess"],
+            audio_page["ap_single_local_path"],
             *settings_inputs,
         ],
         outputs=[
@@ -180,21 +187,13 @@ def _process_single_file_event(
     input_value: Any,
     audio_preview_value: Any,
     run_subprocess: Any,
+    local_path_value: Any = None,
     *settings_values: Any,
     progress: gr.Progress = gr.Progress(track_tqdm=True),
 ) -> tuple[Any, ...]:
     """Route Process File through subprocess or in-process execution."""
 
+    args = (input_value, audio_preview_value, local_path_value, *settings_values)
     if bool(run_subprocess):
-        return process_single_file_subprocess(
-            input_value,
-            audio_preview_value,
-            *settings_values,
-            progress=progress,
-        )
-    return _process_single_file(
-        input_value,
-        audio_preview_value,
-        *settings_values,
-        progress=progress,
-    )
+        return process_single_file_subprocess(*args, progress=progress)
+    return _process_single_file(*args, progress=progress)

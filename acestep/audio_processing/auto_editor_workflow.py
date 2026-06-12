@@ -7,6 +7,7 @@ from typing import Any
 
 from .auto_editor_runner import auto_editor_command, run_command
 from .auto_editor_trim_settings import AutoEditorTrimSettings
+from .auto_editor_workflow_paths import rewrite_fcpxml_media_references
 from .process_logging import ProcessCallback, emit_process_message
 
 
@@ -53,8 +54,22 @@ def export_auto_editor_workflow(
     mode: str,
     trim_settings: AutoEditorTrimSettings,
     process_callback: ProcessCallback | None = None,
+    media_reference: str | Path | None = None,
 ) -> str:
-    """Export an Auto-Editor editor workflow file without rendering media."""
+    """Export an Auto-Editor workflow file without rendering media.
+
+    Args:
+        source_media: Media file Auto-Editor analyzes.
+        output_dir: Directory where the workflow file is written.
+        output_stem: Base filename for the workflow export.
+        mode: Auto-Editor workflow export mode.
+        trim_settings: Silence trimming settings passed to Auto-Editor.
+        process_callback: Optional progress/status callback.
+        media_reference: Optional media path to embed in FCPXML outputs.
+
+    Returns:
+        Path to the exported workflow file.
+    """
 
     normalized_mode = normalize_workflow_export_mode(mode)
     if not workflow_export_enabled(normalized_mode):
@@ -91,6 +106,7 @@ def export_auto_editor_workflow(
         "auto-editor workflow export failed",
         process_callback=process_callback,
     )
+    rewrite_fcpxml_media_references(target, media_reference or source)
     return str(target).replace("\\", "/")
 
 

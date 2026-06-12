@@ -15,25 +15,39 @@ from acestep.ui.gradio.events.wiring.audio_processing_process_status import (
     make_process_log_callback,
     with_process_log,
 )
-from acestep.ui.gradio.media_upload_values import latest_upload_path
-
-from .audio_processing_single_file_handlers import _workflow_export_markdown
+from acestep.ui.gradio.events.wiring.audio_processing_source_paths import (
+    effective_single_file_input,
+    local_media_path,
+    workflow_media_reference,
+    workflow_source_input,
+)
+from acestep.ui.gradio.events.wiring.audio_processing_workflow_outputs import (
+    workflow_export_markdown,
+)
 
 
 def process_single_file_subprocess(
     input_value: Any,
     audio_preview_value: Any,
+    local_path_value: Any = None,
     *settings_values: Any,
     progress: gr.Progress = gr.Progress(track_tqdm=True),
 ) -> tuple[Any, ...]:
-    """Process one uploaded media file in an isolated subprocess."""
+    """Process one uploaded or local media file in an isolated subprocess."""
 
-    input_path = latest_upload_path(audio_preview_value) or latest_upload_path(input_value)
+    settings = settings_from_ui_values(settings_values)
+    input_path = _process_input_path(
+        input_value,
+        audio_preview_value,
+        local_path_value,
+        settings.workflow_export,
+    )
     if not input_path:
         return None, gr.update(visible=False), None, gr.update(visible=False), (
             "Upload an audio or video file first."
         )
-    settings = settings_from_ui_values(settings_values)
+    media_reference = workflow_media_reference(input_path, local_path_value)
+    media_reference_is_local = bool(local_media_path(local_path_value))
     process_log: list[str] = []
     progress_callback = make_process_log_callback(process_log, progress)
     run_dir = create_audio_processing_run_dir()
@@ -47,6 +61,8 @@ def process_single_file_subprocess(
                 "input_path": input_path,
                 "output_dir": str(run_dir),
                 "output_stem": output_stem,
+                "media_reference_path": media_reference,
+                "media_reference_is_local": media_reference_is_local,
                 "settings": settings.to_payload(),
             },
             progress_callback=progress_callback,
@@ -60,7 +76,7 @@ def process_single_file_subprocess(
             f"Processing failed: {exc}"
         )
     if workflow_export_enabled(settings.workflow_export):
-        return _workflow_outputs(input_path, result, settings.workflow_export, process_log)
+        return _workflow_outputs(input_path, result, settings.workflow_export)
     return _media_outputs(result, process_log)
 
 
@@ -68,19 +84,23 @@ def _workflow_outputs(
     input_path: str,
     result: dict[str, Any],
     workflow_export: str,
-    process_log: list[str],
 ) -> tuple[Any, ...]:
     """Return Gradio outputs for workflow-only subprocess results."""
 
     workflow_path = str(result.get("workflow_path") or "")
+    media_reference = str(result.get("media_reference_path") or input_path)
+    local_path_value = media_reference if result.get("media_reference_is_local") else None
     return (
         None,
         gr.update(value=None, visible=False),
         None,
         gr.update(value=[workflow_path], visible=bool(workflow_path)),
-        with_process_log(
-            _workflow_export_markdown(input_path, workflow_path, workflow_export),
-            process_log,
+        workflow_export_markdown(
+            input_path,
+            workflow_path,
+            workflow_export,
+            media_reference,
+            local_path_value,
         ),
     )
 
@@ -97,3 +117,16 @@ def _media_outputs(result: dict[str, Any], process_log: list[str]) -> tuple[Any,
         gr.update(value=files, visible=bool(files)),
         with_process_log(str(result.get("status_markdown") or ""), process_log),
     )
+
+
+def _process_input_path(
+    input_value: Any,
+    audio_preview_value: Any,
+    local_path_value: Any,
+    workflow_export: Any,
+) -> str | None:
+    """Return the processing source for the selected subprocess mode."""
+
+    if workflow_export_enabled(workflow_export):
+        return workflow_source_input(input_value, audio_preview_value, local_path_value)
+    return effective_single_file_input(input_value, audio_preview_value, local_path_value)

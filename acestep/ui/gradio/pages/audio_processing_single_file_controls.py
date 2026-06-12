@@ -43,6 +43,20 @@ def add_single_file_controls(controls: dict[str, Any]) -> None:
         preserved_by_key=[],
     )
     with gr.Row():
+        controls["ap_single_local_path"] = gr.Textbox(
+            label="Local Audio/Video Path",
+            placeholder="C:\\media\\clip.mkv",
+            info=(
+                "Use this for Auto-Editor workflow export so the editor project "
+                "references the real media file instead of a Gradio temp upload."
+            ),
+            scale=5,
+        )
+        controls["ap_single_local_path_browse_btn"] = gr.Button(
+            "Browse Local File",
+            scale=1,
+        )
+    with gr.Row():
         controls["ap_upload_audio_preview"] = gr.Audio(
             label="Uploaded Audio",
             type="filepath",

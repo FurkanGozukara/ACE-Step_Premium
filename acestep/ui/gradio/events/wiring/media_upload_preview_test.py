@@ -4,8 +4,10 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, patch
 
+from acestep.ui.gradio.events.wiring.audio_processing_source_paths import (
+    effective_single_file_input,
+)
 from acestep.ui.gradio.events.wiring.audio_processing_wiring import (
-    _effective_single_file_input,
     _preview_upload as preview_audio_processing_upload,
 )
 from acestep.ui.gradio.events.wiring.generation_upload_handlers import (
@@ -76,7 +78,7 @@ class MediaUploadPreviewTests(unittest.TestCase):
         """Edited Audio Processing upload preview should become the processing source."""
 
         self.assertEqual(
-            _effective_single_file_input("original.wav", "trimmed_preview.wav"),
+            effective_single_file_input("original.wav", "trimmed_preview.wav"),
             "trimmed_preview.wav",
         )
 
@@ -84,7 +86,7 @@ class MediaUploadPreviewTests(unittest.TestCase):
         """Video uploads without an audio preview should still process the original upload."""
 
         self.assertEqual(
-            _effective_single_file_input("source_video.mp4", None),
+            effective_single_file_input("source_video.mp4", None),
             "source_video.mp4",
         )
 
