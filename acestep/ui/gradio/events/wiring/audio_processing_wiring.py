@@ -6,13 +6,19 @@ from typing import Any
 
 import gradio as gr
 
-from acestep.audio_processing.batch import run_batch_audio_processing
-from acestep.audio_processing.presets import PRESET_VALUES, STAGE_KEYS
-from acestep.audio_processing.settings import UI_SETTING_KEYS, settings_from_ui_values
+from acestep.audio_processing.presets import STAGE_KEYS
+from acestep.audio_processing.settings import UI_SETTING_KEYS
 from acestep.ui.gradio.events.local_path_dialogs import select_folder_path
+from acestep.ui.gradio.events.wiring.audio_processing_batch_handlers import (
+    process_batch_folder as _process_batch_folder,
+)
 from acestep.ui.gradio.events.wiring.audio_processing_cancel_actions import (
     AUDIO_PROCESSING_CANCEL_CONFIRM_JS,
     request_audio_processing_cancel_from_ui,
+)
+from acestep.ui.gradio.events.wiring.audio_processing_preset_actions import (
+    apply_builtin_preset as _apply_builtin_preset,
+    toggle_audio_enhancement_stages as _toggle_audio_enhancement_stages,
 )
 from acestep.ui.gradio.events.wiring.audio_processing_process_status import (
     open_audio_processing_outputs_folder,
@@ -20,11 +26,14 @@ from acestep.ui.gradio.events.wiring.audio_processing_process_status import (
 from acestep.ui.gradio.events.wiring.audio_processing_single_file_handlers import (
     _effective_single_file_input,
     preview_single_file as _preview_single_file,
-    preview_upload as _preview_upload,
     process_single_file as _process_single_file,
 )
 from acestep.ui.gradio.events.wiring.audio_processing_single_file_subprocess import (
     process_single_file_subprocess,
+)
+from acestep.ui.gradio.events.wiring.audio_processing_upload_preview import (
+    preview_diffpitcher_reference as _preview_diffpitcher_reference,
+    preview_upload as _preview_upload,
 )
 
 
@@ -41,7 +50,10 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
     audio_page["ap_builtin_preset"].change(
         fn=_apply_builtin_preset,
         inputs=[audio_page["ap_builtin_preset"]],
-        outputs=[audio_page[f"ap_{key}"] for key in STAGE_KEYS],
+        outputs=[
+            *[audio_page[f"ap_{key}"] for key in STAGE_KEYS],
+            *[audio_page[f"ap_{key}_enabled"] for key in STAGE_KEYS],
+        ],
     )
     audio_page["ap_toggle_audio_enhancement_btn"].click(
         fn=_toggle_audio_enhancement_stages,
@@ -51,7 +63,23 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
     )
     audio_page["ap_single_file"].change(
         fn=_preview_upload,
-        inputs=[audio_page["ap_single_file"]],
+        inputs=[
+            audio_page["ap_single_file"],
+            audio_page["ap_disable_upload_preview"],
+        ],
+        outputs=[
+            audio_page["ap_upload_audio_preview"],
+            audio_page["ap_upload_video_preview"],
+            audio_page["ap_single_status"],
+        ],
+        queue=False,
+    )
+    audio_page["ap_disable_upload_preview"].change(
+        fn=_preview_upload,
+        inputs=[
+            audio_page["ap_single_file"],
+            audio_page["ap_disable_upload_preview"],
+        ],
         outputs=[
             audio_page["ap_upload_audio_preview"],
             audio_page["ap_upload_video_preview"],
@@ -148,33 +176,6 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
     )
 
 
-def _apply_builtin_preset(preset_name: str | None) -> tuple[Any, ...]:
-    """Return slider updates for a built-in audio-processing preset."""
-
-    values = PRESET_VALUES.get(str(preset_name or ""), PRESET_VALUES["Generic AI"])
-    return tuple(gr.update(value=values[key]) for key in STAGE_KEYS)
-
-
-def _toggle_audio_enhancement_stages(*enabled_values: Any) -> tuple[Any, ...]:
-    """Return updates that toggle all stage checkboxes."""
-
-    target = not all(bool(value) for value in enabled_values)
-    return tuple(gr.update(value=target) for _ in STAGE_KEYS)
-
-
-def _preview_diffpitcher_reference(input_value: Any) -> tuple[Any, Any, str]:
-    """Return audio/video preview updates for the DiffPitcher reference guide."""
-
-    audio_update, video_update, status = _preview_upload(input_value)
-    if status.startswith("Upload"):
-        status = "Select a reference vocal audio or video file for template mode."
-    elif status.startswith("Loaded video"):
-        status = status.replace("Loaded video", "Loaded reference video", 1)
-    elif status.startswith("Loaded audio"):
-        status = status.replace("Loaded audio", "Loaded reference audio", 1)
-    return audio_update, video_update, status
-
-
 def _process_single_file_event(
     input_value: Any,
     audio_preview_value: Any,
@@ -197,21 +198,3 @@ def _process_single_file_event(
         *settings_values,
         progress=progress,
     )
-
-
-def _process_batch_folder(
-    input_folder: str,
-    output_folder: str,
-    recursive: bool,
-    *settings_values: Any,
-):
-    """Stream batch-folder processing status and generated files."""
-
-    settings = settings_from_ui_values(settings_values)
-    for status, files in run_batch_audio_processing(
-        input_folder,
-        output_folder,
-        bool(recursive),
-        settings,
-    ):
-        yield status, gr.update(value=files, visible=bool(files))

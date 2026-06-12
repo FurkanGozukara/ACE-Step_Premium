@@ -13,7 +13,7 @@ from acestep.audio_processing.auto_editor_workflow import (
     workflow_export_label,
 )
 from acestep.audio_processing.file_processor import metrics_markdown, process_media_file
-from acestep.audio_processing.media_io import is_video_file, save_processed_audio
+from acestep.audio_processing.media_io import save_processed_audio
 from acestep.audio_processing.plots import make_spectrogram_figure
 from acestep.audio_processing.runs import create_audio_processing_run_dir, safe_media_stem
 from acestep.audio_processing.settings import settings_from_ui_values
@@ -25,29 +25,6 @@ from acestep.ui.gradio.media_upload_values import latest_upload_path
 
 
 PREVIEW_SECONDS = 60.0
-
-
-def preview_upload(input_value: Any) -> tuple[Any, Any, str]:
-    """Return accurate audio/video preview updates for an uploaded file."""
-
-    input_path = latest_upload_path(input_value)
-    if not input_path:
-        return (
-            gr.update(value=None, visible=False),
-            gr.update(value=None, visible=False),
-            "Upload an audio or video file first.",
-        )
-    if is_video_file(input_path):
-        return (
-            gr.update(value=None, visible=False),
-            gr.update(value=input_path, visible=True),
-            f"Loaded video: `{Path(input_path).name}`",
-        )
-    return (
-        gr.update(value=input_path, visible=True),
-        gr.update(value=None, visible=False),
-        f"Loaded audio: `{Path(input_path).name}`",
-    )
 
 
 def preview_single_file(

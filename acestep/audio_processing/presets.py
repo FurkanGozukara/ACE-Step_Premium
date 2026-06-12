@@ -15,6 +15,8 @@ STAGE_KEYS: tuple[str, ...] = (
     "lufs",
 )
 
+PROCESSING_PRESET_NONE = "None"
+
 STAGE_LABELS: dict[str, str] = {
     "phase": "Stereo Depth",
     "stereo": "Stereo Width",
@@ -46,6 +48,7 @@ DEFAULT_STAGE_VALUES: dict[str, float] = {
 }
 
 PRESET_VALUES: dict[str, dict[str, float]] = {
+    PROCESSING_PRESET_NONE: DEFAULT_STAGE_VALUES,
     "Custom": DEFAULT_STAGE_VALUES,
     "Suno": {
         "phase": 0.7,

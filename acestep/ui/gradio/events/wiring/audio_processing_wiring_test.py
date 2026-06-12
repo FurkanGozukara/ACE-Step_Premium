@@ -180,6 +180,7 @@ class AudioProcessingWiringTests(unittest.TestCase):
         with gr.Blocks():
             controls = create_audio_processing_page()
 
+        self.assertIn("ap_disable_upload_preview", controls)
         for key in UI_SETTING_KEYS:
             self.assertIn(key, controls)
 

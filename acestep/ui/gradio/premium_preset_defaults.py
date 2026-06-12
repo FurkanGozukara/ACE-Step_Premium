@@ -35,7 +35,6 @@ from acestep.sam_audio_segment.vram_presets import (
 _DEFAULT_SAM_VRAM_PRESET = default_sam_vram_preset_name()
 _DEFAULT_SAM_VRAM_VALUES = get_sam_vram_preset(_DEFAULT_SAM_VRAM_PRESET)
 
-
 ADDITIONAL_DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "vae_checkpoint": DEFAULT_VAE_VARIANT,
     "lm_use_legacy_cfg_prompt": False,
@@ -159,6 +158,7 @@ ADDITIONAL_DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "ap_diffpitcher_device": "auto",
     "ap_builtin_preset": "Generic AI",
     "ap_run_subprocess": True,
+    "ap_disable_upload_preview": False,
     **{f"ap_{key}_enabled": True for key in STAGE_KEYS},
     **{f"ap_{key}": DEFAULT_STAGE_VALUES[key] for key in STAGE_KEYS},
     "sam_auto_postprocess": False,

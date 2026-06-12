@@ -13,6 +13,7 @@ from acestep.ui.gradio.events.wiring import media_upload_preview
 from acestep.ui.gradio.events.wiring.media_upload_preview_gradio_support import (
     assert_all_videos_are_capped,
     assert_audio_purpose_video_preview,
+    assert_audio_processing_disabled_upload_preview,
     assert_media_upload_video_preview,
     assert_preview_routes_bypass_queue,
     assert_source_audio_purpose_video_preview,
@@ -168,7 +169,17 @@ class LiveGradioMediaPreviewTests(unittest.TestCase):
                     )
                     assert_video_preview(client, video_path, "/sam_mask_video_preview")
                     assert_media_upload_video_preview(client, video_path, "/sam_single_preview")
-                    assert_media_upload_video_preview(client, video_path, "/ap_single_preview")
+                    assert_media_upload_video_preview(
+                        client,
+                        video_path,
+                        "/ap_single_preview",
+                        False,
+                    )
+                    assert_audio_processing_disabled_upload_preview(
+                        client,
+                        video_path,
+                        "/ap_single_preview",
+                    )
                     assert_source_audio_purpose_video_preview(
                         client,
                         [audio_path, video_path],
@@ -183,6 +194,7 @@ class LiveGradioMediaPreviewTests(unittest.TestCase):
                         client,
                         [audio_path, video_path],
                         "/ap_single_preview",
+                        False,
                     )
                 finally:
                     demo.close()

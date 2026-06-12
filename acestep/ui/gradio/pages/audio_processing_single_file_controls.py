@@ -19,6 +19,16 @@ from acestep.ui.gradio.interfaces.source_audio_preview import (
 def add_single_file_controls(controls: dict[str, Any]) -> None:
     """Add single audio/video upload and output controls."""
 
+    controls["ap_disable_upload_preview"] = gr.Checkbox(
+        label="Disable upload preview",
+        value=False,
+        info=(
+            "Use for very large videos or containers like multi-GB MKV files. "
+            "When enabled, Gradio will not render the uploaded media preview, "
+            "avoiding slow browser/Gradio post-processing such as MKV-to-MP4 "
+            "preview conversion. Processing still uses the original uploaded file."
+        ),
+    )
     gr.Markdown("### Single Audio or Video")
     controls["ap_single_file"] = gr.File(
         label="Upload Audio or Video",

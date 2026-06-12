@@ -106,7 +106,10 @@ def build_preview_test_app() -> gr.Blocks:
         )
         ap_page["ap_single_file"].change(
             preview_audio_processing_upload,
-            inputs=[ap_page["ap_single_file"]],
+            inputs=[
+                ap_page["ap_single_file"],
+                ap_page["ap_disable_upload_preview"],
+            ],
             outputs=[
                 ap_page["ap_upload_audio_preview"],
                 ap_page["ap_upload_video_preview"],
@@ -204,18 +207,39 @@ def assert_media_upload_video_preview(
     client: Client,
     video_path: Path | list[Path],
     api_name: str,
+    *extra_inputs: object,
 ) -> None:
     """Assert a mixed media upload returns hidden audio and visible video."""
 
     expected_video_path = _expected_latest_path(video_path)
     audio_update, video_update, status = client.predict(
         _upload_payload(video_path),
+        *extra_inputs,
         api_name=api_name,
     )
     assert audio_update["visible"] is False
     assert video_update["visible"] is True
     assert str(video_update["value"]).endswith(expected_video_path.suffix)
     assert "Loaded video" in status
+
+
+def assert_audio_processing_disabled_upload_preview(
+    client: Client,
+    video_path: Path | list[Path],
+    api_name: str,
+) -> None:
+    """Assert Audio Processing can skip Gradio audio/video upload previews."""
+
+    audio_update, video_update, status = client.predict(
+        _upload_payload(video_path),
+        True,
+        api_name=api_name,
+    )
+    assert audio_update["visible"] is False
+    assert audio_update["value"] is None
+    assert video_update["visible"] is False
+    assert video_update["value"] is None
+    assert "Upload preview disabled" in status
 
 
 def free_port() -> int:

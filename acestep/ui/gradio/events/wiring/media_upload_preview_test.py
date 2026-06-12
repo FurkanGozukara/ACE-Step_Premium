@@ -264,6 +264,21 @@ class MediaUploadPreviewTests(unittest.TestCase):
         self.assertEqual(video_update.get("value"), "new.mp4")
         self.assertIn("new.mp4", status)
 
+    def test_audio_processing_preview_can_be_disabled_for_large_video_uploads(self):
+        """Disabled Audio Processing preview should avoid Gradio media outputs."""
+
+        audio_update, video_update, status = preview_audio_processing_upload(
+            "huge_concert.mkv",
+            True,
+        )
+
+        self.assertIsNone(audio_update.get("value"))
+        self.assertFalse(audio_update.get("visible"))
+        self.assertIsNone(video_update.get("value"))
+        self.assertFalse(video_update.get("visible"))
+        self.assertIn("Upload preview disabled", status)
+        self.assertIn("huge_concert.mkv", status)
+
     def test_sam_preview_uses_newest_stale_single_file_value(self):
         """SAM upload preview should tolerate stale Gradio lists."""
 
