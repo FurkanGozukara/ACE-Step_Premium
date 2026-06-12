@@ -85,7 +85,11 @@ class _Host(GenerateMusicMixin):
         }
         self.sample_rate = 48000
         self.calls: Dict[str, Any] = {}
-        self._final_payload = {"audios": [{"tensor": torch.zeros(1, 4), "sample_rate": 48000}], "success": True}
+        self._final_payload = {
+            "audios": [{"tensor": torch.zeros(1, 4), "sample_rate": 48000}],
+            "extra_outputs": {},
+            "success": True,
+        }
         self._readiness_error = {
             "audios": [],
             "status_message": "not ready",
@@ -498,6 +502,21 @@ class GenerateMusicMixinTests(unittest.TestCase):
         self.assertEqual(
             "text2music",
             host.calls["_run_generate_music_service_with_progress"]["task_type"],
+        )
+        self.assertEqual(
+            "text2music",
+            out["extra_outputs"]["effective_generation"]["task_type"],
+        )
+        self.assertEqual(
+            "repaint",
+            out["extra_outputs"]["effective_generation"]["requested_task_type"],
+        )
+        self.assertEqual(
+            GENERATE_MUSIC_MODULE.DEFAULT_DIT_INSTRUCTION,
+            out["extra_outputs"]["effective_generation"]["instruction"],
+        )
+        self.assertTrue(
+            out["extra_outputs"]["effective_generation"]["lyric_repaint_local_span"],
         )
         self.assertEqual(
             0.5,

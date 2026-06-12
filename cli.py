@@ -514,9 +514,17 @@ def _task_supported_by_model_config(task_type: str, config_path: Optional[str]) 
     if task_type not in {"lego", "extract", "complete"} or not config_path:
         return True
     config_lower = str(config_path).lower()
-    if "turbo" in config_lower:
-        return False
-    return "base" in config_lower or "sft" in config_lower
+    return (
+        _has_config_token("base", config_lower)
+        and not _has_config_token("turbo", config_lower)
+        and not _has_config_token("sft", config_lower)
+    )
+
+
+def _has_config_token(token: str, config_path: str) -> bool:
+    """Return whether a model token appears at a path/name boundary."""
+
+    return re.search(rf"(^|[\\\\/._-]){re.escape(token)}($|[\\\\/._-])", config_path) is not None
 
 
 def _filter_models_for_task(models: List[str], task_type: str) -> List[str]:
@@ -529,7 +537,7 @@ def _task_model_requirement_message(task_type: str) -> str:
     """Return a concise model requirement message for a task."""
 
     return (
-        f"task_type '{task_type}' requires a base or SFT model config "
+        f"task_type '{task_type}' requires a base model config "
         f"(e.g., '{DEFAULT_BASE_DIT_MODEL}')."
     )
 

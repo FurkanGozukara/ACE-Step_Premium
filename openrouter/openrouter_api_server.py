@@ -47,8 +47,8 @@ from acestep.inference import (
     generate_music,
     format_sample,
 )
-from acestep.constants import TASK_INSTRUCTIONS
 from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
+from openrouter.task_routing import resolve_task_instruction, task_skips_lm
 
 # =============================================================================
 # Constants
@@ -147,6 +147,8 @@ class ChatCompletionRequest(BaseModel):
     infer_method: str = "ode"
     lm_cfg_scale: float = 2.0
     top_k: int = 0
+    track_name: Optional[str] = None
+    track_classes: Optional[Union[str, List[str]]] = None
 
 
 class AudioUrlContent(BaseModel):
@@ -810,9 +812,13 @@ def create_app() -> FastAPI:
 
             default_timesteps = [0.97, 0.76, 0.615, 0.5, 0.395, 0.28, 0.18, 0.085, 0.0]
 
-            task_instruction = TASK_INSTRUCTIONS.get(request.task_type, TASK_INSTRUCTIONS["text2music"])
+            task_instruction = resolve_task_instruction(
+                request.task_type,
+                track_name=request.track_name,
+                track_classes=request.track_classes,
+            )
 
-            no_lm_task = request.task_type in ("cover", "repaint")
+            no_lm_task = task_skips_lm(request.task_type)
 
             # Auto-convert src_audio to codes for cover mode when no codes provided
             resolved_audio_codes = request.audio_codes

@@ -189,8 +189,8 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertFalse(result[_IDX_AUDIO_CODES].get("visible"))
         self.assertNotIn("value", result[_IDX_SRC_AUDIO])
         self.assertTrue(result[_IDX_COVER_NOISE].get("visible"))
-        self.assertEqual(result[_IDX_REMIX_STRENGTH].get("value"), 0.0)
-        self.assertEqual(result[_IDX_COVER_NOISE].get("value"), 0.2)
+        self.assertEqual(result[_IDX_REMIX_STRENGTH].get("value"), 1.0)
+        self.assertEqual(result[_IDX_COVER_NOISE].get("value"), 0.0)
         self.assertTrue(result[_IDX_REPAINTING_GROUP].get("visible"))
         self.assertIn("Remix Source Segment", result[_IDX_REPAINTING_HEADER].get("value"))
         self.assertEqual(result[_IDX_REPAINTING_START].get("label"), "Remix Source Start")
@@ -375,22 +375,20 @@ class ModeUiStateClearingTests(unittest.TestCase):
         for idx in (_IDX_BPM, _IDX_KEY, _IDX_TIMESIG, _IDX_VOCAL_LANG, _IDX_DURATION):
             self.assertFalse(result[idx].get("interactive"))
 
-    def test_sft_model_allows_non_extract_advanced_modes(self):
-        """SFT models should allow Lego and Complete, while Extract stays Base-only."""
+    def test_sft_model_reverts_base_only_advanced_modes(self):
+        """SFT models should revert Lego and Complete to a supported mode."""
 
-        cases = {
-            "Lego": "lego",
-            "Complete": "complete",
-        }
-        for mode, task_type in cases.items():
+        for mode in ("Lego", "Complete"):
             with self.subTest(mode=mode):
                 result = compute_mode_ui_updates(
                     mode,
                     previous_mode="Custom",
                     config_path="ACEStep_1_5_XL_SFT_BF16",
                 )
-                self.assertEqual(result[_IDX_TASK_TYPE], task_type)
-                self.assertEqual(result[_IDX_PREVIOUS_GENERATION_MODE], mode)
+                self.assertEqual(result[_IDX_TASK_TYPE], "text2music")
+                self.assertEqual(result[_IDX_GENERATION_MODE].get("value"), "Custom")
+                self.assertIn("not available", result[_IDX_GENERATION_MODE].get("info"))
+                self.assertEqual(result[_IDX_PREVIOUS_GENERATION_MODE], "Custom")
 
     def test_sft_model_reverts_unsupported_extract_mode(self):
         """Extract should be visible but unavailable for SFT models."""

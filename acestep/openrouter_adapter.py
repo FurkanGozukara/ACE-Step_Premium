@@ -390,6 +390,8 @@ def _to_generate_music_request(
 
         # Task type
         task_type=req.task_type,
+        track_name=req.track_name,
+        track_classes=req.track_classes,
 
         # Audio paths
         reference_audio_path=reference_audio_path or None,

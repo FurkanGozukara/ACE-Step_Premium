@@ -106,13 +106,14 @@ class ModelServiceRoutesTests(unittest.TestCase):
         self.assertTrue(inventory["llm_initialized"])
 
     def test_read_model_supported_tasks_keeps_extract_base_only_for_sft(self):
-        """SFT inventory should advertise Lego/Complete but not Base-only Extract."""
+        """SFT inventory should keep advanced source-audio tasks Base-only."""
 
         tasks = _read_model_supported_tasks("/tmp/non-existent", "acestep-v15-xl-sft")
 
         self.assertNotIn("extract", tasks)
-        self.assertIn("lego", tasks)
-        self.assertIn("complete", tasks)
+        self.assertNotIn("lego", tasks)
+        self.assertNotIn("complete", tasks)
+        self.assertIn("text2music", tasks)
 
     def test_init_route_wraps_initializer_exception(self):
         """Init endpoint should convert initializer exceptions into wrapped code=500 payloads."""

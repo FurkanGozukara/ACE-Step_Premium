@@ -60,6 +60,27 @@ class GenerateMusicRequestMixinTests(unittest.TestCase):
         self.assertEqual(task, "repaint")
         self.assertEqual(instruction, TASK_INSTRUCTIONS["repaint"])
 
+    def test_resolve_task_replaces_default_instruction_for_advanced_tasks(self):
+        """Advanced source-audio tasks should not keep text2music instructions."""
+        host = _Host()
+        expected = {
+            "extract": TASK_INSTRUCTIONS["extract_default"],
+            "lego": TASK_INSTRUCTIONS["lego_default"],
+            "complete": TASK_INSTRUCTIONS["complete_default"],
+        }
+
+        for task_type, expected_instruction in expected.items():
+            with self.subTest(task_type=task_type):
+                task, instruction = host._resolve_generate_music_task(
+                    task_type=task_type,
+                    audio_code_string="",
+                    instruction=TASK_INSTRUCTIONS["text2music"],
+                )
+                self.assertEqual(task, task_type)
+                self.assertEqual(instruction, expected_instruction)
+                self.assertNotIn("{", instruction)
+                self.assertNotIn("}", instruction)
+
     def test_resolve_task_preserves_custom_repaint_instruction(self):
         """A user-provided repaint instruction should not be overwritten."""
         host = _Host()

@@ -571,6 +571,19 @@ class GenerateMusicMixin:
                 retake_variance=retake_variance,
                 lego_layer_wavs=lego_layer_wavs,
             )
+            result.setdefault("extra_outputs", {})["effective_generation"] = {
+                "requested_task_type": task_type,
+                "task_type": service_task_type,
+                "instruction": service_instruction,
+                "caption": service_captions,
+                "vocal_language": service_vocal_language,
+                "audio_duration": service_audio_duration,
+                "repainting_start": service_repainting_start,
+                "repainting_end": service_repainting_end,
+                "lyric_repaint_local_span": use_local_lyric_repaint,
+                "source_repainting_start": repainting_start,
+                "source_repainting_end": repainting_end,
+            }
             # Clear GPU tensor references from the mutable outputs dict so
             # accelerator memory is reclaimable before the next generation.
             _gpu_keys = (

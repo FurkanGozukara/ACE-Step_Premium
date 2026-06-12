@@ -29,6 +29,10 @@ from acestep.core.generation.cancellation import (
     check_generation_cancelled,
     cleanup_runtime_memory,
 )
+from acestep.core.generation.effective_generation import (
+    apply_effective_generation_to_params,
+    effective_generation_from_outputs,
+)
 from acestep.core.generation.sampler_controls import (
     normalize_sampler_shift,
     normalize_sampler_timesteps,
@@ -1183,6 +1187,7 @@ def generate_music(
         dit_audios = result.get("audios", [])
         status_message = result.get("status_message", "")
         dit_extra_outputs = result.get("extra_outputs", {})
+        effective_generation = effective_generation_from_outputs(dit_extra_outputs)
 
         # Use the seed list already prepared above (from config.seed or params.seed fallback)
         # actual_seed_list was computed earlier using dit_handler.prepare_seeds
@@ -1203,6 +1208,7 @@ def generate_music(
                 "duration": audio_duration,
             }
         )
+        apply_effective_generation_to_params(base_params_dict, effective_generation)
 
         # Save audio files using AudioSaver (format from config)
         audio_format = _normalize_generation_audio_format(config.audio_format)

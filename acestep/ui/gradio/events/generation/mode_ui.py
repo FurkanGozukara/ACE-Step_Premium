@@ -107,13 +107,13 @@ def compute_mode_ui_updates(
         strength_info = t("generation.cover_strength_info")
     strength_kwargs = {"visible": show_strength, "label": strength_label, "info": strength_info}
     if is_cover:
-        strength_kwargs["value"] = 0.0
+        strength_kwargs["value"] = 1.0
     elif is_custom and previous_mode != "Custom":
         strength_kwargs["value"] = 1.0
     elif not show_strength:
         strength_kwargs["value"] = 1.0
     strength_update = gr.update(**strength_kwargs)
-    cover_noise_update = gr.update(visible=is_cover, value=0.2 if is_cover else 0.0)
+    cover_noise_update = gr.update(visible=is_cover, value=0.0)
 
     # Think checkbox
     if is_extract or is_lego or is_cover or is_repaint:

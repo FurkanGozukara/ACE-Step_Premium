@@ -95,6 +95,11 @@ class ChatCompletionRequest(BaseModel):
 
     # Task type
     task_type: str = Field(default="text2music", description="Task type: text2music, cover, cover-nofsq, repaint, extract, lego, complete")
+    track_name: Optional[str] = Field(default=None, description="Target track for extract/lego tasks")
+    track_classes: Optional[Union[str, List[str]]] = Field(
+        default=None,
+        description="Target tracks/classes for complete tasks",
+    )
 
     # Audio editing parameters
     repainting_start: float = Field(default=0.0, description="Repainting region start (seconds)")

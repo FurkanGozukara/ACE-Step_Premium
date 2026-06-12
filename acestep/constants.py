@@ -82,8 +82,9 @@ TASK_TYPES = ["text2music", "repaint", "cover", "cover-nofsq", "extract", "lego"
 TASK_TYPES_TURBO = ["text2music", "repaint", "cover", "cover-nofsq"]
 
 # Task types available for SFT models.
-# SFT shares the non-turbo CFG path but Extract remains Base-only.
-TASK_TYPES_SFT = ["text2music", "repaint", "cover", "cover-nofsq", "lego", "complete"]
+# SFT shares the standard/turbo task set; advanced source-audio composition
+# tasks are exposed only for pure base models.
+TASK_TYPES_SFT = ["text2music", "repaint", "cover", "cover-nofsq"]
 
 # Task types available for base models (full feature set)
 # Additional tasks requiring more computational resources:
@@ -100,8 +101,8 @@ TASK_TYPES_BASE = ["text2music", "repaint", "cover", "cover-nofsq", "extract", "
 # Default modes for turbo and SFT models (restricted set)
 GENERATION_MODES_TURBO = ["Simple", "Custom", "Remix", "Repaint"]
 
-# SFT modes: standard generation plus verified non-Extract advanced task support.
-GENERATION_MODES_SFT = ["Simple", "Custom", "Remix", "Repaint", "Lego", "Complete"]
+# SFT modes: same user-facing task set as turbo/standard models.
+GENERATION_MODES_SFT = ["Simple", "Custom", "Remix", "Repaint"]
 
 # Extended modes for pure base models only — adds Extract/Lego/Complete
 GENERATION_MODES_BASE = ["Simple", "Custom", "Remix", "Repaint", "Extract", "Lego", "Complete"]

@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import torch
 
+from acestep.constants import DEFAULT_DIT_INSTRUCTION, TASK_INSTRUCTIONS
 from acestep.inference import (
     GenerationConfig,
     GenerationParams,
@@ -24,10 +25,11 @@ class _FakeDitHandler:
     use_lora = False
     lora_scale = 1.0
 
-    def __init__(self, config_path: str = "") -> None:
+    def __init__(self, config_path: str = "", extra_outputs=None) -> None:
         self.generate_kwargs = {}
         self.prepare_seed_calls = []
         self.last_init_params = {"config_path": config_path} if config_path else {}
+        self.extra_outputs = extra_outputs or {}
 
     def prepare_seeds(self, actual_batch_size, seed, use_random_seed):
         self.prepare_seed_calls.append((actual_batch_size, seed, use_random_seed))
@@ -68,7 +70,7 @@ class _FakeDitHandler:
                     "sample_rate": 48000,
                 }
             ],
-            "extra_outputs": {"seed_value": seed},
+            "extra_outputs": {"seed_value": seed, **self.extra_outputs},
         }
 
 
@@ -426,6 +428,69 @@ class LmAudioCodeRoutingTests(unittest.TestCase):
         self.assertEqual("[Instrumental]", llm_handler.generate_kwargs["lyrics"])
         self.assertEqual("[Instrumental]", dit_handler.generate_kwargs["lyrics"])
         self.assertEqual("[Instrumental]", result.audios[0]["params"]["lyrics"])
+
+
+class EffectiveGenerationMetadataTests(unittest.TestCase):
+    """Verify saved params reflect backend task substitutions."""
+
+    def test_lyric_repaint_saves_effective_text2music_instruction(self):
+        """Lyric repaint should record the local text-to-song instruction."""
+
+        effective_generation = {
+            "requested_task_type": "repaint",
+            "task_type": "text2music",
+            "instruction": DEFAULT_DIT_INSTRUCTION,
+            "caption": "rap Repaint the selected 1-second mask.",
+            "vocal_language": "en",
+            "audio_duration": 1.0,
+            "repainting_start": 0.0,
+            "repainting_end": 1.0,
+            "lyric_repaint_local_span": True,
+        }
+        dit_handler = _FakeDitHandler(
+            extra_outputs={"effective_generation": effective_generation}
+        )
+        params = GenerationParams(
+            task_type="repaint",
+            instruction=TASK_INSTRUCTIONS["repaint"],
+            src_audio="source.wav",
+            caption="rap",
+            lyrics="new lyric line",
+            duration=-1,
+            repainting_start=1.0,
+            repainting_end=2.0,
+            thinking=False,
+            use_cot_metas=False,
+            use_cot_caption=False,
+            use_cot_language=False,
+        )
+        config = GenerationConfig(
+            batch_size=1,
+            use_random_seed=False,
+            seeds=[123],
+            audio_format="wav",
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = generate_music(
+                dit_handler,
+                _FakeLlmHandler(),
+                params=params,
+                config=config,
+                save_dir=temp_dir,
+            )
+
+        saved_params = result.audios[0]["params"]
+        self.assertEqual("repaint", saved_params["task_type"])
+        self.assertEqual(DEFAULT_DIT_INSTRUCTION, saved_params["instruction"])
+        self.assertEqual(TASK_INSTRUCTIONS["repaint"], saved_params["requested_instruction"])
+        self.assertEqual("text2music", saved_params["effective_task_type"])
+        self.assertEqual(DEFAULT_DIT_INSTRUCTION, saved_params["effective_instruction"])
+        self.assertEqual(
+            "rap Repaint the selected 1-second mask.",
+            saved_params["effective_caption"],
+        )
+        self.assertTrue(saved_params["lyric_repaint_local_span"])
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from acestep.audio_processing.auto_editor_trim import SilenceTrimResult
+from acestep.constants import DEFAULT_DIT_INSTRUCTION, TASK_INSTRUCTIONS
 from acestep.ui.gradio.events.generation.generation_count import (
     normalize_generation_count,
     seed_for_generation_index,
@@ -289,6 +290,57 @@ class SequentialGenerationCountTests(unittest.TestCase):
         self.assertIn(latest_area_metadata["original_area_path"], final[16])
         layer_audio = next(audio_data for path, audio_data in saved_paths if path == layer_paths[0])
         torch.testing.assert_close(layer_audio, torch.ones(2, 8) * 0.5)
+
+    def test_lyric_repaint_request_payload_uses_effective_instruction(self):
+        """Saved request metadata should show lyric repaint's text-to-song instruction."""
+
+        json_payloads = []
+        effective_generation = {
+            "requested_task_type": "repaint",
+            "task_type": "text2music",
+            "instruction": DEFAULT_DIT_INSTRUCTION,
+            "caption": "rap Repaint the selected 1-second mask.",
+            "vocal_language": "en",
+            "audio_duration": 1.0,
+            "repainting_start": 0.0,
+            "repainting_end": 1.0,
+            "lyric_repaint_local_span": True,
+        }
+
+        def fake_generate_music(_dit_handler, _llm_handler, *, params, config, progress):
+            result = _fake_result(str(config.seeds[0]))
+            result.extra_outputs["effective_generation"] = effective_generation
+            return result
+
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+            generation_progress,
+            "create_latest_edit_area_clips",
+            return_value={"applied": False},
+        ):
+            self._run_generation(
+                tmp,
+                fake_generate_music,
+                task_type="repaint",
+                src_audio="source.wav",
+                lyrics="new lyric line",
+                instruction_display_gen=TASK_INSTRUCTIONS["repaint"],
+                repainting_start=1.0,
+                repainting_end=2.0,
+                write_json_side_effect=lambda _path, payload: json_payloads.append(payload),
+            )
+
+        sample_sidecar = next(payload for payload in json_payloads if "_meta" in payload)
+        request = sample_sidecar["_meta"]["request"]
+        generation_params = request["generation_params"]
+        self.assertEqual(DEFAULT_DIT_INSTRUCTION, request["instruction"])
+        self.assertEqual("text2music", request["effective_task_type"])
+        self.assertEqual(DEFAULT_DIT_INSTRUCTION, generation_params["instruction"])
+        self.assertEqual(
+            TASK_INSTRUCTIONS["repaint"],
+            generation_params["requested_instruction"],
+        )
+        self.assertEqual("text2music", generation_params["effective_task_type"])
+        self.assertTrue(generation_params["lyric_repaint_local_span"])
 
     def _run_generation(
         self,

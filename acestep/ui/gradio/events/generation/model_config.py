@@ -59,8 +59,8 @@ COMMON_DIFFUSION_CONTROL_RANGES = {
 
 _UNSUPPORTED_MODE_REASONS = {
     "Extract": "Base only",
-    "Lego": "Base/SFT only",
-    "Complete": "Base/SFT only",
+    "Lego": "Base only",
+    "Complete": "Base only",
 }
 
 _RECOMMENDED_MODE_LABELS = {

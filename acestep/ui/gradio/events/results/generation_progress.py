@@ -18,6 +18,12 @@ from acestep.audio_processing.silence_trim import trim_silent_edges
 from acestep.audio_processing.settings import AudioProcessingSettings
 from acestep.constants import DEFAULT_DIT_INSTRUCTION, TASK_INSTRUCTIONS
 from acestep.core.generation.cancellation import check_generation_cancelled
+from acestep.core.generation.effective_generation import (
+    apply_effective_generation_to_params,
+    effective_generation_changed,
+    effective_generation_from_outputs,
+    instruction_for_effective_generation,
+)
 from acestep.core.generation.handler.flow_edit_params import normalize_flow_edit_n_avg
 from acestep.core.generation.handler.repaint_prompt import (
     normalize_repaint_lyrics,
@@ -323,6 +329,7 @@ def generate_with_progress(
     seed_value_for_ui = result.extra_outputs.get("seed_value", "")
     lm_generated_metadata = result.extra_outputs.get("lm_metadata", {})
     time_costs = result.extra_outputs.get("time_costs", {}).copy()
+    effective_generation = effective_generation_from_outputs(result.extra_outputs)
 
     audio_conversion_start_time = time_module.time()
     total_auto_score_time = 0.0
@@ -423,6 +430,7 @@ def generate_with_progress(
         lm_initialized=lm_initialized,
         lm_generated_metadata=lm_generated_metadata,
         service_metadata=_build_service_metadata(dit_handler, llm_handler),
+        effective_generation=effective_generation,
     )
     run_assets = persist_generation_inputs(
         run_dir=run_dir,
@@ -989,6 +997,14 @@ def _auxiliary_audio_format(value):
     return "mp3" if str(value or "").strip().lower() == "mp3" else "wav"
 
 
+def _generation_params_payload(gen_params, effective_generation):
+    """Return serialized GenerationParams annotated with effective backend settings."""
+
+    payload = vars(gen_params).copy()
+    apply_effective_generation_to_params(payload, effective_generation)
+    return payload
+
+
 def _build_request_payload(
     *,
     captions,
@@ -1076,9 +1092,20 @@ def _build_request_payload(
     lm_initialized,
     lm_generated_metadata,
     service_metadata,
+    effective_generation,
 ):
     """Build the full persisted request payload for a generation run."""
-    return {
+    effective_changed = effective_generation_changed(
+        task_type,
+        instruction_display_gen,
+        effective_generation,
+    )
+    instruction = instruction_for_effective_generation(
+        instruction_display_gen,
+        effective_generation,
+        effective_changed,
+    )
+    payload = {
         "active_config_path": (
             service_metadata.get("dit_last_init_params", {}) or {}
         ).get("config_path"),
@@ -1093,7 +1120,7 @@ def _build_request_payload(
         "batch_size": 1,
         "task_type": task_type,
         "no_fsq": no_fsq,
-        "instruction": instruction_display_gen,
+        "instruction": instruction,
         "guidance_scale": guidance_scale,
         "inference_steps_requested": inference_steps,
         "inference_steps_used": actual_inference_steps,
@@ -1164,7 +1191,7 @@ def _build_request_payload(
         "extract_trim_threshold_db": extract_trim_threshold_db,
         "audio_processing_settings": audio_processing_settings,
         "sam_audio_settings": sam_audio_settings,
-        "generation_params": vars(gen_params),
+        "generation_params": _generation_params_payload(gen_params, effective_generation),
         "generation_config": {
             **vars(gen_config),
             "generation_count": batch_size_input,
@@ -1176,6 +1203,11 @@ def _build_request_payload(
             **service_metadata,
         },
     }
+    if effective_changed:
+        payload["effective_task_type"] = effective_generation.get("task_type")
+        payload["effective_instruction"] = effective_generation.get("instruction")
+        payload["runtime"]["effective_generation"] = effective_generation
+    return payload
 
 
 def _build_service_metadata(dit_handler, llm_handler):

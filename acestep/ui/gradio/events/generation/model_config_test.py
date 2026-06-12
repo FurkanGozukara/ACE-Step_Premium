@@ -142,18 +142,16 @@ class GetUiControlConfigTests(unittest.TestCase):
         self.assertEqual(cfg["inference_steps_value"], 8)
 
     def test_xl_sft_path_returns_quality_steps(self):
-        """The premium default XL-SFT model should use SFT defaults without Extract."""
+        """XL-SFT should use SFT defaults and keep advanced modes Base-only."""
         cfg = get_ui_control_config_for_path("acestep-v15-xl-sft")
         self.assertEqual(cfg["inference_steps_value"], 50)
         self.assertEqual(cfg["shift_value"], 3.0)
         self.assertFalse(cfg["use_adg_value"])
-        self.assertNotIn(
-            "Extract",
-            get_supported_generation_modes_for_path("acestep-v15-xl-sft"),
-        )
-        self.assertFalse(is_generation_mode_supported_for_path("Extract", "acestep-v15-xl-sft"))
-        self.assertTrue(is_generation_mode_supported_for_path("Lego", "acestep-v15-xl-sft"))
-        self.assertTrue(is_generation_mode_supported_for_path("Complete", "acestep-v15-xl-sft"))
+        supported = get_supported_generation_modes_for_path("acestep-v15-xl-sft")
+        for mode in ("Extract", "Lego", "Complete"):
+            with self.subTest(mode=mode):
+                self.assertNotIn(mode, supported)
+                self.assertFalse(is_generation_mode_supported_for_path(mode, "acestep-v15-xl-sft"))
         self.assertIn(
             ("Extract - unavailable (Base only)", "Extract"),
             cfg["generation_mode_choices"],
@@ -167,13 +165,16 @@ class GetUiControlConfigTests(unittest.TestCase):
             cfg["generation_mode_choices"],
         )
         self.assertIn(
-            ("Lego (Base Model Recommended)", "Lego"),
+            ("Lego (Base Model Recommended) - unavailable (Base only)", "Lego"),
             cfg["generation_mode_choices"],
         )
         self.assertIn(
-            ("Complete (Base Model Recommended)", "Complete"),
+            ("Complete (Base Model Recommended) - unavailable (Base only)", "Complete"),
             cfg["generation_mode_choices"],
         )
+        self.assertNotIn("extract", cfg["task_type_choices"])
+        self.assertNotIn("lego", cfg["task_type_choices"])
+        self.assertNotIn("complete", cfg["task_type_choices"])
 
     def test_xl_base_path_returns_quality_steps_and_base_modes(self):
         """XL-Base should use non-turbo defaults and expose base-only modes."""

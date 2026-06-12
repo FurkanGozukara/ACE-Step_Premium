@@ -6,6 +6,7 @@ import torch
 from loguru import logger
 
 from acestep.constants import TASK_INSTRUCTIONS
+from acestep.core.generation.handler.task_instruction import generate_task_instruction
 from acestep.core.generation.handler.repaint_prompt import (
     apply_repaint_span_duration_to_metas,
     normalize_repaint_lyrics,
@@ -66,13 +67,9 @@ class GenerateMusicRequestMixin:
     ) -> Tuple[str, str]:
         """Resolve task type and default instruction for generation."""
         if task_type == "text2music" and self._has_non_empty_audio_codes(audio_code_string):
-            return "cover", TASK_INSTRUCTIONS["cover"]
-        if _is_default_text2music_instruction(instruction) and task_type in (
-            "cover",
-            "cover-nofsq",
-            "repaint",
-        ):
-            return task_type, TASK_INSTRUCTIONS[task_type]
+            return "cover", generate_task_instruction("cover")
+        if _is_default_text2music_instruction(instruction):
+            return task_type, generate_task_instruction(task_type)
         return task_type, instruction
 
     def _prepare_generate_music_runtime(
