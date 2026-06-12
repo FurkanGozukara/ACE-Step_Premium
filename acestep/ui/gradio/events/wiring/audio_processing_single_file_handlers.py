@@ -16,6 +16,11 @@ from acestep.audio_processing.media_io import save_processed_audio
 from acestep.audio_processing.plots import make_spectrogram_figure
 from acestep.audio_processing.runs import create_audio_processing_run_dir, safe_media_stem
 from acestep.audio_processing.settings import settings_from_ui_values
+from acestep.ui.gradio.events.wiring.audio_processing_output_updates import (
+    hidden_output,
+    visible_if_present,
+    visible_output,
+)
 from acestep.ui.gradio.events.wiring.audio_processing_process_status import (
     make_process_log_callback,
     with_process_log,
@@ -114,7 +119,7 @@ def process_single_file(
         settings.workflow_export,
     )
     if not input_path:
-        return None, gr.update(visible=False), None, gr.update(visible=False), (
+        return hidden_output(), hidden_output(), hidden_output(), hidden_output(), (
             "Upload an audio or video file first."
         )
     process_log: list[str] = []
@@ -133,10 +138,10 @@ def process_single_file(
                 media_reference=media_reference,
             )
             return (
-                None,
-                gr.update(value=None, visible=False),
-                None,
-                gr.update(value=[workflow_path], visible=True),
+                hidden_output(),
+                hidden_output(),
+                hidden_output(),
+                visible_output([workflow_path]),
                 workflow_export_markdown(
                     input_path,
                     workflow_path,
@@ -157,14 +162,14 @@ def process_single_file(
             result.processed_audio.sample_rate,
         )
         return (
-            result.audio_path,
-            gr.update(value=result.video_path, visible=bool(result.video_path)),
-            figure,
-            gr.update(value=result.file_list(), visible=True),
+            visible_if_present(result.audio_path),
+            visible_if_present(result.video_path),
+            visible_if_present(figure),
+            visible_output(result.file_list()),
             with_process_log(metrics_markdown(result), process_log),
         )
     except Exception as exc:
-        return None, gr.update(visible=False), None, gr.update(visible=False), (
+        return hidden_output(), hidden_output(), hidden_output(), hidden_output(), (
             f"Processing failed: {exc}"
         )
 

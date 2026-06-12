@@ -136,6 +136,7 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
             audio_page["ap_single_status"],
         ],
         api_name="audio_processing_process",
+        show_progress="hidden",
     )
     audio_page["ap_cancel_processing_btn"].click(
         fn=None,

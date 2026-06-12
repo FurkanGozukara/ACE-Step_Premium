@@ -11,6 +11,11 @@ from acestep.audio_processing.cancel import AudioProcessingCancelled
 from acestep.audio_processing.runs import create_audio_processing_run_dir, safe_media_stem
 from acestep.audio_processing.settings import settings_from_ui_values
 from acestep.audio_processing.subprocess_runner import run_audio_processing_subprocess
+from acestep.ui.gradio.events.wiring.audio_processing_output_updates import (
+    hidden_output,
+    visible_if_present,
+    visible_output,
+)
 from acestep.ui.gradio.events.wiring.audio_processing_process_status import (
     make_process_log_callback,
     with_process_log,
@@ -43,7 +48,7 @@ def process_single_file_subprocess(
         settings.workflow_export,
     )
     if not input_path:
-        return None, gr.update(visible=False), None, gr.update(visible=False), (
+        return hidden_output(), hidden_output(), hidden_output(), hidden_output(), (
             "Upload an audio or video file first."
         )
     media_reference = workflow_media_reference(input_path, local_path_value)
@@ -68,11 +73,11 @@ def process_single_file_subprocess(
             progress_callback=progress_callback,
         )
     except AudioProcessingCancelled:
-        return None, gr.update(visible=False), None, gr.update(visible=False), (
+        return hidden_output(), hidden_output(), hidden_output(), hidden_output(), (
             "Audio Processing cancelled."
         )
     except Exception as exc:
-        return None, gr.update(visible=False), None, gr.update(visible=False), (
+        return hidden_output(), hidden_output(), hidden_output(), hidden_output(), (
             f"Processing failed: {exc}"
         )
     if workflow_export_enabled(settings.workflow_export):
@@ -91,10 +96,10 @@ def _workflow_outputs(
     media_reference = str(result.get("media_reference_path") or input_path)
     local_path_value = media_reference if result.get("media_reference_is_local") else None
     return (
-        None,
-        gr.update(value=None, visible=False),
-        None,
-        gr.update(value=[workflow_path], visible=bool(workflow_path)),
+        hidden_output(),
+        hidden_output(),
+        hidden_output(),
+        visible_if_present([workflow_path] if workflow_path else []),
         workflow_export_markdown(
             input_path,
             workflow_path,
@@ -111,10 +116,10 @@ def _media_outputs(result: dict[str, Any], process_log: list[str]) -> tuple[Any,
     video_path = result.get("video_path")
     files = list(result.get("files", []) or [])
     return (
-        result.get("audio_path"),
-        gr.update(value=video_path, visible=bool(video_path)),
-        result.get("figure"),
-        gr.update(value=files, visible=bool(files)),
+        visible_if_present(result.get("audio_path")),
+        visible_if_present(video_path),
+        visible_if_present(result.get("figure")),
+        visible_if_present(files),
         with_process_log(str(result.get("status_markdown") or ""), process_log),
     )
 

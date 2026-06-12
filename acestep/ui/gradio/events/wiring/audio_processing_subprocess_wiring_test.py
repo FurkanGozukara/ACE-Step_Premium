@@ -73,10 +73,12 @@ class AudioProcessingSubprocessWiringTests(unittest.TestCase):
                 *_settings_values(),
             )
 
-        self.assertEqual("processed.wav", audio)
+        self.assertEqual("processed.wav", audio["value"])
+        self.assertTrue(audio["visible"])
         self.assertEqual("processed.mp4", video["value"])
         self.assertTrue(video["visible"])
-        self.assertEqual("figure", figure)
+        self.assertEqual("figure", figure["value"])
+        self.assertTrue(figure["visible"])
         self.assertEqual(["processed.wav", "processed.mp4", "metadata.json"], files["value"])
         self.assertIn("metrics", status)
         run_subprocess.assert_called_once()
@@ -142,10 +144,11 @@ class AudioProcessingSubprocessWiringTests(unittest.TestCase):
         self.assertEqual(str(source), payload["input_path"])
         self.assertEqual(str(source), payload["media_reference_path"])
         self.assertFalse(payload["media_reference_is_local"])
-        self.assertIsNone(audio)
-        self.assertIsNone(figure)
+        self.assertFalse(audio["visible"])
+        self.assertFalse(figure["visible"])
         self.assertFalse(video["visible"])
         self.assertEqual(["run/0.fcpxml"], files["value"])
+        self.assertTrue(files["visible"])
         self.assertIn("Gradio temp upload", status)
 
     def test_cancel_processing_requires_subprocess_mode(self) -> None:

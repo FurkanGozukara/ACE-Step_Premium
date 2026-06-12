@@ -73,10 +73,11 @@ class AudioProcessingWiringTests(unittest.TestCase):
 
         export_workflow.assert_called_once()
         process_media.assert_not_called()
-        self.assertIsNone(audio)
-        self.assertIsNone(figure)
+        self.assertFalse(audio["visible"])
+        self.assertFalse(figure["visible"])
         self.assertFalse(video["visible"])
         self.assertEqual([workflow_path], files["value"])
+        self.assertTrue(files["visible"])
         self.assertIn("Export complete", status)
         self.assertNotIn("### Process Log", status)
         self.assertIn("Processed audio/video: `None`", status)
@@ -105,10 +106,11 @@ class AudioProcessingWiringTests(unittest.TestCase):
             )
 
         export_workflow.assert_called_once()
-        self.assertIsNone(audio)
-        self.assertIsNone(figure)
+        self.assertFalse(audio["visible"])
+        self.assertFalse(figure["visible"])
         self.assertFalse(video["visible"])
         self.assertEqual(["run/0.fcpxml"], files["value"])
+        self.assertTrue(files["visible"])
         self.assertIn("Gradio temp upload", status)
 
     def test_workflow_export_prefers_explicit_local_media_path(self) -> None:
