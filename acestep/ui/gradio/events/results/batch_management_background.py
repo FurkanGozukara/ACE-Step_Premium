@@ -207,6 +207,11 @@ def generate_next_batch_background(
             generate_lm_audio_codes=params.get("generate_lm_audio_codes"),
             extract_trim_empty_output=params.get("extract_trim_empty_output", False),
             extract_trim_threshold_db=params.get("extract_trim_threshold_db", -40.0),
+            instrumental_checkbox=params.get("instrumental_checkbox", False),
+            repaint_dont_switch_with_lyrics=params.get(
+                "repaint_dont_switch_with_lyrics",
+                False,
+            ),
             audio_processing_settings=params.get("audio_processing_settings"),
             sam_audio_settings=params.get("sam_audio_settings"),
             progress=progress,

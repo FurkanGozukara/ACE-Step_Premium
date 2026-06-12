@@ -91,6 +91,25 @@ def _get_torch():
     return sys.modules.get("torch")
 
 
+def _is_instrumental_lyrics(lyrics: str | None) -> bool:
+    """Return whether the lyrics field already requests instrumental output."""
+
+    normalized = str(lyrics or "").strip().lower()
+    return normalized in {"[instrumental]", "[inst]"}
+
+
+def _resolve_instrumental_request(
+    instrumental_checkbox: bool,
+    lyrics: str | None,
+) -> tuple[bool, str]:
+    """Return the effective instrumental flag and lyrics text for generation."""
+
+    instrumental = bool(instrumental_checkbox) or _is_instrumental_lyrics(lyrics)
+    if instrumental:
+        return True, "[Instrumental]"
+    return False, str(lyrics or "")
+
+
 def generate_with_progress(
     dit_handler, llm_handler,
     captions, lyrics, bpm, key_scale, time_signature, vocal_language,
@@ -129,6 +148,8 @@ def generate_with_progress(
     generate_lm_audio_codes=None,
     extract_trim_empty_output=False,
     extract_trim_threshold_db=-40.0,
+    instrumental_checkbox=False,
+    repaint_dont_switch_with_lyrics=False,
     audio_processing_settings=None,
     sam_audio_settings=None,
     progress=gr.Progress(track_tqdm=True),
@@ -215,6 +236,9 @@ def generate_with_progress(
     # Only text2music (Custom mode) with thinking disabled should pass codes.
     if task_type != "text2music":
         text2music_audio_code_string = ""
+    instrumental, lyrics = _resolve_instrumental_request(instrumental_checkbox, lyrics)
+    if instrumental:
+        vocal_language = "unknown"
     lyrics = normalize_repaint_lyrics(task_type, lyrics or "")
     lyrics = normalize_lego_lyrics(task_type, instruction_display_gen, lyrics)
     vocal_language = resolve_repaint_vocal_language(task_type, vocal_language, lyrics or "")
@@ -233,7 +257,7 @@ def generate_with_progress(
         audio_codes=text2music_audio_code_string if not think_checkbox else "",
         caption=captions or "",
         lyrics=lyrics or "",
-        instrumental=False,
+        instrumental=instrumental,
         vocal_language=vocal_language,
         bpm=bpm,
         keyscale=key_scale,
@@ -279,6 +303,7 @@ def generate_with_progress(
         latent_rescale=latent_rescale,
         repaint_mode=repaint_mode if repaint_mode else "balanced",
         repaint_strength=float(repaint_strength) if repaint_strength is not None else 0.5,
+        repaint_dont_switch_with_lyrics=bool(repaint_dont_switch_with_lyrics),
         retake_variance=float(retake_variance) if retake_variance is not None else 0.0,
         # Empty textbox -> None; otherwise a string is fine (handler.prepare_seeds parses it).
         retake_seed=(retake_seed.strip() or None) if isinstance(retake_seed, str) else retake_seed,
@@ -362,6 +387,8 @@ def generate_with_progress(
         batch_size_input=generation_count,
         src_audio=src_audio,
         text2music_audio_code_string=text2music_audio_code_string,
+        instrumental_checkbox=instrumental_checkbox,
+        repaint_dont_switch_with_lyrics=repaint_dont_switch_with_lyrics,
         repainting_start=repainting_start,
         repainting_end=repainting_end,
         instruction_display_gen=instruction_display_gen,
@@ -1024,6 +1051,8 @@ def _build_request_payload(
     batch_size_input,
     src_audio,
     text2music_audio_code_string,
+    instrumental_checkbox,
+    repaint_dont_switch_with_lyrics,
     repainting_start,
     repainting_end,
     instruction_display_gen,
@@ -1136,6 +1165,9 @@ def _build_request_payload(
         "reference_audio": reference_audio,
         "src_audio": src_audio,
         "text2music_audio_code_string": text2music_audio_code_string,
+        "instrumental": bool(gen_params.instrumental),
+        "instrumental_checkbox": bool(instrumental_checkbox),
+        "repaint_dont_switch_with_lyrics": bool(repaint_dont_switch_with_lyrics),
         "repainting_start": repainting_start,
         "repainting_end": repainting_end,
         "audio_cover_strength": audio_cover_strength,

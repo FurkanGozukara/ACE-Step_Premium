@@ -132,6 +132,8 @@ def _build_saved_params(
     extract_trim_empty_output=False,
     extract_trim_threshold_db=-40.0,
     extract_output_format=DEFAULT_EXTRACT_AUDIO_FORMAT,
+    instrumental_checkbox=False,
+    repaint_dont_switch_with_lyrics=False,
     audio_processing_settings=None,
     sam_audio_settings=None,
 ):
@@ -196,6 +198,8 @@ def _build_saved_params(
         "extract_trim_empty_output": extract_trim_empty_output,
         "extract_trim_threshold_db": extract_trim_threshold_db,
         "extract_output_format": extract_output_format,
+        "instrumental_checkbox": bool(instrumental_checkbox),
+        "repaint_dont_switch_with_lyrics": bool(repaint_dont_switch_with_lyrics),
         "audio_processing_settings": audio_processing_settings or {},
         "sam_audio_settings": sam_audio_settings or {},
     }
@@ -266,6 +270,8 @@ def _apply_param_defaults(params):
         "extract_trim_empty_output": False,
         "extract_trim_threshold_db": -40.0,
         "extract_output_format": DEFAULT_EXTRACT_AUDIO_FORMAT,
+        "instrumental_checkbox": False,
+        "repaint_dont_switch_with_lyrics": False,
         "latent_shift": 0.0, "latent_rescale": 1.0,
         "repaint_mode": "balanced", "repaint_strength": 0.5,
         "retake_variance": 0.0, "retake_seed": "",

@@ -37,7 +37,7 @@ def load_metadata(file_obj, llm_handler=None):
     """
     if file_obj is None:
         gr.Warning(t("messages.no_file_selected"))
-        return [None] * 43 + [False]
+        return [None] * 44 + [False]
 
     try:
         if hasattr(file_obj, 'name'):
@@ -123,7 +123,17 @@ def load_metadata(file_obj, llm_handler=None):
         custom_timesteps = metadata.get('timesteps', '')
         if custom_timesteps is None:
             custom_timesteps = ''
-        instrumental = metadata.get('instrumental', False)
+        generation_params = metadata.get("generation_params", {})
+        if not isinstance(generation_params, dict):
+            generation_params = {}
+        instrumental = metadata.get(
+            'instrumental',
+            generation_params.get('instrumental', False),
+        )
+        repaint_dont_switch_with_lyrics = metadata.get(
+            "repaint_dont_switch_with_lyrics",
+            generation_params.get("repaint_dont_switch_with_lyrics", False),
+        )
         try:
             retake_variance = float(metadata.get('retake_variance', 0.0) or 0.0)
         except (TypeError, ValueError):
@@ -147,16 +157,16 @@ def load_metadata(file_obj, llm_handler=None):
             use_cot_metas, use_cot_caption, use_cot_language, audio_cover_strength,
             cover_noise_strength, think, audio_codes, repainting_start, repainting_end,
             track_name, extract_output_format, complete_track_classes, instrumental,
-            retake_variance, retake_seed,
+            repaint_dont_switch_with_lyrics, retake_variance, retake_seed,
             True  # is_format_caption
         )
 
     except json.JSONDecodeError as e:
         gr.Warning(t("messages.invalid_json", error=str(e)))
-        return [None] * 43 + [False]
+        return [None] * 44 + [False]
     except Exception as e:
         gr.Warning(t("messages.load_error", error=str(e)))
-        return [None] * 43 + [False]
+        return [None] * 44 + [False]
 
 
 def _get_project_root() -> str:

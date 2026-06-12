@@ -105,6 +105,8 @@ def register_results_restore_and_lrc_handlers(context: GenerationWiringContext) 
             generation_section["text2music_audio_code_string"],
             generation_section["captions"],
             generation_section["lyrics"],
+            generation_section["instrumental_checkbox"],
+            generation_section["repaint_dont_switch_with_lyrics"],
             generation_section["bpm"],
             generation_section["key_scale"],
             generation_section["time_signature"],

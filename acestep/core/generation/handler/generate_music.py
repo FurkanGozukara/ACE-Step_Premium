@@ -245,6 +245,7 @@ class GenerateMusicMixin:
         repaint_wav_crossfade_sec: float = 0.0,
         repaint_mode: str = "balanced",
         repaint_strength: float = 0.5,
+        repaint_dont_switch_with_lyrics: bool = False,
         source_repaint_latents: Optional[torch.Tensor] = None,
         retake_seed: Optional[Union[str, float, int]] = None,
         retake_variance: float = 0.0,
@@ -281,6 +282,8 @@ class GenerateMusicMixin:
             use_tiled_decode: Whether tiled VAE decode is used.
             latent_shift: Additive latent post-processing value.
             latent_rescale: Multiplicative latent post-processing value.
+            repaint_dont_switch_with_lyrics: Keep lyric-bearing Repaint on the
+                repaint path instead of generating a local text-to-music span.
             source_repaint_latents: Optional cached source latents used for
                 generated-source repaint instead of repaint-time VAE encoding.
             progress: Optional callback taking ``(ratio, desc=...)``.
@@ -379,9 +382,14 @@ class GenerateMusicMixin:
                     task_type,
                 )
 
+            allow_local_lyric_repaint = not bool(repaint_dont_switch_with_lyrics)
             has_target_repaint_lyrics = task_type == "repaint" and has_repaint_lyrics(lyrics)
             local_repaint_duration = None
-            if has_target_repaint_lyrics and processed_src_audio is not None:
+            if (
+                allow_local_lyric_repaint
+                and has_target_repaint_lyrics
+                and processed_src_audio is not None
+            ):
                 local_repaint_duration = resolve_repaint_span_duration(
                     task_type,
                     repainting_start,
@@ -581,6 +589,7 @@ class GenerateMusicMixin:
                 "repainting_start": service_repainting_start,
                 "repainting_end": service_repainting_end,
                 "lyric_repaint_local_span": use_local_lyric_repaint,
+                "repaint_dont_switch_with_lyrics": bool(repaint_dont_switch_with_lyrics),
                 "source_repainting_start": repainting_start,
                 "source_repainting_end": repainting_end,
             }

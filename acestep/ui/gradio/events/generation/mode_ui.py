@@ -285,6 +285,7 @@ def compute_mode_ui_updates(
         morph_panel_update,                                # 58: morph_panel
         no_fsq_update,                                     # 59: no_fsq
         gr.update(visible=show_inline_audio_format),       # 60: audio_format_column
+        gr.update(visible=is_repaint),                     # 61: repaint_dont_switch_with_lyrics
     )
 
 

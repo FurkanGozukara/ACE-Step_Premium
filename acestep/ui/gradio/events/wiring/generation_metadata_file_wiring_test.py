@@ -54,6 +54,7 @@ _EXPECTED_METADATA_KEYS = [
     "extract_output_format",
     "complete_track_classes",
     "instrumental_checkbox",
+    "repaint_dont_switch_with_lyrics",
     "retake_variance",
     "retake_seed",
 ]

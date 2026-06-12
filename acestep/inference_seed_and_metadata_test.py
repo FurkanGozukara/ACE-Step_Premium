@@ -429,6 +429,36 @@ class LmAudioCodeRoutingTests(unittest.TestCase):
         self.assertEqual("[Instrumental]", dit_handler.generate_kwargs["lyrics"])
         self.assertEqual("[Instrumental]", result.audios[0]["params"]["lyrics"])
 
+    def test_instrumental_param_forces_instrumental_lyrics_and_language(self):
+        """Direct inference instrumental requests should use instrumental conditioning."""
+
+        dit_handler = _FakeDitHandler(config_path="acestep-v15-xl-base")
+        llm_handler = _FakeLlmHandler()
+        params = GenerationParams(
+            caption="cinematic pop",
+            lyrics="words that should not be sung",
+            vocal_language="en",
+            instrumental=True,
+            thinking=False,
+        )
+        config = GenerationConfig(batch_size=1, use_random_seed=True, audio_format="wav")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = generate_music(
+                dit_handler,
+                llm_handler,
+                params=params,
+                config=config,
+                save_dir=temp_dir,
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual("[Instrumental]", dit_handler.generate_kwargs["lyrics"])
+        self.assertEqual("unknown", params.vocal_language)
+        self.assertEqual("[Instrumental]", result.audios[0]["params"]["lyrics"])
+        self.assertEqual("unknown", result.audios[0]["params"]["vocal_language"])
+        self.assertTrue(result.audios[0]["params"]["instrumental"])
+
 
 class EffectiveGenerationMetadataTests(unittest.TestCase):
     """Verify saved params reflect backend task substitutions."""

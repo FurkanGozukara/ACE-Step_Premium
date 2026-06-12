@@ -507,6 +507,8 @@ def _generate_with_batch_management_impl(
     extract_trim_empty_output=False,
     extract_trim_threshold_db=-40.0,
     extract_output_format=DEFAULT_EXTRACT_AUDIO_FORMAT,
+    instrumental_checkbox=False,
+    repaint_dont_switch_with_lyrics=False,
     *audio_processing_value_args,
     progress=gr.Progress(track_tqdm=True),
     audio_processing_values=None,
@@ -628,6 +630,8 @@ def _generate_with_batch_management_impl(
         extract_trim_empty_output=extract_trim_empty_output,
         extract_trim_threshold_db=extract_trim_threshold_db,
         extract_output_format=normalize_extract_audio_format(extract_output_format),
+        instrumental_checkbox=bool(instrumental_checkbox),
+        repaint_dont_switch_with_lyrics=bool(repaint_dont_switch_with_lyrics),
         audio_processing_settings=(
             audio_processing_settings_from_ui_values(resolved_ap_values).to_payload()
         ),
@@ -866,6 +870,8 @@ def _generate_with_batch_management_impl(
         generate_lm_audio_codes,
         extract_trim_empty_output,
         extract_trim_threshold_db,
+        bool(instrumental_checkbox),
+        bool(repaint_dont_switch_with_lyrics),
         audio_processing_settings=saved_params.get("audio_processing_settings"),
         sam_audio_settings=saved_params.get("sam_audio_settings"),
         progress=progress,

@@ -136,6 +136,8 @@ def capture_current_params(
     repaint_mode, repaint_strength,
     retake_variance=0.0, retake_seed="",
     generate_lm_audio_codes=None,
+    instrumental_checkbox=False,
+    repaint_dont_switch_with_lyrics=False,
 ):
     """Capture current UI parameters for next-batch generation.
 
@@ -144,6 +146,8 @@ def capture_current_params(
     return {
         "captions": captions,
         "lyrics": lyrics,
+        "instrumental_checkbox": bool(instrumental_checkbox),
+        "repaint_dont_switch_with_lyrics": bool(repaint_dont_switch_with_lyrics),
         "bpm": bpm,
         "key_scale": key_scale,
         "time_signature": time_signature,
@@ -219,13 +223,18 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     """
     if current_batch_index not in batch_queue:
         gr.Warning(t("messages.no_batch_data"))
-        return [gr.update()] * 36
+        return [gr.update()] * 38
 
     batch_data = batch_queue[current_batch_index]
     params = batch_data.get("generation_params", {})
 
     captions = params.get("captions", "")
     lyrics = params.get("lyrics", "")
+    instrumental_checkbox = params.get(
+        "instrumental_checkbox",
+        params.get("instrumental", False),
+    )
+    repaint_dont_switch_with_lyrics = params.get("repaint_dont_switch_with_lyrics", False)
     bpm = params.get("bpm", None)
     key_scale = params.get("key_scale", "")
     time_signature = params.get("time_signature", "")
@@ -271,7 +280,9 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     gr.Info(t("messages.params_restored", n=current_batch_index + 1))
 
     return (
-        codes_main, captions, lyrics, bpm, key_scale, time_signature,
+        codes_main, captions, lyrics,
+        instrumental_checkbox, repaint_dont_switch_with_lyrics,
+        bpm, key_scale, time_signature,
         vocal_language, audio_duration, batch_size_input, inference_steps,
         audio_format, gr.update(visible=is_mp3),
         gr.update(choices=MP3_BITRATE_CHOICES, value=mp3_bitrate, visible=is_mp3),

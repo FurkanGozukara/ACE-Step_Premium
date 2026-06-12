@@ -670,6 +670,26 @@ class LoadMetadataMp3SanitizationTests(unittest.TestCase):
         self.assertEqual(result[37], "vocals")
         self.assertEqual(result[38], "wav")
 
+    @patch("acestep.ui.gradio.events.generation.metadata_loading.gr.Info")
+    @patch("acestep.ui.gradio.events.generation.metadata_loading.get_global_gpu_config")
+    def test_load_metadata_restores_repaint_lyric_switch_flag(self, gpu_mock, info_mock):
+        """Metadata load should restore the Repaint lyric-switch opt-out flag."""
+        import tempfile
+        gpu_cfg = MagicMock()
+        gpu_cfg.max_batch_size_with_lm = 8
+        gpu_cfg.max_batch_size_without_lm = 8
+        gpu_mock.return_value = gpu_cfg
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            file_obj = self._write_json(tmpdir, {
+                "generation_params": {
+                    "repaint_dont_switch_with_lyrics": True,
+                },
+            })
+            result = generation_handlers.load_metadata(file_obj, None)
+
+        self.assertTrue(result[41])
+
 @unittest.skipIf(generation_handlers is None, f"generation_handlers import unavailable: {_IMPORT_ERROR}")
 class AutoCheckboxTests(unittest.TestCase):
     """Tests for optional-parameter Auto checkbox handler functions."""

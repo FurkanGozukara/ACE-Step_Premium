@@ -248,6 +248,17 @@ class CaptureCurrentParamsTests(unittest.TestCase):
         self.assertEqual(result["repaint_mode"], "aggressive")
         self.assertEqual(result["repaint_strength"], 0.8)
 
+    def test_repaint_lyric_switch_flag_included_in_capture(self):
+        """Instrumental and repaint lyric-switch flags must be captured."""
+        args = self._build_args(repaint_mode="balanced", repaint_strength=0.5)
+        result = capture_current_params(
+            *args,
+            instrumental_checkbox=True,
+            repaint_dont_switch_with_lyrics=True,
+        )
+        self.assertTrue(result["instrumental_checkbox"])
+        self.assertTrue(result["repaint_dont_switch_with_lyrics"])
+
     def test_repaint_params_default_values_captured(self):
         """Default repaint values (balanced, 0.5) must round-trip through capture."""
         args = self._build_args(repaint_mode="balanced", repaint_strength=0.5)

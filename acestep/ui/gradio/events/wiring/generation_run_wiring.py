@@ -125,6 +125,8 @@ def build_generation_run_inputs(generation_section, results_section):
         generation_section["extract_trim_empty_output"],
         generation_section["extract_trim_threshold_db"],
         generation_section["extract_output_format"],
+        generation_section["instrumental_checkbox"],
+        generation_section["repaint_dont_switch_with_lyrics"],
         *audio_processing_generation_inputs(generation_section),
         *sam_audio_generation_inputs(generation_section),
     ]
@@ -406,6 +408,8 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
             generation_section["extract_trim_empty_output"],
             generation_section["extract_trim_threshold_db"],
             generation_section["extract_output_format"],
+            generation_section["instrumental_checkbox"],
+            generation_section["repaint_dont_switch_with_lyrics"],
             *audio_processing_generation_inputs(generation_section),
             *sam_audio_generation_inputs(generation_section),
             generation_section["reference_audio_preview"],

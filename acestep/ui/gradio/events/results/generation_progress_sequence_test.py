@@ -125,6 +125,34 @@ class SequentialGenerationCountTests(unittest.TestCase):
         self.assertEqual(final[19], "100, 101, 102")
         self.assertEqual(final[55][:3], ["code-100", "code-101", "code-102"])
 
+    def test_instrumental_checkbox_sets_generation_params(self):
+        """Instrumental checkbox should reach backend params as instrumental."""
+
+        calls = []
+
+        def fake_generate_music(_dit_handler, _llm_handler, *, params, config, progress):
+            calls.append(params)
+            return _fake_result(str(config.seeds[0]))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._run_generation(
+                tmp,
+                fake_generate_music,
+                task_type="repaint",
+                src_audio="source.wav",
+                lyrics="new lyric line",
+                vocal_language="en",
+                instrumental_checkbox=True,
+                repaint_dont_switch_with_lyrics=True,
+            )
+
+        self.assertEqual(1, len(calls))
+        params = calls[0]
+        self.assertTrue(params.instrumental)
+        self.assertEqual("[Instrumental]", params.lyrics)
+        self.assertEqual("unknown", params.vocal_language)
+        self.assertTrue(params.repaint_dont_switch_with_lyrics)
+
     def test_generate_with_progress_saves_outputs_beyond_visible_slots(self):
         """Songs above eight should still save files and expose all codes."""
 

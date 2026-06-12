@@ -122,6 +122,14 @@ def build_custom_mode_controls() -> dict[str, Any]:
                                 info=t("generation.instrumental_info"),
                                 elem_classes=["has-info-container"],
                             )
+                            repaint_dont_switch_with_lyrics = gr.Checkbox(
+                                label=t("generation.repaint_dont_switch_with_lyrics_label"),
+                                value=False,
+                                visible=False,
+                                scale=2,
+                                info=t("generation.repaint_dont_switch_with_lyrics_info"),
+                                elem_classes=["has-info-container"],
+                            )
                             format_lyrics_btn = gr.Button(
                                 t("generation.format_lyrics_btn"),
                                 variant="secondary",
@@ -145,6 +153,7 @@ def build_custom_mode_controls() -> dict[str, Any]:
         "format_caption_btn": format_caption_btn,
         "lyrics": lyrics,
         "instrumental_checkbox": instrumental_checkbox,
+        "repaint_dont_switch_with_lyrics": repaint_dont_switch_with_lyrics,
         "format_lyrics_btn": format_lyrics_btn,
         "sample_btn": sample_btn,
     }

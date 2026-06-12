@@ -16,6 +16,8 @@ _EXPECTED_RESTORE_OUTPUT_KEYS = [
     "text2music_audio_code_string",
     "captions",
     "lyrics",
+    "instrumental_checkbox",
+    "repaint_dont_switch_with_lyrics",
     "bpm",
     "key_scale",
     "time_signature",

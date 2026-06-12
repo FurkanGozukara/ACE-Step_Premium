@@ -55,7 +55,8 @@ _IDX_PREVIOUS_GENERATION_MODE = 37
 _IDX_REMIX_STRENGTH = 17
 _IDX_COVER_NOISE = 18
 _IDX_AUDIO_FORMAT_COLUMN = 60
-_EXPECTED_TUPLE_LENGTH = 61
+_IDX_REPAINT_DONT_SWITCH_WITH_LYRICS = 61
+_EXPECTED_TUPLE_LENGTH = 62
 _IDX_BPM = 21
 _IDX_KEY = 22
 _IDX_TIMESIG = 23
@@ -81,9 +82,22 @@ class ModeUiStateClearingTests(unittest.TestCase):
     """Tests that mode switches clear stale UI state to prevent noise."""
 
     def test_tuple_length(self):
-        """compute_mode_ui_updates should return exactly 61 elements."""
+        """compute_mode_ui_updates should return the expected output count."""
         result = compute_mode_ui_updates("Custom")
         self.assertEqual(len(result), _EXPECTED_TUPLE_LENGTH)
+
+    def test_repaint_lyric_switch_checkbox_is_repaint_only(self):
+        """The lyric-repaint switch opt-out should only appear in Repaint mode."""
+
+        repaint_result = compute_mode_ui_updates("Repaint")
+        custom_result = compute_mode_ui_updates("Custom", previous_mode="Repaint")
+
+        self.assertTrue(
+            repaint_result[_IDX_REPAINT_DONT_SWITCH_WITH_LYRICS].get("visible")
+        )
+        self.assertFalse(
+            custom_result[_IDX_REPAINT_DONT_SWITCH_WITH_LYRICS].get("visible")
+        )
 
     def test_composition_guide_is_mode_specific(self):
         """Each generation mode should expose practical Composition guidance."""
