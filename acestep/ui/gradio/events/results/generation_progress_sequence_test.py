@@ -341,6 +341,144 @@ class SequentialGenerationCountTests(unittest.TestCase):
         self.assertEqual(2, sample_sidecar["extract_trim"]["segments"][0]["start_sample"])
         self.assertEqual(6, sample_sidecar["extract_trim"]["segments"][0]["end_sample"])
 
+    def test_extract_all_stems_matches_single_stem_save_path_with_and_without_trim(self):
+        """Extract-all-stems should save each stem like the matching single-stem run."""
+
+        import torch
+
+        def run_extract_case(*, extract_all_stems, trim_enabled):
+            saved_tensors = {}
+            backend_params = {}
+            trim_settings = []
+
+            def fake_generate_music(_dit_handler, _llm_handler, *, params, config, progress):
+                _ = config, progress
+                backend_params[params.caption] = params
+                return _fake_tensor_result(params.caption)
+
+            def fake_save_audio(audio_data, output_path, **_kwargs):
+                saved_tensors[Path(output_path).stem] = audio_data.detach().clone()
+                return output_path
+
+            def fake_trim(audio_tensor, **kwargs):
+                trim_settings.append(kwargs["trim_settings"])
+                metadata = {
+                    "enabled": True,
+                    "applied": True,
+                    "reason": "auto_editor_trimmed",
+                    "segments": [{"start_sample": 2, "end_sample": 6}],
+                }
+                return SilenceTrimResult(audio_tensor[:, 2:6], metadata)
+
+            with tempfile.TemporaryDirectory() as tmp, patch.object(
+                generation_progress,
+                "save_extract_remaining_audio",
+                return_value={"applied": False},
+            ), patch(
+                "acestep.ui.gradio.events.results.generation_progress.trim_silent_edges",
+                side_effect=fake_trim,
+            ):
+                self._run_generation(
+                    tmp,
+                    fake_generate_music,
+                    task_type="extract",
+                    src_audio=r"C:\music\Alpha Song.wav",
+                    track_name=None if extract_all_stems else "vocals",
+                    extract_all_stems=extract_all_stems,
+                    audio_format="wav",
+                    extract_trim_empty_output=trim_enabled,
+                    audio_processing_settings={
+                        "trim_threshold_db": -35.0,
+                        "trim_margin_seconds": 0.8,
+                        "trim_mincut": 12,
+                        "trim_minclip": 6,
+                    },
+                    save_audio_side_effect=fake_save_audio,
+                )
+
+            return SimpleNamespace(
+                saved_tensors=saved_tensors,
+                backend_params=backend_params,
+                trim_settings=trim_settings,
+            )
+
+        for trim_enabled in (False, True):
+            with self.subTest(trim_enabled=trim_enabled):
+                single = run_extract_case(extract_all_stems=False, trim_enabled=trim_enabled)
+                all_stems = run_extract_case(extract_all_stems=True, trim_enabled=trim_enabled)
+
+                torch.testing.assert_close(
+                    single.saved_tensors["song-vocals"],
+                    all_stems.saved_tensors["Alpha Song_vocal"],
+                )
+                self.assertEqual(
+                    single.backend_params["vocals"].instruction,
+                    all_stems.backend_params["vocals"].instruction,
+                )
+                self.assertEqual(
+                    single.backend_params["vocals"].enable_normalization,
+                    all_stems.backend_params["vocals"].enable_normalization,
+                )
+                expected_single_trim_calls = 1 if trim_enabled else 0
+                expected_all_trim_calls = len(TRACK_NAMES) if trim_enabled else 0
+                self.assertEqual(expected_single_trim_calls, len(single.trim_settings))
+                self.assertEqual(expected_all_trim_calls, len(all_stems.trim_settings))
+                if trim_enabled:
+                    self.assertEqual(
+                        [-35.0] * expected_all_trim_calls,
+                        [settings.threshold_db for settings in all_stems.trim_settings],
+                    )
+
+    def test_extract_all_stems_request_metadata_ignores_per_stem_effective_instruction(self):
+        """All-stems request metadata should not inherit the final stem instruction."""
+
+        json_payloads = []
+
+        def fake_generate_music(_dit_handler, _llm_handler, *, params, config, progress):
+            _ = config, progress
+            result = _fake_tensor_result(params.caption)
+            result.extra_outputs["effective_generation"] = {
+                "requested_task_type": "extract",
+                "task_type": "extract",
+                "instruction": params.instruction,
+                "caption": params.caption,
+                "vocal_language": "unknown",
+                "audio_duration": -1,
+                "repainting_start": 0.0,
+                "repainting_end": -1,
+                "lyric_repaint_local_span": False,
+            }
+            return result
+
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+            generation_progress,
+            "save_extract_remaining_audio",
+            return_value={"applied": False},
+        ):
+            self._run_generation(
+                tmp,
+                fake_generate_music,
+                task_type="extract",
+                src_audio=r"C:\music\Alpha Song.wav",
+                track_name=None,
+                extract_all_stems=True,
+                audio_format="wav",
+                write_json_side_effect=lambda _path, payload: json_payloads.append(payload),
+            )
+
+        sample_sidecar = next(payload for payload in json_payloads if "_meta" in payload)
+        request = sample_sidecar["_meta"]["request"]
+        generation_params = request["generation_params"]
+        self.assertEqual("woodwinds", sample_sidecar["track_name"])
+        self.assertEqual(TASK_INSTRUCTIONS["extract_default"], request["instruction"])
+        self.assertEqual("", request["caption"])
+        self.assertIsNone(request["track_name"])
+        self.assertTrue(request["extract_all_stems"])
+        self.assertEqual(TRACK_NAMES, request["extract_stem_names"])
+        self.assertNotIn("effective_instruction", request)
+        self.assertEqual(TASK_INSTRUCTIONS["extract_default"], generation_params["instruction"])
+        self.assertNotIn("requested_instruction", generation_params)
+
     def test_lego_saves_raw_track_while_latest_area_uses_mix(self):
         """Lego latest-area preview should crop the mix and expose the raw layer separately."""
 

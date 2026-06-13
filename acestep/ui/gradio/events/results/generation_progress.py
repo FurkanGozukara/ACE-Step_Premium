@@ -1338,6 +1338,8 @@ def _build_request_payload(
     effective_generation,
 ):
     """Build the full persisted request payload for a generation run."""
+    if extract_all_stems:
+        effective_generation = {}
     effective_changed = effective_generation_changed(
         task_type,
         instruction_display_gen,
