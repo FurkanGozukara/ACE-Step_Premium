@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
+from acestep.ui.gradio.events.results.result_output_contract import (
+    ALL_AUDIO_PATHS_INDEX,
+    STATUS_INDEX,
+)
+
 
 CAPTION_ARG_INDEX = 0
 LYRICS_ARG_INDEX = 1
@@ -11,20 +16,20 @@ BPM_ARG_INDEX = 2
 KEY_SCALE_ARG_INDEX = 3
 TIME_SIGNATURE_ARG_INDEX = 4
 AUDIO_DURATION_ARG_INDEX = 11
-IS_FORMAT_CAPTION_ARG_INDEX = 48
-AUTOGEN_ARG_INDEX = 73
-CURRENT_BATCH_INDEX_ARG_INDEX = 74
-TOTAL_BATCHES_ARG_INDEX = 75
-BATCH_QUEUE_ARG_INDEX = 76
-GENERATION_PARAMS_STATE_ARG_INDEX = 77
-LM_TEMPERATURE_ARG_INDEX = 39
-LM_TOP_K_ARG_INDEX = 42
-LM_TOP_P_ARG_INDEX = 43
-DEVICE_ARG_INDEX = 80
-LM_MODEL_PATH_ARG_INDEX = 81
-BACKEND_ARG_INDEX = 82
-OFFLOAD_TO_CPU_ARG_INDEX = 85
-LORA_SCALE_ARG_INDEX = 92
+IS_FORMAT_CAPTION_ARG_INDEX = 50
+AUTOGEN_ARG_INDEX = 76
+CURRENT_BATCH_INDEX_ARG_INDEX = 77
+TOTAL_BATCHES_ARG_INDEX = 78
+BATCH_QUEUE_ARG_INDEX = 79
+GENERATION_PARAMS_STATE_ARG_INDEX = 80
+LM_TEMPERATURE_ARG_INDEX = 41
+LM_TOP_K_ARG_INDEX = 44
+LM_TOP_P_ARG_INDEX = 45
+DEVICE_ARG_INDEX = 83
+LM_MODEL_PATH_ARG_INDEX = 85
+BACKEND_ARG_INDEX = 86
+OFFLOAD_TO_CPU_ARG_INDEX = 90
+LORA_SCALE_ARG_INDEX = 99
 GENERATION_ARG_COUNT = LORA_SCALE_ARG_INDEX + 1
 
 
@@ -57,17 +62,17 @@ def build_generation_args_for_item(
 def extract_generation_status(result: Any) -> str:
     """Return the status string from a generation result tuple when available."""
 
-    if isinstance(result, tuple) and len(result) > 10:
-        return str(result[10] or "").strip()
+    if isinstance(result, tuple) and len(result) > STATUS_INDEX:
+        return str(result[STATUS_INDEX] or "").strip()
     return ""
 
 
 def extract_generation_paths(result: Any) -> list[str]:
     """Return generated artifact paths from a final generation result tuple."""
 
-    if not isinstance(result, tuple) or len(result) <= 8:
+    if not isinstance(result, tuple) or len(result) <= ALL_AUDIO_PATHS_INDEX:
         return []
-    paths = result[8]
+    paths = result[ALL_AUDIO_PATHS_INDEX]
     if not isinstance(paths, list):
         return []
     return [str(path) for path in paths if path]

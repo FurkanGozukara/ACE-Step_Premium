@@ -6,12 +6,22 @@ from unittest.mock import patch, MagicMock
 
 try:
     from acestep.ui.gradio.events import generation_handlers
+    from acestep.ui.gradio.events.generation.metadata_fields import (
+        LOAD_METADATA_GENERATION_OUTPUT_KEYS,
+    )
     from acestep.ui.gradio.i18n import t as _t
     _IMPORT_ERROR = None
 except Exception as exc:  # pragma: no cover - environment dependency guard
     generation_handlers = None
+    LOAD_METADATA_GENERATION_OUTPUT_KEYS = ()
     _t = None
     _IMPORT_ERROR = exc
+
+
+def _metadata_index(key: str) -> int:
+    """Return the load_metadata output index for a generation component key."""
+
+    return list(LOAD_METADATA_GENERATION_OUTPUT_KEYS).index(key)
 
 
 class _FakeDitHandler:
@@ -542,14 +552,9 @@ class LoadMetadataLmCodesTests(unittest.TestCase):
         return SimpleNamespace(name=path)
 
     @patch("acestep.ui.gradio.events.generation.metadata_loading.gr.Info")
-    @patch("acestep.ui.gradio.events.generation.metadata_loading.get_global_gpu_config")
-    def test_think_set_false_when_audio_codes_present(self, gpu_mock, info_mock):
+    def test_think_set_false_when_audio_codes_present(self, info_mock):
         """When JSON has thinking=True AND non-empty audio_codes, think should be False."""
         import tempfile
-        gpu_cfg = MagicMock()
-        gpu_cfg.max_batch_size_with_lm = 8
-        gpu_cfg.max_batch_size_without_lm = 8
-        gpu_mock.return_value = gpu_cfg
 
         llm_handler = SimpleNamespace(llm_initialized=True)
 
@@ -560,21 +565,15 @@ class LoadMetadataLmCodesTests(unittest.TestCase):
             })
             result = generation_handlers.load_metadata(file_obj, llm_handler)
 
-        # think is at return position 33 (0-indexed) after MP3 UI outputs
-        think_value = result[33]
-        audio_codes_value = result[34]
+        think_value = result[_metadata_index("think_checkbox")]
+        audio_codes_value = result[_metadata_index("text2music_audio_code_string")]
         self.assertFalse(think_value, "think should be False when audio_codes present")
         self.assertEqual(audio_codes_value, "<|audio_code_1|><|audio_code_2|>")
 
     @patch("acestep.ui.gradio.events.generation.metadata_loading.gr.Info")
-    @patch("acestep.ui.gradio.events.generation.metadata_loading.get_global_gpu_config")
-    def test_think_unchanged_when_audio_codes_empty(self, gpu_mock, info_mock):
+    def test_think_unchanged_when_audio_codes_empty(self, info_mock):
         """When JSON has thinking=True AND empty audio_codes, think stays True."""
         import tempfile
-        gpu_cfg = MagicMock()
-        gpu_cfg.max_batch_size_with_lm = 8
-        gpu_cfg.max_batch_size_without_lm = 8
-        gpu_mock.return_value = gpu_cfg
 
         llm_handler = SimpleNamespace(llm_initialized=True)
 
@@ -585,7 +584,7 @@ class LoadMetadataLmCodesTests(unittest.TestCase):
             })
             result = generation_handlers.load_metadata(file_obj, llm_handler)
 
-        think_value = result[33]
+        think_value = result[_metadata_index("think_checkbox")]
         self.assertTrue(think_value, "think should remain True when audio_codes is empty")
 
 
@@ -604,14 +603,9 @@ class LoadMetadataMp3SanitizationTests(unittest.TestCase):
         return SimpleNamespace(name=path)
 
     @patch("acestep.ui.gradio.events.generation.metadata_loading.gr.Info")
-    @patch("acestep.ui.gradio.events.generation.metadata_loading.get_global_gpu_config")
-    def test_load_metadata_normalizes_mp3_values_from_json(self, gpu_mock, info_mock):
+    def test_load_metadata_normalizes_mp3_values_from_json(self, info_mock):
         """Uppercase MP3 metadata should be normalized to the UI-compatible values."""
         import tempfile
-        gpu_cfg = MagicMock()
-        gpu_cfg.max_batch_size_with_lm = 8
-        gpu_cfg.max_batch_size_without_lm = 8
-        gpu_mock.return_value = gpu_cfg
 
         with tempfile.TemporaryDirectory() as tmpdir:
             file_obj = self._write_json(tmpdir, {
@@ -621,20 +615,15 @@ class LoadMetadataMp3SanitizationTests(unittest.TestCase):
             })
             result = generation_handlers.load_metadata(file_obj, None)
 
-        self.assertEqual(result[19], "mp3")
-        self.assertTrue(result[20]["visible"])
-        self.assertEqual(result[21]["value"], "320k")
-        self.assertEqual(result[22]["value"], 44100)
+        self.assertEqual(result[_metadata_index("audio_format")], "mp3")
+        self.assertTrue(result[_metadata_index("mp3_controls_row")]["visible"])
+        self.assertEqual(result[_metadata_index("mp3_bitrate")]["value"], "320k")
+        self.assertEqual(result[_metadata_index("mp3_sample_rate")]["value"], 44100)
 
     @patch("acestep.ui.gradio.events.generation.metadata_loading.gr.Info")
-    @patch("acestep.ui.gradio.events.generation.metadata_loading.get_global_gpu_config")
-    def test_load_metadata_falls_back_for_invalid_mp3_values(self, gpu_mock, info_mock):
+    def test_load_metadata_falls_back_for_invalid_mp3_values(self, info_mock):
         """Invalid MP3 metadata should fall back to the supported defaults."""
         import tempfile
-        gpu_cfg = MagicMock()
-        gpu_cfg.max_batch_size_with_lm = 8
-        gpu_cfg.max_batch_size_without_lm = 8
-        gpu_mock.return_value = gpu_cfg
 
         with tempfile.TemporaryDirectory() as tmpdir:
             file_obj = self._write_json(tmpdir, {
@@ -644,20 +633,15 @@ class LoadMetadataMp3SanitizationTests(unittest.TestCase):
             })
             result = generation_handlers.load_metadata(file_obj, None)
 
-        self.assertEqual(result[19], "mp3")
-        self.assertTrue(result[20]["visible"])
-        self.assertEqual(result[21]["value"], "256k")
-        self.assertEqual(result[22]["value"], 48000)
+        self.assertEqual(result[_metadata_index("audio_format")], "mp3")
+        self.assertTrue(result[_metadata_index("mp3_controls_row")]["visible"])
+        self.assertEqual(result[_metadata_index("mp3_bitrate")]["value"], "256k")
+        self.assertEqual(result[_metadata_index("mp3_sample_rate")]["value"], 48000)
 
     @patch("acestep.ui.gradio.events.generation.metadata_loading.gr.Info")
-    @patch("acestep.ui.gradio.events.generation.metadata_loading.get_global_gpu_config")
-    def test_load_metadata_restores_extract_output_format(self, gpu_mock, info_mock):
+    def test_load_metadata_restores_extract_output_format(self, info_mock):
         """Extract metadata should restore the dedicated Extract output format."""
         import tempfile
-        gpu_cfg = MagicMock()
-        gpu_cfg.max_batch_size_with_lm = 8
-        gpu_cfg.max_batch_size_without_lm = 8
-        gpu_mock.return_value = gpu_cfg
 
         with tempfile.TemporaryDirectory() as tmpdir:
             file_obj = self._write_json(tmpdir, {
@@ -667,18 +651,13 @@ class LoadMetadataMp3SanitizationTests(unittest.TestCase):
             })
             result = generation_handlers.load_metadata(file_obj, None)
 
-        self.assertEqual(result[37], "vocals")
-        self.assertEqual(result[38], "wav")
+        self.assertEqual(result[_metadata_index("track_name")], "vocals")
+        self.assertEqual(result[_metadata_index("extract_output_format")], "wav")
 
     @patch("acestep.ui.gradio.events.generation.metadata_loading.gr.Info")
-    @patch("acestep.ui.gradio.events.generation.metadata_loading.get_global_gpu_config")
-    def test_load_metadata_restores_repaint_lyric_switch_flag(self, gpu_mock, info_mock):
+    def test_load_metadata_restores_repaint_lyric_switch_flag(self, info_mock):
         """Metadata load should restore the Repaint lyric-switch opt-out flag."""
         import tempfile
-        gpu_cfg = MagicMock()
-        gpu_cfg.max_batch_size_with_lm = 8
-        gpu_cfg.max_batch_size_without_lm = 8
-        gpu_mock.return_value = gpu_cfg
 
         with tempfile.TemporaryDirectory() as tmpdir:
             file_obj = self._write_json(tmpdir, {
@@ -688,7 +667,7 @@ class LoadMetadataMp3SanitizationTests(unittest.TestCase):
             })
             result = generation_handlers.load_metadata(file_obj, None)
 
-        self.assertTrue(result[41])
+        self.assertTrue(result[_metadata_index("repaint_dont_switch_with_lyrics")])
 
 @unittest.skipIf(generation_handlers is None, f"generation_handlers import unavailable: {_IMPORT_ERROR}")
 class AutoCheckboxTests(unittest.TestCase):

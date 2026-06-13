@@ -56,7 +56,9 @@ _IDX_REMIX_STRENGTH = 17
 _IDX_COVER_NOISE = 18
 _IDX_AUDIO_FORMAT_COLUMN = 60
 _IDX_REPAINT_DONT_SWITCH_WITH_LYRICS = 61
-_EXPECTED_TUPLE_LENGTH = 62
+_IDX_EXTRACT_ALL_STEMS_COLUMN = 62
+_IDX_EXTRACT_ALL_STEMS = 63
+_EXPECTED_TUPLE_LENGTH = 64
 _IDX_BPM = 21
 _IDX_KEY = 22
 _IDX_TIMESIG = 23
@@ -85,6 +87,26 @@ class ModeUiStateClearingTests(unittest.TestCase):
         """compute_mode_ui_updates should return the expected output count."""
         result = compute_mode_ui_updates("Custom")
         self.assertEqual(len(result), _EXPECTED_TUPLE_LENGTH)
+
+    def test_extract_all_stems_enables_extract_without_track_name(self):
+        """Extract-all-stems should be a valid target without Track Name."""
+
+        extract_result = compute_mode_ui_updates(
+            "Extract",
+            extract_all_stems=True,
+            config_path="ACEStep_1_5_XL_Base_BF16",
+        )
+        lego_result = compute_mode_ui_updates(
+            "Lego",
+            extract_all_stems=True,
+            config_path="ACEStep_1_5_XL_Base_BF16",
+        )
+
+        self.assertTrue(extract_result[_IDX_GENERATE_BTN].get("interactive"))
+        self.assertTrue(extract_result[_IDX_EXTRACT_ALL_STEMS_COLUMN].get("visible"))
+        self.assertFalse(lego_result[_IDX_GENERATE_BTN].get("interactive"))
+        self.assertFalse(lego_result[_IDX_EXTRACT_ALL_STEMS_COLUMN].get("visible"))
+        self.assertFalse(lego_result[_IDX_EXTRACT_ALL_STEMS].get("value"))
 
     def test_repaint_lyric_switch_checkbox_is_repaint_only(self):
         """The lyric-repaint switch opt-out should only appear in Repaint mode."""

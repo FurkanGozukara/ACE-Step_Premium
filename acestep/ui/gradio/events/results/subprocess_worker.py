@@ -111,6 +111,9 @@ def main() -> int:
 
         dit_handler = AceStepHandler()
         llm_handler = LLMHandler()
+        llm_handler.use_legacy_cfg_prompt = bool(
+            service.get("lm_use_legacy_cfg_prompt")
+        )
 
         init_status, ok = dit_handler.initialize_service(
             project_root=project_root,
@@ -125,9 +128,13 @@ def main() -> int:
                 service.get("device"),
             ),
             use_mlx_dit=service.get("mlx_dit", True),
+            vae_checkpoint=service.get("vae_checkpoint"),
         )
         if not ok:
             raise RuntimeError(init_status)
+
+        if service.get("mlx_vae_chunk_size") is not None:
+            dit_handler.mlx_vae_chunk_size = int(service["mlx_vae_chunk_size"])
 
         lora_path = str(service.get("lora_path") or "").strip()
         if lora_path:

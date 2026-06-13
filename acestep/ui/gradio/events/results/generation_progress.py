@@ -15,8 +15,9 @@ from loguru import logger
 
 from acestep.audio_processing.generated_postprocess import postprocess_generated_sample
 from acestep.audio_processing.silence_trim import trim_silent_edges
+from acestep.audio_processing.runs import safe_media_stem
 from acestep.audio_processing.settings import AudioProcessingSettings
-from acestep.constants import DEFAULT_DIT_INSTRUCTION, TASK_INSTRUCTIONS
+from acestep.constants import DEFAULT_DIT_INSTRUCTION, TASK_INSTRUCTIONS, TRACK_NAMES
 from acestep.core.generation.cancellation import check_generation_cancelled
 from acestep.core.generation.effective_generation import (
     apply_effective_generation_to_params,
@@ -31,6 +32,7 @@ from acestep.core.generation.handler.repaint_prompt import (
     resolve_repaint_vocal_language,
 )
 from acestep.core.generation.handler.lego_prompt import normalize_lego_lyrics
+from acestep.core.generation.handler.task_instruction import generate_task_instruction
 from acestep.sam_audio_segment.generated_postprocess import (
     postprocess_generated_sample as postprocess_generated_sam_audio,
 )
@@ -54,6 +56,10 @@ from acestep.ui.gradio.events.generation.audio_format_options import (
     normalize_audio_format,
     output_audio_formats,
     primary_audio_format,
+)
+from acestep.ui.gradio.events.extract_stems import (
+    extract_stem_filename_suffix,
+    normalize_extract_track_name,
 )
 from acestep.ui.gradio.events.results.generation_info import (
     _build_generation_info,
@@ -150,6 +156,9 @@ def generate_with_progress(
     extract_trim_threshold_db=-40.0,
     instrumental_checkbox=False,
     repaint_dont_switch_with_lyrics=False,
+    track_name=None,
+    extract_all_stems=False,
+    ui_runtime_settings=None,
     audio_processing_settings=None,
     sam_audio_settings=None,
     progress=gr.Progress(track_tqdm=True),
@@ -189,7 +198,21 @@ def generate_with_progress(
             audio_duration = min(audio_duration, max_dur)
             logger.warning(f"Duration clamped to {audio_duration}s due to GPU memory limits")
 
-    generation_count = normalize_generation_count(batch_size_input)
+    requested_generation_count = normalize_generation_count(batch_size_input)
+    generation_count = requested_generation_count
+    task_type = resolve_no_fsq_task_type(task_type, bool(no_fsq))
+    if task_type == "extract":
+        if extract_all_stems:
+            track_name = None
+            captions = ""
+            instruction_display_gen = generate_task_instruction("extract", None)
+        else:
+            track_name = normalize_extract_track_name(track_name)
+            captions = track_name
+            instruction_display_gen = generate_task_instruction("extract", track_name)
+    extract_stem_names = _extract_all_stem_names(task_type, extract_all_stems)
+    if extract_stem_names:
+        generation_count = len(extract_stem_names)
 
     # Skip Phase 1 metas COT if sample is already formatted
     actual_use_cot_metas = use_cot_metas
@@ -212,7 +235,6 @@ def generate_with_progress(
         f"songs={generation_count}, backend_batch_size=1, duration={audio_duration}"
     )
 
-    task_type = resolve_no_fsq_task_type(task_type, bool(no_fsq))
     if task_type == "extract":
         audio_format = normalize_extract_audio_format(audio_format)
         backend_audio_format = audio_format
@@ -346,6 +368,9 @@ def generate_with_progress(
         seed=seed,
         random_seed=bool(random_seed_checkbox),
         progress=progress,
+        params_for_index=_extract_stem_params_for_index(extract_stem_names),
+        progress_label="stem" if extract_stem_names else "song",
+        reuse_fixed_seed=bool(extract_stem_names),
     )
     check_generation_cancelled()
 
@@ -384,7 +409,7 @@ def generate_with_progress(
         seed_value_for_ui=seed_value_for_ui,
         reference_audio=reference_audio,
         audio_duration=audio_duration,
-        batch_size_input=generation_count,
+        batch_size_input=requested_generation_count,
         src_audio=src_audio,
         text2music_audio_code_string=text2music_audio_code_string,
         instrumental_checkbox=instrumental_checkbox,
@@ -449,6 +474,11 @@ def generate_with_progress(
         flow_edit_n_avg=flow_edit_n_avg,
         extract_trim_empty_output=extract_trim_empty_output,
         extract_trim_threshold_db=extract_trim_threshold_db,
+        track_name=track_name,
+        extract_output_format=audio_format if task_type == "extract" else None,
+        extract_all_stems=bool(extract_stem_names),
+        extract_stem_names=extract_stem_names,
+        ui_runtime_settings=ui_runtime_settings,
         audio_processing_settings=ap_settings.to_payload(),
         sam_audio_settings=sam_settings.to_payload(),
         gen_params=gen_params,
@@ -548,10 +578,23 @@ def generate_with_progress(
 
     for i, dit_audio in enumerate(audios):
         check_generation_cancelled()
-        key = dit_audio["key"]
+        backend_key = dit_audio["key"]
+        stem_name = extract_stem_names[i] if i < len(extract_stem_names) else ""
+        key = _sample_output_key(
+            backend_key,
+            task_type=task_type,
+            src_audio=src_audio,
+            extract_all_stems=bool(extract_stem_names),
+            stem_name=stem_name,
+        )
         audio_tensor = dit_audio["tensor"]
         sample_rate = dit_audio["sample_rate"]
         audio_params = dit_audio["params"]
+        sample_track_name = stem_name or track_name
+        audio_params["backend_key"] = backend_key
+        audio_params["track_name"] = sample_track_name
+        audio_params["extract_stem_name"] = sample_track_name if task_type == "extract" else stem_name
+        audio_params["extract_all_stems"] = bool(extract_stem_names)
         extract_source_tensor = audio_tensor
         audio_tensor, extract_trim_metadata = _trim_extract_audio(
             audio_tensor,
@@ -768,6 +811,10 @@ def generate_with_progress(
         sample_row = {
             "sample_index": i + 1,
             "key": key,
+            "backend_key": backend_key,
+            "track_name": sample_track_name,
+            "extract_stem_name": sample_track_name if task_type == "extract" else stem_name,
+            "extract_all_stems": bool(extract_stem_names),
             "audio_path": audio_path,
             "audio_paths": saved_audio_paths,
             "mp3_path": saved_audio_paths.get("mp3"),
@@ -1032,6 +1079,57 @@ def _generation_params_payload(gen_params, effective_generation):
     return payload
 
 
+def _extract_all_stem_names(task_type, extract_all_stems):
+    """Return all extract stems requested for one Extract-all-stems run."""
+
+    if str(task_type or "").strip() != "extract" or not extract_all_stems:
+        return []
+    return list(TRACK_NAMES)
+
+
+def _extract_stem_params_for_index(stem_names):
+    """Return a callback that creates per-stem backend params."""
+
+    if not stem_names:
+        return None
+
+    def _params_for_index(params, generation_index):
+        stem_name = stem_names[generation_index]
+        return replace(
+            params,
+            caption=stem_name,
+            instruction=generate_task_instruction("extract", stem_name),
+        )
+
+    return _params_for_index
+
+
+def _sample_output_key(
+    default_key,
+    *,
+    task_type,
+    src_audio,
+    extract_all_stems,
+    stem_name,
+):
+    """Return the persisted sample key, adding a stem suffix for all-stems Extract."""
+
+    if not (
+        str(task_type or "").strip() == "extract"
+        and extract_all_stems
+        and stem_name
+    ):
+        return default_key
+    source_stem = safe_media_stem(src_audio) if src_audio else str(default_key or "extract")
+    return f"{source_stem}_{_stem_filename_suffix(stem_name)}"
+
+
+def _stem_filename_suffix(stem_name):
+    """Return the filesystem suffix used for one extracted stem."""
+
+    return extract_stem_filename_suffix(stem_name)
+
+
 def _build_request_payload(
     *,
     captions,
@@ -1113,6 +1211,11 @@ def _build_request_payload(
     flow_edit_n_avg,
     extract_trim_empty_output,
     extract_trim_threshold_db,
+    track_name,
+    extract_output_format,
+    extract_all_stems,
+    extract_stem_names,
+    ui_runtime_settings,
     audio_processing_settings,
     sam_audio_settings,
     gen_params,
@@ -1134,6 +1237,9 @@ def _build_request_payload(
         effective_generation,
         effective_changed,
     )
+    effective_generation_count = (
+        len(list(extract_stem_names or [])) if extract_all_stems else batch_size_input
+    )
     payload = {
         "active_config_path": (
             service_metadata.get("dit_last_init_params", {}) or {}
@@ -1145,11 +1251,16 @@ def _build_request_payload(
         "time_signature": time_signature,
         "vocal_language": vocal_language,
         "audio_duration": audio_duration,
-        "generation_count": batch_size_input,
+        "generation_count": effective_generation_count,
+        "requested_generation_count": batch_size_input,
         "batch_size": 1,
         "task_type": task_type,
         "no_fsq": no_fsq,
         "instruction": instruction,
+        "track_name": track_name,
+        "extract_output_format": extract_output_format,
+        "extract_all_stems": bool(extract_all_stems),
+        "extract_stem_names": list(extract_stem_names or []),
         "guidance_scale": guidance_scale,
         "inference_steps_requested": inference_steps,
         "inference_steps_used": actual_inference_steps,
@@ -1221,12 +1332,14 @@ def _build_request_payload(
         "flow_edit_n_avg": flow_edit_n_avg,
         "extract_trim_empty_output": extract_trim_empty_output,
         "extract_trim_threshold_db": extract_trim_threshold_db,
+        "ui_runtime_settings": dict(ui_runtime_settings or {}),
         "audio_processing_settings": audio_processing_settings,
         "sam_audio_settings": sam_audio_settings,
         "generation_params": _generation_params_payload(gen_params, effective_generation),
         "generation_config": {
             **vars(gen_config),
-            "generation_count": batch_size_input,
+            "generation_count": effective_generation_count,
+            "requested_generation_count": batch_size_input,
         },
         "runtime": {
             "lm_initialized_at_start": lm_initialized,

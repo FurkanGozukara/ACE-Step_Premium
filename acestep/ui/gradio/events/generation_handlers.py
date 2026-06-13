@@ -57,6 +57,10 @@ def load_metadata(*args: Any, **kwargs: Any) -> Any:
     return _forward("metadata_loading", "load_metadata", *args, **kwargs)
 
 
+def load_metadata_with_status(*args: Any, **kwargs: Any) -> Any:
+    return _forward("metadata_loading", "load_metadata_with_status", *args, **kwargs)
+
+
 def load_random_example(*args: Any, **kwargs: Any) -> Any:
     return _forward("metadata_loading", "load_random_example", *args, **kwargs)
 
@@ -275,6 +279,7 @@ __all__ = [
     "validate_uploaded_audio_file",
     "_contains_audio_code_tokens",
     "load_metadata",
+    "load_metadata_with_status",
     "load_random_example",
     "sample_example_smart",
     "load_random_simple_description",

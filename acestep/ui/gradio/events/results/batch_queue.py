@@ -128,7 +128,7 @@ def capture_current_params(
     use_cot_metas, use_cot_caption, use_cot_language,
     constrained_decoding_debug, allow_lm_batch, auto_score, auto_lrc,
     score_scale, lm_batch_chunk_size,
-    track_name, extract_output_format, complete_track_classes,
+    track_name, extract_all_stems, extract_output_format, complete_track_classes,
     enable_normalization, normalization_db,
     fade_in_duration, fade_out_duration,
     extract_trim_empty_output, extract_trim_threshold_db,
@@ -193,6 +193,7 @@ def capture_current_params(
         "score_scale": score_scale,
         "lm_batch_chunk_size": lm_batch_chunk_size,
         "track_name": track_name,
+        "extract_all_stems": bool(extract_all_stems),
         "extract_output_format": extract_output_format,
         "complete_track_classes": complete_track_classes,
         "enable_normalization": enable_normalization,
@@ -223,7 +224,7 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     """
     if current_batch_index not in batch_queue:
         gr.Warning(t("messages.no_batch_data"))
-        return [gr.update()] * 38
+        return [gr.update()] * 39
 
     batch_data = batch_queue[current_batch_index]
     params = batch_data.get("generation_params", {})
@@ -254,6 +255,7 @@ def restore_batch_parameters(current_batch_index, batch_queue):
     use_cot_language = params.get("use_cot_language", True)
     allow_lm_batch = params.get("allow_lm_batch", True)
     track_name = params.get("track_name", None)
+    extract_all_stems = params.get("extract_all_stems", False)
     extract_output_format = normalize_extract_audio_format(
         params.get("extract_output_format", DEFAULT_EXTRACT_AUDIO_FORMAT)
     )
@@ -289,7 +291,7 @@ def restore_batch_parameters(current_batch_index, batch_queue):
         gr.update(choices=MP3_SAMPLE_RATE_CHOICES, value=mp3_sample_rate, visible=is_mp3),
         lm_temperature, lm_cfg_scale, lm_top_k, lm_top_p, think_checkbox,
         use_cot_caption, use_cot_language, allow_lm_batch,
-        track_name, extract_output_format, complete_track_classes,
+        track_name, extract_all_stems, extract_output_format, complete_track_classes,
         enable_normalization, normalization_db,
         fade_in_duration, fade_out_duration,
         extract_trim_empty_output, extract_trim_threshold_db,

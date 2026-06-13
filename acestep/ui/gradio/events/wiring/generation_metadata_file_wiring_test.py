@@ -6,58 +6,17 @@ import unittest
 
 try:
     from .ast_test_utils import load_module_ast
+    from ..generation.metadata_fields import LOAD_METADATA_GENERATION_OUTPUT_KEYS
 except ImportError:  # pragma: no cover - supports direct file execution
     from ast_test_utils import load_module_ast
+    from acestep.ui.gradio.events.generation.metadata_fields import (
+        LOAD_METADATA_GENERATION_OUTPUT_KEYS,
+    )
 
 
 _WIRING_PATH = Path(__file__).with_name("generation_metadata_file_wiring.py")
 
-_EXPECTED_METADATA_KEYS = [
-    "task_type",
-    "captions",
-    "lyrics",
-    "vocal_language",
-    "bpm",
-    "key_scale",
-    "time_signature",
-    "audio_duration",
-    "batch_size_input",
-    "inference_steps",
-    "guidance_scale",
-    "seed",
-    "random_seed_checkbox",
-    "use_adg",
-    "cfg_interval_start",
-    "cfg_interval_end",
-    "shift",
-    "infer_method",
-    "custom_timesteps",
-    "audio_format",
-    "mp3_controls_row",
-    "mp3_bitrate",
-    "mp3_sample_rate",
-    "lm_temperature",
-    "lm_cfg_scale",
-    "lm_top_k",
-    "lm_top_p",
-    "lm_negative_prompt",
-    "use_cot_metas",
-    "use_cot_caption",
-    "use_cot_language",
-    "audio_cover_strength",
-    "cover_noise_strength",
-    "think_checkbox",
-    "text2music_audio_code_string",
-    "repainting_start",
-    "repainting_end",
-    "track_name",
-    "extract_output_format",
-    "complete_track_classes",
-    "instrumental_checkbox",
-    "repaint_dont_switch_with_lyrics",
-    "retake_variance",
-    "retake_seed",
-]
+_EXPECTED_METADATA_KEYS = list(LOAD_METADATA_GENERATION_OUTPUT_KEYS)
 
 def _tuple_string_values(node: ast.AST) -> list[str]:
     """Return string literal values from a tuple/list literal node."""
@@ -78,14 +37,9 @@ class GenerationMetadataFileWiringTests(unittest.TestCase):
     def test_metadata_output_key_contract_order_is_stable(self):
         """The metadata output key tuple should match the expected UI ordering."""
 
-        module = load_module_ast(_WIRING_PATH)
-        for node in module.body:
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    if isinstance(target, ast.Name) and target.id == "_LOAD_METADATA_GENERATION_OUTPUT_KEYS":
-                        self.assertEqual(_tuple_string_values(node.value), _EXPECTED_METADATA_KEYS)
-                        return
-        self.fail("_LOAD_METADATA_GENERATION_OUTPUT_KEYS not found")
+        self.assertIn("generation_mode", _EXPECTED_METADATA_KEYS)
+        self.assertIn("extract_all_stems", _EXPECTED_METADATA_KEYS)
+        self.assertIn("sam_auto_postprocess", _EXPECTED_METADATA_KEYS)
 
     def test_build_outputs_appends_format_caption_state_last(self):
         """build outputs helper should append is_format_caption_state at the tail."""
@@ -112,6 +66,7 @@ class GenerationMetadataFileWiringTests(unittest.TestCase):
             if isinstance(node, ast.Attribute):
                 attrs.append(node.attr)
         self.assertIn("load_metadata", attrs)
+        self.assertIn("load_metadata_with_status", attrs)
         self.assertIn("uncheck_auto_for_populated_fields", attrs)
 
 

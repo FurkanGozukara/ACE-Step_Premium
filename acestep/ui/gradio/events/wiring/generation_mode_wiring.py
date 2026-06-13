@@ -61,6 +61,7 @@ def register_generation_mode_handlers(
         prev: str | None,
         config_path: str | None,
         track_name: str | None,
+        extract_all_stems: bool,
     ):
         """Proxy mode-change handling for both .change() and .load() events."""
         return gen_h.handle_generation_mode_change(
@@ -69,6 +70,7 @@ def register_generation_mode_handlers(
             llm_handler,
             config_path,
             track_name,
+            extract_all_stems,
         )
 
     mode_change_inputs = [
@@ -76,6 +78,7 @@ def register_generation_mode_handlers(
         generation_section["previous_generation_mode"],
         generation_section["config_path"],
         generation_section["track_name"],
+        generation_section["extract_all_stems"],
     ]
     dcw_default_outputs = [
         generation_section["dcw_mode"],
@@ -155,6 +158,19 @@ def register_generation_mode_handlers(
         inputs=[
             generation_section["track_name"],
             generation_section["generation_mode"],
+            generation_section["extract_all_stems"],
+        ],
+        outputs=[
+            generation_section["captions"],
+            generation_section["generate_btn"],
+        ],
+    )
+    generation_section["extract_all_stems"].change(
+        fn=gen_h.handle_extract_track_name_change,
+        inputs=[
+            generation_section["track_name"],
+            generation_section["generation_mode"],
+            generation_section["extract_all_stems"],
         ],
         outputs=[
             generation_section["captions"],

@@ -20,6 +20,10 @@ from acestep.ui.gradio.events.results.output_manager import (
     write_json,
     write_text,
 )
+from acestep.ui.gradio.events.results.result_output_contract import (
+    ALL_AUDIO_PATHS_INDEX,
+    STATUS_INDEX,
+)
 
 
 class BatchFolderRunnerTests(unittest.TestCase):
@@ -41,7 +45,10 @@ class BatchFolderRunnerTests(unittest.TestCase):
             run_dir = create_generation_run_dir()
             audio_path = write_text(run_dir / "song.flac", "audio")
             manifest_path = write_json(run_dir / "generation_manifest.json", {"ok": True})
-            yield (None,) * 8 + ([audio_path, manifest_path], "info", "Generation Complete")
+            result = [None] * 55
+            result[ALL_AUDIO_PATHS_INDEX] = [audio_path, manifest_path]
+            result[STATUS_INDEX] = "Generation Complete"
+            yield tuple(result)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -97,7 +104,9 @@ class BatchFolderRunnerTests(unittest.TestCase):
         def cancel_generation_runner(_dit_handler, _llm_handler, *args):
             calls.append(args)
             request_generation_cancel()
-            yield (None,) * 8 + (None, "info", "Generation cancelled")
+            result = [None] * 55
+            result[STATUS_INDEX] = "Generation cancelled"
+            yield tuple(result)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

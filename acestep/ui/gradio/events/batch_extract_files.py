@@ -10,6 +10,7 @@ from loguru import logger
 
 from acestep.training.path_inputs import normalize_user_path
 from acestep.ui.gradio.events.batch_folder_files import resolve_existing_input_folder
+from acestep.ui.gradio.events.extract_stems import extract_stem_filename_suffix
 
 
 AUDIO_INPUT_SUFFIXES = {
@@ -68,6 +69,7 @@ def copy_batch_extract_audio_outputs(
     generated_paths: Sequence[str],
     source_audio: Path,
     output_folder: Path,
+    track_name: str | None = None,
 ) -> list[str]:
     """Copy generated audio files to ``output_folder`` using the source stem."""
 
@@ -86,8 +88,10 @@ def copy_batch_extract_audio_outputs(
             or not source.is_file()
         ):
             continue
-        target_stem = f"{source_audio.stem}_remaining" if is_remaining else source_audio.stem
-        target = output_folder / f"{target_stem}{suffix}"
+        stem_suffix = extract_stem_filename_suffix(track_name)
+        base_stem = f"{source_audio.stem}_{stem_suffix}" if stem_suffix else source_audio.stem
+        target_stem = f"{base_stem}_remaining" if is_remaining else base_stem
+        target = _available_output_path(output_folder / f"{target_stem}{suffix}")
         if source.resolve() != target.resolve():
             shutil.copy2(source, target)
         copied.append(str(target))
@@ -99,3 +103,17 @@ def _is_remaining_audio(path: Path) -> bool:
     """Return whether a generated audio path is an Extract remaining artifact."""
 
     return "_remaining" in path.stem.lower()
+
+
+def _available_output_path(path: Path) -> Path:
+    """Return a non-existing output path without overwriting user source files."""
+
+    if not path.exists():
+        return path
+
+    for index in range(1, 10_000):
+        candidate = path.with_name(f"{path.stem}_extract{index}{path.suffix}")
+        if not candidate.exists():
+            return candidate
+
+    raise ValueError(f"Could not find a free output filename near {path}.")

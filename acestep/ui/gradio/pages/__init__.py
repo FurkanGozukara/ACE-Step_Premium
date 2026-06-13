@@ -6,6 +6,7 @@ from .create_page import create_generation_workspace_page
 from .dataset_page import create_dataset_page
 from .grid_testing_page import create_grid_testing_page
 from .library_page import create_library_page
+from .load_metadata_page import create_load_metadata_page
 from .sam_audio_page import create_sam_audio_page
 from .simple_create_page import create_simple_create_page
 from .studio_page import create_studio_page
@@ -18,6 +19,7 @@ __all__ = [
     "create_dataset_page",
     "create_grid_testing_page",
     "create_library_page",
+    "create_load_metadata_page",
     "create_sam_audio_page",
     "create_simple_create_page",
     "create_studio_page",

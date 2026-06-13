@@ -50,6 +50,7 @@ from acestep.ui.gradio.pages import (
     create_generation_workspace_page,
     create_grid_testing_page,
     create_library_page,
+    create_load_metadata_page,
     create_sam_audio_page,
     create_simple_create_page,
     create_studio_page,
@@ -840,6 +841,9 @@ def create_gradio_interface(
             with gr.Tab("Library", render_children=True):
                 library_page = create_library_page()
 
+            with gr.Tab("Load Metadata", render_children=True):
+                load_metadata_page = create_load_metadata_page()
+
             with gr.Tab("Results", render_children=True):
                 with gr.Column(visible=True) as results_wrapper:
                     results_section = create_results_section(dit_handler)
@@ -868,6 +872,7 @@ def create_gradio_interface(
         generation_section.update(create_page["generation_section"])
         generation_section.update(audio_processing_page)
         generation_section.update(sam_audio_page)
+        generation_section.update(load_metadata_page)
         generation_section["results_wrapper"] = results_wrapper
         generation_section["subprocess_mode_checkbox"] = create_page[
             "subprocess_mode_checkbox"

@@ -7,6 +7,7 @@ import traceback
 import gradio as gr
 from loguru import logger
 
+from acestep.constants import TRACK_NAMES
 from acestep.core.generation.cancellation import (
     CANCEL_MESSAGE,
     GenerationCancelled,
@@ -204,6 +205,12 @@ def generate_next_batch_background(
             repaint_strength=params.get("repaint_strength", 0.5),
             retake_variance=params.get("retake_variance", 0.0),
             retake_seed=params.get("retake_seed", ""),
+            flow_edit_morph=params.get("flow_edit_morph", False),
+            flow_edit_source_caption=params.get("flow_edit_source_caption", ""),
+            flow_edit_source_lyrics=params.get("flow_edit_source_lyrics", ""),
+            flow_edit_n_min=params.get("flow_edit_n_min", 0.0),
+            flow_edit_n_max=params.get("flow_edit_n_max", 1.0),
+            flow_edit_n_avg=params.get("flow_edit_n_avg", 1),
             generate_lm_audio_codes=params.get("generate_lm_audio_codes"),
             extract_trim_empty_output=params.get("extract_trim_empty_output", False),
             extract_trim_threshold_db=params.get("extract_trim_threshold_db", -40.0),
@@ -212,6 +219,9 @@ def generate_next_batch_background(
                 "repaint_dont_switch_with_lyrics",
                 False,
             ),
+            track_name=params.get("track_name"),
+            extract_all_stems=params.get("extract_all_stems", False),
+            ui_runtime_settings=params.get("ui_runtime_settings"),
             audio_processing_settings=params.get("audio_processing_settings"),
             sam_audio_settings=params.get("sam_audio_settings"),
             progress=progress,
@@ -245,7 +255,11 @@ def generate_next_batch_background(
             extract_source_audio_path(all_audio_paths),
         )
 
-        generation_count = normalize_generation_count(params.get("batch_size_input", 1))
+        generation_count = (
+            len(TRACK_NAMES)
+            if params.get("task_type") == "extract" and params.get("extract_all_stems")
+            else normalize_generation_count(params.get("batch_size_input", 1))
+        )
         allow_lm_batch_val = params.get("allow_lm_batch", False)
         if generation_count >= 2:
             codes_to_store = generated_codes_batch[:generation_count]

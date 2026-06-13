@@ -16,6 +16,7 @@ from acestep.core.generation.cancellation import (
     generation_cancel_scope,
     is_generation_cancelled,
 )
+from acestep.core.generation.handler.task_instruction import generate_task_instruction
 from acestep.ui.gradio.events.batch_folder_args import (
     AUDIO_DURATION_ARG_INDEX,
     AUTOGEN_ARG_INDEX,
@@ -25,6 +26,10 @@ from acestep.ui.gradio.events.batch_folder_args import (
     TOTAL_BATCHES_ARG_INDEX,
     extract_generation_paths,
     extract_generation_status,
+)
+from acestep.ui.gradio.events.extract_stems import (
+    normalize_extract_track_name,
+    supported_extract_track_names,
 )
 from acestep.ui.gradio.events.batch_extract_files import (
     audio_duration_seconds,
@@ -38,8 +43,10 @@ GenerationRunner = Callable[..., Iterable[tuple[Any, ...]]]
 
 BATCH_SIZE_ARG_INDEX = 12
 SRC_AUDIO_ARG_INDEX = 13
-TASK_TYPE_ARG_INDEX = 20
-TRACK_NAME_ARG_INDEX = 55
+INSTRUCTION_ARG_INDEX = 19
+TASK_TYPE_ARG_INDEX = 22
+TRACK_NAME_ARG_INDEX = 57
+EXTRACT_ALL_STEMS_ARG_INDEX = 58
 
 
 def _default_generation_runner() -> GenerationRunner:
@@ -60,17 +67,19 @@ def _render_status(lines: Sequence[str]) -> str:
     return "\n".join(["... earlier messages omitted ...", *lines[-79:]])
 
 
-def _validate_extract_settings(generation_args: Sequence[Any]) -> str:
-    """Validate the current UI settings and return the selected track name."""
+def _validate_extract_settings(generation_args: Sequence[Any]) -> list[str]:
+    """Validate the current UI settings and return track names to extract."""
 
-    if len(generation_args) <= TRACK_NAME_ARG_INDEX:
+    if len(generation_args) <= EXTRACT_ALL_STEMS_ARG_INDEX:
         raise ValueError("Batch Process received incomplete generation settings.")
     if generation_args[TASK_TYPE_ARG_INDEX] != "extract":
         raise ValueError("Switch Generation Mode to Extract before starting Batch Process.")
-    track_name = str(generation_args[TRACK_NAME_ARG_INDEX] or "").strip()
-    if not track_name:
-        raise ValueError("Select Track Name before starting Batch Process.")
-    return track_name
+    if bool(generation_args[EXTRACT_ALL_STEMS_ARG_INDEX]):
+        return supported_extract_track_names()
+    try:
+        return [normalize_extract_track_name(generation_args[TRACK_NAME_ARG_INDEX])]
+    except ValueError as exc:
+        raise ValueError(str(exc).replace("running Extract", "starting Batch Process")) from exc
 
 
 def _build_extract_args_for_file(
@@ -86,8 +95,10 @@ def _build_extract_args_for_file(
     args[AUDIO_DURATION_ARG_INDEX] = audio_duration_seconds(audio_path)
     args[BATCH_SIZE_ARG_INDEX] = 1
     args[SRC_AUDIO_ARG_INDEX] = str(audio_path)
+    args[INSTRUCTION_ARG_INDEX] = generate_task_instruction("extract", track_name)
     args[TASK_TYPE_ARG_INDEX] = "extract"
     args[TRACK_NAME_ARG_INDEX] = track_name
+    args[EXTRACT_ALL_STEMS_ARG_INDEX] = False
     args[AUTOGEN_ARG_INDEX] = False
     args[CURRENT_BATCH_INDEX_ARG_INDEX] = 0
     args[TOTAL_BATCHES_ARG_INDEX] = 1
@@ -129,7 +140,7 @@ def run_batch_extract_processing(
 
     status_lines: list[str] = []
     try:
-        track_name = _validate_extract_settings(generation_args)
+        track_names = _validate_extract_settings(generation_args)
         audio_files = discover_batch_extract_audio_files(input_folder)
         target_folder = resolve_batch_extract_output_folder(output_folder)
     except ValueError as exc:
@@ -142,7 +153,7 @@ def run_batch_extract_processing(
     with generation_cancel_scope():
         try:
             status_lines.append(f"Found {len(audio_files)} audio file(s).")
-            status_lines.append(f"Extracting track: {track_name}")
+            status_lines.append(f"Extracting track(s): {', '.join(track_names)}")
             status_lines.append(f"Saving processed files to: {target_folder}")
             yield _render_status(status_lines)
 
@@ -150,26 +161,49 @@ def run_batch_extract_processing(
                 check_generation_cancelled()
                 status_lines.append(f"[{index}/{len(audio_files)}] Extracting {audio_path.name}")
                 yield _render_status(status_lines)
-                item_args = _build_extract_args_for_file(generation_args, audio_path, track_name)
-                try:
-                    generated_paths, item_status = _run_one_extract(
-                        runner,
-                        dit_handler,
-                        llm_handler,
-                        item_args,
-                    )
-                    copied_paths = copy_batch_extract_audio_outputs(
-                        generated_paths,
+                copied_paths: list[str] = []
+                item_status = ""
+                for stem_index, track_name in enumerate(track_names, start=1):
+                    check_generation_cancelled()
+                    if len(track_names) > 1:
+                        status_lines.append(
+                            f"[{index}/{len(audio_files)}:{stem_index}/{len(track_names)}] "
+                            f"Extracting {track_name}"
+                        )
+                        yield _render_status(status_lines)
+                    item_args = _build_extract_args_for_file(
+                        generation_args,
                         audio_path,
-                        target_folder,
+                        track_name,
                     )
-                except GenerationCancelled:
-                    raise
-                except Exception as exc:
-                    logger.exception("[batch_extract] Extract failed for {}", audio_path)
-                    status_lines.append(f"[{index}/{len(audio_files)}] Failed: {exc}")
-                    yield _render_status(status_lines)
-                    continue
+                    try:
+                        generated_paths, item_status = _run_one_extract(
+                            runner,
+                            dit_handler,
+                            llm_handler,
+                            item_args,
+                        )
+                        copied_paths.extend(
+                            copy_batch_extract_audio_outputs(
+                                generated_paths,
+                                audio_path,
+                                target_folder,
+                                track_name=track_name if len(track_names) > 1 else None,
+                            )
+                        )
+                    except GenerationCancelled:
+                        raise
+                    except Exception as exc:
+                        logger.exception(
+                            "[batch_extract] Extract failed for {} / {}",
+                            audio_path,
+                            track_name,
+                        )
+                        status_lines.append(
+                            f"[{index}/{len(audio_files)}] {track_name} failed: {exc}"
+                        )
+                        yield _render_status(status_lines)
+                        continue
 
                 if copied_paths:
                     completed += 1

@@ -89,6 +89,7 @@ class _ForegroundDitHandler:
             "compile_model": False,
             "quantization": None,
             "use_mlx_dit": True,
+            "vae_checkpoint": "official",
         }
 
     def initialize_service(self, **kwargs):
@@ -265,9 +266,10 @@ class BatchManagementWrapperTests(unittest.TestCase):
         module, state = load_batch_management_module(is_windows=False)
         seen = {}
 
-        def _gen(*args, **_kwargs):
+        def _gen(*args, **kwargs):
             """Capture positional generation args and yield a standard result."""
             seen["args"] = args
+            seen["kwargs"] = kwargs
             yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
@@ -289,9 +291,10 @@ class BatchManagementWrapperTests(unittest.TestCase):
         module, state = load_batch_management_module(is_windows=False)
         seen = {}
 
-        def _gen(*args, **_kwargs):
+        def _gen(*args, **kwargs):
             """Capture positional generation args and yield a standard result."""
             seen["args"] = args
+            seen["kwargs"] = kwargs
             yield build_progress_result(length=56)
 
         def _resolve_range(task_type, source_path, start, end):
@@ -333,6 +336,36 @@ class BatchManagementWrapperTests(unittest.TestCase):
         self.assertIn("Select Track Name", outputs[0][18])
         self.assertEqual(state["store_calls"], [])
         self.assertTrue(state["warning_messages"])
+
+    def test_extract_all_stems_ignores_stale_track_name(self):
+        """Extract-all-stems should not leak a selected Track Name."""
+
+        module, state = load_batch_management_module(is_windows=False)
+        seen = {}
+
+        def _gen(*args, **kwargs):
+            """Capture generation args and yield a standard result."""
+            seen["args"] = args
+            seen["kwargs"] = kwargs
+            yield build_progress_result(length=56)
+
+        kwargs = _build_call_kwargs(module)
+        kwargs["task_type"] = "extract"
+        kwargs["track_name"] = "guitar"
+        kwargs["extract_all_stems"] = True
+        kwargs["src_audio"] = "source.wav"
+        kwargs["extract_output_format"] = "wav"
+
+        with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
+            list(module.generate_with_batch_management(None, None, **kwargs))
+
+        self.assertEqual(seen["kwargs"]["track_name"], None)
+        self.assertTrue(seen["kwargs"]["extract_all_stems"])
+        self.assertEqual("", seen["args"][2])
+        self.assertEqual("Extract the track from the audio:", seen["args"][19])
+        saved_params = state["store_calls"][0]["generation_params"]
+        self.assertIsNone(saved_params["track_name"])
+        self.assertTrue(saved_params["extract_all_stems"])
 
     def test_complete_requires_source_audio_before_generation(self):
         """Complete should stop before backend generation when source audio is missing."""
@@ -404,14 +437,15 @@ class BatchManagementWrapperTests(unittest.TestCase):
         module, state = load_batch_management_module(is_windows=False)
         seen = {}
 
-        def _gen(*args, **_kwargs):
+        def _gen(*args, **kwargs):
             """Capture positional generation args and yield a standard result."""
             seen["args"] = args
+            seen["kwargs"] = kwargs
             yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
         kwargs["task_type"] = "extract"
-        kwargs["track_name"] = "vocals"
+        kwargs["track_name"] = " Vocals "
         kwargs["extract_output_format"] = "wav"
         kwargs["captions"] = ""
         kwargs["instruction_display_gen"] = ""
@@ -421,9 +455,24 @@ class BatchManagementWrapperTests(unittest.TestCase):
         saved_params = state["store_calls"][0]["generation_params"]
         self.assertEqual(seen["args"][2], "vocals")
         self.assertEqual(seen["args"][19], "Extract the VOCALS track from the audio:")
+        self.assertEqual(seen["kwargs"]["track_name"], "vocals")
         self.assertEqual(saved_params["track_name"], "vocals")
         self.assertEqual(saved_params["audio_format"], "wav")
         self.assertEqual(saved_params["extract_output_format"], "wav")
+
+    def test_extract_rejects_invalid_track_name(self):
+        """Extract should stop before generation for unsupported stems."""
+
+        module, state = load_batch_management_module(is_windows=False)
+        kwargs = _build_call_kwargs(module)
+        kwargs["task_type"] = "extract"
+        kwargs["track_name"] = "lead kazoo"
+
+        outputs = list(module.generate_with_batch_management(None, None, **kwargs))
+
+        self.assertEqual(len(outputs), 1)
+        self.assertIn("Unsupported Extract Track Name", outputs[0][18])
+        self.assertEqual(state["store_calls"], [])
 
     def test_auto_lrc_copies_lrc_fields_to_batch_queue(self):
         """Auto-LRC mode should copy LRC/subtitle payloads into stored queue entry."""
@@ -621,6 +670,46 @@ class BatchManagementWrapperTests(unittest.TestCase):
         self.assertIn("model=acestep-v15-xl-turbo", log_text)
         self.assertIn("inference_steps=8", log_text)
 
+    def test_foreground_generation_forwards_runtime_settings_to_manifest_payload(self):
+        """Foreground manifests should receive the runtime UI settings."""
+
+        module, _state = load_batch_management_module(is_windows=True)
+        seen = {}
+
+        def _gen(*_args, **kwargs):
+            """Capture forwarded runtime settings for manifest generation."""
+
+            seen["ui_runtime_settings"] = kwargs.get("ui_runtime_settings")
+            yield build_progress_result(length=56)
+
+        kwargs = _build_call_kwargs(module)
+        kwargs.update(
+            {
+                "config_path": "acestep-v15-xl-turbo",
+                "device": "cuda",
+                "vae_checkpoint": "scragvae",
+                "lm_model_path": "acestep-5Hz-lm-4B",
+                "backend_dropdown": "vllm",
+                "init_llm_checkbox": True,
+                "lm_use_legacy_cfg_prompt": True,
+                "mlx_vae_chunk_size": 512,
+            }
+        )
+
+        with patch.dict(
+            module.generate_with_batch_management.__globals__,
+            {"generate_with_progress": _gen},
+        ):
+            list(module.generate_with_batch_management(None, None, **kwargs))
+
+        runtime = seen["ui_runtime_settings"]
+        self.assertEqual(runtime["config_path"], "acestep-v15-xl-turbo")
+        self.assertEqual(runtime["vae_checkpoint"], "scragvae")
+        self.assertEqual(runtime["lm_model_path"], "acestep-5Hz-lm-4B")
+        self.assertEqual(runtime["backend_dropdown"], "vllm")
+        self.assertTrue(runtime["lm_use_legacy_cfg_prompt"])
+        self.assertEqual(runtime["mlx_vae_chunk_size"], 512)
+
     def test_foreground_generate_auto_initializes_dit_when_missing(self):
         """Generate should auto-initialize the foreground DiT service when needed."""
         module, _state = load_batch_management_module(is_windows=False)
@@ -682,6 +771,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
             llm_handler,
             config_path="acestep-v15-xl-sft",
             device="cuda",
+            vae_checkpoint="official",
             lm_model_path="acestep-5Hz-lm-4B",
             backend_dropdown="pt",
             init_llm_checkbox=True,
@@ -712,6 +802,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
             llm_handler,
             config_path="acestep-v15-xl-sft",
             device="cuda",
+            vae_checkpoint="official",
             lm_model_path="lm-new",
             backend_dropdown="pt",
             init_llm_checkbox=True,
@@ -729,6 +820,39 @@ class BatchManagementWrapperTests(unittest.TestCase):
         self.assertEqual(events, ["lm_unload", "lm_init"])
         self.assertIn("Unloaded 5Hz LM before 5Hz LM reinitialization.", status)
 
+    def test_foreground_dit_reinits_when_vae_checkpoint_changes(self):
+        """Changing the selected VAE should reinitialize the foreground DiT."""
+
+        module, _state = load_batch_management_module(is_windows=False)
+        events = []
+        dit_handler = _ForegroundDitHandler(events, config_path="acestep-v15-xl-sft")
+        llm_handler = _ForegroundLlmHandler(events, lm_model_path="acestep-5Hz-lm-4B")
+        llm_handler.llm_initialized = False
+
+        ok, status = _ensure_in_process_service_ready(module)(
+            dit_handler,
+            llm_handler,
+            config_path="acestep-v15-xl-sft",
+            device="cuda",
+            vae_checkpoint="scragvae",
+            lm_model_path="acestep-5Hz-lm-4B",
+            backend_dropdown="pt",
+            init_llm_checkbox=False,
+            use_flash_attention_checkbox=False,
+            offload_to_cpu_checkbox=False,
+            offload_dit_to_cpu_checkbox=False,
+            compile_model_checkbox=False,
+            quantization_checkbox=False,
+            mlx_dit_checkbox=True,
+            think_checkbox=False,
+            auto_score=False,
+        )
+
+        self.assertTrue(ok)
+        self.assertEqual(events, ["lm_unload", "dit_init"])
+        self.assertEqual(dit_handler.last_init_params["vae_checkpoint"], "scragvae")
+        self.assertIn("Initializing DiT service", status)
+
     def test_foreground_auto_init_keeps_matching_lm_loaded(self):
         """Matching DiT and LM settings should not unload or reinitialize services."""
 
@@ -742,6 +866,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
             llm_handler,
             config_path="acestep-v15-xl-sft",
             device="cuda",
+            vae_checkpoint="official",
             lm_model_path="acestep-5Hz-lm-4B",
             backend_dropdown="pt",
             init_llm_checkbox=True,
@@ -828,7 +953,11 @@ class BatchManagementWrapperTests(unittest.TestCase):
                 {
                     "subprocess_mode_checkbox": True,
                     "config_path": "acestep-v15-xl-turbo",
+                    "device": "cuda",
+                    "vae_checkpoint": "scragvae",
                     "inference_steps": 8,
+                    "lm_use_legacy_cfg_prompt": True,
+                    "mlx_vae_chunk_size": 512,
                     "lora_dropdown": str(adapter),
                     "lora_path": "",
                     "use_lora_checkbox": False,
@@ -848,6 +977,9 @@ class BatchManagementWrapperTests(unittest.TestCase):
         generation_payload = seen["payload"]["generation"]
         log_text = "\n".join(state["log_info"])
         self.assertEqual(service_payload["config_path"], "acestep-v15-xl-turbo")
+        self.assertEqual(service_payload["vae_checkpoint"], "scragvae")
+        self.assertTrue(service_payload["lm_use_legacy_cfg_prompt"])
+        self.assertEqual(service_payload["mlx_vae_chunk_size"], 512)
         self.assertEqual(generation_payload["inference_steps"], 8)
         self.assertIn("model=acestep-v15-xl-turbo", log_text)
         self.assertIn("inference_steps=8", log_text)

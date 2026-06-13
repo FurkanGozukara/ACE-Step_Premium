@@ -121,6 +121,15 @@ def build_source_audio_controls(
                 visible=True,
                 scale=5,
             )
+            with gr.Column(scale=2, min_width=190) as extract_all_stems_column:
+                extract_all_stems = gr.Checkbox(
+                    label="Extract All Stems",
+                    value=bool(params.get("extract_all_stems", False)),
+                    info="Extract every supported stem into the same output folder.",
+                    elem_id="acestep-extract-all-stems",
+                    elem_classes=["has-info-container"],
+                    interactive=not service_mode,
+                )
             extract_output_format = gr.Dropdown(
                 choices=EXTRACT_AUDIO_FORMAT_CHOICES,
                 value=initial_extract_output_format,
@@ -160,6 +169,8 @@ def build_source_audio_controls(
         "audio_format_column": audio_format_column,
         "audio_format": audio_format,
         "track_name": track_name,
+        "extract_all_stems_column": extract_all_stems_column,
+        "extract_all_stems": extract_all_stems,
         "extract_output_format": extract_output_format,
         "extract_trim_empty_output": extract_trim_empty_output,
         "extract_trim_threshold_db": extract_trim_threshold_db,
@@ -305,6 +316,8 @@ def build_source_track_and_code_controls(
         "audio_format_column": source_audio_controls["audio_format_column"],
         "audio_format": source_audio_controls["audio_format"],
         "track_name": source_audio_controls["track_name"],
+        "extract_all_stems_column": source_audio_controls["extract_all_stems_column"],
+        "extract_all_stems": source_audio_controls["extract_all_stems"],
         "extract_output_format": source_audio_controls["extract_output_format"],
         "extract_trim_empty_output": source_audio_controls["extract_trim_empty_output"],
         "extract_trim_threshold_db": source_audio_controls["extract_trim_threshold_db"],

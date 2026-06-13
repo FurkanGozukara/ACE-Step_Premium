@@ -23,16 +23,20 @@ def generate_sequential_songs(
     seed: Any,
     random_seed: bool,
     progress: Any,
+    params_for_index: Any = None,
+    progress_label: str = "song",
+    reuse_fixed_seed: bool = False,
 ) -> Any:
     """Run one-song backend calls and return a merged result.
 
-    The shared generation params are reused for each song. ``base_config`` is
-    copied with ``batch_size=1`` and a per-run seed value.
+    The shared generation params are reused by default. ``params_for_index``
+    can return per-run params for workflows such as multi-stem Extract.
     """
 
     results = []
     for generation_index in range(generation_count):
         check_generation_cancelled()
+        seed_index = 0 if reuse_fixed_seed and not random_seed else generation_index
         run_config = replace(
             base_config,
             batch_size=1,
@@ -40,17 +44,28 @@ def generate_sequential_songs(
             use_random_seed=random_seed,
             seeds=seed_for_generation_index(
                 seed,
-                generation_index,
+                seed_index,
                 random_seed=random_seed,
             ),
         )
-        _log_generation_start(generation_index, generation_count, random_seed, run_config)
-        _update_progress(progress, generation_index, generation_count)
+        run_params = (
+            params_for_index(params, generation_index)
+            if params_for_index is not None
+            else params
+        )
+        _log_generation_start(
+            generation_index,
+            generation_count,
+            random_seed,
+            run_config,
+            progress_label,
+        )
+        _update_progress(progress, generation_index, generation_count, progress_label)
 
         result = generate_music_fn(
             dit_handler,
             llm_handler,
-            params=params,
+            params=run_params,
             config=run_config,
             progress=progress,
         )
@@ -67,13 +82,15 @@ def _log_generation_start(
     generation_count: int,
     random_seed: bool,
     run_config: Any,
+    progress_label: str,
 ) -> None:
     """Log a sequential generation step when more than one song is requested."""
     if generation_count <= 1:
         return
     logger.info(
-        "[generate_with_progress] Sequential song {}/{} "
+        "[generate_with_progress] Sequential {} {}/{} "
         "(backend_batch_size=1, random_seed={}, seeds={})",
+        progress_label,
         generation_index + 1,
         generation_count,
         random_seed,
@@ -81,13 +98,18 @@ def _log_generation_start(
     )
 
 
-def _update_progress(progress: Any, generation_index: int, generation_count: int) -> None:
+def _update_progress(
+    progress: Any,
+    generation_index: int,
+    generation_count: int,
+    progress_label: str,
+) -> None:
     """Update the Gradio progress bar for a sequential generation step."""
     if not progress or generation_count <= 1:
         return
     progress(
         min(0.95, generation_index / generation_count),
-        f"Generating song {generation_index + 1}/{generation_count}...",
+        f"Generating {progress_label} {generation_index + 1}/{generation_count}...",
     )
 
 

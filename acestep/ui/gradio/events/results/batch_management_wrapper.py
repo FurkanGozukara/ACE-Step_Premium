@@ -10,6 +10,7 @@ from pathlib import Path
 import gradio as gr
 from loguru import logger
 
+from acestep.constants import TRACK_NAMES
 from acestep.audio_processing.settings import (
     UI_SETTING_KEYS as AUDIO_PROCESSING_KEYS,
     settings_from_ui_values as audio_processing_settings_from_ui_values,
@@ -72,6 +73,7 @@ from acestep.ui.gradio.events.generation.audio_format_options import (
     DEFAULT_EXTRACT_AUDIO_FORMAT,
     normalize_extract_audio_format,
 )
+from acestep.ui.gradio.events.extract_stems import normalize_extract_track_name
 from acestep.ui.gradio.events.generation.quantization import select_quantization_value
 from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.media_upload_values import resolve_effective_source_audio
@@ -131,6 +133,7 @@ def _dit_service_needs_reinit(
     compile_model: bool,
     quantization_enabled,
     mlx_dit: bool,
+    vae_checkpoint: str | None,
 ) -> tuple[bool, str | None]:
     """Return whether the foreground DiT handler must be reinitialized."""
 
@@ -161,6 +164,8 @@ def _dit_service_needs_reinit(
     if last_init_params.get("quantization") != desired_quantization:
         return True, desired_quantization
     if bool(last_init_params.get("use_mlx_dit", True)) != bool(mlx_dit):
+        return True, desired_quantization
+    if vae_checkpoint and last_init_params.get("vae_checkpoint") != vae_checkpoint:
         return True, desired_quantization
     return False, desired_quantization
 
@@ -315,6 +320,7 @@ def _ensure_in_process_service_ready(
     *,
     config_path: str | None,
     device: str | None,
+    vae_checkpoint: str | None,
     lm_model_path: str | None,
     backend_dropdown: str | None,
     init_llm_checkbox: bool,
@@ -346,6 +352,7 @@ def _ensure_in_process_service_ready(
         compile_model=bool(compile_model_checkbox),
         quantization_enabled=quantization_checkbox,
         mlx_dit=bool(mlx_dit_checkbox),
+        vae_checkpoint=vae_checkpoint,
     )
     if dit_requires_init:
         lm_unload_status = _unload_lm_before_service_reinit(
@@ -371,6 +378,7 @@ def _ensure_in_process_service_ready(
             offload_dit_to_cpu=bool(offload_dit_to_cpu_checkbox),
             quantization=quant_value,
             use_mlx_dit=bool(mlx_dit_checkbox),
+            vae_checkpoint=vae_checkpoint,
         )
         status_lines.append(init_status)
         check_generation_cancelled()
@@ -465,6 +473,7 @@ def _generate_with_batch_management_impl(
     score_scale,
     lm_batch_chunk_size,
     track_name,
+    extract_all_stems,
     complete_track_classes,
     enable_normalization,
     normalization_db,
@@ -490,15 +499,18 @@ def _generate_with_batch_management_impl(
     subprocess_mode_checkbox,
     config_path,
     device,
+    vae_checkpoint,
     lm_model_path,
     backend_dropdown,
     init_llm_checkbox,
+    lm_use_legacy_cfg_prompt,
     use_flash_attention_checkbox,
     offload_to_cpu_checkbox,
     offload_dit_to_cpu_checkbox,
     compile_model_checkbox,
     quantization_checkbox,
     mlx_dit_checkbox,
+    mlx_vae_chunk_size,
     lora_dropdown,
     lora_path,
     use_lora_checkbox,
@@ -516,7 +528,7 @@ def _generate_with_batch_management_impl(
 ):
     """Wrap ``generate_with_progress`` with batch queue management state."""
     check_generation_cancelled()
-    _ = (generation_params_state, use_lora_checkbox)  # reserved for API compatibility
+    _ = (generation_params_state, lm_use_legacy_cfg_prompt, use_lora_checkbox)
     keyword_audio_processing_values = audio_processing_keyword_args.pop(
         "audio_processing_value_args",
         None,
@@ -549,14 +561,39 @@ def _generate_with_batch_management_impl(
         repainting_end,
     )
     selected_model = str(config_path or "").strip() or DEFAULT_TURBO_DIT_MODEL
+    if llm_handler is not None:
+        llm_handler.use_legacy_cfg_prompt = bool(lm_use_legacy_cfg_prompt)
+    if dit_handler is not None and mlx_vae_chunk_size is not None:
+        try:
+            dit_handler.mlx_vae_chunk_size = int(mlx_vae_chunk_size)
+        except (TypeError, ValueError):
+            logger.warning(
+                "[generate_with_batch_management] Ignoring invalid MLX VAE chunk size: {}",
+                mlx_vae_chunk_size,
+            )
     logger.info(
         f"[generate_with_batch_management] Starting generation: "
         f"model={selected_model}, inference_steps={inference_steps}, "
         f"songs={normalize_generation_count(batch_size_input)}, duration={audio_duration}, "
         f"subprocess={bool(subprocess_mode_checkbox)}"
     )
-    selected_track_name = str(track_name or "").strip()
-    if task_type in ("extract", "lego") and not selected_track_name:
+    run_all_extract_stems = task_type == "extract" and bool(extract_all_stems)
+    selected_track_name = "" if run_all_extract_stems else str(track_name or "").strip()
+    if task_type == "extract" and selected_track_name:
+        try:
+            selected_track_name = normalize_extract_track_name(selected_track_name)
+        except ValueError as exc:
+            error_msg = str(exc)
+            logger.warning("[generate_with_batch_management] {}", error_msg)
+            gr.Warning(error_msg)
+            yield build_pending_core_outputs(error_msg, is_format_caption) + (
+                gr.skip(), gr.skip(), gr.skip(), gr.skip(),
+                gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(),
+            )
+            return
+    if (task_type == "extract" and not selected_track_name and not run_all_extract_stems) or (
+        task_type == "lego" and not selected_track_name
+    ):
         mode_label = "Extract" if task_type == "extract" else "Lego"
         error_msg = f"Select Track Name before running {mode_label}."
         logger.warning("[generate_with_batch_management] {}", error_msg)
@@ -588,11 +625,11 @@ def _generate_with_batch_management_impl(
     if task_type in ("extract", "lego", "complete"):
         instruction_display_gen = generate_task_instruction(
             task_type=task_type,
-            track_name=selected_track_name or None,
+            track_name=None if run_all_extract_stems else selected_track_name or None,
             complete_track_classes=complete_track_classes or [],
         )
         if task_type == "extract":
-            captions = selected_track_name
+            captions = "" if run_all_extract_stems else selected_track_name
             audio_format = normalize_extract_audio_format(extract_output_format)
         elif task_type == "lego":
             audio_format = normalize_extract_audio_format(extract_output_format)
@@ -611,7 +648,9 @@ def _generate_with_batch_management_impl(
         use_cot_metas, use_cot_caption, use_cot_language,
         constrained_decoding_debug, allow_lm_batch, auto_score, auto_lrc,
         score_scale, lm_batch_chunk_size,
-        track_name, complete_track_classes,
+        None if run_all_extract_stems else selected_track_name or None,
+        run_all_extract_stems,
+        complete_track_classes,
         enable_normalization, normalization_db, fade_in_duration, fade_out_duration,
         latent_shift, latent_rescale,
         repaint_mode=repaint_mode, repaint_strength=repaint_strength,
@@ -630,6 +669,27 @@ def _generate_with_batch_management_impl(
         extract_trim_empty_output=extract_trim_empty_output,
         extract_trim_threshold_db=extract_trim_threshold_db,
         extract_output_format=normalize_extract_audio_format(extract_output_format),
+        ui_runtime_settings={
+            "config_path": selected_model,
+            "device": device,
+            "vae_checkpoint": vae_checkpoint,
+            "lm_model_path": lm_model_path,
+            "backend_dropdown": backend_dropdown,
+            "init_llm_checkbox": bool(init_llm_checkbox),
+            "lm_use_legacy_cfg_prompt": bool(lm_use_legacy_cfg_prompt),
+            "use_flash_attention_checkbox": bool(use_flash_attention_checkbox),
+            "offload_to_cpu_checkbox": bool(offload_to_cpu_checkbox),
+            "offload_dit_to_cpu_checkbox": bool(offload_dit_to_cpu_checkbox),
+            "compile_model_checkbox": bool(compile_model_checkbox),
+            "quantization_checkbox": quantization_checkbox,
+            "mlx_dit_checkbox": bool(mlx_dit_checkbox),
+            "mlx_vae_chunk_size": mlx_vae_chunk_size,
+            "lora_dropdown": lora_dropdown,
+            "lora_path": lora_path,
+            "use_lora_checkbox": bool(use_lora_checkbox),
+            "lora_scale_slider": lora_scale_slider,
+            "subprocess_mode_checkbox": bool(subprocess_mode_checkbox),
+        },
         instrumental_checkbox=bool(instrumental_checkbox),
         repaint_dont_switch_with_lyrics=bool(repaint_dont_switch_with_lyrics),
         audio_processing_settings=(
@@ -655,15 +715,18 @@ def _generate_with_batch_management_impl(
             "service": {
                 "config_path": selected_model,
                 "device": device,
+                "vae_checkpoint": vae_checkpoint,
                 "lm_model_path": lm_model_path,
                 "backend": backend_dropdown,
                 "init_llm": init_llm_checkbox,
+                "lm_use_legacy_cfg_prompt": lm_use_legacy_cfg_prompt,
                 "use_flash_attention": use_flash_attention_checkbox,
                 "offload_to_cpu": offload_to_cpu_checkbox,
                 "offload_dit_to_cpu": offload_dit_to_cpu_checkbox,
                 "compile_model": compile_model_checkbox,
                 "quantization": quantization_checkbox,
                 "mlx_dit": mlx_dit_checkbox,
+                "mlx_vae_chunk_size": mlx_vae_chunk_size,
                 "lora_path": effective_lora_path,
                 "use_lora": bool(effective_lora_path),
                 "lora_scale": lora_scale_slider,
@@ -731,7 +794,9 @@ def _generate_with_batch_management_impl(
         generated_codes_single = generated_codes_batch[0] if generated_codes_batch else ""
         extra_outputs_from_result = subprocess_result.get("extra_outputs", {}) or {}
 
-        generation_count = normalize_generation_count(batch_size_input)
+        generation_count = (
+            len(TRACK_NAMES) if run_all_extract_stems else normalize_generation_count(batch_size_input)
+        )
         if generation_count >= 2:
             codes_to_store = generated_codes_batch[:generation_count]
         else:
@@ -798,6 +863,7 @@ def _generate_with_batch_management_impl(
         llm_handler,
         config_path=selected_model,
         device=device,
+        vae_checkpoint=vae_checkpoint,
         lm_model_path=lm_model_path,
         backend_dropdown=backend_dropdown,
         init_llm_checkbox=init_llm_checkbox,
@@ -872,6 +938,9 @@ def _generate_with_batch_management_impl(
         extract_trim_threshold_db,
         bool(instrumental_checkbox),
         bool(repaint_dont_switch_with_lyrics),
+        track_name=selected_track_name or None,
+        extract_all_stems=run_all_extract_stems,
+        ui_runtime_settings=saved_params.get("ui_runtime_settings"),
         audio_processing_settings=saved_params.get("audio_processing_settings"),
         sam_audio_settings=saved_params.get("sam_audio_settings"),
         progress=progress,
@@ -928,7 +997,9 @@ def _generate_with_batch_management_impl(
     generated_codes_batch = raw_codes_list if isinstance(raw_codes_list, list) else [""] * 8
     generated_codes_single = generated_codes_batch[0] if generated_codes_batch else ""
 
-    generation_count = normalize_generation_count(batch_size_input)
+    generation_count = (
+        len(TRACK_NAMES) if run_all_extract_stems else normalize_generation_count(batch_size_input)
+    )
     if generation_count >= 2:
         codes_to_store = generated_codes_batch[:generation_count]
     else:

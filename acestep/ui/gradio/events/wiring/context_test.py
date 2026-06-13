@@ -89,6 +89,8 @@ MODE_OUTPUT_EXPECTED = [
     "no_fsq",
     "audio_format_column",
     "repaint_dont_switch_with_lyrics",
+    "extract_all_stems_column",
+    "extract_all_stems",
 ]
 
 

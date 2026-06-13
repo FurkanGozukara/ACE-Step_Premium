@@ -40,6 +40,7 @@ def compute_mode_ui_updates(
     previous_mode: str = "Custom",
     config_path: str | None = None,
     track_name: str | None = None,
+    extract_all_stems: bool = False,
 ):
     """Return the mode-switch update tuple for generation UI."""
     if not is_generation_mode_supported_for_path(mode, config_path):
@@ -51,6 +52,7 @@ def compute_mode_ui_updates(
                 previous_mode=fallback_mode,
                 config_path=config_path,
                 track_name=track_name,
+                extract_all_stems=extract_all_stems,
             )
         )
         unavailable_info = (
@@ -82,7 +84,6 @@ def compute_mode_ui_updates(
     show_custom_group = not_simple and not is_extract
     show_generate_row = not_simple
     has_track_name = bool(str(track_name or "").strip())
-    generate_interactive = not_simple and not ((is_extract or is_lego) and not has_track_name)
     # Custom mode shows src_audio so the flow-edit morph overlay can use
     # it; the row is harmless when morph is off (just an unused upload).
     show_src_audio = is_cover or is_repaint or is_extract or is_lego or is_complete or is_custom
@@ -92,6 +93,12 @@ def compute_mode_ui_updates(
     show_complete_classes = is_complete
     show_runtime_options = not (is_extract or is_lego)
     show_inline_audio_format = show_src_audio and not (is_extract or is_lego)
+    has_extract_target = has_track_name or (is_extract and bool(extract_all_stems))
+    generate_interactive = not_simple and not (
+        (is_extract and not has_extract_target) or (is_lego and not has_track_name)
+    )
+    extract_all_stems_column_update = gr.update(visible=is_extract)
+    extract_all_stems_update = gr.update() if is_extract else gr.update(value=False)
 
     # Audio cover/codes strength is meaningful only for text/code guidance and Remix.
     # Source-range tasks (Repaint/Lego/Complete) use their own source-mask paths.
@@ -286,6 +293,8 @@ def compute_mode_ui_updates(
         no_fsq_update,                                     # 59: no_fsq
         gr.update(visible=show_inline_audio_format),       # 60: audio_format_column
         gr.update(visible=is_repaint),                     # 61: repaint_dont_switch_with_lyrics
+        extract_all_stems_column_update,                   # 62: extract_all_stems_column
+        extract_all_stems_update,                          # 63: extract_all_stems
     )
 
 
@@ -295,6 +304,7 @@ def handle_generation_mode_change(
     llm_handler=None,
     config_path: str | None = None,
     track_name: str | None = None,
+    extract_all_stems: bool = False,
 ):
     """Delegate generation-mode change handling to compute_mode_ui_updates."""
     return compute_mode_ui_updates(
@@ -303,14 +313,24 @@ def handle_generation_mode_change(
         previous_mode=previous_mode,
         config_path=config_path,
         track_name=track_name,
+        extract_all_stems=extract_all_stems,
     )
 
 
-def handle_extract_track_name_change(track_name_value: str, mode: str):
+def handle_extract_track_name_change(
+    track_name_value: str,
+    mode: str,
+    extract_all_stems: bool = False,
+):
     """Update caption and generate-button state for Extract/Lego track selection."""
 
     has_track_name = bool(str(track_name_value or "").strip())
     if mode == "Extract":
+        if extract_all_stems:
+            return (
+                gr.update(value=""),
+                gr.update(value=t("generation.extract_stem_btn"), interactive=True),
+            )
         return (
             gr.update(value=track_name_value or ""),
             gr.update(value=t("generation.extract_stem_btn"), interactive=has_track_name),

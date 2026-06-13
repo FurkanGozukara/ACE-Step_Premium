@@ -38,6 +38,7 @@ _EXPECTED_RESTORE_OUTPUT_KEYS = [
     "use_cot_language",
     "allow_lm_batch",
     "track_name",
+    "extract_all_stems",
     "extract_output_format",
     "complete_track_classes",
     "enable_normalization",

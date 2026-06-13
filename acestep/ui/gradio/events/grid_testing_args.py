@@ -16,14 +16,14 @@ from acestep.ui.gradio.events.generation.generation_count import normalize_gener
 from acestep.ui.gradio.events.grid_testing_loras import GridLoraJob
 
 
-AUDIO_FORMAT_ARG_INDEX = 36
+AUDIO_FORMAT_ARG_INDEX = 38
 RANDOM_SEED_ARG_INDEX = 8
 SEED_ARG_INDEX = 9
 BATCH_SIZE_ARG_INDEX = 12
-LORA_DROPDOWN_ARG_INDEX = 90
-LORA_PATH_ARG_INDEX = 91
-USE_LORA_ARG_INDEX = 92
-GENERATION_ARG_COUNT = 94
+LORA_DROPDOWN_ARG_INDEX = 96
+LORA_PATH_ARG_INDEX = 97
+USE_LORA_ARG_INDEX = 98
+GENERATION_ARG_COUNT = 100
 
 
 def prepare_grid_generation_args(

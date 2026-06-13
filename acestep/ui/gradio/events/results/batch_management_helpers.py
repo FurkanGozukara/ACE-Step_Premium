@@ -113,7 +113,7 @@ def _build_saved_params(
     use_cot_metas, use_cot_caption, use_cot_language,
     constrained_decoding_debug, allow_lm_batch, auto_score, auto_lrc,
     score_scale, lm_batch_chunk_size,
-    track_name, complete_track_classes,
+    track_name, extract_all_stems, complete_track_classes,
     enable_normalization, normalization_db, fade_in_duration, fade_out_duration,
     latent_shift, latent_rescale,
     repaint_mode="balanced", repaint_strength=0.5,
@@ -132,6 +132,7 @@ def _build_saved_params(
     extract_trim_empty_output=False,
     extract_trim_threshold_db=-40.0,
     extract_output_format=DEFAULT_EXTRACT_AUDIO_FORMAT,
+    ui_runtime_settings=None,
     instrumental_checkbox=False,
     repaint_dont_switch_with_lyrics=False,
     audio_processing_settings=None,
@@ -176,7 +177,9 @@ def _build_saved_params(
         "allow_lm_batch": allow_lm_batch,
         "auto_score": auto_score, "auto_lrc": auto_lrc,
         "score_scale": score_scale, "lm_batch_chunk_size": lm_batch_chunk_size,
-        "track_name": track_name, "complete_track_classes": complete_track_classes,
+        "track_name": track_name,
+        "extract_all_stems": bool(extract_all_stems),
+        "complete_track_classes": complete_track_classes,
         "enable_normalization": enable_normalization,
         "normalization_db": normalization_db,
         "fade_in_duration": fade_in_duration,
@@ -198,6 +201,7 @@ def _build_saved_params(
         "extract_trim_empty_output": extract_trim_empty_output,
         "extract_trim_threshold_db": extract_trim_threshold_db,
         "extract_output_format": extract_output_format,
+        "ui_runtime_settings": ui_runtime_settings or {},
         "instrumental_checkbox": bool(instrumental_checkbox),
         "repaint_dont_switch_with_lyrics": bool(repaint_dont_switch_with_lyrics),
         "audio_processing_settings": audio_processing_settings or {},
@@ -220,6 +224,7 @@ def _log_background_params(params, next_batch_idx):
     logger.info(f"  - no_fsq: {params.get('no_fsq')}")
     logger.info(f"  - lm_temperature: {params.get('lm_temperature')}")
     logger.info(f"  - track_name: {params.get('track_name')}")
+    logger.info(f"  - extract_all_stems: {params.get('extract_all_stems')}")
     codes_val = params.get("text2music_audio_code_string")
     logger.info(f"  - text2music_audio_code_string: {'<CLEARED>' if codes_val == '' else 'HAS_VALUE'}")
     logger.info("=========================================================")
@@ -264,7 +269,8 @@ def _apply_param_defaults(params):
         "allow_lm_batch": True, "auto_score": False,
         "auto_lrc": False, "score_scale": 0.5,
         "lm_batch_chunk_size": 8,
-        "track_name": None, "complete_track_classes": [],
+        "track_name": None, "extract_all_stems": False,
+        "complete_track_classes": [],
         "enable_normalization": True, "normalization_db": -1.0,
         "fade_in_duration": 0.0, "fade_out_duration": 0.0,
         "extract_trim_empty_output": False,
@@ -285,6 +291,7 @@ def _apply_param_defaults(params):
         "lora_dropdown": "",
         "lora_scale": 1.0,
         "use_lora": False,
+        "ui_runtime_settings": {},
         "audio_processing_settings": {},
         "sam_audio_settings": {},
     }

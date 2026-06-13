@@ -8,8 +8,12 @@ from acestep.core.generation.cancellation import (
     generation_cancel_scope,
     request_generation_cancel,
 )
-from _batch_management_test_support import build_progress_result
-from _batch_management_test_support import load_batch_management_module
+try:
+    from ._batch_management_test_support import build_progress_result
+    from ._batch_management_test_support import load_batch_management_module
+except ImportError:  # pragma: no cover - supports direct file execution
+    from _batch_management_test_support import build_progress_result
+    from _batch_management_test_support import load_batch_management_module
 
 
 class BatchManagementBackgroundTests(unittest.TestCase):

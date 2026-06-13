@@ -156,6 +156,27 @@ class PremiumFeaturesTests(unittest.TestCase):
             updates[keys.index("extract_trim_threshold_db")].get("value"),
         )
 
+    def test_user_preset_saves_and_loads_extract_all_stems(self) -> None:
+        """Extract-all-stems should round-trip through custom user presets."""
+
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            values[keys.index("extract_all_stems")] = True
+            try:
+                premium_features.save_preset_action("extract all stems", None, *values)
+                loaded = premium_features.load_named_preset("extract all stems")
+                updates = premium_features.load_preset_action("extract all stems")
+            finally:
+                self._restore_project_root(original)
+
+        self.assertTrue(loaded["extract_all_stems"])
+        self.assertTrue(updates[keys.index("extract_all_stems")].get("value"))
+
     def test_user_preset_saves_and_loads_audio_processing_trim_controls(self) -> None:
         """Audio Processing trim controls should round-trip through presets."""
 

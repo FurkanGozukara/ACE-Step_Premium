@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from acestep.audio_processing.auto_editor_trim import SilenceTrimResult
-from acestep.constants import DEFAULT_DIT_INSTRUCTION, TASK_INSTRUCTIONS
+from acestep.constants import DEFAULT_DIT_INSTRUCTION, TASK_INSTRUCTIONS, TRACK_NAMES
 from acestep.ui.gradio.events.generation.generation_count import (
     normalize_generation_count,
     seed_for_generation_index,
@@ -201,6 +201,71 @@ class SequentialGenerationCountTests(unittest.TestCase):
         self.assertEqual(final[19], "901, 902")
         self.assertEqual(final[55][:2], ["code-901", "code-902"])
 
+    def test_extract_all_stems_generates_each_stem_with_suffixes(self):
+        """Extract-all-stems should call the backend once per supported stem."""
+
+        backend_captions = []
+        backend_instructions = []
+        backend_seeds = []
+        saved_paths = []
+        json_payloads = []
+
+        def fake_generate_music(_dit_handler, _llm_handler, *, params, config, progress):
+            backend_captions.append(params.caption)
+            backend_instructions.append(params.instruction)
+            backend_seeds.append(config.seeds)
+            return _fake_tensor_result(str(config.seeds[0]))
+
+        def fake_save_audio(audio_data, output_path, **_kwargs):
+            _ = audio_data
+            saved_paths.append(output_path)
+            return output_path
+
+        def fake_write_json(_path, payload):
+            json_payloads.append(payload)
+            return str(_path)
+
+        with tempfile.TemporaryDirectory() as tmp, patch.object(
+            generation_progress,
+            "save_extract_remaining_audio",
+            return_value={"applied": False},
+        ):
+            final = self._run_generation(
+                tmp,
+                fake_generate_music,
+                task_type="extract",
+                src_audio=r"C:\music\Alpha Song.mp3",
+                track_name=None,
+                extract_all_stems=True,
+                audio_format="wav",
+                extract_trim_empty_output=False,
+                save_audio_side_effect=fake_save_audio,
+                write_json_side_effect=fake_write_json,
+            )
+
+        self.assertEqual(TRACK_NAMES, backend_captions)
+        expected_instructions = [
+            f"Extract the {stem.upper()} track from the audio:" for stem in TRACK_NAMES
+        ]
+        self.assertEqual(expected_instructions, backend_instructions)
+        self.assertEqual([[100]] * len(TRACK_NAMES), backend_seeds)
+        self.assertEqual(len(TRACK_NAMES), len(saved_paths))
+        self.assertIn("Alpha Song_woodwinds.wav", "\n".join(saved_paths))
+        self.assertIn("Alpha Song_guitar.wav", "\n".join(saved_paths))
+        self.assertIn("Alpha Song_vocal.wav", "\n".join(saved_paths))
+        sample_sidecar = next(payload for payload in json_payloads if "_meta" in payload)
+        request = sample_sidecar["_meta"]["request"]
+        self.assertEqual("woodwinds", sample_sidecar["track_name"])
+        self.assertEqual("woodwinds", sample_sidecar["extract_stem_name"])
+        self.assertTrue(sample_sidecar["extract_all_stems"])
+        self.assertEqual("", request["caption"])
+        self.assertIsNone(request["track_name"])
+        self.assertTrue(request["extract_all_stems"])
+        self.assertEqual(TRACK_NAMES, request["extract_stem_names"])
+        self.assertEqual(len(TRACK_NAMES), request["generation_count"])
+        self.assertEqual(1, request["requested_generation_count"])
+        self.assertIn("Alpha Song_vocal.json", "\n".join(final[16]))
+
     def test_extract_trim_shortens_saved_tensor_and_metadata(self):
         """Extract trim should modify saved audio tensors and sidecar metadata."""
 
@@ -242,6 +307,7 @@ class SequentialGenerationCountTests(unittest.TestCase):
                     tmp,
                     fake_generate_music,
                     task_type="extract",
+                    track_name="vocals",
                     extract_trim_empty_output=True,
                     extract_trim_threshold_db=-42.0,
                     audio_processing_settings={

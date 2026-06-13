@@ -168,6 +168,7 @@ def _build_capture_current_params_inputs(generation_section: dict[str, Any]) -> 
         generation_section["score_scale"],
         generation_section["lm_batch_chunk_size"],
         generation_section["track_name"],
+        generation_section["extract_all_stems"],
         generation_section["extract_output_format"],
         generation_section["complete_track_classes"],
         generation_section["enable_normalization"],

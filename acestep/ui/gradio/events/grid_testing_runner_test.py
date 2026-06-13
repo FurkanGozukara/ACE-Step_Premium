@@ -12,6 +12,7 @@ from unittest.mock import patch
 from acestep.ui.gradio.events.grid_testing_args import (
     AUDIO_FORMAT_ARG_INDEX,
     BATCH_SIZE_ARG_INDEX,
+    GENERATION_ARG_COUNT,
     LORA_DROPDOWN_ARG_INDEX,
     RANDOM_SEED_ARG_INDEX,
     SEED_ARG_INDEX,
@@ -19,6 +20,10 @@ from acestep.ui.gradio.events.grid_testing_args import (
 )
 from acestep.ui.gradio.events.grid_testing_runner import run_grid_testing
 from acestep.ui.gradio.events.results.output_manager import create_generation_run_dir
+from acestep.ui.gradio.events.results.result_output_contract import (
+    ALL_AUDIO_PATHS_INDEX,
+    STATUS_INDEX,
+)
 
 
 class GridTestingRunnerTests(unittest.TestCase):
@@ -46,8 +51,8 @@ class GridTestingRunnerTests(unittest.TestCase):
                 )
                 paths = _write_fake_generated_run("0001")
                 result = [None] * 55
-                result[8] = paths
-                result[10] = "Generation Complete"
+                result[ALL_AUDIO_PATHS_INDEX] = paths
+                result[STATUS_INDEX] = "Generation Complete"
                 yield tuple(result)
 
             with patch(
@@ -91,13 +96,13 @@ class GridTestingRunnerTests(unittest.TestCase):
 
             def fake_runner(_dit_handler, _llm_handler, *_args):
                 pending = [None] * 55
-                pending[10] = "Preparing generation"
+                pending[STATUS_INDEX] = "Preparing generation"
                 yield tuple(pending)
 
                 paths = _write_fake_generated_run("0001")
                 final = [None] * 55
-                final[8] = paths
-                final[10] = "Generation Complete"
+                final[ALL_AUDIO_PATHS_INDEX] = paths
+                final[STATUS_INDEX] = "Generation Complete"
                 yield tuple(final)
 
             iterator = run_grid_testing(
@@ -122,7 +127,7 @@ class GridTestingRunnerTests(unittest.TestCase):
 def _generation_args() -> list[object]:
     """Return a minimal generation argument list matching the UI contract."""
 
-    args: list[object] = [None] * 94
+    args: list[object] = [None] * GENERATION_ARG_COUNT
     args[0] = "style"
     args[1] = "lyrics"
     args[12] = 1
