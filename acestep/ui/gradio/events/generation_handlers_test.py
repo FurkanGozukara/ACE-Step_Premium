@@ -588,6 +588,48 @@ class LoadMetadataLmCodesTests(unittest.TestCase):
         self.assertTrue(think_value, "think should remain True when audio_codes is empty")
 
 
+@unittest.skipIf(generation_handlers is None, f"generation_handlers import unavailable: {_IMPORT_ERROR}")
+class LoadMetadataFileOutputTests(unittest.TestCase):
+    """Tests that metadata loading restores settings but not upload file values."""
+
+    def _write_json(self, tmpdir, data):
+        """Write a JSON file and return a SimpleNamespace with .name pointing to it."""
+        import json, os
+        path = os.path.join(tmpdir, "test.json")
+        with open(path, "w") as f:
+            json.dump(data, f)
+        return SimpleNamespace(name=path)
+
+    @patch("acestep.ui.gradio.events.generation.metadata_loading.gr.Info")
+    def test_load_metadata_clears_file_upload_outputs(self, info_mock):
+        """Saved paths should not be sent back to Gradio file-upload components."""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            file_obj = self._write_json(tmpdir, {
+                "caption": "restored caption",
+                "reference_audio": r"C:\Users\Furkan\AppData\Local\Temp\gradio\old.wav",
+                "src_audio": r"G:\ACE_Step_v1\ACE-Step_Premium",
+                "saved_run_assets": {
+                    "reference_audio_path": r"G:\ACE_Step_v1\ACE-Step_Premium",
+                    "source_audio_path": r"G:\ACE_Step_v1\ACE-Step_Premium",
+                },
+                "audio_processing_settings": {
+                    "diffpitcher": {
+                        "reference_audio": r"G:\ACE_Step_v1\ACE-Step_Premium",
+                        "midi_path": r"G:\ACE_Step_v1\ACE-Step_Premium",
+                    },
+                },
+            })
+            result = generation_handlers.load_metadata(file_obj, None)
+
+        self.assertEqual(result[_metadata_index("captions")], "restored caption")
+        self.assertIsNone(result[_metadata_index("reference_audio")])
+        self.assertIsNone(result[_metadata_index("src_audio")])
+        self.assertIsNone(result[_metadata_index("ap_diffpitcher_reference_audio")])
+        self.assertIsNone(result[_metadata_index("ap_diffpitcher_midi")])
+
+
 
 
 @unittest.skipIf(generation_handlers is None, f"generation_handlers import unavailable: {_IMPORT_ERROR}")

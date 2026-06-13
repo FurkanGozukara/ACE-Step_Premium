@@ -31,6 +31,13 @@ from .metadata_restore_document import (
 )
 from .metadata_restore_settings import audio_processing_ui_values, sam_audio_ui_values
 
+_FILE_OUTPUT_KEYS = (
+    "reference_audio",
+    "src_audio",
+    "ap_diffpitcher_reference_audio",
+    "ap_diffpitcher_midi",
+)
+
 
 def unchanged_metadata_values() -> list[Any]:
     """Return no-op Gradio updates matching the metadata output contract."""
@@ -134,9 +141,17 @@ def metadata_values_from_payload(
     apply_runtime_values(values, runtime)
     values.update(audio_processing_ui_values(payload.get("audio_processing_settings")))
     values.update(sam_audio_ui_values(payload.get("sam_audio_settings")))
+    _clear_file_output_values(values)
     _finalize_audio_code_state(values)
     _finalize_mp3_controls(values)
     return [values[key] for key in LOAD_METADATA_GENERATION_OUTPUT_KEYS]
+
+
+def _clear_file_output_values(values: dict[str, Any]) -> None:
+    """Do not restore Gradio file uploads from saved metadata."""
+
+    for key in _FILE_OUTPUT_KEYS:
+        values[key] = None
 
 
 def _finalize_audio_code_state(values: dict[str, Any]) -> None:
