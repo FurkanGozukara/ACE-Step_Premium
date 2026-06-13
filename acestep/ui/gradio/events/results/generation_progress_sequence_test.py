@@ -207,6 +207,7 @@ class SequentialGenerationCountTests(unittest.TestCase):
         backend_captions = []
         backend_instructions = []
         backend_seeds = []
+        events = []
         saved_paths = []
         json_payloads = []
 
@@ -214,11 +215,13 @@ class SequentialGenerationCountTests(unittest.TestCase):
             backend_captions.append(params.caption)
             backend_instructions.append(params.instruction)
             backend_seeds.append(config.seeds)
+            events.append(f"backend:{params.caption}")
             return _fake_tensor_result(str(config.seeds[0]))
 
         def fake_save_audio(audio_data, output_path, **_kwargs):
             _ = audio_data
             saved_paths.append(output_path)
+            events.append(f"save:{Path(output_path).stem}")
             return output_path
 
         def fake_write_json(_path, payload):
@@ -250,6 +253,12 @@ class SequentialGenerationCountTests(unittest.TestCase):
         self.assertEqual(expected_instructions, backend_instructions)
         self.assertEqual([[100]] * len(TRACK_NAMES), backend_seeds)
         self.assertEqual(len(TRACK_NAMES), len(saved_paths))
+        expected_events = []
+        for stem in TRACK_NAMES:
+            suffix = "vocal" if stem == "vocals" else stem
+            suffix = "backing_vocal" if stem == "backing_vocals" else suffix
+            expected_events.extend([f"backend:{stem}", f"save:Alpha Song_{suffix}"])
+        self.assertEqual(expected_events, events)
         self.assertIn("Alpha Song_woodwinds.wav", "\n".join(saved_paths))
         self.assertIn("Alpha Song_guitar.wav", "\n".join(saved_paths))
         self.assertIn("Alpha Song_vocal.wav", "\n".join(saved_paths))

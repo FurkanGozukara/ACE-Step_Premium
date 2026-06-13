@@ -183,14 +183,19 @@ def run_batch_extract_processing(
                             llm_handler,
                             item_args,
                         )
-                        copied_paths.extend(
-                            copy_batch_extract_audio_outputs(
-                                generated_paths,
-                                audio_path,
-                                target_folder,
-                                track_name=track_name if len(track_names) > 1 else None,
-                            )
+                        copied_for_stem = copy_batch_extract_audio_outputs(
+                            generated_paths,
+                            audio_path,
+                            target_folder,
+                            track_name=track_name if len(track_names) > 1 else None,
                         )
+                        copied_paths.extend(copied_for_stem)
+                        if copied_for_stem:
+                            saved_list = ", ".join(copied_for_stem)
+                            status_lines.append(
+                                f"[{index}/{len(audio_files)}] Saved {track_name}: {saved_list}"
+                            )
+                            yield _render_status(status_lines)
                     except GenerationCancelled:
                         raise
                     except Exception as exc:

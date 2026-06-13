@@ -119,6 +119,54 @@ class GenerationSequenceCancellationTests(unittest.TestCase):
 
         self.assertEqual(calls, [[44], [44], [44]])
 
+    def test_result_callback_runs_after_each_successful_generation(self) -> None:
+        """Sequential generation can notify callers before the next item starts."""
+
+        events = []
+
+        def fake_generate_music(_dit_handler, _llm_handler, *, params, config, progress):
+            """Record backend calls and return one result."""
+
+            _ = params, progress
+            events.append(f"backend:{config.seeds[0]}")
+            return SimpleNamespace(
+                success=True,
+                audios=[],
+                extra_outputs={},
+                status_message="ok",
+            )
+
+        def result_callback(result, index):
+            """Record callback timing for each backend result."""
+
+            _ = result
+            events.append(f"callback:{index}")
+
+        generate_sequential_songs(
+            fake_generate_music,
+            None,
+            None,
+            params=object(),
+            base_config=GenerationConfig(batch_size=1, seeds=[10]),
+            generation_count=3,
+            seed="10",
+            random_seed=False,
+            progress=None,
+            result_callback=result_callback,
+        )
+
+        self.assertEqual(
+            events,
+            [
+                "backend:10",
+                "callback:0",
+                "backend:11",
+                "callback:1",
+                "backend:12",
+                "callback:2",
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

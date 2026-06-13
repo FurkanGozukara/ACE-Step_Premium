@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import replace
-from typing import Any
+from typing import Any, Callable
 
 from loguru import logger
 
@@ -26,6 +26,7 @@ def generate_sequential_songs(
     params_for_index: Any = None,
     progress_label: str = "song",
     reuse_fixed_seed: bool = False,
+    result_callback: Callable[[Any, int], None] | None = None,
 ) -> Any:
     """Run one-song backend calls and return a merged result.
 
@@ -70,6 +71,9 @@ def generate_sequential_songs(
             progress=progress,
         )
         check_generation_cancelled()
+        if result.success and result_callback is not None:
+            result_callback(result, generation_index)
+            check_generation_cancelled()
         results.append(result)
         if not result.success:
             return result

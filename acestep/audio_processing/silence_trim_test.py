@@ -31,8 +31,8 @@ class TestSilenceTrim(unittest.TestCase):
         self.assertEqual((1, 4), tuple(result.audio.shape))
         self.assertTrue(torch.equal(torch.tensor([[1.0, 2.0, 3.0, 4.0]]), result.audio))
 
-    def test_no_active_segments_keeps_original_audio(self) -> None:
-        """No detected segments are kept to avoid writing empty audio files."""
+    def test_no_active_segments_returns_silent_placeholder(self) -> None:
+        """No detected segments should not fall back to the full source audio."""
 
         audio = torch.zeros(1, 8)
 
@@ -42,9 +42,30 @@ class TestSilenceTrim(unittest.TestCase):
         ):
             result = trim_silent_edges(audio, sample_rate=8, enabled=True)
 
-        self.assertFalse(result.metadata["applied"])
+        self.assertTrue(result.metadata["applied"])
         self.assertEqual("no_active_segments", result.metadata["reason"])
-        self.assertIs(result.audio, audio)
+        self.assertEqual(1, result.metadata["trimmed_samples"])
+        self.assertEqual(0, result.metadata["segments_count"])
+        self.assertEqual((1, 1), tuple(result.audio.shape))
+        self.assertTrue(torch.equal(torch.zeros(1, 1), result.audio))
+
+    def test_auto_editor_empty_timeline_returns_silent_placeholder(self) -> None:
+        """An empty Auto-Editor timeline should produce an explicit empty trim result."""
+
+        audio = torch.ones(2, 8)
+
+        with patch(
+            "acestep.audio_processing.auto_editor_trim.run_auto_editor",
+            side_effect=RuntimeError("auto-editor trim analysis failed: Timeline is empty"),
+        ):
+            result = trim_silent_edges(audio, sample_rate=8, enabled=True, threshold_db=0.0)
+
+        self.assertTrue(result.metadata["applied"])
+        self.assertEqual("no_active_segments", result.metadata["reason"])
+        self.assertEqual(1, result.metadata["trimmed_samples"])
+        self.assertEqual(0.125, result.metadata["trimmed_duration_seconds"])
+        self.assertEqual((2, 1), tuple(result.audio.shape))
+        self.assertTrue(torch.equal(torch.zeros(2, 1), result.audio))
 
     def test_disabled_trim_reports_metadata_without_slicing(self) -> None:
         """Disabled trim returns the original tensor and clear metadata."""

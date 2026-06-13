@@ -358,6 +358,80 @@ def generate_with_progress(
         task_type=task_type,
         extract_trim_enabled=extract_trim_empty_output,
     )
+    def _save_extract_stem_as_ready(stem_result, generation_index):
+        """Persist one Extract-all-stems backend result as soon as it completes."""
+
+        if not extract_stem_names or not getattr(stem_result, "success", False):
+            return
+        if not getattr(stem_result, "audios", None):
+            return
+
+        dit_audio = stem_result.audios[0]
+        stem_name = extract_stem_names[generation_index]
+        backend_key = dit_audio["key"]
+        key = _sample_output_key(
+            backend_key,
+            task_type=task_type,
+            src_audio=src_audio,
+            extract_all_stems=True,
+            stem_name=stem_name,
+        )
+        audio_tensor = dit_audio["tensor"]
+        sample_rate = dit_audio["sample_rate"]
+        extract_source_tensor = audio_tensor
+        audio_tensor, extract_trim_metadata = _trim_extract_audio(
+            audio_tensor,
+            sample_rate=sample_rate,
+            task_type=task_type,
+            enabled=extract_trim_empty_output,
+            trim_settings=ap_settings.trim_settings(),
+            threshold_db=extract_trim_threshold_db,
+        )
+        audio_tensor = _apply_deferred_extract_audio_effects(
+            audio_tensor,
+            sample_rate=sample_rate,
+            task_type=task_type,
+            trim_enabled=extract_trim_empty_output,
+            normalization_enabled=enable_normalization,
+            normalization_db=normalization_db,
+            fade_in_duration=fade_in_duration,
+            fade_out_duration=fade_out_duration,
+            normalize_audio_fn=normalize_audio,
+            apply_fade_fn=apply_fade,
+        )
+        temp_dir = str(run_dir.resolve()).replace("\\", "/")
+        saved_audio_paths, audio_path = _save_generated_audio_outputs(
+            save_audio,
+            audio_tensor=audio_tensor,
+            sample_rate=sample_rate,
+            temp_dir=temp_dir,
+            key=key,
+            audio_format=audio_format,
+            primary_audio_format=backend_audio_format,
+            mp3_bitrate=mp3_bitrate,
+            mp3_sample_rate=mp3_sample_rate,
+        )
+        extract_remaining_metadata = save_extract_remaining_audio(
+            source_audio_path=src_audio,
+            extracted_audio=extract_source_tensor,
+            sample_rate=sample_rate,
+            output_dir=temp_dir,
+            output_stem=key,
+            output_format=audio_format,
+            mp3_bitrate=mp3_bitrate,
+            mp3_sample_rate=mp3_sample_rate,
+        )
+        dit_audio["_early_saved_extract"] = {
+            "key": key,
+            "backend_key": backend_key,
+            "audio_tensor": audio_tensor,
+            "extract_source_tensor": extract_source_tensor,
+            "extract_trim": extract_trim_metadata,
+            "saved_audio_paths": saved_audio_paths,
+            "audio_path": audio_path,
+            "extract_remaining_audio": extract_remaining_metadata,
+        }
+
     result = generate_sequential_songs(
         generate_music,
         dit_handler,
@@ -371,6 +445,7 @@ def generate_with_progress(
         params_for_index=_extract_stem_params_for_index(extract_stem_names),
         progress_label="stem" if extract_stem_names else "song",
         reuse_fixed_seed=bool(extract_stem_names),
+        result_callback=_save_extract_stem_as_ready if extract_stem_names else None,
     )
     check_generation_cancelled()
 
@@ -595,66 +670,66 @@ def generate_with_progress(
         audio_params["track_name"] = sample_track_name
         audio_params["extract_stem_name"] = sample_track_name if task_type == "extract" else stem_name
         audio_params["extract_all_stems"] = bool(extract_stem_names)
-        extract_source_tensor = audio_tensor
-        audio_tensor, extract_trim_metadata = _trim_extract_audio(
-            audio_tensor,
-            sample_rate=sample_rate,
-            task_type=task_type,
-            enabled=extract_trim_empty_output,
-            trim_settings=ap_settings.trim_settings(),
-            threshold_db=extract_trim_threshold_db,
-        )
-        audio_tensor = _apply_deferred_extract_audio_effects(
-            audio_tensor,
-            sample_rate=sample_rate,
-            task_type=task_type,
-            trim_enabled=extract_trim_empty_output,
-            normalization_enabled=enable_normalization,
-            normalization_db=normalization_db,
-            fade_in_duration=fade_in_duration,
-            fade_out_duration=fade_out_duration,
-            normalize_audio_fn=normalize_audio,
-            apply_fade_fn=apply_fade,
-        )
-        audio_params["extract_trim"] = extract_trim_metadata
 
         temp_dir = str(run_dir.resolve()).replace("\\", "/")
         json_path = os.path.join(temp_dir, f"{key}.json").replace("\\", "/")
 
-        saved_audio_paths: dict[str, str] = {}
-        for concrete_format in output_audio_formats(audio_format):
-            ext = audio_file_extension(concrete_format)
-            target_path = os.path.join(temp_dir, f"{key}.{ext}").replace("\\", "/")
-            saved_path = save_audio(
-                audio_data=audio_tensor,
-                output_path=target_path,
+        early_saved_extract = dit_audio.get("_early_saved_extract")
+        if isinstance(early_saved_extract, dict):
+            audio_tensor = early_saved_extract["audio_tensor"]
+            extract_source_tensor = early_saved_extract["extract_source_tensor"]
+            extract_trim_metadata = early_saved_extract["extract_trim"]
+            saved_audio_paths = dict(early_saved_extract["saved_audio_paths"])
+            audio_path = str(early_saved_extract["audio_path"] or "")
+            extract_remaining_metadata = dict(early_saved_extract["extract_remaining_audio"])
+        else:
+            extract_source_tensor = audio_tensor
+            audio_tensor, extract_trim_metadata = _trim_extract_audio(
+                audio_tensor,
                 sample_rate=sample_rate,
-                format=concrete_format,
-                channels_first=True,
+                task_type=task_type,
+                enabled=extract_trim_empty_output,
+                trim_settings=ap_settings.trim_settings(),
+                threshold_db=extract_trim_threshold_db,
+            )
+            audio_tensor = _apply_deferred_extract_audio_effects(
+                audio_tensor,
+                sample_rate=sample_rate,
+                task_type=task_type,
+                trim_enabled=extract_trim_empty_output,
+                normalization_enabled=enable_normalization,
+                normalization_db=normalization_db,
+                fade_in_duration=fade_in_duration,
+                fade_out_duration=fade_out_duration,
+                normalize_audio_fn=normalize_audio,
+                apply_fade_fn=apply_fade,
+            )
+            saved_audio_paths, audio_path = _save_generated_audio_outputs(
+                save_audio,
+                audio_tensor=audio_tensor,
+                sample_rate=sample_rate,
+                temp_dir=temp_dir,
+                key=key,
+                audio_format=audio_format,
+                primary_audio_format=backend_audio_format,
                 mp3_bitrate=mp3_bitrate,
                 mp3_sample_rate=mp3_sample_rate,
             )
-            if saved_path:
-                saved_audio_paths[concrete_format] = saved_path.replace("\\", "/")
-
-        audio_path = saved_audio_paths.get(backend_audio_format)
-        if not audio_path and saved_audio_paths:
-            audio_path = next(iter(saved_audio_paths.values()))
-        audio_path = audio_path or ""
-        extract_remaining_metadata = (
-            save_extract_remaining_audio(
-                source_audio_path=src_audio,
-                extracted_audio=extract_source_tensor,
-                sample_rate=sample_rate,
-                output_dir=temp_dir,
-                output_stem=key,
-                output_format=audio_format,
-                mp3_bitrate=mp3_bitrate,
-                mp3_sample_rate=mp3_sample_rate,
+            extract_remaining_metadata = (
+                save_extract_remaining_audio(
+                    source_audio_path=src_audio,
+                    extracted_audio=extract_source_tensor,
+                    sample_rate=sample_rate,
+                    output_dir=temp_dir,
+                    output_stem=key,
+                    output_format=audio_format,
+                    mp3_bitrate=mp3_bitrate,
+                    mp3_sample_rate=mp3_sample_rate,
+                )
+                if task_type == "extract"
+                else {"applied": False}
             )
-            if task_type == "extract"
-            else {"applied": False}
-        )
+        audio_params["extract_trim"] = extract_trim_metadata
         original_audio_paths = dict(saved_audio_paths)
         if bounded_source_edit:
             postprocess_metadata = _skipped_bounded_edit_metadata(
@@ -1128,6 +1203,42 @@ def _stem_filename_suffix(stem_name):
     """Return the filesystem suffix used for one extracted stem."""
 
     return extract_stem_filename_suffix(stem_name)
+
+
+def _save_generated_audio_outputs(
+    save_audio_fn,
+    *,
+    audio_tensor,
+    sample_rate,
+    temp_dir,
+    key,
+    audio_format,
+    primary_audio_format,
+    mp3_bitrate,
+    mp3_sample_rate,
+):
+    """Save one generated sample to all requested output formats."""
+
+    saved_audio_paths: dict[str, str] = {}
+    for concrete_format in output_audio_formats(audio_format):
+        ext = audio_file_extension(concrete_format)
+        target_path = os.path.join(temp_dir, f"{key}.{ext}").replace("\\", "/")
+        saved_path = save_audio_fn(
+            audio_data=audio_tensor,
+            output_path=target_path,
+            sample_rate=sample_rate,
+            format=concrete_format,
+            channels_first=True,
+            mp3_bitrate=mp3_bitrate,
+            mp3_sample_rate=mp3_sample_rate,
+        )
+        if saved_path:
+            saved_audio_paths[concrete_format] = saved_path.replace("\\", "/")
+
+    audio_path = saved_audio_paths.get(primary_audio_format)
+    if not audio_path and saved_audio_paths:
+        audio_path = next(iter(saved_audio_paths.values()))
+    return saved_audio_paths, audio_path or ""
 
 
 def _build_request_payload(

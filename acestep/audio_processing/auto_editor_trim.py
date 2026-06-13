@@ -58,8 +58,19 @@ def trim_silent_edges(
         )
 
     if not spans:
-        metadata["reason"] = "no_active_segments"
-        return SilenceTrimResult(audio=audio, metadata=metadata)
+        trimmed = _silent_placeholder(audio)
+        trimmed_count = audio_sample_count(trimmed)
+        metadata.update(
+            {
+                "applied": True,
+                "reason": "no_active_segments",
+                "trimmed_samples": trimmed_count,
+                "trimmed_duration_seconds": _duration_seconds(trimmed_count, sample_rate),
+                "segments": [],
+                "segments_count": 0,
+            }
+        )
+        return SilenceTrimResult(audio=trimmed, metadata=metadata)
 
     trimmed = _concat_spans(audio, spans)
     trimmed_count = audio_sample_count(trimmed)
@@ -138,6 +149,14 @@ def _concat_spans(audio: torch.Tensor, spans: list[tuple[int, int]]) -> torch.Te
     """Concatenate source sample spans in output order."""
 
     return torch.cat([audio[..., start:end] for start, end in spans], dim=-1)
+
+
+def _silent_placeholder(audio: torch.Tensor) -> torch.Tensor:
+    """Return one silent sample preserving non-time dimensions."""
+
+    if audio.ndim <= 1:
+        return audio.new_zeros((1,))
+    return audio[..., :1].clone().zero_()
 
 
 def _covers_full_audio(spans: list[tuple[int, int]], sample_count: int) -> bool:
