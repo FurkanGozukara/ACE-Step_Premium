@@ -58,7 +58,8 @@ _IDX_AUDIO_FORMAT_COLUMN = 60
 _IDX_REPAINT_DONT_SWITCH_WITH_LYRICS = 61
 _IDX_EXTRACT_ALL_STEMS_COLUMN = 62
 _IDX_EXTRACT_ALL_STEMS = 63
-_EXPECTED_TUPLE_LENGTH = 64
+_IDX_REPAINT_MODE_OPTIONS_GROUP = 64
+_EXPECTED_TUPLE_LENGTH = 65
 _IDX_BPM = 21
 _IDX_KEY = 22
 _IDX_TIMESIG = 23
@@ -112,13 +113,26 @@ class ModeUiStateClearingTests(unittest.TestCase):
         """The lyric-repaint switch opt-out should only appear in Repaint mode."""
 
         repaint_result = compute_mode_ui_updates("Repaint")
+        remix_result = compute_mode_ui_updates("Remix", previous_mode="Repaint")
         custom_result = compute_mode_ui_updates("Custom", previous_mode="Repaint")
 
         self.assertTrue(
             repaint_result[_IDX_REPAINT_DONT_SWITCH_WITH_LYRICS].get("visible")
         )
+        self.assertTrue(
+            repaint_result[_IDX_REPAINT_MODE_OPTIONS_GROUP].get("visible")
+        )
+        self.assertFalse(
+            remix_result[_IDX_REPAINT_DONT_SWITCH_WITH_LYRICS].get("visible")
+        )
+        self.assertFalse(
+            remix_result[_IDX_REPAINT_MODE_OPTIONS_GROUP].get("visible")
+        )
         self.assertFalse(
             custom_result[_IDX_REPAINT_DONT_SWITCH_WITH_LYRICS].get("visible")
+        )
+        self.assertFalse(
+            custom_result[_IDX_REPAINT_MODE_OPTIONS_GROUP].get("visible")
         )
 
     def test_composition_guide_is_mode_specific(self):
@@ -235,6 +249,7 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertIn("does not preserve", result[_IDX_REPAINTING_END].get("info"))
         self.assertFalse(result[_IDX_REPAINT_MODE].get("visible"))
         self.assertFalse(result[_IDX_REPAINT_STRENGTH].get("visible"))
+        self.assertFalse(result[_IDX_REPAINT_MODE_OPTIONS_GROUP].get("visible"))
         self.assertFalse(result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
         self.assertTrue(result[_IDX_RETAKE_ENABLED].get("visible", True))
         self.assertTrue(result[_IDX_FLOW_EDIT_COLUMN].get("visible"))
@@ -302,6 +317,7 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertFalse(result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
         self.assertTrue(result[_IDX_REPAINT_MODE].get("visible"))
         self.assertTrue(result[_IDX_REPAINT_STRENGTH].get("visible"))
+        self.assertTrue(result[_IDX_REPAINT_MODE_OPTIONS_GROUP].get("visible"))
 
     def test_remix_mode_shows_edit(self):
         """Remix keeps the flow-edit overlay available."""
@@ -454,8 +470,9 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertTrue(result[_IDX_SRC_AUDIO_ROW].get("visible"))
         self.assertFalse(result[_IDX_AUDIO_CODES_GROUP].get("visible"))
         self.assertTrue(result[_IDX_TRACK_NAME].get("visible"))
+        self.assertEqual("vocals", result[_IDX_TRACK_NAME].get("value"))
         self.assertTrue(result[_IDX_GENERATE_BTN_ROW].get("visible"))
-        self.assertFalse(result[_IDX_GENERATE_BTN].get("interactive"))
+        self.assertTrue(result[_IDX_GENERATE_BTN].get("interactive"))
         self.assertFalse(result[_IDX_RUNTIME_OPTIONS_ROW].get("visible"))
         self.assertFalse(result[_IDX_THINK_CHECKBOX].get("visible"))
         self.assertFalse(result[_IDX_AUTO_SCORE].get("visible"))
@@ -476,6 +493,20 @@ class ModeUiStateClearingTests(unittest.TestCase):
         )
 
         self.assertTrue(result[_IDX_GENERATE_BTN].get("interactive"))
+        self.assertEqual("vocals", result[_IDX_TRACK_NAME].get("value"))
+
+    def test_extract_mode_preserves_selected_track_name(self):
+        """Extract should not overwrite an existing Track Name selection."""
+
+        result = compute_mode_ui_updates(
+            "Extract",
+            previous_mode="Custom",
+            config_path="ACEStep_1_5_XL_Base_BF16",
+            track_name="guitar",
+        )
+
+        self.assertTrue(result[_IDX_GENERATE_BTN].get("interactive"))
+        self.assertEqual("guitar", result[_IDX_TRACK_NAME].get("value"))
 
     def test_lego_mode_hides_unrelated_remix_repaint_controls(self):
         """Lego should expose stem controls without Remix/Edit/Retake/Repaint tuning."""
@@ -505,6 +536,7 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertEqual(result[_IDX_REPAINT_MODE].get("value"), "balanced")
         self.assertFalse(result[_IDX_REPAINT_STRENGTH].get("visible"))
         self.assertEqual(result[_IDX_REPAINT_STRENGTH].get("value"), 0.5)
+        self.assertFalse(result[_IDX_REPAINT_MODE_OPTIONS_GROUP].get("visible"))
         self.assertFalse(result[_IDX_COVER_NOISE].get("visible"))
         self.assertEqual(result[_IDX_COVER_NOISE].get("value"), 0.0)
 
@@ -536,6 +568,7 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertFalse(result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
         self.assertFalse(result[_IDX_REPAINT_MODE].get("visible"))
         self.assertFalse(result[_IDX_REPAINT_STRENGTH].get("visible"))
+        self.assertFalse(result[_IDX_REPAINT_MODE_OPTIONS_GROUP].get("visible"))
         self.assertIn("Complete Section", result[_IDX_REPAINTING_HEADER].get("value"))
         self.assertEqual(result[_IDX_REPAINTING_START].get("label"), "Complete Start")
         self.assertEqual(result[_IDX_REPAINTING_END].get("label"), "Complete End")

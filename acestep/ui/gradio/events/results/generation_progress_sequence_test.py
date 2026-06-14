@@ -153,6 +153,34 @@ class SequentialGenerationCountTests(unittest.TestCase):
         self.assertEqual("unknown", params.vocal_language)
         self.assertTrue(params.repaint_dont_switch_with_lyrics)
 
+    def test_instrumental_repaint_does_not_force_lyric_repaint_switch(self):
+        """Instrumental Repaint should stay instrumental without enabling lyric opt-out."""
+
+        calls = []
+
+        def fake_generate_music(_dit_handler, _llm_handler, *, params, config, progress):
+            calls.append(params)
+            return _fake_result(str(config.seeds[0]))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._run_generation(
+                tmp,
+                fake_generate_music,
+                task_type="repaint",
+                src_audio="source.wav",
+                lyrics="",
+                vocal_language="en",
+                instrumental_checkbox=True,
+                repaint_dont_switch_with_lyrics=False,
+            )
+
+        self.assertEqual(1, len(calls))
+        params = calls[0]
+        self.assertTrue(params.instrumental)
+        self.assertEqual("[Instrumental]", params.lyrics)
+        self.assertEqual("unknown", params.vocal_language)
+        self.assertFalse(params.repaint_dont_switch_with_lyrics)
+
     def test_generate_with_progress_saves_outputs_beyond_visible_slots(self):
         """Songs above eight should still save files and expose all codes."""
 

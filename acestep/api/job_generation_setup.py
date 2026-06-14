@@ -186,6 +186,11 @@ def build_generation_setup(
         ),
         repaint_mode=getattr(req, "repaint_mode", "balanced"),
         repaint_strength=getattr(req, "repaint_strength", 0.5),
+        repaint_dont_switch_with_lyrics=getattr(
+            req,
+            "repaint_dont_switch_with_lyrics",
+            False,
+        ),
         audio_cover_strength=req.audio_cover_strength,
         cover_noise_strength=req.cover_noise_strength,
         thinking=thinking,

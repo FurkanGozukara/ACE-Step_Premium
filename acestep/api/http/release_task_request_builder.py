@@ -88,6 +88,10 @@ def build_generate_music_request(
         ),
         repaint_mode=parser.str("repaint_mode", "balanced"),
         repaint_strength=parser.float("repaint_strength", 0.5),
+        repaint_dont_switch_with_lyrics=parser.bool(
+            "repaint_dont_switch_with_lyrics",
+            False,
+        ),
         use_adg=parser.bool("use_adg"),
         cfg_interval_start=parser.float("cfg_interval_start", 0.0),
         cfg_interval_end=parser.float("cfg_interval_end", 1.0),

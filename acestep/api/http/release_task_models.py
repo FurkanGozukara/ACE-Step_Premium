@@ -99,6 +99,13 @@ class GenerateMusicRequest(BaseModel):
         le=1.0,
         description="Balanced-mode repaint intensity: 0.0=conservative (max source preservation), 1.0=aggressive (pure diffusion). Only used in balanced mode.",
     )
+    repaint_dont_switch_with_lyrics: bool = Field(
+        default=False,
+        description=(
+            "When true, lyric-bearing repaint requests stay on the source-audio "
+            "repaint path instead of generating a local text-to-music span."
+        ),
+    )
     analysis_only: bool = False
     full_analysis_only: bool = False
     extract_codes_only: bool = False

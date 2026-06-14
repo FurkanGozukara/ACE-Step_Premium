@@ -3,7 +3,7 @@
 import gradio as gr
 from loguru import logger
 
-from acestep.constants import MODE_TO_TASK_TYPE
+from acestep.constants import DEFAULT_EXTRACT_TRACK_NAME, MODE_TO_TASK_TYPE
 from acestep.audio_processing.media_io import media_audio_duration_seconds
 from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.media_upload_values import latest_upload_path
@@ -83,7 +83,10 @@ def compute_mode_ui_updates(
     show_simple = is_simple
     show_custom_group = not_simple and not is_extract
     show_generate_row = not_simple
-    has_track_name = bool(str(track_name or "").strip())
+    selected_track_name = str(track_name or "").strip()
+    if is_extract and not selected_track_name:
+        selected_track_name = DEFAULT_EXTRACT_TRACK_NAME
+    has_track_name = bool(selected_track_name)
     # Custom mode shows src_audio so the flow-edit morph overlay can use
     # it; the row is harmless when morph is off (just an unused upload).
     show_src_audio = is_cover or is_repaint or is_extract or is_lego or is_complete or is_custom
@@ -96,6 +99,11 @@ def compute_mode_ui_updates(
     has_extract_target = has_track_name or (is_extract and bool(extract_all_stems))
     generate_interactive = not_simple and not (
         (is_extract and not has_extract_target) or (is_lego and not has_track_name)
+    )
+    track_name_update = (
+        gr.update(visible=True, value=selected_track_name)
+        if is_extract
+        else gr.update(visible=True)
     )
     extract_all_stems_column_update = gr.update(visible=is_extract)
     extract_all_stems_update = gr.update() if is_extract else gr.update(value=False)
@@ -240,7 +248,7 @@ def compute_mode_ui_updates(
         gr.update(visible=show_src_audio),                 # 6: src_audio_row
         gr.update(visible=show_repainting),                # 7: repainting_group
         gr.update(visible=show_audio_codes),               # 8: text2music_audio_codes_group
-        gr.update(visible=True),                           # 9: track_name
+        track_name_update,                                 # 9: track_name
         gr.update(visible=show_complete_classes),           # 10: complete_track_classes
         gr.update(visible=show_generate_row),              # 11: generate_btn_row
         gr.update(info=mode_help_text, elem_classes=["has-info-container"]),  # 12: generation_mode
@@ -295,6 +303,7 @@ def compute_mode_ui_updates(
         gr.update(visible=is_repaint),                     # 61: repaint_dont_switch_with_lyrics
         extract_all_stems_column_update,                   # 62: extract_all_stems_column
         extract_all_stems_update,                          # 63: extract_all_stems
+        gr.update(visible=is_repaint),                     # 64: repaint_mode_options_group
     )
 
 

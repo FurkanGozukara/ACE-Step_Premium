@@ -537,6 +537,10 @@ async def release_task(request: Request, authorization: Optional[str] = Header(N
             repaint_strength=float(
                 get_param("repaint_strength", default=0.5) or 0.5,
             ),
+            repaint_dont_switch_with_lyrics=to_bool(
+                get_param("repaint_dont_switch_with_lyrics"),
+                False,
+            ),
         )
 
         # Resolve seed(s) into List[int] for GenerationConfig.seeds

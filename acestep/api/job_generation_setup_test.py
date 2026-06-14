@@ -26,6 +26,7 @@ def _base_req() -> SimpleNamespace:
         timesteps="",
         repainting_start=0.0,
         repainting_end=-1,
+        repaint_dont_switch_with_lyrics=False,
         audio_cover_strength=0.0,
         cover_noise_strength=0.0,
         audio_code_string="",
@@ -173,6 +174,34 @@ class JobGenerationSetupTests(unittest.TestCase):
 
         self.assertEqual("<|audio_code_42|>", setup.params.audio_codes)
         self.assertAlmostEqual(0.42, setup.params.cover_noise_strength)
+
+    def test_build_generation_setup_forwards_repaint_lyrics_switch(self) -> None:
+        """Repaint lyric-switch flag should reach GenerationParams unchanged."""
+
+        req = _base_req()
+        req.repaint_dont_switch_with_lyrics = True
+        setup = build_generation_setup(
+            req=req,
+            caption="cap",
+            lyrics="lyr",
+            bpm=None,
+            key_scale="",
+            time_signature="",
+            audio_duration=None,
+            thinking=False,
+            sample_mode=False,
+            format_has_duration=False,
+            use_cot_caption=False,
+            use_cot_language=False,
+            lm_top_k=0,
+            lm_top_p=0.9,
+            parse_timesteps=lambda _value: None,
+            is_instrumental=lambda _lyrics: False,
+            default_dit_instruction="default instruction",
+            task_instructions={},
+        )
+
+        self.assertTrue(setup.params.repaint_dont_switch_with_lyrics)
 
 
     def test_auto_duration_sentinel_passes_through(self) -> None:

@@ -97,6 +97,7 @@ _MODE_UI_OUTPUT_KEYS = (
     "repaint_dont_switch_with_lyrics",
     "extract_all_stems_column",
     "extract_all_stems",
+    "repaint_mode_options_group",
 )
 
 

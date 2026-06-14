@@ -122,14 +122,6 @@ def build_custom_mode_controls() -> dict[str, Any]:
                                 info=t("generation.instrumental_info"),
                                 elem_classes=["has-info-container"],
                             )
-                            repaint_dont_switch_with_lyrics = gr.Checkbox(
-                                label=t("generation.repaint_dont_switch_with_lyrics_label"),
-                                value=False,
-                                visible=False,
-                                scale=2,
-                                info=t("generation.repaint_dont_switch_with_lyrics_info"),
-                                elem_classes=["has-info-container"],
-                            )
                             format_lyrics_btn = gr.Button(
                                 t("generation.format_lyrics_btn"),
                                 variant="secondary",
@@ -153,7 +145,6 @@ def build_custom_mode_controls() -> dict[str, Any]:
         "format_caption_btn": format_caption_btn,
         "lyrics": lyrics,
         "instrumental_checkbox": instrumental_checkbox,
-        "repaint_dont_switch_with_lyrics": repaint_dont_switch_with_lyrics,
         "format_lyrics_btn": format_lyrics_btn,
         "sample_btn": sample_btn,
     }
@@ -188,12 +179,21 @@ def build_repainting_controls() -> dict[str, Any]:
                 elem_classes=["has-info-container"],
             )
             range_preview_controls = build_repainting_range_preview_controls()
+
+    with gr.Group(visible=False) as repaint_mode_options_group:
         with gr.Row():
             repaint_mode = gr.Dropdown(
                 label="Repaint Mode",
                 choices=["conservative", "balanced", "aggressive"],
                 value="balanced",
                 info=t("generation.repaint_mode_info"),
+                elem_classes=["has-info-container"],
+            )
+            repaint_dont_switch_with_lyrics = gr.Checkbox(
+                label=t("generation.repaint_dont_switch_with_lyrics_label"),
+                value=False,
+                scale=1,
+                info=t("generation.repaint_dont_switch_with_lyrics_info"),
                 elem_classes=["has-info-container"],
             )
             repaint_strength = gr.Slider(
@@ -205,9 +205,10 @@ def build_repainting_controls() -> dict[str, Any]:
                 info=t("generation.repaint_strength_info"),
                 elem_classes=["has-info-container"],
             )
-        repaint_strength_memory = gr.State(value=0.5)
+    repaint_strength_memory = gr.State(value=0.5)
     return {
         "repainting_group": repainting_group,
+        "repaint_mode_options_group": repaint_mode_options_group,
         "repainting_header_html": repainting_header_html,
         "repainting_start": repainting_start,
         "repainting_end": repainting_end,
@@ -218,6 +219,7 @@ def build_repainting_controls() -> dict[str, Any]:
             "repainting_range_preview_video"
         ],
         "repaint_mode": repaint_mode,
+        "repaint_dont_switch_with_lyrics": repaint_dont_switch_with_lyrics,
         "repaint_strength": repaint_strength,
         "repaint_strength_memory": repaint_strength_memory,
     }

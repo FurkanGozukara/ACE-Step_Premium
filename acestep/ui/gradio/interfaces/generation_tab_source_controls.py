@@ -8,7 +8,7 @@ from acestep.audio_processing.auto_editor_trim_settings import (
     AUTO_EDITOR_THRESHOLD_DEFAULT_DB,
     coerce_auto_editor_threshold_db,
 )
-from acestep.constants import TRACK_NAMES
+from acestep.constants import DEFAULT_EXTRACT_TRACK_NAME, TRACK_NAMES
 from acestep.ui.gradio.events.generation.audio_format_options import (
     AUDIO_FORMAT_CHOICES,
     DEFAULT_AUDIO_FORMAT,
@@ -28,6 +28,15 @@ from acestep.ui.gradio.interfaces.source_audio_preview import (
     TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
 )
 from acestep.ui.gradio.media_file_types import MEDIA_FILE_TYPES
+
+
+def _default_track_name(params: dict[str, Any]) -> str:
+    """Return the initial Extract/Lego track selection."""
+
+    track_name = str(params.get("track_name") or "").strip().lower()
+    if track_name in TRACK_NAMES:
+        return track_name
+    return DEFAULT_EXTRACT_TRACK_NAME
 
 
 def build_source_audio_controls(
@@ -114,7 +123,7 @@ def build_source_audio_controls(
         with gr.Row(equal_height=True):
             track_name = gr.Dropdown(
                 choices=TRACK_NAMES,
-                value=None,
+                value=_default_track_name(params),
                 label=t("generation.track_name_label"),
                 info=t("generation.track_name_info"),
                 elem_classes=["has-info-container"],

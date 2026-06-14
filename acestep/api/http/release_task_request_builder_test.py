@@ -134,6 +134,21 @@ class ReleaseTaskRequestBuilderTests(unittest.TestCase):
         self.assertEqual("<|audio_code_7|>", request.audio_code_string)
         self.assertAlmostEqual(0.6, request.cover_noise_strength)
 
+    def test_build_request_forwards_repaint_lyrics_switch(self):
+        """Builder should include the Repaint lyric path switch in payload."""
+
+        parser = _FakeParser({"repaint_dont_switch_with_lyrics": "true"})
+        request = build_generate_music_request(
+            parser=parser,
+            request_model_cls=lambda **kwargs: SimpleNamespace(**kwargs),
+            default_dit_instruction="default-instruction",
+            lm_default_temperature=0.85,
+            lm_default_cfg_scale=2.5,
+            lm_default_top_p=0.9,
+        )
+
+        self.assertTrue(request.repaint_dont_switch_with_lyrics)
+
 
 if __name__ == "__main__":
     unittest.main()

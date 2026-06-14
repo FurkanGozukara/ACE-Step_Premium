@@ -26,6 +26,7 @@ class ReleaseTaskModelsTests(unittest.TestCase):
         req = GenerateMusicRequest()
         self.assertEqual("", req.audio_code_string)
         self.assertAlmostEqual(0.0, req.cover_noise_strength)
+        self.assertFalse(req.repaint_dont_switch_with_lyrics)
 
     def test_audio_code_string_and_cover_noise_strength_are_accepted(self):
         """Model should accept user-supplied audio_code_string and cover_noise_strength."""
@@ -33,6 +34,12 @@ class ReleaseTaskModelsTests(unittest.TestCase):
         req = GenerateMusicRequest(audio_code_string="<|audio_code_1|>", cover_noise_strength=0.75)
         self.assertEqual("<|audio_code_1|>", req.audio_code_string)
         self.assertAlmostEqual(0.75, req.cover_noise_strength)
+
+    def test_repaint_lyrics_switch_is_accepted(self):
+        """Model should accept the source-audio Repaint lyric switch."""
+
+        req = GenerateMusicRequest(repaint_dont_switch_with_lyrics=True)
+        self.assertTrue(req.repaint_dont_switch_with_lyrics)
 
 
 if __name__ == "__main__":

@@ -162,6 +162,7 @@ TRACK_NAMES = [
     "woodwinds", "brass", "fx", "synth", "strings", "percussion",
     "keyboard", "guitar", "bass", "drums", "backing_vocals", "vocals"
 ]
+DEFAULT_EXTRACT_TRACK_NAME = "vocals"
 
 # Template for SFT (Supervised Fine-Tuning) model prompts
 # Used to format inputs for the language model with instruction, caption, and metadata

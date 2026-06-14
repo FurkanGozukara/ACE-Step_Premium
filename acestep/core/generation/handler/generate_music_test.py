@@ -622,6 +622,89 @@ class GenerateMusicMixinTests(unittest.TestCase):
             host.calls["_build_generate_music_success_payload"]["pred_wavs"],
         )
 
+    @patch.object(GENERATE_MUSIC_MODULE, "apply_repaint_waveform_splice")
+    @patch.object(GENERATE_MUSIC_MODULE, "apply_repaint_segment_splice")
+    def test_repaint_without_target_lyrics_keeps_repaint_path(
+        self,
+        segment_splice_mock,
+        waveform_splice_mock,
+    ):
+        """Empty or instrumental repaint lyrics should not switch to text2music."""
+
+        for lyric_text in ("", "[Instrumental]"):
+            with self.subTest(lyrics=lyric_text):
+                segment_splice_mock.reset_mock()
+                waveform_splice_mock.reset_mock()
+                host = _Host()
+                source_audio = torch.ones(2, 48000 * 3)
+                spliced = torch.full((1, 2, 48000 * 3), 8.0)
+                waveform_splice_mock.return_value = spliced
+
+                def _prepare_audio(**kwargs):
+                    """Return a three-second prepared source audio tensor."""
+                    host.calls["_prepare_reference_and_source_audio"] = kwargs
+                    return [[torch.zeros(2, 10)]], source_audio, None
+
+                def _prepare_service_inputs(**kwargs):
+                    """Return standard repaint service inputs for the range."""
+                    host.calls["_prepare_generate_music_service_inputs"] = kwargs
+                    return {
+                        "should_return_intermediate": True,
+                        "repainting_start_batch": [1.0],
+                        "repainting_end_batch": [2.0],
+                        "target_wavs_tensor": torch.zeros(1, 2, 48000 * 3),
+                    }
+
+                host._prepare_reference_and_source_audio = _prepare_audio
+                host._prepare_generate_music_service_inputs = _prepare_service_inputs
+
+                out = host.generate_music(
+                    captions="instrumental section",
+                    lyrics=lyric_text,
+                    task_type="repaint",
+                    src_audio="source.wav",
+                    audio_duration=99.0,
+                    repainting_start=1.0,
+                    repainting_end=2.0,
+                    repaint_mode="balanced",
+                    repaint_strength=0.5,
+                )
+
+                self.assertEqual(out, host._final_payload)
+                self.assertIs(
+                    source_audio,
+                    host.calls["_prepare_generate_music_service_inputs"][
+                        "processed_src_audio"
+                    ],
+                )
+                self.assertEqual(
+                    "repaint",
+                    host.calls["_prepare_generate_music_service_inputs"]["task_type"],
+                )
+                self.assertEqual(
+                    "repaint",
+                    host.calls["_run_generate_music_service_with_progress"]["task_type"],
+                )
+                self.assertEqual(
+                    "repaint",
+                    out["extra_outputs"]["effective_generation"]["task_type"],
+                )
+                self.assertFalse(
+                    out["extra_outputs"]["effective_generation"][
+                        "lyric_repaint_local_span"
+                    ],
+                )
+                segment_splice_mock.assert_not_called()
+                waveform_splice_mock.assert_called_once()
+                self.assertIs(
+                    source_audio,
+                    waveform_splice_mock.call_args.kwargs["src_wavs"],
+                )
+                self.assertIs(
+                    spliced,
+                    host.calls["_build_generate_music_success_payload"]["pred_wavs"],
+                )
+
 
 class VramPreflightCheckTests(unittest.TestCase):
     """Verify ``_vram_preflight_check`` respects CPU offload mode."""
