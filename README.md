@@ -1,4 +1,4 @@
-<h1>ACE-Step 1.5 XL Premium v4.8 - Better Music & Song Generator Than SUNO 5.0 - Remix and Repaint Features - Windows, RunPod, Massed Compute, Linux 1-click Installers</h1>
+<h1>ACE-Step 1.5 XL Premium - Better Music & Song Generator Than SUNO 5.0 - Remix and Repaint Features - Windows, RunPod, Massed Compute, Linux 1-click Installers</h1>
 
 <h2>Download app : https://www.patreon.com/posts/157675060</h2>
 
@@ -45,6 +45,46 @@
             -   Our installer uses uv installation for all of the requirements at once thus it is lightning fast, like 100x faster than normal
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
+
+### 14 June 2026 V5.0.0 Update 
+
+-   I am still working on inference tutorial and as I used and as you made new feautre requests new features arrived    
+-   Auto-Editor trim output was not working properly and this bug fixed now should work much better when you use it in SAM Audio Segment or ACESTEP XL 1.5 Extract    
+    -   This is really useful to get only vocals and trim empty / no vocal parts for training        
+-   Extract All stems feature implemented to ACESTEP XL 1.5 extract tab
+    
+<img width="2026" height="202" alt="image" src="https://github.com/user-attachments/assets/e400fca0-cd85-4ddd-9d7d-d1bfbb5616be" />
+    
+-   Extracted stems will be saved in same folder with suffixes like brass, guitar, vocal, etc.    
+    -   I noticed that extracting stems much better working on full songs rather than part of songs like 1 minute split part for some reason for ACESTEP XL 1.5 extract        
+    -   Extract logic improved        
+    -   Each different extract may yield different results so you can try multiple times to get better extract
+        
+-   Auto-Editor workflow export significantly improved    
+    -   In Audi Processing tab enable Auto-Editor trim silent sections        
+    -   Then Set Processing Preset = None        
+    -   Then select your Auto-Editor workflow export like DaVinci Resolve        
+    -   Then use Local Audio/Video Path with Browse File button or direct path        
+    -   This way you will get almost instantly .fcpxml with accurate file path or whatever supported format you pick        
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/7c10a812-c34d-4b01-8830-b212d963c31e" />
+
+-   SAM Audio Segmet now supports Batch Segment    
+-   You can use Batch Segment with 2 ways    
+    -   First way is enable Batch Segment checkbox and type your stems / segments into Custom Prompt with ; seperation        
+    -   Second way is select multiple Quick Prompt from dropdown and it will segment / extract every one of them        
+    -   Custom prompt section overwrites Quick Prompt selections        
+    -   Extracted stems / segments will be saved in same folder with suffixes like brass, guitar, vocal, etc.        
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/fe116d0c-6a46-4515-a5a3-8771a8faf149" />
+
+-   Load Metadata feature implemented as a new tab    
+-   Select the generation\_manifest.json and it will load every single configuration / parameter of that generation    
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/2f31f454-3a15-4e36-a212-8946d60bedcf" />
+
+-   Get the latest zip file, overwrite older files and run Windows\_Install\_or\_Update.bat file for update or fresh install    
+-   To have all models (ACESTEP XL 1.5 Base and ACESTEP XL 1.5 SFT) run Windows\_Download\_All\_Models.bat after installation
 
 ### 12 June 2026 V4.9.5 Update 
 
