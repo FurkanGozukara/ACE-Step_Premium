@@ -69,6 +69,10 @@ def release_generation_if_requested(
 def single_status(artifacts: dict[str, Any], cleanup_status: str) -> str:
     """Return single-file status markdown."""
 
+    batch_artifacts = artifacts.get("_batch_segment_artifacts")
+    if isinstance(batch_artifacts, list) and batch_artifacts:
+        return _batch_segment_status(batch_artifacts, cleanup_status)
+
     lines = []
     metadata = _read_metadata(artifacts.get("metadata_path"))
     if cleanup_status:
@@ -84,6 +88,34 @@ def single_status(artifacts: dict[str, Any], cleanup_status: str) -> str:
             f"- Metadata: `{artifacts.get('metadata_path')}`",
         ]
     )
+    return "\n".join(lines)
+
+
+def _batch_segment_status(batch_artifacts: list[Any], cleanup_status: str) -> str:
+    """Return status markdown for a multi-prompt Batch Segment run."""
+
+    lines = []
+    if cleanup_status:
+        lines.append(cleanup_status)
+    lines.extend(
+        [
+            "### SAM Audio Batch Segment Output",
+            f"- Segments: `{len(batch_artifacts)}`",
+        ]
+    )
+    for index, artifact in enumerate(batch_artifacts, start=1):
+        if not isinstance(artifact, dict):
+            continue
+        metadata = _read_metadata(artifact.get("metadata_path"))
+        prompt = str(artifact.get("_batch_segment_prompt") or "").strip()
+        if not prompt:
+            prompt = _prompt_label(metadata)
+        lines.append(
+            f"- {index}. `{prompt}` -> `{artifact.get('target_audio_path')}`"
+        )
+        residual = artifact.get("residual_audio_path")
+        if residual:
+            lines.append(f"  Remaining: `{residual}`")
     return "\n".join(lines)
 
 
@@ -108,6 +140,16 @@ def _model_label(metadata: dict[str, Any]) -> str:
     name = Path(path).name if path else "Unknown"
     dtype = str(model.get("dtype") or "").replace("torch.", "")
     return f"{name} ({dtype})" if dtype else name
+
+
+def _prompt_label(metadata: dict[str, Any]) -> str:
+    """Return the prompt description saved in SAM-Audio metadata."""
+
+    prompt = metadata.get("prompt") if isinstance(metadata, dict) else None
+    if not isinstance(prompt, dict):
+        return "segment"
+    description = str(prompt.get("description") or "").strip()
+    return description or "segment"
 
 
 def _trim_label(metadata: dict[str, Any]) -> str:

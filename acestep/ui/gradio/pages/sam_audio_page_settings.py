@@ -91,16 +91,32 @@ def _add_prompt_controls(controls: dict[str, Any]) -> None:
     spans_interactive = not preset["low_vram_lite"]
     with gr.Group(elem_classes=["ace-panel", "ace-stack"]):
         gr.Markdown("### Prompt")
-        controls["sam_prompt_mode"] = gr.Dropdown(
-            choices=[("Text", "text"), ("Span", "span")],
-            value="text",
-            label="Mode",
-        )
+        with gr.Row():
+            controls["sam_prompt_mode"] = gr.Dropdown(
+                choices=[("Text", "text"), ("Span", "span")],
+                value="text",
+                label="Mode",
+                scale=3,
+            )
+            controls["sam_batch_segment"] = gr.Checkbox(
+                label="Batch Segment",
+                value=False,
+                info=(
+                    "Run one SAM-Audio pass per prompt, saving outputs as source_prompt. "
+                    "Multiple Quick Prompt selections enable this automatically."
+                ),
+                scale=1,
+            )
         with gr.Row(equal_height=True):
             controls["sam_prompt_preset"] = gr.Dropdown(
                 choices=PROMPT_PRESET_CHOICES,
-                value="vocals",
+                value=["vocals"],
                 label="Quick Prompt",
+                multiselect=True,
+                info=(
+                    "Select one or more presets. Multiple selections run separately "
+                    "when Custom Prompt is empty."
+                ),
                 scale=3,
             )
             controls["sam_predict_spans"] = gr.Checkbox(
@@ -113,7 +129,14 @@ def _add_prompt_controls(controls: dict[str, Any]) -> None:
                 interactive=spans_interactive,
                 scale=1,
             )
-        controls["sam_custom_prompt"] = gr.Textbox(label="Custom Prompt", value="")
+        controls["sam_custom_prompt"] = gr.Textbox(
+            label="Custom Prompt",
+            value="",
+            info=(
+                "For Batch Segment, enter prompts separated by semicolons, "
+                "for example: vocals;guitar;bass."
+            ),
+        )
         with gr.Row():
             controls["sam_use_span_anchor"] = gr.Checkbox(
                 label="Use explicit span anchor",

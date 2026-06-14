@@ -12,8 +12,13 @@ from acestep.audio_processing.trim_ui_settings import (
 )
 from acestep.core.generation.cancellation import GenerationCancelled
 from acestep.sam_audio_segment.batch import run_batch_sam_audio
+from acestep.sam_audio_segment.batch_segment import (
+    batch_segment_prompts,
+    is_batch_segment_active,
+    settings_for_batch_segment_prompt,
+)
 from acestep.sam_audio_segment.paths import create_run_dir, safe_media_stem
-from acestep.sam_audio_segment.progress import ProgressCallback
+from acestep.sam_audio_segment.progress import ProgressCallback, report_progress
 from acestep.sam_audio_segment.service_cache import cached_sam_audio_service
 from acestep.sam_audio_segment.settings import (
     SAM_AUDIO_PRESET_KEYS,
@@ -154,13 +159,20 @@ def _process_single_subprocess(
             "mode": "single",
             "input_path": input_path,
             "output_dir": str(run_dir),
-            "output_stem": f"{safe_media_stem(input_path)}_sam",
+            "output_stem": (
+                safe_media_stem(input_path)
+                if is_batch_segment_active(settings)
+                else f"{safe_media_stem(input_path)}_sam"
+            ),
             "mask_video_path": mask_video_path,
             "settings": settings.to_payload(),
         },
         progress_callback=progress_callback,
     )
-    return result["artifacts"], result["files"]
+    artifacts = dict(result["artifacts"])
+    if result.get("batch_artifacts"):
+        artifacts["_batch_segment_artifacts"] = result["batch_artifacts"]
+    return artifacts, result["files"]
 
 
 def _process_single_in_process(
@@ -171,6 +183,17 @@ def _process_single_in_process(
     progress_callback: ProgressCallback | None,
 ) -> tuple[dict[str, Any], list[str]]:
     """Run one SAM-Audio file inside the Gradio process and return artifacts."""
+
+    prompts = batch_segment_prompts(settings)
+    if prompts:
+        return _process_single_batch_segments_in_process(
+            input_path,
+            mask_video_path,
+            run_dir,
+            settings,
+            prompts,
+            progress_callback,
+        )
 
     with cached_sam_audio_service(
         settings,
@@ -183,6 +206,75 @@ def _process_single_in_process(
             mask_video_path=mask_video_path,
         )
     return artifact_obj.__dict__, artifact_obj.file_list()
+
+
+def _process_single_batch_segments_in_process(
+    input_path: str,
+    mask_video_path: str | None,
+    run_dir,
+    settings: SamAudioSettings,
+    prompts,
+    progress_callback: ProgressCallback | None,
+) -> tuple[dict[str, Any], list[str]]:
+    """Run one uploaded file once per Batch Segment prompt."""
+
+    artifacts = []
+    base_stem = safe_media_stem(input_path)
+    with cached_sam_audio_service(
+        settings_for_batch_segment_prompt(settings, prompts[0]),
+        progress_callback=_segment_progress_callback(
+            progress_callback,
+            1,
+            len(prompts),
+            prompts[0].text,
+        ),
+    ) as service:
+        for index, prompt in enumerate(prompts, start=1):
+            service.settings = settings_for_batch_segment_prompt(settings, prompt)
+            service.progress_callback = _segment_progress_callback(
+                progress_callback,
+                index,
+                len(prompts),
+                prompt.text,
+            )
+            artifacts.append(
+                service.process_file(
+                    input_path,
+                    run_dir,
+                    output_stem=f"{base_stem}_{prompt.suffix}",
+                    mask_video_path=mask_video_path,
+                )
+            )
+    return _batch_segment_artifacts_payload(artifacts, prompts)
+
+
+def _batch_segment_artifacts_payload(artifacts, prompts) -> tuple[dict[str, Any], list[str]]:
+    """Return the single-file UI payload for multiple saved SAM artifacts."""
+
+    files = [path for artifact in artifacts for path in artifact.file_list()]
+    batch_artifacts = []
+    for artifact, prompt in zip(artifacts, prompts):
+        item = dict(artifact.__dict__)
+        item["_batch_segment_prompt"] = prompt.text
+        batch_artifacts.append(item)
+    first = dict(batch_artifacts[0])
+    first["_batch_segment_artifacts"] = batch_artifacts
+    return first, files
+
+
+def _segment_progress_callback(
+    callback: ProgressCallback | None,
+    index: int,
+    total: int,
+    prompt: str,
+) -> ProgressCallback | None:
+    """Map one prompt's SAM-Audio progress into the whole Batch Segment run."""
+
+    def _report(fraction: float, message: str) -> None:
+        overall = ((index - 1) + float(fraction)) / max(1, total)
+        report_progress(callback, overall, f"[{index}/{total}] {prompt}: {message}")
+
+    return _report
 
 
 def _progress_callback(progress: Any | None) -> ProgressCallback | None:

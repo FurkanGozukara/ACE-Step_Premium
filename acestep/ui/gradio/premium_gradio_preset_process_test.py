@@ -195,6 +195,46 @@ class PremiumGradioPresetProcessTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIn("Saved preset: sanitized-copy", save_result.get("data", [])[1])
 
+    async def test_load_preset_process_api_restores_sam_prompt_multiselect(self) -> None:
+        """SAM Quick Prompt multiselect values should load through real components."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            original = os.environ.get("ACESTEP_PROJECT_ROOT")
+            os.environ["ACESTEP_PROJECT_ROOT"] = tmp_dir
+            try:
+                keys = get_preset_component_keys()
+                values = [DEFAULT_PRESET_VALUES.get(key, "") for key in keys]
+                values[keys.index("sam_prompt_preset")] = ["vocals", "bass"]
+                values[keys.index("sam_batch_segment")] = True
+                save_preset_action("sam-prompts", None, *values)
+
+                demo = create_gradio_interface(
+                    dit_handler=_FakeDitHandler(),
+                    llm_handler=_FakeLlmHandler(),
+                    dataset_handler=_FakeDatasetHandler(),
+                    init_params=None,
+                    language="en",
+                )
+                load_id = next(
+                    key for key, block_fn in demo.fns.items()
+                    if getattr(block_fn.fn, "__name__", "") == "load_preset_action"
+                )
+                demo.fns[load_id].inputs[0].choices = [("sam-prompts", "sam-prompts")]
+
+                result = await demo.process_api(load_id, ["sam-prompts"])
+            finally:
+                if original is None:
+                    os.environ.pop("ACESTEP_PROJECT_ROOT", None)
+                else:
+                    os.environ["ACESTEP_PROJECT_ROOT"] = original
+
+        data = result.get("data", [])
+        self.assertEqual(
+            ["vocals", "bass"],
+            data[keys.index("sam_prompt_preset")].get("value"),
+        )
+        self.assertTrue(data[keys.index("sam_batch_segment")].get("value"))
+
     async def test_delete_preset_process_api_selects_next_available_preset(self) -> None:
         """Deleting the selected preset should refresh and load the next preset."""
 

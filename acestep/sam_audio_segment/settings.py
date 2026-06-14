@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -44,6 +45,7 @@ SAM_AUDIO_PRESET_KEYS: tuple[str, ...] = (
     "sam_prompt_mode",
     "sam_prompt_preset",
     "sam_custom_prompt",
+    "sam_batch_segment",
     "sam_use_span_anchor",
     "sam_anchor_json",
     "sam_anchor_polarity",
@@ -88,8 +90,9 @@ class SamAudioSettings:
     trim_minclip: int = SAM_AUDIO_DEFAULT_TRIM_MINCLIP
     output_format: str = "mp3"
     prompt_mode: str = "text"
-    prompt_preset: str = DEFAULT_PROMPT
+    prompt_preset: tuple[str, ...] = (DEFAULT_PROMPT,)
     custom_prompt: str = ""
+    batch_segment: bool = False
     use_span_anchor: bool = False
     anchor_json: str = ""
     anchor_polarity: str = "+"
@@ -124,12 +127,21 @@ class SamAudioSettings:
         """Return custom prompt text or the selected preset value."""
 
         custom = self.custom_prompt.strip()
-        return custom or self.prompt_preset.strip() or DEFAULT_PROMPT
+        preset = self.prompt_presets[0] if self.prompt_presets else DEFAULT_PROMPT
+        return custom or preset.strip() or DEFAULT_PROMPT
+
+    @property
+    def prompt_presets(self) -> tuple[str, ...]:
+        """Return normalized selected Quick Prompt values."""
+
+        return normalize_prompt_preset_selection(self.prompt_preset)
 
     def to_payload(self) -> dict[str, Any]:
         """Return a JSON-safe payload."""
 
-        return dict(self.__dict__)
+        payload = dict(self.__dict__)
+        payload["prompt_preset"] = list(self.prompt_presets)
+        return payload
 
     def trim_settings(self) -> AutoEditorTrimSettings:
         """Return Auto-Editor trim behavior settings for SAM-Audio output."""
@@ -180,8 +192,11 @@ class SamAudioSettings:
                 {"text", "span", "visual"},
                 "text",
             ),
-            prompt_preset=str(payload.get("prompt_preset") or DEFAULT_PROMPT),
+            prompt_preset=normalize_prompt_preset_selection(
+                payload.get("prompt_preset")
+            ),
             custom_prompt=str(payload.get("custom_prompt") or ""),
+            batch_segment=bool(payload.get("batch_segment", False)),
             use_span_anchor=bool(payload.get("use_span_anchor", False)),
             anchor_json=str(payload.get("anchor_json") or ""),
             anchor_polarity=_choice(payload.get("anchor_polarity"), {"+", "-"}, "+"),
@@ -268,6 +283,26 @@ def settings_from_ui_values(values: tuple[Any, ...] | list[Any]) -> SamAudioSett
     return SamAudioSettings.from_payload(payload)
 
 
+def normalize_prompt_preset_selection(value: Any) -> tuple[str, ...]:
+    """Return normalized Quick Prompt selections from old or new UI values."""
+
+    if value is None:
+        return (DEFAULT_PROMPT,)
+    if isinstance(value, str):
+        prompt = _normalize_prompt_text(value)
+        return (prompt,) if prompt else (DEFAULT_PROMPT,)
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        values = value
+    else:
+        values = (value,)
+    prompts: list[str] = []
+    for item in values:
+        prompt = _normalize_prompt_text(item)
+        if prompt:
+            prompts.append(prompt)
+    return tuple(prompts)
+
+
 def with_auto_editor_trim_settings(
     settings: SamAudioSettings,
     trim_settings: AutoEditorTrimSettings,
@@ -296,6 +331,12 @@ def _choice(value: Any, allowed: set[str], fallback: str) -> str:
 
     normalized = str(value or "").strip()
     return normalized if normalized in allowed else fallback
+
+
+def _normalize_prompt_text(value: Any) -> str:
+    """Normalize one prompt text value for text conditioning."""
+
+    return " ".join(str(value or "").strip().lower().split())
 
 
 def _float(value: Any, fallback: float) -> float:

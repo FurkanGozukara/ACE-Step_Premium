@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 from acestep.sam_audio_segment.settings import SAM_AUDIO_PRESET_KEYS, SamAudioSettings
 from acestep.ui.gradio.events.wiring.sam_audio_processing import (
     _process_single_in_process,
+    _process_single_subprocess,
     _settings_from_input_values,
 )
 
@@ -18,11 +19,16 @@ from acestep.ui.gradio.events.wiring.sam_audio_processing import (
 class _Artifact:
     """Small artifact object matching the service return contract."""
 
-    def __init__(self) -> None:
-        self.target_audio_path = "target.wav"
-        self.residual_audio_path = "residual.wav"
+    def __init__(
+        self,
+        target_audio_path: str = "target.wav",
+        residual_audio_path: str = "residual.wav",
+        metadata_path: str = "metadata.json",
+    ) -> None:
+        self.target_audio_path = target_audio_path
+        self.residual_audio_path = residual_audio_path
         self.target_video_path = None
-        self.metadata_path = "metadata.json"
+        self.metadata_path = metadata_path
 
     def file_list(self) -> list[str]:
         """Return generated file paths."""
@@ -70,6 +76,89 @@ class SamAudioProcessingTests(unittest.TestCase):
         _, _, kwargs = service.process_file.mock_calls[0]
         self.assertEqual("My Song_sam", kwargs["output_stem"])
         self.assertIsNone(kwargs["mask_video_path"])
+
+    def test_single_batch_segment_reuses_cached_service_for_each_prompt(self) -> None:
+        """Batch Segment should iterate prompts without unloading the cached model."""
+
+        service = MagicMock()
+        service.process_file.side_effect = [
+            _Artifact("vocals.wav", "vocals_residual.wav", "vocals.json"),
+            _Artifact("guitar.wav", "guitar_residual.wav", "guitar.json"),
+        ]
+        settings = SamAudioSettings(
+            subprocess=False,
+            batch_segment=False,
+            prompt_preset=("vocals", "guitar"),
+        )
+        cache_calls = []
+
+        @contextmanager
+        def _cached_service(*args, **kwargs):
+            """Yield the fake cached service and record cache inputs."""
+
+            cache_calls.append((args, kwargs))
+            yield service
+
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "acestep.ui.gradio.events.wiring.sam_audio_processing.cached_sam_audio_service",
+            new=_cached_service,
+        ):
+            artifacts, files = _process_single_in_process(
+                "C:/music/My Song.wav",
+                None,
+                Path(temp_dir),
+                settings,
+                None,
+            )
+
+        stems = [call.kwargs["output_stem"] for call in service.process_file.mock_calls]
+        self.assertEqual(["My Song_vocals", "My Song_guitar"], stems)
+        self.assertEqual("vocals.wav", artifacts["target_audio_path"])
+        self.assertEqual(2, len(artifacts["_batch_segment_artifacts"]))
+        self.assertEqual(
+            [
+                "vocals.wav",
+                "vocals_residual.wav",
+                "vocals.json",
+                "guitar.wav",
+                "guitar_residual.wav",
+                "guitar.json",
+            ],
+            files,
+        )
+        self.assertEqual(1, len(cache_calls))
+        service.unload.assert_not_called()
+
+    def test_single_subprocess_auto_batch_segment_uses_source_stem(self) -> None:
+        """Auto Batch Segment should match explicit Batch Segment output naming."""
+
+        settings = SamAudioSettings(
+            subprocess=True,
+            batch_segment=False,
+            prompt_preset=("vocals", "bass"),
+        )
+        result = {
+            "artifacts": {"target_audio_path": "vocals.wav"},
+            "batch_artifacts": [{"target_audio_path": "vocals.wav"}],
+            "files": ["vocals.wav"],
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir, patch(
+            "acestep.ui.gradio.events.wiring.sam_audio_processing.run_sam_audio_subprocess",
+            return_value=result,
+        ) as subprocess_mock:
+            artifacts, files = _process_single_subprocess(
+                "C:/music/My Song.wav",
+                None,
+                Path(temp_dir),
+                settings,
+                None,
+            )
+
+        payload = subprocess_mock.call_args.args[0]
+        self.assertEqual("My Song", payload["output_stem"])
+        self.assertEqual(["vocals.wav"], files)
+        self.assertEqual(1, len(artifacts["_batch_segment_artifacts"]))
 
     def test_settings_from_input_values_uses_audio_processing_trim_tail(self) -> None:
         """Standalone SAM handlers should use shared Audio Processing trim values."""

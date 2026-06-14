@@ -25,6 +25,9 @@ class PremiumSamAudioPresetTests(unittest.TestCase):
             values[keys.index("sam_reranking_candidates")] = 8
             values[keys.index("sam_low_vram_lite")] = False
             values[keys.index("sam_compile_model")] = True
+            values[keys.index("sam_batch_segment")] = True
+            values[keys.index("sam_prompt_preset")] = ["vocals", "bass"]
+            values[keys.index("sam_custom_prompt")] = "vocals;guitar;bass"
             try:
                 premium_features.save_preset_action("sam span prediction", None, *values)
                 loaded = premium_features.load_named_preset("sam span prediction")
@@ -37,9 +40,17 @@ class PremiumSamAudioPresetTests(unittest.TestCase):
 
         self.assertTrue(loaded["sam_predict_spans"])
         self.assertTrue(loaded["sam_compile_model"])
+        self.assertTrue(loaded["sam_batch_segment"])
+        self.assertEqual(["vocals", "bass"], loaded["sam_prompt_preset"])
+        self.assertEqual("vocals;guitar;bass", loaded["sam_custom_prompt"])
         self.assertEqual(8, loaded["sam_reranking_candidates"])
         self.assertTrue(updates[keys.index("sam_predict_spans")].get("value"))
         self.assertTrue(updates[keys.index("sam_compile_model")].get("value"))
+        self.assertTrue(updates[keys.index("sam_batch_segment")].get("value"))
+        self.assertEqual(
+            ["vocals", "bass"],
+            updates[keys.index("sam_prompt_preset")].get("value"),
+        )
         self.assertEqual(
             8,
             updates[keys.index("sam_reranking_candidates")].get("value"),

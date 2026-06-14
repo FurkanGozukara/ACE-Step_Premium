@@ -42,6 +42,19 @@ class SamAudioPageTests(unittest.TestCase):
         self.assertFalse(controls["sam_predict_spans"].value)
         self.assertTrue(controls["sam_predict_spans"].interactive)
 
+    def test_quick_prompt_dropdown_is_multiselect(self) -> None:
+        """Quick Prompt should accept multiple Batch Segment targets."""
+
+        demo = gr.Blocks()
+        try:
+            with demo:
+                controls = create_sam_audio_page()
+        finally:
+            demo.close()
+
+        self.assertTrue(controls["sam_prompt_preset"].multiselect)
+        self.assertEqual(["vocals"], controls["sam_prompt_preset"].value)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -37,6 +37,8 @@ class TestSamAudioSettings(unittest.TestCase):
         self.assertEqual(4, settings.trim_minclip)
         self.assertEqual("mp3", settings.output_format)
         self.assertEqual("vocals", settings.effective_prompt)
+        self.assertEqual(("vocals",), settings.prompt_presets)
+        self.assertFalse(settings.batch_segment)
 
     def test_values_follow_schema_order(self):
         """Ordered UI values map to the expected settings fields."""
@@ -50,8 +52,9 @@ class TestSamAudioSettings(unittest.TestCase):
                 "sam_trim_threshold_db": -42.0,
                 "sam_output_format": "flac",
                 "sam_prompt_mode": "span",
-                "sam_prompt_preset": "vocals",
+                "sam_prompt_preset": ["vocals", "bass"],
                 "sam_custom_prompt": "lead vocal",
+                "sam_batch_segment": True,
                 "sam_use_span_anchor": True,
                 "sam_anchor_json": "",
                 "sam_anchor_polarity": "+",
@@ -88,6 +91,8 @@ class TestSamAudioSettings(unittest.TestCase):
         self.assertTrue(settings.auto_postprocess)
         self.assertEqual("flac", settings.output_format)
         self.assertEqual("lead vocal", settings.effective_prompt)
+        self.assertEqual(("vocals", "bass"), settings.prompt_presets)
+        self.assertTrue(settings.batch_segment)
         self.assertEqual(42, settings.seed)
         self.assertTrue(settings.random_seed)
         self.assertEqual("cudnn", settings.attention_backend)
@@ -136,6 +141,37 @@ class TestSamAudioSettings(unittest.TestCase):
 
         self.assertTrue(settings.predict_spans)
         self.assertEqual(8, settings.reranking_candidates)
+
+    def test_old_scalar_prompt_preset_values_still_load(self):
+        """Saved presets from the old single-select Quick Prompt remain valid."""
+
+        settings = SamAudioSettings.from_payload({"prompt_preset": "lead vocal"})
+
+        self.assertEqual(("lead vocal",), settings.prompt_presets)
+        self.assertEqual("lead vocal", settings.effective_prompt)
+
+    def test_prompt_preset_multiselect_values_are_normalized(self):
+        """Quick Prompt multiselect values should be model-ready."""
+
+        settings = SamAudioSettings.from_payload(
+            {"prompt_preset": [" Vocals ", "Electric   Guitar"]}
+        )
+
+        self.assertEqual(("vocals", "electric guitar"), settings.prompt_presets)
+        self.assertEqual("vocals", settings.effective_prompt)
+        self.assertEqual(
+            ["vocals", "electric guitar"],
+            settings.to_payload()["prompt_preset"],
+        )
+
+    def test_explicit_empty_prompt_preset_selection_is_preserved(self):
+        """Clearing the multiselect should not silently reselect the default."""
+
+        settings = SamAudioSettings.from_payload({"prompt_preset": []})
+
+        self.assertEqual((), settings.prompt_presets)
+        self.assertEqual("vocals", settings.effective_prompt)
+        self.assertEqual([], settings.to_payload()["prompt_preset"])
 
     def test_trim_threshold_is_clamped_to_safe_range(self):
         """Saved trim thresholds outside the UI range are clamped."""

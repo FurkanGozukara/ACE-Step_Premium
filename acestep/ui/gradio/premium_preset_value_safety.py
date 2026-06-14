@@ -44,7 +44,13 @@ def coerce_preset_value(
         else bool(spec.get("allow_custom_value", False))
     )
     if choice_values:
-        return _coerce_choice(value, choice_values, allow_custom, fallback)
+        return _coerce_choice(
+            value,
+            choice_values,
+            allow_custom,
+            fallback,
+            multiselect=bool(spec.get("multiselect", False)),
+        )
 
     lower = minimum if minimum is not None else spec.get("minimum")
     upper = maximum if maximum is not None else spec.get("maximum")
@@ -61,7 +67,13 @@ def _component_spec(component: Any) -> dict[str, Any]:
     """Extract the preset-relevant constraints from one Gradio component."""
 
     spec: dict[str, Any] = {"component_type": type(component).__name__}
-    for attribute in ("value", "minimum", "maximum", "allow_custom_value"):
+    for attribute in (
+        "value",
+        "minimum",
+        "maximum",
+        "allow_custom_value",
+        "multiselect",
+    ):
         if hasattr(component, attribute):
             spec[attribute] = getattr(component, attribute)
     if hasattr(component, "choices"):
@@ -90,8 +102,13 @@ def _coerce_choice(
     choices: Sequence[Any],
     allow_custom_value: bool,
     default: Any,
+    *,
+    multiselect: bool = False,
 ) -> Any:
     """Normalize a saved choice value without rejecting valid custom dropdowns."""
+
+    if multiselect:
+        return _coerce_multiselect_choice(value, choices, allow_custom_value, default)
 
     matched = _match_choice(value, choices)
     if matched is not None:
@@ -103,6 +120,45 @@ def _coerce_choice(
     if matched_default is not None:
         return matched_default
     return choices[0]
+
+
+def _coerce_multiselect_choice(
+    value: Any,
+    choices: Sequence[Any],
+    allow_custom_value: bool,
+    default: Any,
+) -> list[Any]:
+    """Normalize saved multiselect dropdown values."""
+
+    selected = _as_selection_list(value)
+    normalized: list[Any] = []
+    for item in selected:
+        matched = _match_choice(item, choices)
+        if matched is not None:
+            normalized.append(matched)
+        elif allow_custom_value:
+            normalized.append(item)
+    if normalized:
+        return normalized
+
+    fallback = _as_selection_list(default)
+    for item in fallback:
+        matched = _match_choice(item, choices)
+        if matched is not None:
+            normalized.append(matched)
+        elif allow_custom_value:
+            normalized.append(item)
+    return normalized or [choices[0]]
+
+
+def _as_selection_list(value: Any) -> list[Any]:
+    """Return scalar or sequence dropdown values as a list."""
+
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return list(value)
+    if value in (None, ""):
+        return []
+    return [value]
 
 
 def _match_choice(value: Any, choices: Sequence[Any]) -> Any:
