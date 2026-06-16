@@ -46,13 +46,6 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
-### 14 June 2026 V5.1 Update 
-
--   Use Repaint with lyrics added to the Repaint tab of ACESTEP XL 1.5
-
-<img width="1097" height="247" alt="image" src="https://github.com/user-attachments/assets/4a8dc592-95eb-43ac-abed-00e4ab88660f" />
-
-
 16 June 2026 V5.2 Update
 
 -   Default Remix value is now 0.95 instead of 1
@@ -61,6 +54,11 @@
 
 <img height="600" alt="image" src="https://github.com/user-attachments/assets/5f4e6c10-95aa-4a8c-b565-28dd85ff74da" />
 
+### 14 June 2026 V5.1 Update 
+
+-   Use Repaint with lyrics added to the Repaint tab of ACESTEP XL 1.5
+
+<img width="1097" height="247" alt="image" src="https://github.com/user-attachments/assets/4a8dc592-95eb-43ac-abed-00e4ab88660f" />
 
 ### 14 June 2026 V5.0.0 Update 
 
