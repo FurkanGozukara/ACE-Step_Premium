@@ -53,6 +53,15 @@
 <img width="1097" height="247" alt="image" src="https://github.com/user-attachments/assets/4a8dc592-95eb-43ac-abed-00e4ab88660f" />
 
 
+16 June 2026 V5.2 Update
+
+-   Default Remix value is now 0.95 instead of 1
+-   Seed box and Random seed option moved to a much easier to use place
+-   Last generation seed value will be auto set in seedbox so you can uncheck random seed and keep working with same seed now easier
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/5f4e6c10-95aa-4a8c-b565-28dd85ff74da" />
+
+
 ### 14 June 2026 V5.0.0 Update 
 
 -   I am still working on inference tutorial and as I used and as you made new feautre requests new features arrived    
