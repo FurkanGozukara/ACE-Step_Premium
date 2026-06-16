@@ -75,7 +75,7 @@ from acestep.ui.gradio.premium_features import (
 )
 
 
-APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v5.1"
+APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v5.2"
 APP_RELEASE_URL = "https://www.patreon.com/posts/157675060"
 APP_HEADER_MARKDOWN = f"# {APP_BROWSER_TITLE} : [{APP_RELEASE_URL}]({APP_RELEASE_URL})"
 _FAVICON_PATH = Path(__file__).resolve().parent / "assets" / "ace_step_premium_favicon.svg"
@@ -583,6 +583,22 @@ button.action-btn:disabled {
     height: 46px !important;
     max-height: 46px !important;
     overflow: hidden !important;
+}
+.ace-runtime-options-row {
+    gap: 0.55rem !important;
+}
+.ace-runtime-options-row > div {
+    min-width: 118px !important;
+}
+.ace-runtime-options-row .ace-runtime-seed-toggle,
+.ace-runtime-options-row .ace-runtime-seed-value {
+    max-width: 190px !important;
+}
+.ace-runtime-options-row .ace-runtime-seed-toggle .info,
+.ace-runtime-options-row .ace-runtime-seed-value .info {
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+    margin-top: 0.18rem !important;
 }
 .ace-audio-processing-primary-row,
 .ace-audio-processing-primary-row > div {

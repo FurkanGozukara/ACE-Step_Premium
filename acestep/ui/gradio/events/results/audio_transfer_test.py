@@ -15,20 +15,43 @@ from acestep.ui.gradio.events.results.audio_transfer import (
 class SendAudioToRepaintTests(unittest.TestCase):
     """Verify generated-source repaint transfer behavior."""
 
-    def test_send_to_repaint_resets_seed_to_random(self):
-        """Generated-source repaint should not reuse the source generation seed."""
+    def test_send_to_repaint_keeps_random_enabled_and_shows_generated_seed(self):
+        """Generated-source repaint should show the source seed without fixing it."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            audio_path = Path(tmpdir) / "generated.wav"
+            audio_path.with_suffix(".json").write_text(
+                json.dumps({"seed": 12345}),
+                encoding="utf-8",
+            )
+
+            updates = send_audio_to_repaint(
+                audio_file=str(audio_path),
+                lm_metadata={"lyrics": "new words", "caption": "new caption"},
+                current_lyrics="old words",
+                current_caption="old caption",
+                current_mode="Custom",
+                current_seed="-1",
+                llm_handler=None,
+            )
+
+        self.assertEqual(str(audio_path), updates[0])
+        self.assertEqual(True, updates[6]["value"])
+        self.assertEqual("12345", updates[7]["value"])
+
+    def test_send_to_repaint_falls_back_to_current_seed(self):
+        """Generated-source repaint should keep the visible seed if no sidecar exists."""
         updates = send_audio_to_repaint(
             audio_file="/tmp/generated.wav",
             lm_metadata={"lyrics": "new words", "caption": "new caption"},
             current_lyrics="old words",
             current_caption="old caption",
             current_mode="Custom",
+            current_seed="67890",
             llm_handler=None,
         )
 
-        self.assertEqual("/tmp/generated.wav", updates[0])
         self.assertEqual(True, updates[6]["value"])
-        self.assertEqual("-1", updates[7]["value"])
+        self.assertEqual("67890", updates[7]["value"])
 
 
 class ConvertResultAudioToCodesTests(unittest.TestCase):

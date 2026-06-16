@@ -7,7 +7,10 @@ import gradio as gr
 
 from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.events.generation_handlers import compute_mode_ui_updates
-from acestep.ui.gradio.events.results.session_artifacts import get_audio_codes_from_sidecar
+from acestep.ui.gradio.events.results.session_artifacts import (
+    get_audio_codes_from_sidecar,
+    get_seed_from_sidecar,
+)
 
 
 def send_audio_to_src_with_metadata(audio_file, lm_metadata):
@@ -95,8 +98,18 @@ def send_audio_to_remix(audio_file, lm_metadata, current_lyrics, current_caption
     )
 
 
+def _seed_value_for_editing(audio_file, current_seed=""):
+    """Return the generated audio seed for edit-mode transfers."""
+
+    sidecar_seed = get_seed_from_sidecar(audio_file)
+    if sidecar_seed:
+        return sidecar_seed
+    current_seed_text = str(current_seed or "").strip()
+    return current_seed_text or "-1"
+
+
 def send_audio_to_repaint(audio_file, lm_metadata, current_lyrics, current_caption,
-                          current_mode, llm_handler=None):
+                          current_mode, current_seed="", llm_handler=None):
     """Send generated audio to ``src_audio`` and switch mode to Repaint.
 
     Populates lyrics/caption from the generated audio and applies all
@@ -108,16 +121,19 @@ def send_audio_to_repaint(audio_file, lm_metadata, current_lyrics, current_capti
         current_lyrics: Current lyrics text in the UI.
         current_caption: Current caption text in the UI.
         current_mode: Currently active mode string.
+        current_seed: Current visible seed textbox value, used when the generated
+            audio sidecar is unavailable.
         llm_handler: Optional LLM handler.
 
     Returns:
-        Tuple of Gradio updates for source fields, seed reset, and mode UI.
+        Tuple of Gradio updates for source fields, seed display, and mode UI.
     """
     if audio_file is None:
         mode_updates = compute_mode_ui_updates("Repaint", llm_handler, previous_mode=current_mode)
         return (gr.skip(),) * 8 + (gr.skip(),) * len(mode_updates)
 
     lyrics, caption = _extract_metadata_for_editing(lm_metadata, current_lyrics, current_caption)
+    seed_value = _seed_value_for_editing(audio_file, current_seed)
     mode_updates = list(compute_mode_ui_updates("Repaint", llm_handler, previous_mode=current_mode))
     mode_updates[19] = gr.update(value=caption, visible=True, interactive=True)
     mode_updates[20] = gr.update(value=lyrics, visible=True, interactive=True)
@@ -125,7 +141,7 @@ def send_audio_to_repaint(audio_file, lm_metadata, current_lyrics, current_capti
     return (
         audio_file, gr.update(value="Repaint"), lyrics, caption,
         gr.update(value=caption), gr.update(value=lyrics),
-        gr.update(value=True), gr.update(value="-1"),
+        gr.update(value=True), gr.update(value=seed_value),
         *mode_updates,
     )
 

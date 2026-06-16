@@ -113,6 +113,16 @@ def _select_quantization_value(
     return select_quantization_value(quantization_enabled, device=device)
 
 
+def _params_with_resolved_seed(params: dict, seed_value: object) -> dict:
+    """Return saved params updated with the seed resolved by generation."""
+
+    updated = dict(params)
+    seed_text = str(seed_value or "").strip()
+    if seed_text:
+        updated["seed"] = seed_text
+    return updated
+
+
 def _resolve_project_root_for_generation() -> str:
     """Resolve the ACE-Step project root for auto-initialization."""
 
@@ -787,6 +797,7 @@ def _generate_with_batch_management_impl(
         ui_core_list = list(build_final_core_outputs(subprocess_result))
         generation_info = subprocess_result.get("generation_info", "")
         seed_value_for_ui = subprocess_result.get("seed_value", "")
+        saved_params_for_result = _params_with_resolved_seed(saved_params, seed_value_for_ui)
         lm_generated_metadata = subprocess_result.get("lm_metadata", {})
         scores_from_fg = list(subprocess_result.get("scores", []) or [])
         raw_codes_list = subprocess_result.get("codes", [""] * 8)
@@ -817,7 +828,7 @@ def _generate_with_batch_management_impl(
             source_audio_paths=subprocess_source_audio_paths,
             allow_lm_batch=allow_lm_batch,
             batch_size=generation_count,
-            generation_params=saved_params,
+            generation_params=saved_params_for_result,
             lm_generated_metadata=lm_generated_metadata,
             extra_outputs=extra_outputs_from_result,
             status="completed",
@@ -831,7 +842,7 @@ def _generate_with_batch_management_impl(
         batch_indicator_text = update_batch_indicator(current_batch_index, total_batches)
         can_prev, can_next = update_navigation_buttons(current_batch_index, total_batches)
         next_batch_status_text = t("messages.autogen_enabled") if autogen_checkbox else ""
-        next_params = saved_params.copy()
+        next_params = saved_params_for_result.copy()
         next_params["text2music_audio_code_string"] = ""
         next_params["random_seed_checkbox"] = True
 
@@ -991,6 +1002,7 @@ def _generate_with_batch_management_impl(
 
     generation_info = result[GENERATION_INFO_INDEX]
     seed_value_for_ui = result[SEED_INDEX]
+    saved_params_for_result = _params_with_resolved_seed(saved_params, seed_value_for_ui)
     lm_generated_metadata = result[LM_METADATA_INDEX]
 
     raw_codes_list = result[CODES_LIST_INDEX] if len(result) > CODES_LIST_INDEX else [""] * 8
@@ -1005,7 +1017,7 @@ def _generate_with_batch_management_impl(
     else:
         codes_to_store = generated_codes_single
 
-    next_params = saved_params.copy()
+    next_params = saved_params_for_result.copy()
     next_params["text2music_audio_code_string"] = ""
     next_params["random_seed_checkbox"] = True
 
@@ -1029,7 +1041,7 @@ def _generate_with_batch_management_impl(
         source_audio_paths=source_audio_paths,
         allow_lm_batch=allow_lm_batch,
         batch_size=generation_count,
-        generation_params=saved_params,
+        generation_params=saved_params_for_result,
         lm_generated_metadata=lm_generated_metadata,
         extra_outputs=extra_outputs_from_result,
         status="completed",

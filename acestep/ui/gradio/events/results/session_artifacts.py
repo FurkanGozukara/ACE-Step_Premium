@@ -133,6 +133,18 @@ def get_audio_codes_from_sidecar(path: str | os.PathLike[str] | None) -> str | N
     return None
 
 
+def get_seed_from_sidecar(path: str | os.PathLike[str] | None) -> str | None:
+    """Return the generated seed from a JSON sidecar when available."""
+    json_path = _find_json_sidecar(path)
+    if json_path is None:
+        return None
+    seed = _load_json(json_path).get("seed")
+    if seed is None:
+        return None
+    text = str(seed).strip()
+    return text or None
+
+
 def _sample_tensor_to_numpy(value: Any, sample_idx: int) -> np.ndarray | None:
     """Return one batch sample tensor as a CPU numpy array."""
     if not isinstance(value, torch.Tensor):

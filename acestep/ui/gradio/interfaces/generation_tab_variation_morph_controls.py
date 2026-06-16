@@ -11,6 +11,9 @@ from typing import Any
 import gradio as gr
 
 from acestep.ui.gradio.help_content import create_help_button
+from acestep.ui.gradio.events.generation.strength_defaults import (
+    DEFAULT_AUDIO_COVER_STRENGTH,
+)
 from acestep.ui.gradio.i18n import t
 
 
@@ -22,7 +25,7 @@ def build_variation_morph_controls() -> dict[str, Any]:
             audio_cover_strength = gr.Slider(
                 minimum=0.0,
                 maximum=1.0,
-                value=1.0,
+                value=DEFAULT_AUDIO_COVER_STRENGTH,
                 step=0.01,
                 label=t("generation.codes_strength_label"),
                 info=t("generation.codes_strength_info"),

@@ -79,6 +79,28 @@ def _build_right_generate_toggles(service_mode: bool) -> tuple[gr.Checkbox, gr.C
     return autogen_checkbox, auto_lrc
 
 
+def _build_seed_controls() -> tuple[gr.Checkbox, gr.Textbox]:
+    """Create the runtime seed checkbox and seed value controls."""
+
+    random_seed_checkbox = gr.Checkbox(
+        label=t("generation.random_seed_label"),
+        value=True,
+        scale=1,
+        min_width=118,
+        info=t("generation.random_seed_info"),
+        elem_classes=["has-info-container", "ace-runtime-seed-toggle"],
+    )
+    seed = gr.Textbox(
+        label=t("generation.seed_label"),
+        value="-1",
+        scale=1,
+        min_width=132,
+        info=t("generation.seed_info"),
+        elem_classes=["has-info-container", "ace-runtime-seed-value"],
+    )
+    return random_seed_checkbox, seed
+
+
 def build_generate_row_controls(
     service_pre_initialized: bool,
     init_params: dict[str, Any] | None,
@@ -102,12 +124,13 @@ def build_generate_row_controls(
         params.get("enable_generate", True) if service_pre_initialized else True
     )
     with gr.Column(visible=True) as generate_btn_row:
-        with gr.Row(equal_height=True) as runtime_options_row:
+        with gr.Row(equal_height=True, elem_classes=["ace-runtime-options-row"]) as runtime_options_row:
             think_checkbox, auto_score = _build_left_generate_toggles(
                 lm_initialized=lm_initialized,
                 service_mode=service_mode,
             )
             autogen_checkbox, auto_lrc = _build_right_generate_toggles(service_mode=service_mode)
+            random_seed_checkbox, seed = _build_seed_controls()
         with gr.Row(equal_height=False, elem_classes=["ace-generate-action-row"]):
             generate_btn = gr.Button(
                 t("generation.generate_btn"),
@@ -205,6 +228,8 @@ def build_generate_row_controls(
         "generate_btn_row": generate_btn_row,
         "autogen_checkbox": autogen_checkbox,
         "auto_lrc": auto_lrc,
+        "random_seed_checkbox": random_seed_checkbox,
+        "seed": seed,
         "inline_generated_audio": inline_generated_audio,
         "inline_remaining_audio": inline_remaining_audio,
         "inline_repainted_area_audio": inline_repainted_area_audio,

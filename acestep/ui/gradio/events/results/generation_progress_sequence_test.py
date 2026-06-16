@@ -12,6 +12,9 @@ from acestep.ui.gradio.events.generation.generation_count import (
     normalize_generation_count,
     seed_for_generation_index,
 )
+from acestep.ui.gradio.events.generation.strength_defaults import (
+    DEFAULT_AUDIO_COVER_STRENGTH,
+)
 from acestep.ui.gradio.events.results import generation_progress
 
 
@@ -26,7 +29,8 @@ def _progress_args(**overrides):
         "reference_audio": None, "audio_duration": -1, "batch_size_input": 1,
         "src_audio": None, "text2music_audio_code_string": "",
         "repainting_start": 0.0, "repainting_end": -1,
-        "instruction_display_gen": "", "audio_cover_strength": 1.0,
+        "instruction_display_gen": "",
+        "audio_cover_strength": DEFAULT_AUDIO_COVER_STRENGTH,
         "cover_noise_strength": 0.0, "task_type": "text2music",
         "no_fsq": False, "use_adg": False,
         "cfg_interval_start": 0.0, "cfg_interval_end": 1.0, "shift": 3.0,

@@ -6,6 +6,9 @@ import unittest
 
 from acestep.ui.gradio.premium_preset_defaults import ADDITIONAL_DEFAULT_PRESET_VALUES
 from acestep.ui.gradio.premium_features import DEFAULT_PRESET_VALUES
+from acestep.ui.gradio.events.generation.strength_defaults import (
+    DEFAULT_AUDIO_COVER_STRENGTH,
+)
 
 
 class PremiumPresetDefaultsTests(unittest.TestCase):
@@ -35,6 +38,14 @@ class PremiumPresetDefaultsTests(unittest.TestCase):
         self.assertEqual("mp3", ADDITIONAL_DEFAULT_PRESET_VALUES["extract_output_format"])
         self.assertEqual("mp3", ADDITIONAL_DEFAULT_PRESET_VALUES["sam_output_format"])
         self.assertEqual("256k", DEFAULT_PRESET_VALUES["mp3_bitrate"])
+
+    def test_remix_strength_defaults_to_faithful_source_following(self) -> None:
+        """Generation presets should default Remix Strength to 0.95."""
+
+        self.assertEqual(
+            DEFAULT_AUDIO_COVER_STRENGTH,
+            DEFAULT_PRESET_VALUES["audio_cover_strength"],
+        )
 
     def test_audio_processing_subprocess_defaults_to_enabled(self) -> None:
         """Audio Processing should process single files in a cancellable worker by default."""

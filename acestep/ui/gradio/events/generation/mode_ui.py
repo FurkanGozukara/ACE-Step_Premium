@@ -17,6 +17,7 @@ from .mode_ui_helpers import (
     _compute_meta_updates_for_mode,
     _compute_repainting_labels,
 )
+from .strength_defaults import DEFAULT_AUDIO_COVER_STRENGTH
 
 
 def _composition_guide_for_mode(mode: str) -> str:
@@ -122,11 +123,11 @@ def compute_mode_ui_updates(
         strength_info = t("generation.cover_strength_info")
     strength_kwargs = {"visible": show_strength, "label": strength_label, "info": strength_info}
     if is_cover:
-        strength_kwargs["value"] = 1.0
+        strength_kwargs["value"] = DEFAULT_AUDIO_COVER_STRENGTH
     elif is_custom and previous_mode != "Custom":
-        strength_kwargs["value"] = 1.0
+        strength_kwargs["value"] = DEFAULT_AUDIO_COVER_STRENGTH
     elif not show_strength:
-        strength_kwargs["value"] = 1.0
+        strength_kwargs["value"] = DEFAULT_AUDIO_COVER_STRENGTH
     strength_update = gr.update(**strength_kwargs)
     cover_noise_update = gr.update(visible=is_cover, value=0.0)
 

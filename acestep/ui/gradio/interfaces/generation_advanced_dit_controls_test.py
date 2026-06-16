@@ -36,6 +36,26 @@ class GenerationAdvancedDitControlsTests(unittest.TestCase):
         self.assertIsInstance(maximum_kw.value.slice, ast.Constant)
         self.assertEqual(maximum_kw.value.slice.value, "inference_steps_maximum")
 
+    def test_dit_controls_no_longer_own_runtime_seed_controls(self):
+        """Seed controls should live beside Auto LRC in the generation runtime row."""
+
+        module = ast.parse(_DIT_CONTROLS_PATH.read_text(encoding="utf-8"))
+        func = next(
+            node
+            for node in module.body
+            if isinstance(node, ast.FunctionDef) and node.name == "build_dit_controls"
+        )
+        return_node = next(node for node in ast.walk(func) if isinstance(node, ast.Return))
+        self.assertIsInstance(return_node.value, ast.Dict)
+        keys = {
+            key.value
+            for key in return_node.value.keys
+            if isinstance(key, ast.Constant) and isinstance(key.value, str)
+        }
+
+        self.assertNotIn("seed", keys)
+        self.assertNotIn("random_seed_checkbox", keys)
+
 
 if __name__ == "__main__":
     unittest.main()

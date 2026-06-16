@@ -50,6 +50,9 @@ from acestep.training.dataset_vram_presets import (
 from acestep.ui.gradio.events.generation.model_config import (
     get_ui_control_config_for_path,
 )
+from acestep.ui.gradio.events.generation.strength_defaults import (
+    DEFAULT_AUDIO_COVER_STRENGTH,
+)
 from acestep.ui.gradio.events.generation.audio_format_options import (
     normalize_audio_format,
     normalize_extract_audio_format,
@@ -311,6 +314,8 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "lyrics": DEFAULT_PRESET_LYRICS,
     "instrumental_checkbox": False,
     "repaint_dont_switch_with_lyrics": False,
+    "audio_cover_strength": DEFAULT_AUDIO_COVER_STRENGTH,
+    "cover_noise_strength": 0.0,
     "batch_size_input": 1,
     "inference_steps": 8,
     "guidance_scale": 1.0,

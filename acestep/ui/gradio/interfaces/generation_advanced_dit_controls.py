@@ -18,7 +18,7 @@ def build_dit_controls(ui_config: dict[str, Any], think_enabled: bool = False) -
         think_enabled: Whether initial Think-mode DCW defaults should be used.
 
     Returns:
-        A component map containing DiT sampling, CFG interval, ADG, shift, and seed controls.
+        A component map containing DiT sampling, CFG interval, ADG, and shift controls.
     """
     dcw_defaults = get_dcw_defaults_for_think(think_enabled)
 
@@ -165,20 +165,6 @@ def build_dit_controls(ui_config: dict[str, Any], think_enabled: bool = False) -
                 visible=ui_config["cfg_interval_end_visible"],
                 elem_classes=["has-info-container"],
             )
-        with gr.Row():
-            with gr.Column():
-                seed = gr.Textbox(
-                    label=t("generation.seed_label"),
-                    value="-1",
-                    info=t("generation.seed_info"),
-                    elem_classes=["has-info-container"],
-                )
-                random_seed_checkbox = gr.Checkbox(
-                    label=t("generation.random_seed_label"),
-                    value=True,
-                    info=t("generation.random_seed_info"),
-                    elem_classes=["has-info-container"],
-                )
         _gpu_config = get_global_gpu_config()
         _show_mlx_chunk = is_mps_platform()
         with gr.Row(visible=_show_mlx_chunk):
@@ -208,7 +194,5 @@ def build_dit_controls(ui_config: dict[str, Any], think_enabled: bool = False) -
         "custom_timesteps": custom_timesteps,
         "cfg_interval_start": cfg_interval_start,
         "cfg_interval_end": cfg_interval_end,
-        "seed": seed,
-        "random_seed_checkbox": random_seed_checkbox,
         "mlx_vae_chunk_size": mlx_vae_chunk_size,
     }

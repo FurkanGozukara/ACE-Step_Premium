@@ -239,6 +239,26 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         self.assertEqual(state["store_calls"][0]["codes"], ["code-0", "code-1", "code-2"])
 
+    def test_resolved_seed_updates_saved_and_next_params(self):
+        """Stored params should reflect the seed displayed in the seed textbox."""
+        module, state = load_batch_management_module(is_windows=False)
+
+        def _gen(*_args, **_kwargs):
+            """Yield a result carrying the resolved generation seed."""
+            yield build_progress_result(length=56)
+
+        kwargs = _build_call_kwargs(module)
+        kwargs["random_seed_checkbox"] = True
+        kwargs["seed"] = "-1"
+        with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
+            outputs = list(module.generate_with_batch_management(None, None, **kwargs))
+
+        saved_params = state["store_calls"][0]["generation_params"]
+        next_params = outputs[-1][57]
+        self.assertEqual(saved_params["seed"], "42")
+        self.assertEqual(next_params["seed"], "42")
+        self.assertTrue(next_params["random_seed_checkbox"])
+
     def test_no_fsq_forwards_to_generation_and_saved_params(self):
         """Wrapper should pass and persist the Remix no_fsq checkbox."""
         module, state = load_batch_management_module(is_windows=False)

@@ -14,6 +14,9 @@ from acestep.ui.gradio.events.generation.audio_format_options import (
     DEFAULT_EXTRACT_AUDIO_FORMAT,
     DEFAULT_MP3_BITRATE,
 )
+from acestep.ui.gradio.events.generation.strength_defaults import (
+    DEFAULT_AUDIO_COVER_STRENGTH,
+)
 from acestep.ui.gradio.events.dcw_defaults import get_dcw_defaults_for_think
 from acestep.ui.gradio.events.results.result_output_contract import (
     AUDIO_SLOT_COUNT,
@@ -243,7 +246,8 @@ def _apply_param_defaults(params):
         "text2music_audio_code_string": "",
         "repainting_start": 0.0, "repainting_end": -1,
         "instruction_display_gen": "",
-        "audio_cover_strength": 1.0, "cover_noise_strength": 0.0,
+        "audio_cover_strength": DEFAULT_AUDIO_COVER_STRENGTH,
+        "cover_noise_strength": 0.0,
         "task_type": "text2music", "no_fsq": False, "use_adg": False,
         "cfg_interval_start": 0.0, "cfg_interval_end": 1.0,
         "shift": 1.0, "infer_method": "ode",

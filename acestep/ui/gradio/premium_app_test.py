@@ -30,7 +30,7 @@ class PremiumAppTests(unittest.TestCase):
         """Head snippet should force the requested browser-tab branding."""
 
         head = premium_app._build_head(service_mode=False)
-        self.assertEqual(premium_app.APP_BROWSER_TITLE, "ACE-Step 1.5 XL Premium v5.1")
+        self.assertEqual(premium_app.APP_BROWSER_TITLE, "ACE-Step 1.5 XL Premium v5.2")
         self.assertIn(premium_app.APP_BROWSER_TITLE, head)
         self.assertIn('rel="icon"', head)
         self.assertIn("data:image/svg+xml,", head)
@@ -80,7 +80,10 @@ class PremiumAppTests(unittest.TestCase):
 
         css = premium_app._PREMIUM_CSS
         self.assertIn(TRIM_AUDIO_PREVIEW_CLASS, css)
-        page_path = Path(premium_app.__file__).with_name("pages") / "audio_processing_page.py"
+        page_path = (
+            Path(premium_app.__file__).with_name("pages")
+            / "audio_processing_single_file_controls.py"
+        )
         self.assertIn("AUDIO_PROCESSING_UPLOAD_PREVIEW_ELEM_ID", page_path.read_text())
         self.assertIn('button[aria-label="Trim audio to selection"]', css)
         self.assertIn("::part(region-handle-right)", css)

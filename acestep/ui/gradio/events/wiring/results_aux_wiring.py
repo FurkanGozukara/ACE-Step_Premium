@@ -62,8 +62,8 @@ def register_results_aux_handlers(
             + list(mode_ui_outputs),
         )
         results_section[f"send_to_repaint_btn_{btn_idx}"].click(
-            fn=lambda audio, lm, ly, cap, cur_mode: res_h.send_audio_to_repaint(
-                audio, lm, ly, cap, cur_mode, llm_handler
+            fn=lambda audio, lm, ly, cap, cur_mode, seed: res_h.send_audio_to_repaint(
+                audio, lm, ly, cap, cur_mode, seed, llm_handler
             ),
             inputs=[
                 results_section[f"generated_audio_{btn_idx}"],
@@ -71,6 +71,7 @@ def register_results_aux_handlers(
                 generation_section["lyrics"],
                 generation_section["captions"],
                 generation_section["generation_mode"],
+                generation_section["seed"],
             ],
             outputs=[
                 generation_section["src_audio"],

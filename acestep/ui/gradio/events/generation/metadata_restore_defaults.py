@@ -11,6 +11,9 @@ from acestep.model_downloader import (
     DEFAULT_TURBO_DIT_MODEL,
     DEFAULT_VAE_VARIANT,
 )
+from acestep.ui.gradio.events.generation.strength_defaults import (
+    DEFAULT_AUDIO_COVER_STRENGTH,
+)
 
 from .audio_format_options import (
     DEFAULT_AUDIO_FORMAT,
@@ -66,7 +69,7 @@ def default_metadata_values() -> dict[str, Any]:
         "use_cot_metas": True,
         "use_cot_caption": True,
         "use_cot_language": True,
-        "audio_cover_strength": 1.0,
+        "audio_cover_strength": DEFAULT_AUDIO_COVER_STRENGTH,
         "cover_noise_strength": 0.0,
         "think_checkbox": True,
         "text2music_audio_code_string": "",
