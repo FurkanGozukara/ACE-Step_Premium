@@ -75,7 +75,7 @@ from acestep.ui.gradio.premium_features import (
 )
 
 
-APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v5.3"
+APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v5.3.1"
 APP_RELEASE_URL = "https://www.patreon.com/posts/157675060"
 APP_HEADER_MARKDOWN = f"# {APP_BROWSER_TITLE} : [{APP_RELEASE_URL}]({APP_RELEASE_URL})"
 _FAVICON_PATH = Path(__file__).resolve().parent / "assets" / "ace_step_premium_favicon.svg"
@@ -473,16 +473,27 @@ _PREMIUM_CSS = """
       overflow-y: auto !important;
   }
   .ace-wildcard-help {
-      border: 1px solid rgba(148, 163, 184, 0.28) !important;
+      background: var(--block-background-fill, transparent) !important;
+      border: 1px solid var(--border-color-primary, rgba(148, 163, 184, 0.45)) !important;
       border-radius: 8px !important;
-      color: #dbeafe !important;
+      color: var(--body-text-color, #111827) !important;
+      color: color-mix(in srgb, var(--body-text-color, #111827) 86%, #2563eb 14%) !important;
       font-size: 0.94rem !important;
       line-height: 1.42 !important;
       margin: 8px 0 12px !important;
       padding: 10px 12px !important;
   }
+  .ace-wildcard-help p,
+  .ace-wildcard-help strong {
+      color: inherit !important;
+  }
   .ace-wildcard-help code {
-      color: #fef3c7 !important;
+      background: transparent !important;
+      border: 0 !important;
+      color: var(--body-text-color, #111827) !important;
+      color: color-mix(in srgb, var(--body-text-color, #111827) 82%, #b45309 18%) !important;
+      font-weight: 700 !important;
+      padding: 0 2px !important;
       white-space: normal !important;
   }
   .ace-video-preview,

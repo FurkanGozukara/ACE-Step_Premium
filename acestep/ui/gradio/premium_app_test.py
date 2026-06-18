@@ -30,7 +30,7 @@ class PremiumAppTests(unittest.TestCase):
         """Head snippet should force the requested browser-tab branding."""
 
         head = premium_app._build_head(service_mode=False)
-        self.assertEqual(premium_app.APP_BROWSER_TITLE, "ACE-Step 1.5 XL Premium v5.3")
+        self.assertEqual(premium_app.APP_BROWSER_TITLE, "ACE-Step 1.5 XL Premium v5.3.1")
         self.assertIn(premium_app.APP_BROWSER_TITLE, head)
         self.assertIn('rel="icon"', head)
         self.assertIn("data:image/svg+xml,", head)
@@ -61,6 +61,23 @@ class PremiumAppTests(unittest.TestCase):
         self.assertIn("max-height: 46px", premium_app._PREMIUM_CSS)
         self.assertIn("button[data-ace-command-button", premium_app._PREMIUM_CSS)
         self.assertIn(".gradio-container .action-btn", premium_app._PREMIUM_CSS)
+
+    def test_wildcard_help_uses_theme_readable_colors(self):
+        """Wildcard syntax help should stay readable in light and dark themes."""
+
+        css = premium_app._PREMIUM_CSS
+        self.assertIn(".ace-wildcard-help", css)
+        self.assertIn("color: var(--body-text-color", css)
+        self.assertIn("background: var(--block-background-fill", css)
+        self.assertIn("color-mix(in srgb", css)
+        self.assertIn("#2563eb", css)
+        self.assertIn("#b45309", css)
+        self.assertIn("font-weight: 700", css)
+        self.assertNotIn(".ace-wildcard-help {\n      background: linear-gradient", css)
+        self.assertNotIn("color-mix(in srgb, var(--block-background-fill", css)
+        self.assertNotIn("color-mix(in srgb, var(--input-background-fill", css)
+        self.assertNotIn("color: #dbeafe", css)
+        self.assertNotIn("color: #fef3c7", css)
 
     def test_source_audio_preview_has_scoped_trim_css(self):
         """Source preview trim controls should be more visible without global audio CSS."""
