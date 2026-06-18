@@ -46,6 +46,13 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+### 18 June 2026 V5.4 Update
+
+-   Now batch folder processing for ACESTEP XL 1.5 and SAM Audio has this extra option Save only output
+	-   This is useful to get only processed files and no other stuff like remaining part of the songs or metadata files, etc.
+
+<img width="3495" height="623" alt="image" src="https://github.com/user-attachments/assets/991cdec5-a61e-404e-8d86-d1bc061e8575" />
+
 ### 18 June 2026 V5.3 Update
 
 -   Wildcard feature implemented
