@@ -46,7 +46,21 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
-16 June 2026 V5.2 Update
+### 18 June 2026 V5.3 Update
+
+-   Wildcard feature implemented
+-   It works both for Style / Captions and Lyrics with syntax verification as well
+-   It will work in batch folder processing as well so you can write that way in txt files
+	-   If you enable Auto improve lyrics or Auto improve style they may break your syntax so don't enable when using wildcards 
+-   Just run Windows_Install_or_Update.bat to update same zip file still
+-   Also full inference tutorial published that covers every topic in details including how to install on Windows, RunPod, Massed Compute and SimplePod : https://youtu.be/9C_6qNKjgpA
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/e359d264-3dac-4547-8453-8c7a89ee257d" />
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/622e8d27-93fe-4a8a-b91f-f07fb08f82f5" />
+
+
+### 16 June 2026 V5.2 Update
 
 -   Default Remix value is now 0.95 instead of 1
 -   Seed box and Random seed option moved to a much easier to use place
