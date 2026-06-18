@@ -63,7 +63,7 @@ def build_lora_dataset_and_adapter_controls(
             lora_adapter_type = gr.Dropdown(
                 label="Adapter type",
                 choices=["lora", "dora"],
-                value="lora",
+                value="dora",
                 info=(
                     "LoRA is the standard low-rank adapter. DoRA uses the same "
                     "rank/alpha/dropout controls plus PEFT weight decomposition "
@@ -73,7 +73,9 @@ def build_lora_dataset_and_adapter_controls(
             )
 
             lora_adapter_info = gr.Markdown(
-                "LoRA selected: standard PEFT LoRA training."
+                "DoRA selected: PEFT LoRA with weight decomposition. It uses the "
+                "same tensors and rank/alpha/dropout controls, with an additional "
+                "magnitude vector saved in the adapter."
             )
 
             lora_name = gr.Textbox(

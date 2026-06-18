@@ -686,6 +686,14 @@ class PremiumFeaturesTests(unittest.TestCase):
                 self.assertEqual(loaded[key], value)
                 self.assertEqual(updates[keys.index(key)].get("value"), value)
 
+    def test_default_lora_training_adapter_is_dora(self) -> None:
+        """New training presets should select DoRA by default."""
+
+        self.assertEqual(
+            "dora",
+            premium_features.DEFAULT_PRESET_VALUES["lora_adapter_type"],
+        )
+
     def test_legacy_lora_8bit_checkbox_migrates_to_optimizer_dropdown(self) -> None:
         """Older LoRA presets should map the removed checkbox into optimizer type."""
 

@@ -68,7 +68,7 @@ ADDITIONAL_DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "training_tensor_dir": "./datasets/preprocessed_tensors",
     "lora_model_config": DEFAULT_TURBO_DIT_MODEL,
     "lora_vram_preset": "24GB+",
-    "lora_adapter_type": "lora",
+    "lora_adapter_type": "dora",
     "lora_name": "",
     "lora_rank": 128,
     "lora_alpha": 128,
