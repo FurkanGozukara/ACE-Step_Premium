@@ -203,6 +203,47 @@ class BatchManagementWrapperTests(unittest.TestCase):
         self.assertEqual(outputs[1][16], None)
         self.assertEqual(len(state["store_calls"]), 0)
 
+    def test_prompt_wildcards_expand_before_generation(self):
+        """Wildcard prompt text should be expanded before backend generation."""
+        module, state = load_batch_management_module(is_windows=False)
+        captured = {}
+
+        def _gen(*args, **_kwargs):
+            """Capture generation prompt args and return a standard result."""
+            captured["captions"] = args[2]
+            captured["lyrics"] = args[3]
+            yield build_progress_result(length=56)
+
+        kwargs = _build_call_kwargs(module)
+        kwargs["captions"] = "[warm|bright] pop"
+        kwargs["lyrics"] = "[Verse]\nI feel [alive|free]"
+        with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
+            list(module.generate_with_batch_management(None, None, **kwargs))
+
+        self.assertIn(captured["captions"], {"warm pop", "bright pop"})
+        self.assertIn(captured["lyrics"], {"[Verse]\nI feel alive", "[Verse]\nI feel free"})
+        self.assertEqual(state["store_calls"][0]["generation_params"]["captions"], captured["captions"])
+        self.assertEqual(state["store_calls"][0]["generation_params"]["lyrics"], captured["lyrics"])
+
+    def test_prompt_wildcard_syntax_error_warns_and_skips_generation(self):
+        """Invalid wildcard syntax should warn and not call backend generation."""
+        module, state = load_batch_management_module(is_windows=False)
+
+        def _gen(*_args, **_kwargs):
+            raise AssertionError("generate_with_progress should not run")
+            yield build_progress_result(length=56)
+
+        kwargs = _build_call_kwargs(module)
+        kwargs["captions"] = "modern [warm|bright"
+        with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
+            outputs = list(module.generate_with_batch_management(None, None, **kwargs))
+
+        self.assertEqual(len(outputs), 1)
+        self.assertIn("Wildcard syntax error in Style", outputs[0][18])
+        self.assertIn("Missing closing ]", outputs[0][18])
+        self.assertEqual(state["warning_messages"], [outputs[0][18]])
+        self.assertEqual(len(state["store_calls"]), 0)
+
     def test_allow_lm_batch_stores_multiple_codes(self):
         """Batch mode should store a list of generated codes up to batch size."""
         module, state = load_batch_management_module(is_windows=False)

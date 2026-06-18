@@ -30,6 +30,10 @@ from acestep.core.generation.cancellation import (
 from acestep.core.generation.handler.task_instruction import generate_task_instruction
 from acestep.gpu_config import find_best_lm_model_on_disk, get_global_gpu_config
 from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
+from acestep.prompt_wildcards import (
+    WildcardSyntaxError,
+    expand_generation_prompt_fields,
+)
 from acestep.ui.gradio.events.results.batch_management_helpers import (
     _apply_param_defaults,
     _build_saved_params,
@@ -643,6 +647,32 @@ def _generate_with_batch_management_impl(
             audio_format = normalize_extract_audio_format(extract_output_format)
         elif task_type == "lego":
             audio_format = normalize_extract_audio_format(extract_output_format)
+
+    try:
+        prompt_expansion = expand_generation_prompt_fields(
+            captions=captions,
+            lyrics=lyrics,
+            flow_edit_source_caption=flow_edit_source_caption,
+            flow_edit_source_lyrics=flow_edit_source_lyrics,
+        )
+    except WildcardSyntaxError as exc:
+        error_msg = str(exc)
+        logger.warning("[generate_with_batch_management] {}", error_msg)
+        gr.Warning(error_msg)
+        yield build_pending_core_outputs(error_msg, is_format_caption) + (
+            gr.skip(), gr.skip(), gr.skip(), gr.skip(),
+            gr.skip(), gr.skip(), gr.skip(), gr.skip(), gr.skip(),
+        )
+        return
+    captions = prompt_expansion.captions
+    lyrics = prompt_expansion.lyrics
+    flow_edit_source_caption = prompt_expansion.flow_edit_source_caption
+    flow_edit_source_lyrics = prompt_expansion.flow_edit_source_lyrics
+    if prompt_expansion.expanded_fields:
+        logger.info(
+            "[generate_with_batch_management] Expanded prompt wildcards in: {}",
+            ", ".join(prompt_expansion.expanded_fields),
+        )
 
     saved_params = _build_saved_params(
         captions, lyrics, bpm, key_scale, time_signature, vocal_language,

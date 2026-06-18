@@ -4,6 +4,7 @@ from typing import Any
 
 import gradio as gr
 
+from acestep.prompt_wildcards import WILDCARD_HELP_MARKDOWN
 from acestep.ui.gradio.i18n import t
 from acestep.ui.gradio.interfaces.source_audio_preview import (
     GENERATION_REFERENCE_PREVIEW_ELEM_ID,
@@ -97,6 +98,10 @@ def build_custom_mode_controls() -> dict[str, Any]:
                             info=t("generation.caption_info"),
                             elem_classes=["has-info-container"],
                         )
+                        gr.Markdown(
+                            WILDCARD_HELP_MARKDOWN,
+                            elem_classes=["ace-wildcard-help"],
+                        )
                         with gr.Row(elem_classes="instrumental-row"):
                             format_caption_btn = gr.Button(
                                 t("generation.format_caption_btn"),
@@ -113,6 +118,10 @@ def build_custom_mode_controls() -> dict[str, Any]:
                             max_lines=18,
                             info=t("generation.lyrics_info"),
                             elem_classes=["has-info-container"],
+                        )
+                        gr.Markdown(
+                            WILDCARD_HELP_MARKDOWN,
+                            elem_classes=["ace-wildcard-help"],
                         )
                         with gr.Row(elem_classes="instrumental-row"):
                             instrumental_checkbox = gr.Checkbox(

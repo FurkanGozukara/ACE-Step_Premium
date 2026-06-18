@@ -5,8 +5,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, Iterator
 
+import gradio as gr
 from loguru import logger
 
+from acestep.prompt_wildcards import (
+    WildcardSyntaxError,
+    expand_generation_prompt_fields,
+)
 from .. import training_handlers as train_h
 from ..training.runtime_cleanup import prepare_parent_runtime_for_training
 from ..training.subprocess_init import build_dit_init_payload
@@ -139,6 +144,20 @@ def build_lora_training_wrapper(
                 ),
                 "sample_generation_settings": sample_generation_settings,
             }
+            if sample_generation_enabled:
+                try:
+                    prompt_expansion = expand_generation_prompt_fields(
+                        captions=training_args["sample_prompt"],
+                        lyrics=training_args["sample_lyrics"],
+                    )
+                except WildcardSyntaxError as exc:
+                    error_msg = f"Wildcard syntax error: {exc!s}"
+                    logger.warning(error_msg)
+                    gr.Warning(error_msg)
+                    yield error_msg, error_msg, None, state
+                    return
+                training_args["sample_prompt"] = prompt_expansion.captions
+                training_args["sample_lyrics"] = prompt_expansion.lyrics
             if training_subprocess:
                 dit_init_params = build_dit_init_payload(
                     dit_handler,

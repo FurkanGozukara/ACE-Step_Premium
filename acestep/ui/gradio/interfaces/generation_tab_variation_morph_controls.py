@@ -10,6 +10,7 @@ from typing import Any
 
 import gradio as gr
 
+from acestep.prompt_wildcards import WILDCARD_HELP_MARKDOWN
 from acestep.ui.gradio.help_content import create_help_button
 from acestep.ui.gradio.events.generation.strength_defaults import (
     DEFAULT_AUDIO_COVER_STRENGTH,
@@ -123,24 +124,34 @@ def build_variation_morph_controls() -> dict[str, Any]:
                     "the rest of the audio."
                 )
                 with gr.Row(equal_height=False):
-                    flow_edit_source_caption = gr.Textbox(
-                        label="source caption",
-                        placeholder="Describe the ORIGINAL audio.",
-                        lines=4, max_lines=8, scale=1,
-                        info=(
-                            "Original/source description. This should match "
-                            "the uploaded Source Audio before the edit."
-                        ),
-                    )
-                    flow_edit_source_lyrics = gr.Textbox(
-                        label="source lyrics",
-                        placeholder="Original lyrics; top-level lyrics is the target.",
-                        lines=4, max_lines=8, scale=1,
-                        info=(
-                            "Original/source lyrics. The top Lyrics field is "
-                            "the target lyrics after the edit."
-                        ),
-                    )
+                    with gr.Column(scale=1):
+                        flow_edit_source_caption = gr.Textbox(
+                            label="source caption",
+                            placeholder="Describe the ORIGINAL audio.",
+                            lines=4, max_lines=8,
+                            info=(
+                                "Original/source description. This should match "
+                                "the uploaded Source Audio before the edit."
+                            ),
+                        )
+                        gr.Markdown(
+                            WILDCARD_HELP_MARKDOWN,
+                            elem_classes=["ace-wildcard-help"],
+                        )
+                    with gr.Column(scale=1):
+                        flow_edit_source_lyrics = gr.Textbox(
+                            label="source lyrics",
+                            placeholder="Original lyrics; top-level lyrics is the target.",
+                            lines=4, max_lines=8,
+                            info=(
+                                "Original/source lyrics. The top Lyrics field is "
+                                "the target lyrics after the edit."
+                            ),
+                        )
+                        gr.Markdown(
+                            WILDCARD_HELP_MARKDOWN,
+                            elem_classes=["ace-wildcard-help"],
+                        )
                 with gr.Row():
                     flow_edit_n_min = gr.Slider(
                         minimum=0.0, maximum=1.0, value=0.0, step=0.05,

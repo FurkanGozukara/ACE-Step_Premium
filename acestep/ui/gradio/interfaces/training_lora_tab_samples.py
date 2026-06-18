@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gradio as gr
 
+from acestep.prompt_wildcards import WILDCARD_HELP_MARKDOWN
 from acestep.ui.gradio.premium_features import (
     DEFAULT_PRESET_CAPTION,
     DEFAULT_PRESET_LYRICS,
@@ -46,11 +47,19 @@ def build_lora_sample_generation_controls() -> dict[str, object]:
             lines=4,
             max_lines=8,
         )
+        gr.Markdown(
+            WILDCARD_HELP_MARKDOWN,
+            elem_classes=["ace-wildcard-help"],
+        )
         lora_sample_lyrics = gr.Textbox(
             label="Sample lyrics",
             value=DEFAULT_PRESET_LYRICS,
             lines=8,
             max_lines=16,
+        )
+        gr.Markdown(
+            WILDCARD_HELP_MARKDOWN,
+            elem_classes=["ace-wildcard-help"],
         )
         with gr.Row():
             lora_sample_offload_training_model = gr.Checkbox(

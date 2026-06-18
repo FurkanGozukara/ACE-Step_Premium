@@ -7,6 +7,7 @@ from typing import Any
 import gradio as gr
 
 from acestep.gpu_config import GPU_TIER_LABELS, get_global_gpu_config
+from acestep.prompt_wildcards import WILDCARD_HELP_MARKDOWN
 from acestep.ui.gradio.events.results.video_export import VIDEO_RESOLUTION_CHOICES
 from acestep.ui.gradio.events.generation.quantization import (
     QUANTIZATION_CHOICES,
@@ -63,6 +64,10 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                 max_lines=8,
                 buttons=["copy"],
             )
+            gr.Markdown(
+                WILDCARD_HELP_MARKDOWN,
+                elem_classes=["ace-wildcard-help"],
+            )
             with gr.Row(equal_height=True):
                 simple_generate_btn = gr.Button(
                     "Generate Song",
@@ -114,6 +119,10 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                 lines=12,
                 max_lines=24,
                 buttons=["copy"],
+            )
+            gr.Markdown(
+                WILDCARD_HELP_MARKDOWN,
+                elem_classes=["ace-wildcard-help"],
             )
 
         with gr.Column(scale=3, min_width=320):
