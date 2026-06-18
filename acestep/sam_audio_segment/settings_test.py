@@ -39,6 +39,7 @@ class TestSamAudioSettings(unittest.TestCase):
         self.assertEqual("vocals", settings.effective_prompt)
         self.assertEqual(("vocals",), settings.prompt_presets)
         self.assertFalse(settings.batch_segment)
+        self.assertFalse(settings.batch_save_output_only)
 
     def test_values_follow_schema_order(self):
         """Ordered UI values map to the expected settings fields."""
@@ -83,6 +84,7 @@ class TestSamAudioSettings(unittest.TestCase):
                 "sam_batch_input_folder": "in",
                 "sam_batch_output_folder": "out",
                 "sam_batch_recursive": True,
+                "sam_batch_save_output_only": True,
             }
         )
 
@@ -101,6 +103,7 @@ class TestSamAudioSettings(unittest.TestCase):
         self.assertTrue(settings.trim_empty_output)
         self.assertEqual(-42.0, settings.trim_threshold_db)
         self.assertTrue(settings.batch_recursive)
+        self.assertTrue(settings.batch_save_output_only)
 
     def test_shared_auto_editor_trim_settings_override_sam_threshold_only_defaults(self):
         """Audio Processing trim controls should define SAM trim behavior."""

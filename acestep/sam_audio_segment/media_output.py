@@ -27,7 +27,7 @@ class SamAudioArtifacts:
     target_audio_path: str
     residual_audio_path: str | None
     target_video_path: str | None
-    metadata_path: str
+    metadata_path: str | None
     sample_rate: int
     duration_seconds: float
 
@@ -39,7 +39,8 @@ class SamAudioArtifacts:
             paths.append(self.residual_audio_path)
         if self.target_video_path:
             paths.append(self.target_video_path)
-        paths.append(self.metadata_path)
+        if self.metadata_path:
+            paths.append(self.metadata_path)
         return paths
 
 
@@ -58,6 +59,7 @@ def save_sam_audio_outputs(
     trim_empty_output: bool = False,
     trim_settings: AutoEditorTrimSettings | None = None,
     trim_threshold_db: float = -40.0,
+    save_metadata: bool = True,
 ) -> SamAudioArtifacts:
     """Save target, residual, optional video mux, and metadata."""
 
@@ -95,27 +97,29 @@ def save_sam_audio_outputs(
             target_dir / f"{output_stem}.mp4",
         )
     duration = float(audio_sample_count(target_to_save)) / float(sample_rate)
-    metadata_path = write_json(
-        target_dir / f"{output_stem}.sam_audio.json",
-        {
-            "_meta": {
-                "format": "ace_step_sam_audio_segment",
-                "version": 1,
-                "source_path": str(source).replace("\\", "/"),
+    metadata_path = None
+    if save_metadata:
+        metadata_path = write_json(
+            target_dir / f"{output_stem}.sam_audio.json",
+            {
+                "_meta": {
+                    "format": "ace_step_sam_audio_segment",
+                    "version": 1,
+                    "source_path": str(source).replace("\\", "/"),
+                },
+                **metadata,
+                "trim": trim_result.metadata,
+                "outputs": {
+                    "target_audio_path": target_audio,
+                    "residual_audio_path": residual_audio,
+                    "target_video_path": target_video,
+                },
+                "metrics": {
+                    "sample_rate": sample_rate,
+                    "duration_seconds": duration,
+                },
             },
-            **metadata,
-            "trim": trim_result.metadata,
-            "outputs": {
-                "target_audio_path": target_audio,
-                "residual_audio_path": residual_audio,
-                "target_video_path": target_video,
-            },
-            "metrics": {
-                "sample_rate": sample_rate,
-                "duration_seconds": duration,
-            },
-        },
-    )
+        )
     return SamAudioArtifacts(
         source_path=str(source).replace("\\", "/"),
         target_audio_path=target_audio,

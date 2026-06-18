@@ -78,6 +78,42 @@ class TestSamAudioBatch(unittest.TestCase):
             self.assertEqual("guitar", service.settings.custom_prompt)
             service.unload.assert_called_once()
 
+    def test_batch_save_output_only_writes_direct_files_without_manifest(self):
+        """Output-only batch mode should not create sidecar or manifest outputs."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            input_dir = root / "input"
+            output_dir = root / "output"
+            input_dir.mkdir()
+            output_dir.mkdir()
+            source = input_dir / "My Song.wav"
+            source.write_bytes(b"placeholder")
+            service = MagicMock()
+            artifact = MagicMock()
+            artifact.file_list.return_value = [str(output_dir / "My Song.wav")]
+            service.process_file.return_value = artifact
+
+            with patch("acestep.sam_audio_segment.batch.SamAudioService", return_value=service):
+                updates = list(
+                    run_batch_sam_audio(
+                        str(input_dir),
+                        str(output_dir),
+                        False,
+                        SamAudioSettings(
+                            batch_save_output_only=True,
+                            output_format="wav",
+                        ),
+                    )
+                )
+
+            call = service.process_file.mock_calls[0]
+            self.assertEqual(output_dir.resolve(), Path(call.args[1]))
+            self.assertEqual("My Song", call.kwargs["output_stem"])
+            self.assertTrue(call.kwargs["output_only"])
+            self.assertNotIn("sam_audio_batch_manifest.json", "\n".join(updates[-1][1]))
+            self.assertFalse(any(output_dir.glob("sam_audio_*")))
+
 
 if __name__ == "__main__":
     unittest.main()

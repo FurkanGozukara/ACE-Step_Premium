@@ -134,6 +134,8 @@ def run_batch_extract_processing(
     output_folder: str,
     generation_args: Sequence[Any],
     *,
+    recursive: bool = False,
+    save_output_only: bool = False,
     generation_runner: GenerationRunner | None = None,
 ) -> Iterator[str]:
     """Run Extract for every audio file in a folder and save renamed outputs."""
@@ -141,7 +143,10 @@ def run_batch_extract_processing(
     status_lines: list[str] = []
     try:
         track_names = _validate_extract_settings(generation_args)
-        audio_files = discover_batch_extract_audio_files(input_folder)
+        audio_files = discover_batch_extract_audio_files(
+            input_folder,
+            recursive=bool(recursive),
+        )
         target_folder = resolve_batch_extract_output_folder(output_folder)
     except ValueError as exc:
         yield str(exc)
@@ -154,7 +159,12 @@ def run_batch_extract_processing(
         try:
             status_lines.append(f"Found {len(audio_files)} audio file(s).")
             status_lines.append(f"Extracting track(s): {', '.join(track_names)}")
-            status_lines.append(f"Saving processed files to: {target_folder}")
+            output_label = (
+                "Saving extracted files to"
+                if save_output_only
+                else "Saving processed files to"
+            )
+            status_lines.append(f"{output_label}: {target_folder}")
             yield _render_status(status_lines)
 
             for index, audio_path in enumerate(audio_files, start=1):
@@ -188,6 +198,7 @@ def run_batch_extract_processing(
                             audio_path,
                             target_folder,
                             track_name=track_name if len(track_names) > 1 else None,
+                            output_only=bool(save_output_only),
                         )
                         copied_paths.extend(copied_for_stem)
                         if copied_for_stem:

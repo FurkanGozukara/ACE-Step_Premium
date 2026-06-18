@@ -65,6 +65,37 @@ class TestSamAudioMediaOutput(unittest.TestCase):
         self.assertEqual("auto_editor_trimmed", saved_metadata["trim"]["reason"])
         self.assertEqual(1.0, saved_metadata["metrics"]["duration_seconds"])
 
+    def test_save_outputs_can_skip_residual_video_and_metadata(self) -> None:
+        """Output-only saves should expose only the extracted audio file."""
+
+        sample_rate = 8000
+        target = torch.zeros(1, sample_rate)
+        residual = torch.zeros(1, sample_rate)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            artifacts = save_sam_audio_outputs(
+                source_path=root / "source.wav",
+                output_dir=root / "out",
+                output_stem="source",
+                target=target,
+                residual=residual,
+                sample_rate=sample_rate,
+                output_format="wav",
+                include_residual=False,
+                include_video=False,
+                metadata={"settings": {}},
+                save_metadata=False,
+            )
+
+            target_path = Path(artifacts.target_audio_path)
+
+            self.assertTrue(target_path.is_file())
+            self.assertIsNone(artifacts.residual_audio_path)
+            self.assertIsNone(artifacts.target_video_path)
+            self.assertIsNone(artifacts.metadata_path)
+            self.assertEqual([str(target_path).replace("\\", "/")], artifacts.file_list())
+            self.assertFalse((root / "out" / "source.sam_audio.json").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

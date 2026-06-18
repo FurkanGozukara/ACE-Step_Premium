@@ -23,6 +23,16 @@ def build_batch_extract_controls() -> dict[str, Any]:
                 scale=4,
             )
             batch_extract_output_browse_btn = gr.Button("Browse", scale=1)
+        with gr.Row():
+            batch_extract_recursive = gr.Checkbox(
+                label="Include subfolders",
+                value=False,
+            )
+            batch_extract_save_output_only = gr.Checkbox(
+                label="Save only output",
+                value=False,
+                info="Save only the extracted audio in the output folder.",
+            )
         with gr.Row(equal_height=False, elem_classes=["ace-generate-action-row"]):
             batch_extract_btn = gr.Button(
                 "Batch Process",
@@ -52,6 +62,8 @@ def build_batch_extract_controls() -> dict[str, Any]:
         "batch_extract_input_browse_btn": batch_extract_input_browse_btn,
         "batch_extract_output_folder": batch_extract_output_folder,
         "batch_extract_output_browse_btn": batch_extract_output_browse_btn,
+        "batch_extract_recursive": batch_extract_recursive,
+        "batch_extract_save_output_only": batch_extract_save_output_only,
         "batch_extract_btn": batch_extract_btn,
         "batch_extract_cancel_btn": batch_extract_cancel_btn,
         "batch_extract_status": batch_extract_status,

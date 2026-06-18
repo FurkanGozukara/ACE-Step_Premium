@@ -198,4 +198,5 @@ ADDITIONAL_DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "sam_batch_input_folder": "",
     "sam_batch_output_folder": "",
     "sam_batch_recursive": False,
+    "sam_batch_save_output_only": False,
 }

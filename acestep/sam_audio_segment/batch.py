@@ -12,7 +12,7 @@ from acestep.audio_processing.json_io import write_json
 from acestep.audio_processing.media_io import is_supported_media
 
 from .batch_segment import batch_segment_prompts, settings_for_batch_segment_prompt
-from .paths import create_run_dir, safe_media_stem
+from .paths import DEFAULT_OUTPUTS_DIR, create_run_dir, safe_media_stem
 from .progress import ProgressCallback, report_progress
 from .service import SamAudioService
 from .settings import SamAudioSettings
@@ -43,13 +43,22 @@ def run_batch_sam_audio(
     try:
         files = iter_media_files(input_folder, recursive=recursive)
         prompts = batch_segment_prompts(settings)
-        run_dir = create_run_dir(output_folder.strip() or None)
+        run_dir = (
+            _resolve_flat_output_dir(output_folder)
+            if settings.batch_save_output_only
+            else create_run_dir(output_folder.strip() or None)
+        )
     except ValueError as exc:
         yield str(exc), []
         return
 
     total_units = len(files) * max(1, len(prompts))
-    status_lines.extend([f"Found {len(files)} media file(s).", f"Saving outputs under: {run_dir}"])
+    output_label = (
+        "Saving extracted files to"
+        if settings.batch_save_output_only
+        else "Saving outputs under"
+    )
+    status_lines.extend([f"Found {len(files)} media file(s).", f"{output_label}: {run_dir}"])
     if prompts:
         status_lines.extend(
             [
@@ -92,7 +101,25 @@ def run_batch_sam_audio(
                     output_stem = safe_media_stem(source)
                     if prompt is not None:
                         output_stem = f"{output_stem}_{prompt.suffix}"
-                    result = service.process_file(source, run_dir, output_stem=output_stem)
+                    if settings.batch_save_output_only:
+                        output_stem = _available_output_stem(
+                            run_dir,
+                            output_stem,
+                            settings.output_format,
+                        )
+                    if settings.batch_save_output_only:
+                        result = service.process_file(
+                            source,
+                            run_dir,
+                            output_stem=output_stem,
+                            output_only=True,
+                        )
+                    else:
+                        result = service.process_file(
+                            source,
+                            run_dir,
+                            output_stem=output_stem,
+                        )
                     generated_files.extend(result.file_list())
                     row: dict[str, object] = {
                         "source_path": str(source),
@@ -118,9 +145,10 @@ def run_batch_sam_audio(
                         row["batch_segment_suffix"] = prompt.suffix
                     rows.append(row)
                     status_lines.append(f"{status_prefix} Failed: {exc}")
-                manifest_path = _write_manifest(run_dir, rows, settings)
-                if manifest_path not in generated_files:
-                    generated_files.append(manifest_path)
+                if not settings.batch_save_output_only:
+                    manifest_path = _write_manifest(run_dir, rows, settings)
+                    if manifest_path not in generated_files:
+                        generated_files.append(manifest_path)
                 yield _render_status(status_lines), generated_files
     finally:
         service.unload()
@@ -130,6 +158,36 @@ def run_batch_sam_audio(
     status_lines.append(f"Batch complete: {completed}/{total_units} {unit_label} processed.")
     report_progress(progress_callback, 1.0, f"Batch complete: {completed}/{total_units}")
     yield _render_status(status_lines), generated_files
+
+
+def _resolve_flat_output_dir(output_folder: str) -> Path:
+    """Return the direct target folder for output-only batch saves."""
+
+    raw = str(output_folder or "").strip()
+    target = Path(raw).expanduser().resolve() if raw else DEFAULT_OUTPUTS_DIR
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _available_output_stem(output_dir: Path, output_stem: str, output_format: str) -> str:
+    """Return a stem that will not overwrite an existing output-only file."""
+
+    ext = _extension(output_format)
+    candidate = output_dir / f"{output_stem}.{ext}"
+    if not candidate.exists():
+        return output_stem
+    for index in range(1, 10_000):
+        alternate = f"{output_stem}_extract{index}"
+        if not (output_dir / f"{alternate}.{ext}").exists():
+            return alternate
+    raise ValueError(f"Could not find a free output filename near {candidate}.")
+
+
+def _extension(value: str) -> str:
+    """Return a supported SAM-Audio batch output extension."""
+
+    normalized = str(value or "wav").strip().lower()
+    return normalized if normalized in {"wav", "flac", "mp3"} else "wav"
 
 
 def _unit_progress_callback(

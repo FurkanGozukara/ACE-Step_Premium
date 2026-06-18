@@ -198,6 +198,7 @@ class SamAudioService:
         *,
         output_stem: str | None = None,
         mask_video_path: str | Path | None = None,
+        output_only: bool = False,
     ) -> SamAudioArtifacts:
         """Run SAM-Audio segmentation for one media file."""
 
@@ -272,12 +273,13 @@ class SamAudioService:
             residual=residual,
             sample_rate=self.sample_rate,
             output_format=self.settings.output_format,
-            include_residual=self.settings.include_residual,
-            include_video=self.settings.include_video,
+            include_residual=self.settings.include_residual and not output_only,
+            include_video=self.settings.include_video and not output_only,
             metadata=metadata,
             trim_empty_output=self.settings.trim_empty_output,
             trim_settings=self.settings.trim_settings(),
             trim_threshold_db=self.settings.trim_threshold_db,
+            save_metadata=not output_only,
         )
         report_progress(self.progress_callback, 1.0, "SAM-Audio complete")
         return artifacts

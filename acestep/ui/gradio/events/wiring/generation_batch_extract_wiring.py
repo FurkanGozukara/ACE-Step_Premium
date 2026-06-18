@@ -22,7 +22,13 @@ def register_generation_batch_extract_handlers(context: GenerationWiringContext)
     dit_handler = context.dit_handler
     llm_handler = context.llm_handler
 
-    def batch_extract_wrapper(input_folder: str, output_folder: str, *args: Any):
+    def batch_extract_wrapper(
+        input_folder: str,
+        output_folder: str,
+        recursive: bool,
+        save_output_only: bool,
+        *args: Any,
+    ):
         """Stream folder Extract status updates while processing source audio files."""
 
         yield from run_batch_extract_processing(
@@ -31,6 +37,8 @@ def register_generation_batch_extract_handlers(context: GenerationWiringContext)
             input_folder,
             output_folder,
             args,
+            recursive=bool(recursive),
+            save_output_only=bool(save_output_only),
         )
 
     generation_section["batch_extract_input_browse_btn"].click(
@@ -49,6 +57,8 @@ def register_generation_batch_extract_handlers(context: GenerationWiringContext)
         inputs=[
             generation_section["batch_extract_input_folder"],
             generation_section["batch_extract_output_folder"],
+            generation_section["batch_extract_recursive"],
+            generation_section["batch_extract_save_output_only"],
             *build_generation_run_inputs(generation_section, results_section),
         ],
         outputs=[generation_section["batch_extract_status"]],

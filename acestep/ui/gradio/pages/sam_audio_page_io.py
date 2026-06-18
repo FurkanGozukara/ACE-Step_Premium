@@ -152,10 +152,16 @@ def add_batch_controls(controls: dict[str, Any]) -> None:
             with gr.Column(scale=3):
                 controls["sam_batch_output_folder"] = gr.Textbox(label="Output Folder")
                 controls["sam_batch_output_browse_btn"] = gr.Button("Browse Output Folder")
-        controls["sam_batch_recursive"] = gr.Checkbox(
-            label="Include subfolders",
-            value=False,
-        )
+        with gr.Row():
+            controls["sam_batch_recursive"] = gr.Checkbox(
+                label="Include subfolders",
+                value=False,
+            )
+            controls["sam_batch_save_output_only"] = gr.Checkbox(
+                label="Save only output",
+                value=False,
+                info="Save only the extracted audio in the output folder.",
+            )
         with gr.Row(equal_height=False, elem_classes=["ace-generate-action-row"]):
             controls["sam_batch_process_btn"] = gr.Button(
                 "Segment Batch Folder",

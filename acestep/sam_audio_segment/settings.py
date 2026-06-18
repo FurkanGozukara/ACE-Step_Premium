@@ -74,6 +74,7 @@ SAM_AUDIO_PRESET_KEYS: tuple[str, ...] = (
     "sam_batch_input_folder",
     "sam_batch_output_folder",
     "sam_batch_recursive",
+    "sam_batch_save_output_only",
 )
 
 
@@ -121,6 +122,7 @@ class SamAudioSettings:
     batch_input_folder: str = ""
     batch_output_folder: str = ""
     batch_recursive: bool = False
+    batch_save_output_only: bool = False
 
     @property
     def effective_prompt(self) -> str:
@@ -269,6 +271,7 @@ class SamAudioSettings:
             batch_input_folder=str(payload.get("batch_input_folder") or ""),
             batch_output_folder=str(payload.get("batch_output_folder") or ""),
             batch_recursive=bool(payload.get("batch_recursive", False)),
+            batch_save_output_only=bool(payload.get("batch_save_output_only", False)),
         )
 
 

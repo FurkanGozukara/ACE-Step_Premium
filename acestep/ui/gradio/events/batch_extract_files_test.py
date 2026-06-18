@@ -6,7 +6,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from acestep.ui.gradio.events.batch_extract_files import copy_batch_extract_audio_outputs
+from acestep.ui.gradio.events.batch_extract_files import (
+    copy_batch_extract_audio_outputs,
+    discover_batch_extract_audio_files,
+)
 
 
 class BatchExtractFilesTests(unittest.TestCase):
@@ -123,6 +126,59 @@ class BatchExtractFilesTests(unittest.TestCase):
             self.assertEqual([str(output_dir / "Alpha_extract1.wav")], copied)
             self.assertEqual(b"source", source_audio.read_bytes())
             self.assertEqual(b"extracted", (output_dir / "Alpha_extract1.wav").read_bytes())
+
+    def test_discover_audio_files_can_include_subfolders(self) -> None:
+        """Recursive discovery should include nested supported audio files."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            nested = root / "nested"
+            nested.mkdir()
+            (root / "Top.wav").write_bytes(b"top")
+            (nested / "Deep.mp3").write_bytes(b"deep")
+
+            flat = discover_batch_extract_audio_files(root)
+            recursive = discover_batch_extract_audio_files(root, recursive=True)
+
+            self.assertEqual([root / "Top.wav"], flat)
+            self.assertEqual([nested / "Deep.mp3", root / "Top.wav"], recursive)
+
+    def test_output_only_copy_saves_first_extracted_audio_only(self) -> None:
+        """Output-only copy should skip remaining audio, JSON, and alternate formats."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            generated_dir = root / "generated"
+            output_dir = root / "output"
+            generated_dir.mkdir()
+            output_dir.mkdir()
+            source_audio = root / "Alpha.wav"
+            generated_audio = generated_dir / "generated.flac"
+            remaining_audio = generated_dir / "generated_remaining.flac"
+            alternate_audio = generated_dir / "generated.mp3"
+            metadata = generated_dir / "generated.json"
+            generated_audio.write_bytes(b"extracted")
+            remaining_audio.write_bytes(b"remaining")
+            alternate_audio.write_bytes(b"alternate")
+            metadata.write_text("{}", encoding="utf-8")
+
+            copied = copy_batch_extract_audio_outputs(
+                [
+                    str(generated_audio),
+                    str(remaining_audio),
+                    str(alternate_audio),
+                    str(metadata),
+                ],
+                source_audio,
+                output_dir,
+                output_only=True,
+            )
+
+            self.assertEqual([str(output_dir / "Alpha.flac")], copied)
+            self.assertEqual(b"extracted", (output_dir / "Alpha.flac").read_bytes())
+            self.assertFalse((output_dir / "Alpha_remaining.flac").exists())
+            self.assertFalse((output_dir / "Alpha.mp3").exists())
+            self.assertFalse((output_dir / "Alpha.json").exists())
 
 
 if __name__ == "__main__":

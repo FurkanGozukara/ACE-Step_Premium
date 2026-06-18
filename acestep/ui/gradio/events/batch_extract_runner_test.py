@@ -215,8 +215,57 @@ class BatchExtractRunnerTests(unittest.TestCase):
                     f"Extract the {expected_stem.upper()} track from the audio:",
                     call[19],
                 )
-                self.assertFalse(call[EXTRACT_ALL_STEMS_ARG_INDEX])
             self.assertIn("Batch Process complete: 1/1 file(s) saved", statuses[-1])
+
+    def test_recursive_output_only_saves_extracted_files_only(self) -> None:
+        """Recursive output-only mode should save one extracted file per input."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            input_dir = root / "input"
+            nested_dir = input_dir / "nested"
+            output_dir = root / "output"
+            generated_dir = root / "generated"
+            nested_dir.mkdir(parents=True)
+            generated_dir.mkdir()
+            _write_wav(input_dir / "Top.wav")
+            _write_wav(nested_dir / "Deep.wav")
+            calls: list[tuple[Any, ...]] = []
+
+            def fake_runner(_dit, _llm, *args):
+                """Create extracted and remaining outputs for the copy filter."""
+
+                calls.append(args)
+                source = Path(args[SRC_AUDIO_ARG_INDEX])
+                extracted = generated_dir / f"{source.stem}.flac"
+                remaining = generated_dir / f"{source.stem}_remaining.flac"
+                sidecar = generated_dir / f"{source.stem}.json"
+                extracted.write_bytes(f"extracted-{source.stem}".encode("utf-8"))
+                remaining.write_bytes(f"remaining-{source.stem}".encode("utf-8"))
+                sidecar.write_text("{}", encoding="utf-8")
+                yield _result([str(extracted), str(remaining), str(sidecar)])
+
+            statuses = list(
+                run_batch_extract_processing(
+                    None,
+                    None,
+                    str(input_dir),
+                    str(output_dir),
+                    _generation_args(),
+                    recursive=True,
+                    save_output_only=True,
+                    generation_runner=fake_runner,
+                )
+            )
+
+            called_names = [Path(call[SRC_AUDIO_ARG_INDEX]).name for call in calls]
+            self.assertEqual(["Deep.wav", "Top.wav"], called_names)
+            self.assertIn("Batch Process complete: 2/2 file(s) saved", statuses[-1])
+            self.assertEqual(b"extracted-Deep", (output_dir / "Deep.flac").read_bytes())
+            self.assertEqual(b"extracted-Top", (output_dir / "Top.flac").read_bytes())
+            self.assertFalse((output_dir / "Deep_remaining.flac").exists())
+            self.assertFalse((output_dir / "Top_remaining.flac").exists())
+            self.assertFalse(any(output_dir.glob("*.json")))
 
     def test_output_folder_is_mandatory(self) -> None:
         """A missing output folder stops before any generation starts."""

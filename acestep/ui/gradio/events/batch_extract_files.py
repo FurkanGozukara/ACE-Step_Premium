@@ -38,13 +38,18 @@ def resolve_batch_extract_output_folder(output_folder: str | Path) -> Path:
     return folder
 
 
-def discover_batch_extract_audio_files(input_folder: str | Path) -> list[Path]:
-    """Find non-recursive supported audio files in ``input_folder``."""
+def discover_batch_extract_audio_files(
+    input_folder: str | Path,
+    *,
+    recursive: bool = False,
+) -> list[Path]:
+    """Find supported audio files in ``input_folder``."""
 
     folder = resolve_existing_input_folder(input_folder)
+    iterator = folder.rglob("*") if recursive else folder.iterdir()
     files = [
         path
-        for path in sorted(folder.iterdir(), key=lambda item: item.name.lower())
+        for path in sorted(iterator, key=lambda item: str(item.relative_to(folder)).lower())
         if path.is_file() and path.suffix.lower() in AUDIO_INPUT_SUFFIXES
     ]
     if not files:
@@ -70,6 +75,7 @@ def copy_batch_extract_audio_outputs(
     source_audio: Path,
     output_folder: Path,
     track_name: str | None = None,
+    output_only: bool = False,
 ) -> list[str]:
     """Copy generated audio files to ``output_folder`` using the source stem."""
 
@@ -81,6 +87,8 @@ def copy_batch_extract_audio_outputs(
             break
         suffix = source.suffix.lower()
         is_remaining = _is_remaining_audio(source)
+        if output_only and is_remaining:
+            continue
         output_key = (suffix, is_remaining)
         if (
             suffix not in AUDIO_OUTPUT_SUFFIXES
@@ -96,6 +104,8 @@ def copy_batch_extract_audio_outputs(
             shutil.copy2(source, target)
         copied.append(str(target))
         copied_outputs.add(output_key)
+        if output_only and not is_remaining:
+            break
     return copied
 
 
