@@ -46,6 +46,23 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+### 18 June 2026 V5.5 Update
+
+-   Full tutorial video published finally for inference : https://youtu.be/9C_6qNKjgpA
+-   I started working on LoRA training tutorial as well hopefully soon
+-   With 5.5 optimizer specific parameters are now shown that you can set, I am also working on to make them auto default best hopefully
+-   There was a visual bug that hidden Remix Melody Retention and Direct Source Latents (no_fsq) on Remix songs page and this bug fixed and app scanned entirely and all visuals verified
+-   Just run Windows_Install_or_Update.bat to update, the zip file not changed
+
+<img width="3128" height="433" alt="image" src="https://github.com/user-attachments/assets/88694533-be99-498b-8b54-773ebedf6426" />
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/2212f840-2e78-4435-aa79-fd934db754aa" />
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/219f8633-cda3-4ffc-8a72-f84af11485b2" />
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/5b1aac4d-0732-44d0-8066-0ebcab962f56" />
+
+
 ### 18 June 2026 V5.4 Update
 
 -   Now batch folder processing for ACESTEP XL 1.5 and SAM Audio has this extra option Save only output
