@@ -17,7 +17,10 @@ from .mode_ui_helpers import (
     _compute_meta_updates_for_mode,
     _compute_repainting_labels,
 )
-from .strength_defaults import DEFAULT_AUDIO_COVER_STRENGTH
+from .strength_defaults import (
+    DEFAULT_AUDIO_COVER_STRENGTH,
+    DEFAULT_REMIX_MELODY_RETENTION,
+)
 
 
 _RETENTION_BASE_CLASSES = [
@@ -149,9 +152,10 @@ def compute_mode_ui_updates(
         if is_cover
         else "ace-remix-retention-hidden"
     )
+    retention_value = DEFAULT_REMIX_MELODY_RETENTION if is_cover else 0.0
     cover_noise_update = gr.update(
         visible=True,
-        value=0.0,
+        value=retention_value,
         elem_classes=[*_RETENTION_BASE_CLASSES, retention_visibility_class],
     )
 

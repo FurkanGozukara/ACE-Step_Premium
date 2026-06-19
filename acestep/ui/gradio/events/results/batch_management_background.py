@@ -35,6 +35,9 @@ from acestep.ui.gradio.events.results.result_output_contract import (
 from acestep.ui.gradio.events.generation.generation_count import normalize_generation_count
 from acestep.ui.gradio.events.results.batch_queue import store_batch_in_queue
 from acestep.ui.gradio.events.results.generation_progress import generate_with_progress
+from acestep.ui.gradio.events.generation.strength_defaults import (
+    DEFAULT_REMIX_MELODY_RETENTION,
+)
 from acestep.ui.gradio.i18n import t
 
 torch = sys.modules.get("torch")
@@ -159,7 +162,10 @@ def generate_next_batch_background(
             repainting_end=params.get("repainting_end"),
             instruction_display_gen=params.get("instruction_display_gen"),
             audio_cover_strength=params.get("audio_cover_strength"),
-            cover_noise_strength=params.get("cover_noise_strength", 0.0),
+            cover_noise_strength=params.get(
+                "cover_noise_strength",
+                DEFAULT_REMIX_MELODY_RETENTION,
+            ),
             task_type=params.get("task_type"),
             no_fsq=params.get("no_fsq", False),
             use_adg=params.get("use_adg"),

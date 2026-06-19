@@ -8,6 +8,7 @@ from acestep.ui.gradio.premium_preset_defaults import ADDITIONAL_DEFAULT_PRESET_
 from acestep.ui.gradio.premium_features import DEFAULT_PRESET_VALUES
 from acestep.ui.gradio.events.generation.strength_defaults import (
     DEFAULT_AUDIO_COVER_STRENGTH,
+    DEFAULT_REMIX_MELODY_RETENTION,
 )
 
 
@@ -45,6 +46,14 @@ class PremiumPresetDefaultsTests(unittest.TestCase):
         self.assertEqual(
             DEFAULT_AUDIO_COVER_STRENGTH,
             DEFAULT_PRESET_VALUES["audio_cover_strength"],
+        )
+
+    def test_remix_melody_retention_defaults_to_high_retention(self) -> None:
+        """Generation presets should default Remix Melody Retention to 0.97."""
+
+        self.assertEqual(
+            DEFAULT_REMIX_MELODY_RETENTION,
+            DEFAULT_PRESET_VALUES["cover_noise_strength"],
         )
 
     def test_audio_processing_subprocess_defaults_to_enabled(self) -> None:

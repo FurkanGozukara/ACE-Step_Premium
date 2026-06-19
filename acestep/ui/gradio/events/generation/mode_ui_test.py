@@ -19,12 +19,14 @@ try:
     from acestep.constants import GENERATION_MODES_BASE, GENERATION_MODES_TURBO, MODE_TO_TASK_TYPE
     from acestep.ui.gradio.events.generation.strength_defaults import (
         DEFAULT_AUDIO_COVER_STRENGTH,
+        DEFAULT_REMIX_MELODY_RETENTION,
     )
     from acestep.ui.gradio.events.generation.mode_ui import compute_mode_ui_updates
     _IMPORT_ERROR = None
 except Exception as exc:  # pragma: no cover - environment dependency guard
     compute_mode_ui_updates = None
     DEFAULT_AUDIO_COVER_STRENGTH = 0.95
+    DEFAULT_REMIX_MELODY_RETENTION = 0.97
     _IMPORT_ERROR = exc
 
 # Output indices for the two new state-clearing outputs
@@ -257,7 +259,10 @@ class ModeUiStateClearingTests(unittest.TestCase):
             result[_IDX_REMIX_STRENGTH].get("value"),
             DEFAULT_AUDIO_COVER_STRENGTH,
         )
-        self.assertEqual(result[_IDX_COVER_NOISE].get("value"), 0.0)
+        self.assertEqual(
+            result[_IDX_COVER_NOISE].get("value"),
+            DEFAULT_REMIX_MELODY_RETENTION,
+        )
         self.assertTrue(result[_IDX_REPAINTING_GROUP].get("visible"))
         self.assertIn("Remix Source Segment", result[_IDX_REPAINTING_HEADER].get("value"))
         self.assertEqual(result[_IDX_REPAINTING_START].get("label"), "Remix Source Start")

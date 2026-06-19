@@ -254,7 +254,7 @@
     "remix_no_fsq_info": "Remix-only backend option. Uses source-audio latents directly instead of FSQ-quantized codes. Try this when Remix loses detail; leave off for the standard cover path. Repaint ignores this setting and uses its own source-mask path.",
     "remix_help_label": "Remix Guide",
     "cover_noise_strength_label": "Remix Melody Retention",
-    "cover_noise_strength_info": "Remix-only control. Controls how much of the original melody is preserved during Remix. 0 = no melody retention (pure style transfer from your caption). 0.1–0.25 = recommended range with SFT model (restores melody while allowing style changes). 1.0 = maximum melody retention. Higher values keep the tune but may resist style changes — adjust your caption if needed.",
+    "cover_noise_strength_info": "Remix-only control. Controls how much of the original melody is preserved during Remix. Default 0.97 = high melody retention. 0 = no melody retention (pure style transfer from your caption). 1.0 = maximum melody retention. Higher values keep the tune but may resist style changes — adjust your caption if needed.",
     "enable_normalization": "Enable Normalization",
     "enable_normalization_info": "Adjusts the final audio volume to a consistent peak level. Prevents clipping (distortion from too-loud audio) and ensures all outputs are at similar loudness. Recommended to keep enabled for consistent results.",
     "normalization_db": "Target Peak (dB)",

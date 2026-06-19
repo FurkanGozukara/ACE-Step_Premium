@@ -56,6 +56,7 @@ from acestep.ui.gradio.events.generation.model_config import (
 )
 from acestep.ui.gradio.events.generation.strength_defaults import (
     DEFAULT_AUDIO_COVER_STRENGTH,
+    DEFAULT_REMIX_MELODY_RETENTION,
 )
 from acestep.ui.gradio.events.generation.audio_format_options import (
     normalize_audio_format,
@@ -381,7 +382,7 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "instrumental_checkbox": False,
     "repaint_dont_switch_with_lyrics": False,
     "audio_cover_strength": DEFAULT_AUDIO_COVER_STRENGTH,
-    "cover_noise_strength": 0.0,
+    "cover_noise_strength": DEFAULT_REMIX_MELODY_RETENTION,
     "batch_size_input": 1,
     "inference_steps": 8,
     "guidance_scale": 1.0,
