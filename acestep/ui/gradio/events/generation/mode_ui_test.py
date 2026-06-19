@@ -83,6 +83,12 @@ _IDX_RETAKE_SEED = 36
 _IDX_EXTRACT_HELP_GROUP = 40
 
 
+def _has_class(update, class_name: str) -> bool:
+    """Return whether a gr.update payload includes an elem class."""
+
+    return class_name in (update.get("elem_classes") or [])
+
+
 @unittest.skipIf(compute_mode_ui_updates is None,
                  f"compute_mode_ui_updates import unavailable: {_IMPORT_ERROR}")
 class ModeUiStateClearingTests(unittest.TestCase):
@@ -243,6 +249,10 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertFalse(result[_IDX_AUDIO_CODES].get("visible"))
         self.assertNotIn("value", result[_IDX_SRC_AUDIO])
         self.assertTrue(result[_IDX_COVER_NOISE].get("visible"))
+        self.assertIn(
+            "ace-remix-retention-visible",
+            result[_IDX_COVER_NOISE].get("elem_classes"),
+        )
         self.assertEqual(
             result[_IDX_REMIX_STRENGTH].get("value"),
             DEFAULT_AUDIO_COVER_STRENGTH,
@@ -257,10 +267,12 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertFalse(result[_IDX_REPAINT_MODE].get("visible"))
         self.assertFalse(result[_IDX_REPAINT_STRENGTH].get("visible"))
         self.assertFalse(result[_IDX_REPAINT_MODE_OPTIONS_GROUP].get("visible"))
-        self.assertFalse(result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertTrue(result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertTrue(_has_class(result[_IDX_CUSTOM_HELP_GROUP], "ace-mode-hidden"))
         self.assertTrue(result[_IDX_RETAKE_ENABLED].get("visible", True))
         self.assertTrue(result[_IDX_FLOW_EDIT_COLUMN].get("visible"))
         self.assertTrue(result[_IDX_NO_FSQ_COLUMN].get("visible"))
+        self.assertFalse(_has_class(result[_IDX_NO_FSQ_COLUMN], "ace-mode-hidden"))
 
         think_update = result[_IDX_THINK_CHECKBOX]
         self.assertFalse(think_update.get("value"))
@@ -273,8 +285,11 @@ class ModeUiStateClearingTests(unittest.TestCase):
         repaint_result = compute_mode_ui_updates("Repaint", previous_mode="Remix")
 
         self.assertTrue(remix_result[_IDX_NO_FSQ_COLUMN].get("visible"))
-        self.assertFalse(custom_result[_IDX_NO_FSQ_COLUMN].get("visible"))
-        self.assertFalse(repaint_result[_IDX_NO_FSQ_COLUMN].get("visible"))
+        self.assertFalse(_has_class(remix_result[_IDX_NO_FSQ_COLUMN], "ace-mode-hidden"))
+        self.assertTrue(custom_result[_IDX_NO_FSQ_COLUMN].get("visible"))
+        self.assertTrue(_has_class(custom_result[_IDX_NO_FSQ_COLUMN], "ace-mode-hidden"))
+        self.assertTrue(repaint_result[_IDX_NO_FSQ_COLUMN].get("visible"))
+        self.assertTrue(_has_class(repaint_result[_IDX_NO_FSQ_COLUMN], "ace-mode-hidden"))
         self.assertFalse(custom_result[_IDX_NO_FSQ].get("value"))
         self.assertFalse(repaint_result[_IDX_NO_FSQ].get("value"))
 
@@ -286,14 +301,22 @@ class ModeUiStateClearingTests(unittest.TestCase):
         simple_result = compute_mode_ui_updates("Simple", previous_mode="Custom")
 
         self.assertTrue(custom_result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
+        self.assertFalse(_has_class(custom_result[_IDX_STRENGTH_VARIATION_ROW], "ace-mode-hidden"))
         self.assertTrue(custom_result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertFalse(_has_class(custom_result[_IDX_CUSTOM_HELP_GROUP], "ace-mode-hidden"))
         self.assertTrue(custom_result[_IDX_RETAKE_ENABLED].get("visible", True))
         self.assertTrue(custom_result[_IDX_FLOW_EDIT_COLUMN].get("visible"))
-        self.assertFalse(remix_result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertFalse(_has_class(custom_result[_IDX_FLOW_EDIT_COLUMN], "ace-mode-hidden"))
+        self.assertTrue(remix_result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertTrue(_has_class(remix_result[_IDX_CUSTOM_HELP_GROUP], "ace-mode-hidden"))
         self.assertTrue(remix_result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
-        self.assertFalse(repaint_result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
-        self.assertFalse(repaint_result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
-        self.assertFalse(simple_result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
+        self.assertFalse(_has_class(remix_result[_IDX_STRENGTH_VARIATION_ROW], "ace-mode-hidden"))
+        self.assertTrue(repaint_result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertTrue(_has_class(repaint_result[_IDX_CUSTOM_HELP_GROUP], "ace-mode-hidden"))
+        self.assertTrue(repaint_result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
+        self.assertTrue(_has_class(repaint_result[_IDX_STRENGTH_VARIATION_ROW], "ace-mode-hidden"))
+        self.assertTrue(simple_result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
+        self.assertTrue(_has_class(simple_result[_IDX_STRENGTH_VARIATION_ROW], "ace-mode-hidden"))
 
     def test_generation_modes_do_not_expose_raw_remix_as_top_level_mode(self):
         """Raw remix should be selected by no_fsq, not by a separate mode."""
@@ -311,7 +334,8 @@ class ModeUiStateClearingTests(unittest.TestCase):
         """Repaint has its own local edit path, so flow-edit should be unavailable."""
         result = compute_mode_ui_updates("Repaint")
 
-        self.assertFalse(result[_IDX_FLOW_EDIT_COLUMN].get("visible"))
+        self.assertTrue(result[_IDX_FLOW_EDIT_COLUMN].get("visible"))
+        self.assertTrue(_has_class(result[_IDX_FLOW_EDIT_COLUMN], "ace-mode-hidden"))
         self.assertFalse(result[_IDX_FLOW_EDIT_MORPH].get("visible"))
         self.assertFalse(result[_IDX_FLOW_EDIT_MORPH].get("value"))
         self.assertFalse(result[_IDX_MORPH_PANEL].get("visible"))
@@ -319,9 +343,11 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertFalse(result[_IDX_RETAKE_PANEL].get("visible"))
         self.assertEqual(result[_IDX_RETAKE_VARIANCE].get("value"), 0.0)
         self.assertEqual(result[_IDX_RETAKE_SEED].get("value"), "")
-        self.assertFalse(result[_IDX_NO_FSQ_COLUMN].get("visible"))
+        self.assertTrue(result[_IDX_NO_FSQ_COLUMN].get("visible"))
+        self.assertTrue(_has_class(result[_IDX_NO_FSQ_COLUMN], "ace-mode-hidden"))
         self.assertFalse(result[_IDX_NO_FSQ].get("value"))
-        self.assertFalse(result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertTrue(result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertTrue(_has_class(result[_IDX_CUSTOM_HELP_GROUP], "ace-mode-hidden"))
         self.assertTrue(result[_IDX_REPAINT_MODE].get("visible"))
         self.assertTrue(result[_IDX_REPAINT_STRENGTH].get("visible"))
         self.assertTrue(result[_IDX_REPAINT_MODE_OPTIONS_GROUP].get("visible"))
@@ -528,11 +554,15 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertTrue(result[_IDX_REPAINTING_GROUP].get("visible"))
         self.assertTrue(result[_IDX_EXTRACT_HELP_GROUP].get("visible"))
         self.assertFalse(result[_IDX_AUDIO_FORMAT_COLUMN].get("visible"))
-        self.assertFalse(result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
-        self.assertFalse(result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
-        self.assertFalse(result[_IDX_NO_FSQ_COLUMN].get("visible"))
+        self.assertTrue(result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
+        self.assertTrue(_has_class(result[_IDX_STRENGTH_VARIATION_ROW], "ace-mode-hidden"))
+        self.assertTrue(result[_IDX_CUSTOM_HELP_GROUP].get("visible"))
+        self.assertTrue(_has_class(result[_IDX_CUSTOM_HELP_GROUP], "ace-mode-hidden"))
+        self.assertTrue(result[_IDX_NO_FSQ_COLUMN].get("visible"))
+        self.assertTrue(_has_class(result[_IDX_NO_FSQ_COLUMN], "ace-mode-hidden"))
         self.assertFalse(result[_IDX_NO_FSQ].get("value"))
-        self.assertFalse(result[_IDX_FLOW_EDIT_COLUMN].get("visible"))
+        self.assertTrue(result[_IDX_FLOW_EDIT_COLUMN].get("visible"))
+        self.assertTrue(_has_class(result[_IDX_FLOW_EDIT_COLUMN], "ace-mode-hidden"))
         self.assertFalse(result[_IDX_FLOW_EDIT_MORPH].get("value"))
         self.assertFalse(result[_IDX_MORPH_PANEL].get("visible"))
         self.assertFalse(result[_IDX_RETAKE_ENABLED].get("value"))
@@ -544,7 +574,11 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertFalse(result[_IDX_REPAINT_STRENGTH].get("visible"))
         self.assertEqual(result[_IDX_REPAINT_STRENGTH].get("value"), 0.5)
         self.assertFalse(result[_IDX_REPAINT_MODE_OPTIONS_GROUP].get("visible"))
-        self.assertFalse(result[_IDX_COVER_NOISE].get("visible"))
+        self.assertTrue(result[_IDX_COVER_NOISE].get("visible"))
+        self.assertIn(
+            "ace-remix-retention-hidden",
+            result[_IDX_COVER_NOISE].get("elem_classes"),
+        )
         self.assertEqual(result[_IDX_COVER_NOISE].get("value"), 0.0)
 
     def test_turbo_model_reverts_unsupported_extract_mode(self):
@@ -572,7 +606,8 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertTrue(result[_IDX_COMPLETE_TRACK_CLASSES].get("visible"))
         self.assertTrue(result[_IDX_REPAINTING_GROUP].get("visible"))
         self.assertTrue(result[_IDX_AUDIO_FORMAT_COLUMN].get("visible"))
-        self.assertFalse(result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
+        self.assertTrue(result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
+        self.assertTrue(_has_class(result[_IDX_STRENGTH_VARIATION_ROW], "ace-mode-hidden"))
         self.assertFalse(result[_IDX_REPAINT_MODE].get("visible"))
         self.assertFalse(result[_IDX_REPAINT_STRENGTH].get("visible"))
         self.assertFalse(result[_IDX_REPAINT_MODE_OPTIONS_GROUP].get("visible"))

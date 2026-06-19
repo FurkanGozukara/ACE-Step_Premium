@@ -105,7 +105,7 @@ class GenerationDecompositionContractTests(unittest.TestCase):
         self.assertIn("build_hidden_generation_state", call_names)
         self.assertIn("build_simple_mode_controls", call_names)
         self.assertIn("build_source_track_and_code_controls", call_names)
-        self.assertIn("build_cover_strength_controls", call_names)
+        self.assertIn("build_variation_morph_controls", call_names)
         self.assertIn("build_custom_mode_controls", call_names)
         self.assertIn("build_repainting_controls", call_names)
         self.assertIn("build_optional_parameter_controls", call_names)

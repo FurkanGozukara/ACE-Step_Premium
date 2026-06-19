@@ -16,12 +16,16 @@ from acestep.ui.gradio.events.generation.strength_defaults import (
     DEFAULT_AUDIO_COVER_STRENGTH,
 )
 from acestep.ui.gradio.i18n import t
+from .generation_tab_secondary_controls import build_cover_strength_controls
 
 
 def build_variation_morph_controls() -> dict[str, Any]:
     """Build strength, help, Retake, and Edit controls with expandable panels."""
 
-    with gr.Row(equal_height=True) as strength_variation_row:
+    with gr.Row(
+        equal_height=True,
+        elem_classes=["ace-strength-variation-row"],
+    ) as strength_variation_row:
         with gr.Column(scale=5, min_width=320):
             audio_cover_strength = gr.Slider(
                 minimum=0.0,
@@ -33,10 +37,19 @@ def build_variation_morph_controls() -> dict[str, Any]:
                 elem_classes=["has-info-container"],
                 visible=True,
             )
-        with gr.Column(scale=1, min_width=120) as custom_help_group:
+            cover_controls = build_cover_strength_controls()
+        with gr.Column(
+            scale=1,
+            min_width=120,
+            elem_classes=["ace-custom-help-column"],
+        ) as custom_help_group:
             gr.Markdown(t("generation.custom_help_label"))
             create_help_button("generation_custom")
-        with gr.Column(scale=1, min_width=150) as variation_group:
+        with gr.Column(
+            scale=1,
+            min_width=150,
+            elem_classes=["ace-variation-column"],
+        ) as variation_group:
             with gr.Row():
                 retake_enabled = gr.Checkbox(
                     label="Retake",
@@ -46,7 +59,11 @@ def build_variation_morph_controls() -> dict[str, Any]:
                     elem_classes=["has-info-container"],
                 )
                 create_help_button("generation_retake")
-        with gr.Column(scale=1, min_width=150) as flow_edit_column:
+        with gr.Column(
+            scale=1,
+            min_width=150,
+            elem_classes=["ace-flow-edit-column"],
+        ) as flow_edit_column:
             with gr.Row():
                 flow_edit_morph = gr.Checkbox(
                     label="Edit",
@@ -62,13 +79,21 @@ def build_variation_morph_controls() -> dict[str, Any]:
                     elem_classes=["has-info-container"],
                 )
                 create_help_button("generation_edit")
-        with gr.Column(scale=2, min_width=220, visible=False) as no_fsq_column:
+        with gr.Column(
+            scale=2,
+            min_width=220,
+            elem_classes=["ace-no-fsq-column", "ace-mode-hidden"],
+        ) as no_fsq_column:
             no_fsq = gr.Checkbox(
                 label=t("generation.remix_no_fsq_label"),
                 value=False,
                 info=t("generation.remix_no_fsq_info"),
             )
-        with gr.Column(scale=1, min_width=120, visible=False) as remix_help_group:
+        with gr.Column(
+            scale=1,
+            min_width=120,
+            elem_classes=["ace-remix-help-column", "ace-mode-hidden"],
+        ) as remix_help_group:
             gr.Markdown(t("generation.remix_help_label"))
             create_help_button("generation_remix")
 
@@ -183,6 +208,7 @@ def build_variation_morph_controls() -> dict[str, Any]:
     return {
         "strength_variation_row": strength_variation_row,
         "audio_cover_strength": audio_cover_strength,
+        "cover_noise_strength": cover_controls["cover_noise_strength"],
         "custom_help_group": custom_help_group,
         "variation_group": variation_group,
         "remix_help_group": remix_help_group,

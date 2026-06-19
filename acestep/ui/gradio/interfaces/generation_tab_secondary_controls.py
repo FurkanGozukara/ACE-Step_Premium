@@ -36,8 +36,12 @@ def build_cover_strength_controls() -> dict[str, Any]:
         step=0.01,
         label=t("generation.cover_noise_strength_label"),
         info=t("generation.cover_noise_strength_info"),
-        elem_classes=["has-info-container"],
-        visible=False,
+        elem_classes=[
+            "has-info-container",
+            "ace-remix-retention-control",
+            "ace-remix-retention-hidden",
+        ],
+        visible=True,
     )
     return {
         "cover_noise_strength": cover_noise_strength,

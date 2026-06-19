@@ -473,6 +473,15 @@ _PREMIUM_CSS = """
     opacity: 0.52 !important;
     pointer-events: none !important;
 }
+.ace-remix-retention-hidden {
+    display: none !important;
+}
+.ace-remix-retention-visible {
+    display: block !important;
+}
+.ace-mode-hidden {
+    display: none !important;
+}
   .ace-status-scroll-10,
   .ace-status-markdown {
       max-height: calc(1.45em * 10 + 1rem) !important;

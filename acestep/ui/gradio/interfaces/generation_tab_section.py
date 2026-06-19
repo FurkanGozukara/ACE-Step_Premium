@@ -25,7 +25,6 @@ from .generation_tab_optional_controls import (
     build_optional_parameter_controls,
 )
 from .generation_tab_secondary_controls import (
-    build_cover_strength_controls,
     build_custom_mode_controls,
     build_repainting_controls,
 )
@@ -108,7 +107,6 @@ def create_generation_body_section(
         init_params=init_params,
     )
     variation_morph_controls = build_variation_morph_controls()
-    cover_controls = build_cover_strength_controls()
     custom_mode_controls = build_custom_mode_controls()
     repainting_controls = build_repainting_controls()
     optional_controls = build_optional_parameter_controls(
@@ -129,7 +127,6 @@ def create_generation_body_section(
     result.update(simple_mode_controls)
     result.update(source_track_code_controls)
     result.update(variation_morph_controls)
-    result.update(cover_controls)
     result.update(custom_mode_controls)
     result.update(repainting_controls)
     result.update(optional_controls)

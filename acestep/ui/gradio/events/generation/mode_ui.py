@@ -20,6 +20,21 @@ from .mode_ui_helpers import (
 from .strength_defaults import DEFAULT_AUDIO_COVER_STRENGTH
 
 
+_RETENTION_BASE_CLASSES = [
+    "has-info-container",
+    "ace-remix-retention-control",
+]
+
+
+def _mode_visibility_classes(base_class: str, visible: bool) -> list[str]:
+    """Return CSS classes for controls that must stay mounted."""
+
+    classes = [base_class]
+    if not visible:
+        classes.append("ace-mode-hidden")
+    return classes
+
+
 def _composition_guide_for_mode(mode: str) -> str:
     """Return the mode-specific Composition guidance markdown."""
 
@@ -129,7 +144,16 @@ def compute_mode_ui_updates(
     elif not show_strength:
         strength_kwargs["value"] = DEFAULT_AUDIO_COVER_STRENGTH
     strength_update = gr.update(**strength_kwargs)
-    cover_noise_update = gr.update(visible=is_cover, value=0.0)
+    retention_visibility_class = (
+        "ace-remix-retention-visible"
+        if is_cover
+        else "ace-remix-retention-hidden"
+    )
+    cover_noise_update = gr.update(
+        visible=True,
+        value=0.0,
+        elem_classes=[*_RETENTION_BASE_CLASSES, retention_visibility_class],
+    )
 
     # Think checkbox
     if is_extract or is_lego or is_cover or is_repaint:
@@ -208,7 +232,13 @@ def compute_mode_ui_updates(
         src_audio_update = gr.update(value=None)
 
     flow_edit_supported = is_custom or is_cover
-    flow_edit_column_update = gr.update(visible=flow_edit_supported)
+    flow_edit_column_update = gr.update(
+        visible=True,
+        elem_classes=_mode_visibility_classes(
+            "ace-flow-edit-column",
+            flow_edit_supported,
+        ),
+    )
     flow_edit_morph_update = (
         gr.update(visible=True, interactive=True)
         if flow_edit_supported
@@ -278,8 +308,17 @@ def compute_mode_ui_updates(
         retake_variance_update,                            # 35: retake_variance
         retake_seed_update,                                # 36: retake_seed
         mode,                                              # 37: previous_generation_mode
-        gr.update(visible=is_cover),                       # 38: remix_help_group
-        gr.update(visible=show_retake_controls),           # 39: variation_group (Retake in Custom/Remix)
+        gr.update(
+            visible=True,
+            elem_classes=_mode_visibility_classes("ace-remix-help-column", is_cover),
+        ),                                                 # 38: remix_help_group
+        gr.update(
+            visible=True,
+            elem_classes=_mode_visibility_classes(
+                "ace-variation-column",
+                show_retake_controls,
+            ),
+        ),                                                 # 39: variation_group (Retake in Custom/Remix)
         gr.update(visible=(is_extract or is_lego)),        # 40: extract_help_group
         gr.update(visible=is_complete),                    # 41: complete_help_group
         auto_bpm_update,                                   # 42: bpm_auto
@@ -293,9 +332,24 @@ def compute_mode_ui_updates(
         flow_edit_morph_update,                            # 50: flow_edit_morph
         gr.update(visible=show_runtime_options),           # 51: runtime_options_row
         gr.update(value=_composition_guide_for_mode(mode)),  # 52: composition_guide
-        gr.update(visible=is_cover),                       # 53: no_fsq_column
-        gr.update(visible=is_custom),                      # 54: custom_help_group
-        gr.update(visible=show_strength_variation_row),    # 55: strength_variation_row
+        gr.update(
+            visible=True,
+            elem_classes=_mode_visibility_classes("ace-no-fsq-column", is_cover),
+        ),                                                 # 53: no_fsq_column
+        gr.update(
+            visible=True,
+            elem_classes=_mode_visibility_classes(
+                "ace-custom-help-column",
+                is_custom,
+            ),
+        ),                                                 # 54: custom_help_group
+        gr.update(
+            visible=True,
+            elem_classes=_mode_visibility_classes(
+                "ace-strength-variation-row",
+                show_strength_variation_row,
+            ),
+        ),                                                 # 55: strength_variation_row
         retake_enabled_update,                             # 56: retake_enabled
         retake_panel_update,                               # 57: retake_panel
         morph_panel_update,                                # 58: morph_panel
