@@ -26,6 +26,10 @@ from .training_tensor_browse import (
     load_lora_training_dataset_with_state,
 )
 from ...interfaces.training_lora_vram_presets import lora_vram_preset_updates
+from ...interfaces.training_lora_tab_training_options import (
+    LORA_OPTIMIZER_UI_UPDATE_KEYS,
+    lora_optimizer_ui_updates,
+)
 
 
 def _normalize_training_state(training_state: Any) -> dict[str, bool]:
@@ -96,9 +100,22 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
             training_section["lora_keep_frozen_bf16"],
             training_section["lora_compile_model"],
             training_section["lora_optimizer_type"],
+            *[
+                training_section[key]
+                for key in LORA_OPTIMIZER_UI_UPDATE_KEYS
+            ],
             training_section["lora_scheduler_type"],
             training_section["lora_base_quantization"],
             training_section["lora_empty_cache_every_n_steps"],
+        ],
+    )
+
+    training_section["lora_optimizer_type"].change(
+        fn=lora_optimizer_ui_updates,
+        inputs=[training_section["lora_optimizer_type"]],
+        outputs=[
+            training_section[key]
+            for key in LORA_OPTIMIZER_UI_UPDATE_KEYS
         ],
     )
 
@@ -161,6 +178,22 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
             training_section["training_num_inference_steps"],
             training_section["training_seed"],
             training_section["lora_optimizer_type"],
+            training_section["lora_weight_decay"],
+            training_section["lora_adam_beta1"],
+            training_section["lora_adam_beta2"],
+            training_section["lora_adam_epsilon"],
+            training_section["lora_adamw8bit_min_8bit_size"],
+            training_section["lora_adamw8bit_percentile_clipping"],
+            training_section["lora_adamw8bit_block_wise"],
+            training_section["lora_adamw8bit_paged"],
+            training_section["lora_adafactor_epsilon1"],
+            training_section["lora_adafactor_epsilon2"],
+            training_section["lora_adafactor_clip_threshold"],
+            training_section["lora_adafactor_decay_rate"],
+            training_section["lora_adafactor_beta1"],
+            training_section["lora_adafactor_scale_parameter"],
+            training_section["lora_adafactor_relative_step"],
+            training_section["lora_adafactor_warmup_init"],
             training_section["lora_scheduler_type"],
             training_section["lora_timestep_mode"],
             training_section["lora_adaptive_timestep_ratio"],

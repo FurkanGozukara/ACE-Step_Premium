@@ -33,6 +33,11 @@ def build_batch_extract_controls() -> dict[str, Any]:
                 value=False,
                 info="Save only the extracted audio in the output folder.",
             )
+            batch_extract_overwrite_existing = gr.Checkbox(
+                label="Overwrite Existing Files",
+                value=False,
+                info="Replace files with the same target name instead of adding _extractN.",
+            )
         with gr.Row(equal_height=False, elem_classes=["ace-generate-action-row"]):
             batch_extract_btn = gr.Button(
                 "Batch Process",
@@ -64,6 +69,7 @@ def build_batch_extract_controls() -> dict[str, Any]:
         "batch_extract_output_browse_btn": batch_extract_output_browse_btn,
         "batch_extract_recursive": batch_extract_recursive,
         "batch_extract_save_output_only": batch_extract_save_output_only,
+        "batch_extract_overwrite_existing": batch_extract_overwrite_existing,
         "batch_extract_btn": batch_extract_btn,
         "batch_extract_cancel_btn": batch_extract_cancel_btn,
         "batch_extract_status": batch_extract_status,

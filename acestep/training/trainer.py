@@ -1075,6 +1075,61 @@ class LoRATrainer:
             lr=self.training_config.learning_rate,
             weight_decay=self.training_config.weight_decay,
             device_type=device_type,
+            adam_beta1=getattr(self.training_config, "adam_beta1", 0.9),
+            adam_beta2=getattr(self.training_config, "adam_beta2", 0.999),
+            adam_epsilon=getattr(self.training_config, "adam_epsilon", 1e-8),
+            adamw8bit_min_8bit_size=getattr(
+                self.training_config,
+                "adamw8bit_min_8bit_size",
+                4096,
+            ),
+            adamw8bit_percentile_clipping=getattr(
+                self.training_config,
+                "adamw8bit_percentile_clipping",
+                100,
+            ),
+            adamw8bit_block_wise=getattr(
+                self.training_config,
+                "adamw8bit_block_wise",
+                True,
+            ),
+            adamw8bit_paged=getattr(self.training_config, "adamw8bit_paged", False),
+            adafactor_epsilon1=getattr(
+                self.training_config,
+                "adafactor_epsilon1",
+                1e-30,
+            ),
+            adafactor_epsilon2=getattr(
+                self.training_config,
+                "adafactor_epsilon2",
+                1e-3,
+            ),
+            adafactor_clip_threshold=getattr(
+                self.training_config,
+                "adafactor_clip_threshold",
+                1.0,
+            ),
+            adafactor_decay_rate=getattr(
+                self.training_config,
+                "adafactor_decay_rate",
+                -0.8,
+            ),
+            adafactor_beta1=getattr(self.training_config, "adafactor_beta1", 0.0),
+            adafactor_scale_parameter=getattr(
+                self.training_config,
+                "adafactor_scale_parameter",
+                False,
+            ),
+            adafactor_relative_step=getattr(
+                self.training_config,
+                "adafactor_relative_step",
+                False,
+            ),
+            adafactor_warmup_init=getattr(
+                self.training_config,
+                "adafactor_warmup_init",
+                False,
+            ),
         )
         yield 0, 0.0, f"Optimizer: {optimizer_type}"
 
@@ -1580,6 +1635,61 @@ class LoRATrainer:
             lr=self.training_config.learning_rate,
             weight_decay=self.training_config.weight_decay,
             device_type=self.module.device_type,
+            adam_beta1=getattr(self.training_config, "adam_beta1", 0.9),
+            adam_beta2=getattr(self.training_config, "adam_beta2", 0.999),
+            adam_epsilon=getattr(self.training_config, "adam_epsilon", 1e-8),
+            adamw8bit_min_8bit_size=getattr(
+                self.training_config,
+                "adamw8bit_min_8bit_size",
+                4096,
+            ),
+            adamw8bit_percentile_clipping=getattr(
+                self.training_config,
+                "adamw8bit_percentile_clipping",
+                100,
+            ),
+            adamw8bit_block_wise=getattr(
+                self.training_config,
+                "adamw8bit_block_wise",
+                True,
+            ),
+            adamw8bit_paged=getattr(self.training_config, "adamw8bit_paged", False),
+            adafactor_epsilon1=getattr(
+                self.training_config,
+                "adafactor_epsilon1",
+                1e-30,
+            ),
+            adafactor_epsilon2=getattr(
+                self.training_config,
+                "adafactor_epsilon2",
+                1e-3,
+            ),
+            adafactor_clip_threshold=getattr(
+                self.training_config,
+                "adafactor_clip_threshold",
+                1.0,
+            ),
+            adafactor_decay_rate=getattr(
+                self.training_config,
+                "adafactor_decay_rate",
+                -0.8,
+            ),
+            adafactor_beta1=getattr(self.training_config, "adafactor_beta1", 0.0),
+            adafactor_scale_parameter=getattr(
+                self.training_config,
+                "adafactor_scale_parameter",
+                False,
+            ),
+            adafactor_relative_step=getattr(
+                self.training_config,
+                "adafactor_relative_step",
+                False,
+            ),
+            adafactor_warmup_init=getattr(
+                self.training_config,
+                "adafactor_warmup_init",
+                False,
+            ),
         )
         yield 0, 0.0, f"Optimizer: {optimizer_type}"
 

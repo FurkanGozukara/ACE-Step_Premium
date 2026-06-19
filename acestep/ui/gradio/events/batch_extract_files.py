@@ -76,6 +76,7 @@ def copy_batch_extract_audio_outputs(
     output_folder: Path,
     track_name: str | None = None,
     output_only: bool = False,
+    overwrite_existing_files: bool = False,
 ) -> list[str]:
     """Copy generated audio files to ``output_folder`` using the source stem."""
 
@@ -99,7 +100,9 @@ def copy_batch_extract_audio_outputs(
         stem_suffix = extract_stem_filename_suffix(track_name)
         base_stem = f"{source_audio.stem}_{stem_suffix}" if stem_suffix else source_audio.stem
         target_stem = f"{base_stem}_remaining" if is_remaining else base_stem
-        target = _available_output_path(output_folder / f"{target_stem}{suffix}")
+        target = output_folder / f"{target_stem}{suffix}"
+        if not overwrite_existing_files:
+            target = _available_output_path(target)
         if source.resolve() != target.resolve():
             shutil.copy2(source, target)
         copied.append(str(target))

@@ -59,6 +59,7 @@ class PremiumPresetDefaultsTests(unittest.TestCase):
         self.assertFalse(ADDITIONAL_DEFAULT_PRESET_VALUES["ap_auto_postprocess"])
         self.assertFalse(ADDITIONAL_DEFAULT_PRESET_VALUES["sam_auto_postprocess"])
         self.assertFalse(ADDITIONAL_DEFAULT_PRESET_VALUES["sam_batch_segment"])
+        self.assertFalse(ADDITIONAL_DEFAULT_PRESET_VALUES["sam_batch_overwrite_existing"])
         self.assertEqual(["vocals"], ADDITIONAL_DEFAULT_PRESET_VALUES["sam_prompt_preset"])
 
     def test_diffpitcher_audio_processing_defaults_are_conservative(self) -> None:

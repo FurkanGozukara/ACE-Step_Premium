@@ -47,6 +47,10 @@ from acestep.training.dataset_vram_presets import (
     DEFAULT_DATASET_VRAM_PRESET,
     default_dataset_vram_preset_name,
 )
+from acestep.training.optim import (
+    OPTIMIZER_CHOICES,
+    optimizer_hyperparameter_defaults,
+)
 from acestep.ui.gradio.events.generation.model_config import (
     get_ui_control_config_for_path,
 )
@@ -76,6 +80,51 @@ TRIM_THRESHOLD_PRESET_KEYS = frozenset(
         "extract_trim_threshold_db",
         "ap_trim_threshold_db",
         "sam_trim_threshold_db",
+    }
+)
+_LORA_OPTIMIZER_PRESET_KEY_MAP: dict[str, str] = {
+    "lora_weight_decay": "weight_decay",
+    "lora_adam_beta1": "adam_beta1",
+    "lora_adam_beta2": "adam_beta2",
+    "lora_adam_epsilon": "adam_epsilon",
+    "lora_adamw8bit_min_8bit_size": "adamw8bit_min_8bit_size",
+    "lora_adamw8bit_percentile_clipping": "adamw8bit_percentile_clipping",
+    "lora_adamw8bit_block_wise": "adamw8bit_block_wise",
+    "lora_adamw8bit_paged": "adamw8bit_paged",
+    "lora_adafactor_epsilon1": "adafactor_epsilon1",
+    "lora_adafactor_epsilon2": "adafactor_epsilon2",
+    "lora_adafactor_clip_threshold": "adafactor_clip_threshold",
+    "lora_adafactor_decay_rate": "adafactor_decay_rate",
+    "lora_adafactor_beta1": "adafactor_beta1",
+    "lora_adafactor_scale_parameter": "adafactor_scale_parameter",
+    "lora_adafactor_relative_step": "adafactor_relative_step",
+    "lora_adafactor_warmup_init": "adafactor_warmup_init",
+}
+_LORA_ADAM_PRESET_KEYS = frozenset(
+    {
+        "lora_adam_beta1",
+        "lora_adam_beta2",
+        "lora_adam_epsilon",
+    }
+)
+_LORA_ADAMW8BIT_PRESET_KEYS = frozenset(
+    {
+        "lora_adamw8bit_min_8bit_size",
+        "lora_adamw8bit_percentile_clipping",
+        "lora_adamw8bit_block_wise",
+        "lora_adamw8bit_paged",
+    }
+)
+_LORA_ADAFACTOR_PRESET_KEYS = frozenset(
+    {
+        "lora_adafactor_epsilon1",
+        "lora_adafactor_epsilon2",
+        "lora_adafactor_clip_threshold",
+        "lora_adafactor_decay_rate",
+        "lora_adafactor_beta1",
+        "lora_adafactor_scale_parameter",
+        "lora_adafactor_relative_step",
+        "lora_adafactor_warmup_init",
     }
 )
 TRIM_MARGIN_PRESET_KEYS = frozenset({"ap_trim_margin_seconds"})
@@ -168,6 +217,23 @@ Brick by brick, yeah I built this sound
 Quiet on top, let the truth get loud
 
 [outro-medium]"""
+
+
+def _selected_lora_optimizer(optimizer_type: object) -> str:
+    selected = str(optimizer_type or "adamw").strip().casefold()
+    return selected if selected in OPTIMIZER_CHOICES else "adamw"
+
+
+def _lora_optimizer_preset_key_visible(key: str, optimizer_type: str) -> bool:
+    if key == "lora_weight_decay":
+        return True
+    if key in _LORA_ADAM_PRESET_KEYS:
+        return True
+    if key in _LORA_ADAMW8BIT_PRESET_KEYS:
+        return True
+    if key in _LORA_ADAFACTOR_PRESET_KEYS:
+        return optimizer_type == "adafactor"
+    return True
 
 SIMPLE_MODEL_CHOICES: tuple[tuple[str, str], ...] = (
     ("ACEStep XL 1.5 SFT", DEFAULT_PREMIUM_DIT_MODEL),
@@ -626,6 +692,12 @@ def _apply_runtime_defaults(
         merged["lora_optimizer_type"] = (
             "adamw8bit" if _legacy_bool(payload.get("lora_use_8bit_adam")) else "adamw"
         )
+    lora_optimizer_defaults = optimizer_hyperparameter_defaults(
+        merged.get("lora_optimizer_type")
+    )
+    for ui_key, optimizer_key in _LORA_OPTIMIZER_PRESET_KEY_MAP.items():
+        if ui_key not in provided_keys or merged.get(ui_key) in (None, ""):
+            merged[ui_key] = lora_optimizer_defaults[optimizer_key]
     _apply_cross_tab_defaults(merged, provided_keys)
     raw_quantization = payload.get("quantization_checkbox")
     raw_simple_quantization = payload.get("simple_quantization")
@@ -809,6 +881,7 @@ def _payload_to_component_updates(
     updates: list[Any] = []
     selected_model = payload.get("simple_model_dropdown") or payload.get("config_path")
     ui_config = get_ui_control_config_for_path(selected_model or DEFAULT_TURBO_DIT_MODEL)
+    selected_lora_optimizer = _selected_lora_optimizer(payload.get("lora_optimizer_type"))
     for key in PRESET_COMPONENT_KEYS:
         if key in payload:
             value = payload[key]
@@ -951,6 +1024,16 @@ def _payload_to_component_updates(
             elif key in TRIM_MINCLIP_PRESET_KEYS:
                 value = coerce_auto_editor_smooth_value(value, AUTO_EDITOR_MINCLIP_DEFAULT)
                 updates.append(gr.update(value=value))
+            elif key in _LORA_OPTIMIZER_PRESET_KEY_MAP:
+                updates.append(
+                    gr.update(
+                        value=coerce_preset_value(key, value, component_specs),
+                        visible=_lora_optimizer_preset_key_visible(
+                            key,
+                            selected_lora_optimizer,
+                        ),
+                    )
+                )
             elif key == "audio_format":
                 updates.append(gr.update(value=normalize_audio_format(value)))
             elif key == "extract_output_format":
@@ -1262,6 +1345,31 @@ def load_preset_action(
         f"Loaded preset: {selected}",
         _build_dashboard_markdown(selected, payload.get("subprocess_mode_checkbox")),
     )
+
+
+def load_lora_optimizer_hyperparameter_updates_for_preset(
+    preset_name: str | None,
+    component_specs: Mapping[str, Mapping[str, Any]] | None = None,
+) -> tuple[Any, ...]:
+    """Return saved LoRA optimizer hyperparameters after a preset load event."""
+
+    requested = str(preset_name or "").strip()
+    selected, _fell_back, payload = _load_resolved_preset_payload(requested)
+    if not selected:
+        return tuple(gr.skip() for _key in _LORA_OPTIMIZER_PRESET_KEY_MAP)
+
+    optimizer_type = _selected_lora_optimizer(payload.get("lora_optimizer_type"))
+    defaults = optimizer_hyperparameter_defaults(optimizer_type)
+    updates: list[Any] = []
+    for key, optimizer_key in _LORA_OPTIMIZER_PRESET_KEY_MAP.items():
+        value = payload.get(key, defaults[optimizer_key])
+        updates.append(
+            gr.update(
+                value=coerce_preset_value(key, value, component_specs),
+                visible=_lora_optimizer_preset_key_visible(key, optimizer_type),
+            )
+        )
+    return tuple(updates)
 
 
 def delete_preset_action(

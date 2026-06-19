@@ -77,6 +77,17 @@ class TrainingRunWiringTests(unittest.TestCase):
             self.assertEqual("my-awesome-song", kwargs["lora_name"])
             self.assertEqual("model-b", kwargs["model_config"])
             self.assertEqual(19, kwargs["training_num_inference_steps"])
+            self.assertEqual(0.0, kwargs["weight_decay"])
+            self.assertEqual(0.85, kwargs["adam_beta1"])
+            self.assertEqual(0.995, kwargs["adam_beta2"])
+            self.assertEqual(1e-28, kwargs["adafactor_epsilon1"])
+            self.assertEqual(0.002, kwargs["adafactor_epsilon2"])
+            self.assertEqual(0.75, kwargs["adafactor_clip_threshold"])
+            self.assertEqual(-0.7, kwargs["adafactor_decay_rate"])
+            self.assertEqual(0.1, kwargs["adafactor_beta1"])
+            self.assertTrue(kwargs["adafactor_scale_parameter"])
+            self.assertFalse(kwargs["adafactor_relative_step"])
+            self.assertFalse(kwargs["adafactor_warmup_init"])
             self.assertEqual(10, kwargs["save_best_after"])
             self.assertEqual(5, kwargs["save_best_smoothing_window"])
             self.assertEqual(0.001, kwargs["save_best_min_delta"])
@@ -139,6 +150,22 @@ class TrainingRunWiringTests(unittest.TestCase):
                     19,
                     42,
                     "adafactor",
+                    0.0,
+                    0.85,
+                    0.995,
+                    1e-8,
+                    4096,
+                    100,
+                    True,
+                    False,
+                    1e-28,
+                    0.002,
+                    0.75,
+                    -0.7,
+                    0.1,
+                    True,
+                    False,
+                    False,
                     "constant",
                     "continuous",
                     0.4,
@@ -210,6 +237,22 @@ class TrainingRunWiringTests(unittest.TestCase):
                     8,
                     42,
                     "adamw8bit",
+                    0.01,
+                    0.9,
+                    0.999,
+                    1e-8,
+                    4096,
+                    100,
+                    True,
+                    False,
+                    1e-30,
+                    1e-3,
+                    1.0,
+                    -0.8,
+                    0.0,
+                    False,
+                    False,
+                    False,
                     "constant",
                     "continuous",
                     0.0,
@@ -246,6 +289,9 @@ class TrainingRunWiringTests(unittest.TestCase):
         self.assertEqual(128, training_args["lora_alpha"])
         self.assertEqual(0.1, training_args["lora_dropout"])
         self.assertEqual(0.0003, training_args["learning_rate"])
+        self.assertEqual(0.01, training_args["weight_decay"])
+        self.assertEqual(0.9, training_args["adam_beta1"])
+        self.assertEqual(0.999, training_args["adam_beta2"])
         self.assertEqual(10, training_args["train_epochs"])
         self.assertEqual(1, training_args["train_batch_size"])
         self.assertEqual(1, training_args["gradient_accumulation"])

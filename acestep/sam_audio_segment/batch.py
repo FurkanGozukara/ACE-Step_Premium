@@ -101,7 +101,10 @@ def run_batch_sam_audio(
                     output_stem = safe_media_stem(source)
                     if prompt is not None:
                         output_stem = f"{output_stem}_{prompt.suffix}"
-                    if settings.batch_save_output_only:
+                    if (
+                        settings.batch_save_output_only
+                        and not settings.batch_overwrite_existing
+                    ):
                         output_stem = _available_output_stem(
                             run_dir,
                             output_stem,

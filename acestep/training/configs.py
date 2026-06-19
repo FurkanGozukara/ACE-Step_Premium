@@ -127,6 +127,21 @@ class TrainingConfig:
     compile_model: bool = False
     use_8bit_adam: bool = True
     optimizer_type: str = "adamw8bit"
+    adam_beta1: float = 0.9
+    adam_beta2: float = 0.999
+    adam_epsilon: float = 1e-8
+    adamw8bit_min_8bit_size: int = 4096
+    adamw8bit_percentile_clipping: int = 100
+    adamw8bit_block_wise: bool = True
+    adamw8bit_paged: bool = False
+    adafactor_epsilon1: float = 1e-30
+    adafactor_epsilon2: float = 1e-3
+    adafactor_clip_threshold: float = 1.0
+    adafactor_decay_rate: float = -0.8
+    adafactor_beta1: float = 0.0
+    adafactor_scale_parameter: bool = False
+    adafactor_relative_step: bool = False
+    adafactor_warmup_init: bool = False
     scheduler_type: str = "constant"
     empty_cache_every_n_steps: int = 10
     seed: int = 42
@@ -219,6 +234,21 @@ class TrainingConfig:
             "compile_model": self.compile_model,
             "use_8bit_adam": self.use_8bit_adam,
             "optimizer_type": self.optimizer_type,
+            "adam_beta1": self.adam_beta1,
+            "adam_beta2": self.adam_beta2,
+            "adam_epsilon": self.adam_epsilon,
+            "adamw8bit_min_8bit_size": self.adamw8bit_min_8bit_size,
+            "adamw8bit_percentile_clipping": self.adamw8bit_percentile_clipping,
+            "adamw8bit_block_wise": self.adamw8bit_block_wise,
+            "adamw8bit_paged": self.adamw8bit_paged,
+            "adafactor_epsilon1": self.adafactor_epsilon1,
+            "adafactor_epsilon2": self.adafactor_epsilon2,
+            "adafactor_clip_threshold": self.adafactor_clip_threshold,
+            "adafactor_decay_rate": self.adafactor_decay_rate,
+            "adafactor_beta1": self.adafactor_beta1,
+            "adafactor_scale_parameter": self.adafactor_scale_parameter,
+            "adafactor_relative_step": self.adafactor_relative_step,
+            "adafactor_warmup_init": self.adafactor_warmup_init,
             "scheduler_type": self.scheduler_type,
             "empty_cache_every_n_steps": self.empty_cache_every_n_steps,
             "seed": self.seed,

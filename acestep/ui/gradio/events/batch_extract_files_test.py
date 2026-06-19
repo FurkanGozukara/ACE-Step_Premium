@@ -127,6 +127,32 @@ class BatchExtractFilesTests(unittest.TestCase):
             self.assertEqual(b"source", source_audio.read_bytes())
             self.assertEqual(b"extracted", (output_dir / "Alpha_extract1.wav").read_bytes())
 
+    def test_copy_overwrites_existing_audio_when_enabled(self) -> None:
+        """Batch copy should replace an existing target only when overwrite is enabled."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            generated_dir = root / "generated"
+            output_dir = root / "output"
+            generated_dir.mkdir()
+            output_dir.mkdir()
+            source_audio = root / "Alpha.wav"
+            generated_audio = generated_dir / "generated.wav"
+            target_audio = output_dir / "Alpha.wav"
+            generated_audio.write_bytes(b"extracted")
+            target_audio.write_bytes(b"existing")
+
+            copied = copy_batch_extract_audio_outputs(
+                [str(generated_audio)],
+                source_audio,
+                output_dir,
+                overwrite_existing_files=True,
+            )
+
+            self.assertEqual([str(target_audio)], copied)
+            self.assertEqual(b"extracted", target_audio.read_bytes())
+            self.assertFalse((output_dir / "Alpha_extract1.wav").exists())
+
     def test_discover_audio_files_can_include_subfolders(self) -> None:
         """Recursive discovery should include nested supported audio files."""
 

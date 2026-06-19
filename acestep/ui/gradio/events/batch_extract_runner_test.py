@@ -267,6 +267,44 @@ class BatchExtractRunnerTests(unittest.TestCase):
             self.assertFalse((output_dir / "Top_remaining.flac").exists())
             self.assertFalse(any(output_dir.glob("*.json")))
 
+    def test_output_only_can_overwrite_existing_output(self) -> None:
+        """Overwrite mode should replace an existing output-only target file."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            input_dir = root / "input"
+            output_dir = root / "output"
+            generated_dir = root / "generated"
+            input_dir.mkdir()
+            output_dir.mkdir()
+            generated_dir.mkdir()
+            _write_wav(input_dir / "Alpha.wav")
+            (output_dir / "Alpha.flac").write_bytes(b"existing")
+
+            def fake_runner(_dit, _llm, *args):
+                """Create one extracted output for overwrite testing."""
+
+                extracted = generated_dir / "generated.flac"
+                extracted.write_bytes(b"replacement")
+                yield _result([str(extracted)])
+
+            statuses = list(
+                run_batch_extract_processing(
+                    None,
+                    None,
+                    str(input_dir),
+                    str(output_dir),
+                    _generation_args(),
+                    save_output_only=True,
+                    overwrite_existing_files=True,
+                    generation_runner=fake_runner,
+                )
+            )
+
+            self.assertIn("Batch Process complete: 1/1 file(s) saved", statuses[-1])
+            self.assertEqual(b"replacement", (output_dir / "Alpha.flac").read_bytes())
+            self.assertFalse((output_dir / "Alpha_extract1.flac").exists())
+
     def test_output_folder_is_mandatory(self) -> None:
         """A missing output folder stops before any generation starts."""
 

@@ -72,7 +72,11 @@ class LoRATrainingHandlerTests(unittest.TestCase):
                     )
                 )[0]
 
-        ensure_dit_ready.assert_called_once_with(handler, config_path="model-b")
+        ensure_dit_ready.assert_called_once_with(
+            handler,
+            config_path="model-b",
+            training_safe=True,
+        )
         self.assertIn("cannot load", first_status)
 
     def test_start_training_requires_valid_lora_name(self) -> None:
@@ -244,6 +248,22 @@ class LoRATrainingHandlerTests(unittest.TestCase):
                         adapter_type="dora",
                         target_mlp=True,
                         optimizer_type="adafactor",
+                        weight_decay=0.0,
+                        adam_beta1=0.85,
+                        adam_beta2=0.995,
+                        adam_epsilon=1e-7,
+                        adamw8bit_min_8bit_size=2048,
+                        adamw8bit_percentile_clipping=95,
+                        adamw8bit_block_wise=False,
+                        adamw8bit_paged=True,
+                        adafactor_epsilon1=1e-28,
+                        adafactor_epsilon2=0.002,
+                        adafactor_clip_threshold=0.75,
+                        adafactor_decay_rate=-0.7,
+                        adafactor_beta1=0.1,
+                        adafactor_scale_parameter=True,
+                        adafactor_relative_step=False,
+                        adafactor_warmup_init=False,
                         scheduler_type="linear",
                         save_best=True,
                         save_best_after=12,
@@ -279,6 +299,22 @@ class LoRATrainingHandlerTests(unittest.TestCase):
         self.assertTrue(training_config.use_fp8)
         self.assertEqual("dora", training_config.adapter_type)
         self.assertEqual("adafactor", training_config.optimizer_type)
+        self.assertEqual(0.0, training_config.weight_decay)
+        self.assertEqual(0.85, training_config.adam_beta1)
+        self.assertEqual(0.995, training_config.adam_beta2)
+        self.assertEqual(1e-7, training_config.adam_epsilon)
+        self.assertEqual(2048, training_config.adamw8bit_min_8bit_size)
+        self.assertEqual(95, training_config.adamw8bit_percentile_clipping)
+        self.assertFalse(training_config.adamw8bit_block_wise)
+        self.assertTrue(training_config.adamw8bit_paged)
+        self.assertEqual(1e-28, training_config.adafactor_epsilon1)
+        self.assertEqual(0.002, training_config.adafactor_epsilon2)
+        self.assertEqual(0.75, training_config.adafactor_clip_threshold)
+        self.assertEqual(-0.7, training_config.adafactor_decay_rate)
+        self.assertEqual(0.1, training_config.adafactor_beta1)
+        self.assertTrue(training_config.adafactor_scale_parameter)
+        self.assertFalse(training_config.adafactor_relative_step)
+        self.assertFalse(training_config.adafactor_warmup_init)
         self.assertEqual("linear", training_config.scheduler_type)
         self.assertTrue(training_config.save_best)
         self.assertEqual(12, training_config.save_best_after)

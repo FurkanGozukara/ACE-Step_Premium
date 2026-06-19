@@ -18,6 +18,7 @@ from acestep.training.lora_output_paths import (
     resolve_lora_export_root,
     resolve_lora_training_output_dir,
 )
+from acestep.training.optim import optimizer_hyperparameter_defaults
 from acestep.training.path_inputs import normalize_user_path
 from acestep.training.path_safety import safe_path
 from acestep.ui.gradio.events.local_path_dialogs import open_folder_path
@@ -71,6 +72,19 @@ def _as_float(value, default: float) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _as_nonnegative_float(value, default: float) -> float:
+    """Coerce a Gradio numeric value to a non-negative float."""
+
+    return max(0.0, _as_float(value, default))
+
+
+def _as_positive_float(value, default: float) -> float:
+    """Coerce a Gradio numeric value to a positive float."""
+
+    parsed = _as_float(value, default)
+    return parsed if parsed > 0.0 else default
 
 
 def _normalize_adapter_type(value: object) -> str:
@@ -249,6 +263,22 @@ def start_training(
     adapter_type: str = "lora",
     target_mlp: bool = False,
     optimizer_type: str = "",
+    weight_decay: float | None = None,
+    adam_beta1: float | None = None,
+    adam_beta2: float | None = None,
+    adam_epsilon: float | None = None,
+    adamw8bit_min_8bit_size: int | None = None,
+    adamw8bit_percentile_clipping: int | None = None,
+    adamw8bit_block_wise: bool = True,
+    adamw8bit_paged: bool = False,
+    adafactor_epsilon1: float | None = None,
+    adafactor_epsilon2: float | None = None,
+    adafactor_clip_threshold: float | None = None,
+    adafactor_decay_rate: float | None = None,
+    adafactor_beta1: float | None = None,
+    adafactor_scale_parameter: bool = False,
+    adafactor_relative_step: bool = False,
+    adafactor_warmup_init: bool = False,
     scheduler_type: str = "constant",
     save_best: bool = True,
     save_best_after: int = 10,
@@ -379,6 +409,49 @@ def start_training(
             optimizer_type,
             use_8bit_adam,
         )
+        optimizer_defaults = optimizer_hyperparameter_defaults(selected_optimizer_type)
+        selected_weight_decay = _as_nonnegative_float(
+            weight_decay,
+            float(optimizer_defaults["weight_decay"]),
+        )
+        selected_adam_beta1 = min(
+            0.999999,
+            max(0.0, _as_float(adam_beta1, float(optimizer_defaults["adam_beta1"]))),
+        )
+        selected_adam_beta2 = min(
+            0.999999,
+            max(0.0, _as_float(adam_beta2, float(optimizer_defaults["adam_beta2"]))),
+        )
+        selected_adam_epsilon = _as_positive_float(
+            adam_epsilon,
+            float(optimizer_defaults["adam_epsilon"]),
+        )
+        selected_adafactor_epsilon1 = _as_positive_float(
+            adafactor_epsilon1,
+            float(optimizer_defaults["adafactor_epsilon1"]),
+        )
+        selected_adafactor_epsilon2 = _as_positive_float(
+            adafactor_epsilon2,
+            float(optimizer_defaults["adafactor_epsilon2"]),
+        )
+        selected_adafactor_clip_threshold = _as_positive_float(
+            adafactor_clip_threshold,
+            float(optimizer_defaults["adafactor_clip_threshold"]),
+        )
+        selected_adafactor_decay_rate = _as_float(
+            adafactor_decay_rate,
+            float(optimizer_defaults["adafactor_decay_rate"]),
+        )
+        selected_adafactor_beta1 = min(
+            0.999999,
+            max(
+                0.0,
+                _as_float(
+                    adafactor_beta1,
+                    float(optimizer_defaults["adafactor_beta1"]),
+                ),
+            ),
+        )
         selected_scheduler_type = _normalize_scheduler_type(scheduler_type)
         selected_timestep_mode = _normalize_timestep_mode(timestep_mode)
         selected_target_mlp = _as_bool(target_mlp)
@@ -439,6 +512,34 @@ def start_training(
             compile_model=_as_bool(compile_model),
             use_8bit_adam=selected_optimizer_type == "adamw8bit",
             optimizer_type=selected_optimizer_type,
+            weight_decay=selected_weight_decay,
+            adam_beta1=selected_adam_beta1,
+            adam_beta2=selected_adam_beta2,
+            adam_epsilon=selected_adam_epsilon,
+            adamw8bit_min_8bit_size=_as_nonnegative_int(
+                adamw8bit_min_8bit_size,
+                int(optimizer_defaults["adamw8bit_min_8bit_size"]),
+            ),
+            adamw8bit_percentile_clipping=min(
+                100,
+                max(
+                    1,
+                    _as_positive_int(
+                        adamw8bit_percentile_clipping,
+                        int(optimizer_defaults["adamw8bit_percentile_clipping"]),
+                    ),
+                ),
+            ),
+            adamw8bit_block_wise=_as_bool(adamw8bit_block_wise),
+            adamw8bit_paged=_as_bool(adamw8bit_paged),
+            adafactor_epsilon1=selected_adafactor_epsilon1,
+            adafactor_epsilon2=selected_adafactor_epsilon2,
+            adafactor_clip_threshold=selected_adafactor_clip_threshold,
+            adafactor_decay_rate=selected_adafactor_decay_rate,
+            adafactor_beta1=selected_adafactor_beta1,
+            adafactor_scale_parameter=_as_bool(adafactor_scale_parameter),
+            adafactor_relative_step=_as_bool(adafactor_relative_step),
+            adafactor_warmup_init=_as_bool(adafactor_warmup_init),
             scheduler_type=selected_scheduler_type,
             val_split=validation_split_fraction(validation_split_percent),
             empty_cache_every_n_steps=_as_nonnegative_int(
@@ -475,12 +576,16 @@ def start_training(
         adapter_label = "DoRA" if selected_adapter_type == "dora" else "LoRA"
         logger.info(
             "Training options: adapter={}, target_mlp={}, optimizer={}, "
-            "scheduler={}, timestep_mode={}, adaptive_timestep_ratio={}, "
+            "weight_decay={}, adam_betas=({}, {}), scheduler={}, "
+            "timestep_mode={}, adaptive_timestep_ratio={}, "
             "val_split={}, save_best={}, save_best_after={}, "
             "save_best_smoothing_window={}, save_best_min_delta={}, compile_model={}",
             adapter_label,
             selected_target_mlp,
             selected_optimizer_type,
+            training_config.weight_decay,
+            training_config.adam_beta1,
+            training_config.adam_beta2,
             selected_scheduler_type,
             selected_timestep_mode,
             selected_adaptive_ratio,
@@ -511,6 +616,7 @@ def start_training(
             (
                 f"{adapter_label} options: target_mlp={selected_target_mlp}, "
                 f"optimizer={selected_optimizer_type}, scheduler={selected_scheduler_type}, "
+                f"weight_decay={training_config.weight_decay}, "
                 f"timestep={selected_timestep_mode}, "
                 f"adaptive_timestep_ratio={selected_adaptive_ratio}, "
                 f"validation_split={training_config.val_split:.2f}, "

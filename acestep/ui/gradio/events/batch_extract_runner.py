@@ -136,6 +136,7 @@ def run_batch_extract_processing(
     *,
     recursive: bool = False,
     save_output_only: bool = False,
+    overwrite_existing_files: bool = False,
     generation_runner: GenerationRunner | None = None,
 ) -> Iterator[str]:
     """Run Extract for every audio file in a folder and save renamed outputs."""
@@ -199,6 +200,7 @@ def run_batch_extract_processing(
                             target_folder,
                             track_name=track_name if len(track_names) > 1 else None,
                             output_only=bool(save_output_only),
+                            overwrite_existing_files=bool(overwrite_existing_files),
                         )
                         copied_paths.extend(copied_for_stem)
                         if copied_for_stem:

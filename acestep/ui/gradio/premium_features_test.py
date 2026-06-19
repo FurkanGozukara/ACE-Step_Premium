@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import unittest
+from collections import Counter
 from pathlib import Path
 
 from acestep.model_downloader import (
@@ -645,6 +646,22 @@ class PremiumFeaturesTests(unittest.TestCase):
             "training_num_inference_steps": 37,
             "training_seed": 12345,
             "lora_optimizer_type": "adamw8bit",
+            "lora_weight_decay": 0.02,
+            "lora_adam_beta1": 0.85,
+            "lora_adam_beta2": 0.995,
+            "lora_adam_epsilon": 1e-7,
+            "lora_adamw8bit_min_8bit_size": 2048,
+            "lora_adamw8bit_percentile_clipping": 95,
+            "lora_adamw8bit_block_wise": False,
+            "lora_adamw8bit_paged": True,
+            "lora_adafactor_epsilon1": 1e-29,
+            "lora_adafactor_epsilon2": 1e-2,
+            "lora_adafactor_clip_threshold": 1.5,
+            "lora_adafactor_decay_rate": -0.7,
+            "lora_adafactor_beta1": 0.1,
+            "lora_adafactor_scale_parameter": True,
+            "lora_adafactor_relative_step": True,
+            "lora_adafactor_warmup_init": True,
             "lora_scheduler_type": "constant",
             "lora_validation_split_percent": 15,
             "lora_output_dir": r"G:\loras",
@@ -685,6 +702,58 @@ class PremiumFeaturesTests(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertEqual(loaded[key], value)
                 self.assertEqual(updates[keys.index(key)].get("value"), value)
+        self.assertTrue(
+            updates[keys.index("lora_adamw8bit_min_8bit_size")].get("visible")
+        )
+        self.assertFalse(updates[keys.index("lora_adafactor_epsilon1")].get("visible"))
+        self.assertEqual(
+            expected["lora_adafactor_epsilon1"],
+            updates[keys.index("lora_adafactor_epsilon1")].get("value"),
+        )
+
+    def test_user_preset_file_contains_every_tracked_setting_key(self) -> None:
+        """Saving a preset should serialize the complete custom-config schema."""
+
+        overrides = {
+            "sam_batch_overwrite_existing": True,
+            "batch_auto_improve_lyrics": True,
+            "batch_auto_improve_style": True,
+            "lora_scheduler_type": "linear",
+            "lora_optimizer_type": "adafactor",
+            "lora_adafactor_relative_step": False,
+            "sam_output_format": "flac",
+            "extract_output_format": "wav",
+            "audio_format": "wav",
+            "training_subprocess": False,
+        }
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            for key, value in overrides.items():
+                values[keys.index(key)] = value
+            try:
+                premium_features.save_preset_action("all settings", None, *values)
+                preset_path = (
+                    Path(tmp_dir)
+                    / premium_features.USER_PRESET_FOLDER
+                    / "all settings.json"
+                )
+                saved = json.loads(preset_path.read_text(encoding="utf-8"))["values"]
+                loaded = premium_features.load_named_preset("all settings")
+                updates = premium_features.load_preset_action("all settings")
+            finally:
+                self._restore_project_root(original)
+
+        self.assertEqual([], [key for key, count in Counter(keys).items() if count > 1])
+        self.assertEqual(set(keys), set(saved))
+        for key, value in overrides.items():
+            with self.subTest(key=key):
+                self.assertEqual(loaded[key], value)
+                self.assertEqual(updates[keys.index(key)].get("value"), value)
 
     def test_default_lora_training_adapter_is_dora(self) -> None:
         """New training presets should select DoRA by default."""
@@ -709,6 +778,59 @@ class PremiumFeaturesTests(unittest.TestCase):
 
         self.assertEqual("adamw8bit", migrated["lora_optimizer_type"])
         self.assertEqual("adafactor", explicit["lora_optimizer_type"])
+        self.assertEqual(0.0, explicit["lora_weight_decay"])
+        self.assertEqual(1e-30, explicit["lora_adafactor_epsilon1"])
+
+    def test_loading_adafactor_preset_updates_optimizer_field_values(self) -> None:
+        """Custom presets should restore optimizer hyperparameter values."""
+
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            values[keys.index("lora_optimizer_type")] = "adafactor"
+            values[keys.index("lora_weight_decay")] = 0.0
+            values[keys.index("lora_adafactor_beta1")] = 0.12
+            values[keys.index("lora_adafactor_relative_step")] = False
+            values[keys.index("lora_adafactor_scale_parameter")] = False
+            values[keys.index("lora_adafactor_warmup_init")] = False
+            try:
+                premium_features.save_preset_action("adafactor training", None, *values)
+                updates = premium_features.load_preset_action("adafactor training")
+                optimizer_updates = (
+                    premium_features.load_lora_optimizer_hyperparameter_updates_for_preset(
+                        "adafactor training"
+                    )
+                )
+            finally:
+                self._restore_project_root(original)
+
+        self.assertEqual(
+            "adafactor",
+            updates[keys.index("lora_optimizer_type")].get("value"),
+        )
+        self.assertTrue(updates[keys.index("lora_weight_decay")].get("visible"))
+        self.assertTrue(updates[keys.index("lora_adafactor_epsilon1")].get("visible"))
+        self.assertTrue(
+            updates[keys.index("lora_adafactor_relative_step")].get("visible")
+        )
+        self.assertTrue(updates[keys.index("lora_adam_beta1")].get("visible"))
+        self.assertTrue(
+            updates[keys.index("lora_adamw8bit_min_8bit_size")].get("visible")
+        )
+        optimizer_update_map = dict(
+            zip(premium_features._LORA_OPTIMIZER_PRESET_KEY_MAP, optimizer_updates)
+        )
+        self.assertEqual(
+            0.12,
+            optimizer_update_map["lora_adafactor_beta1"].get("value"),
+        )
+        self.assertTrue(
+            optimizer_update_map["lora_adafactor_beta1"].get("visible")
+        )
 
     def test_user_preset_preserves_saved_blank_text_values(self) -> None:
         """Saved empty text fields should not be replaced by built-in defaults."""

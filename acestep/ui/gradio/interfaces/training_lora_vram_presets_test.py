@@ -108,44 +108,53 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
 
         updates = lora_vram_preset_updates(LORA_VRAM_PRESET_10GB_PLUS)
 
-        self.assertEqual(11, len(updates))
+        self.assertEqual(30, len(updates))
         self.assertEqual(32, updates[0]["value"])
         self.assertTrue(updates[3]["value"])
+        self.assertTrue(updates[8]["visible"])
+        self.assertTrue(updates[9]["visible"])
+        self.assertFalse(updates[10]["visible"])
+        self.assertFalse(updates[19]["visible"])
 
     def test_preset_updates_match_every_measured_value(self) -> None:
         """Each measured preset should update every dependent LoRA control."""
 
+        optimizer_defaults = [
+            None, None, None,
+            0.01, 0.9, 0.999, 1e-8, 4096, 100, True, False,
+            1e-30, 1e-3, 1.0, -0.8, 0.0, False, False, False,
+        ]
         expected_values = {
             LORA_VRAM_PRESET_8_TO_10GB: [
                 16, 128, True, True, True, True, False, "adamw8bit",
-                "constant", "FP8 scaled", 5,
+                *optimizer_defaults, "constant", "FP8 scaled", 5,
             ],
             LORA_VRAM_PRESET_10GB_PLUS: [
                 32, 128, True, True, True, True, False, "adamw8bit",
-                "constant", "FP8 scaled", 5,
+                *optimizer_defaults, "constant", "FP8 scaled", 5,
             ],
             LORA_VRAM_PRESET_12_TO_16GB: [
                 64, 128, True, False, True, True, False, "adamw8bit",
-                "constant", "Disabled", 10,
+                *optimizer_defaults, "constant", "Disabled", 10,
             ],
             LORA_VRAM_PRESET_16_TO_24GB: [
                 128, 128, True, False, True, True, False, "adamw",
-                "constant", "Disabled", 0,
+                *optimizer_defaults, "constant", "Disabled", 0,
             ],
             LORA_VRAM_PRESET_24GB_PLUS: [
                 128, 128, True, False, True, True, False, "adamw",
-                "constant", "Disabled", 0,
+                *optimizer_defaults, "constant", "Disabled", 0,
             ],
             LORA_VRAM_PRESET_32GB_PLUS: [
                 128, 128, True, False, True, False, False, "adamw",
-                "constant", "Disabled", 0,
+                *optimizer_defaults, "constant", "Disabled", 0,
             ],
         }
 
         for preset_name, expected in expected_values.items():
             with self.subTest(preset_name=preset_name):
                 updates = lora_vram_preset_updates(preset_name)
-                actual = [update["value"] for update in updates]
+                actual = [update.get("value") for update in updates]
                 self.assertEqual(expected, actual)
 
     def test_8_to_10gb_preset_updates_to_rank_16(self) -> None:
@@ -153,9 +162,9 @@ class TrainingLoraVramPresetUiTests(unittest.TestCase):
 
         updates = lora_vram_preset_updates(LORA_VRAM_PRESET_8_TO_10GB)
 
-        self.assertEqual(11, len(updates))
+        self.assertEqual(30, len(updates))
         self.assertEqual(16, updates[0]["value"])
-        self.assertEqual("FP8 scaled", updates[9]["value"])
+        self.assertEqual("FP8 scaled", updates[28]["value"])
 
 
 if __name__ == "__main__":

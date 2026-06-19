@@ -27,6 +27,7 @@ def register_generation_batch_extract_handlers(context: GenerationWiringContext)
         output_folder: str,
         recursive: bool,
         save_output_only: bool,
+        overwrite_existing_files: bool,
         *args: Any,
     ):
         """Stream folder Extract status updates while processing source audio files."""
@@ -39,6 +40,7 @@ def register_generation_batch_extract_handlers(context: GenerationWiringContext)
             args,
             recursive=bool(recursive),
             save_output_only=bool(save_output_only),
+            overwrite_existing_files=bool(overwrite_existing_files),
         )
 
     generation_section["batch_extract_input_browse_btn"].click(
@@ -59,6 +61,7 @@ def register_generation_batch_extract_handlers(context: GenerationWiringContext)
             generation_section["batch_extract_output_folder"],
             generation_section["batch_extract_recursive"],
             generation_section["batch_extract_save_output_only"],
+            generation_section["batch_extract_overwrite_existing"],
             *build_generation_run_inputs(generation_section, results_section),
         ],
         outputs=[generation_section["batch_extract_status"]],

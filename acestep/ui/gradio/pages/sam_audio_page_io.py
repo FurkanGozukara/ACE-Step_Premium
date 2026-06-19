@@ -162,6 +162,11 @@ def add_batch_controls(controls: dict[str, Any]) -> None:
                 value=False,
                 info="Save only the extracted audio in the output folder.",
             )
+            controls["sam_batch_overwrite_existing"] = gr.Checkbox(
+                label="Overwrite Existing Files",
+                value=False,
+                info="Replace files with the same target name instead of adding _extractN.",
+            )
         with gr.Row(equal_height=False, elem_classes=["ace-generate-action-row"]):
             controls["sam_batch_process_btn"] = gr.Button(
                 "Segment Batch Folder",

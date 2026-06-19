@@ -66,6 +66,7 @@ from acestep.ui.gradio.premium_preset_value_safety import (
 from acestep.ui.gradio.premium_features import (
     delete_preset_action,
     get_preset_component_keys,
+    load_lora_optimizer_hyperparameter_updates_for_preset,
     load_preset_action,
     open_models_folder,
     open_outputs_folder,
@@ -73,9 +74,14 @@ from acestep.ui.gradio.premium_features import (
     save_preset_action,
     startup_preset_updates,
 )
+from acestep.ui.gradio.interfaces.training_lora_tab_training_options import (
+    LORA_OPTIMIZER_HYPERPARAMETER_KEYS,
+    LORA_OPTIMIZER_PARAMETER_ROW_KEYS,
+    lora_optimizer_parameter_row_updates,
+)
 
 
-APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v5.4"
+APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v5.5"
 APP_RELEASE_URL = "https://www.patreon.com/posts/157675060"
 APP_HEADER_MARKDOWN = f"# {APP_BROWSER_TITLE} : [{APP_RELEASE_URL}]({APP_RELEASE_URL})"
 _FAVICON_PATH = Path(__file__).resolve().parent / "assets" / "ace_step_premium_favicon.svg"
@@ -1029,6 +1035,23 @@ def create_gradio_interface(
 
             return load_preset_action(preset_name, preset_component_specs)
 
+        def load_lora_optimizer_hyperparameter_updates_for_preset_with_specs(
+            preset_name: str | None,
+        ) -> tuple[Any, ...]:
+            """Restore saved optimizer parameters after optimizer dropdown updates."""
+
+            return load_lora_optimizer_hyperparameter_updates_for_preset(
+                preset_name,
+                preset_component_specs,
+            )
+
+        def sync_lora_optimizer_parameter_row_visibility(
+            optimizer_type: str | None,
+        ) -> tuple[Any, ...]:
+            """Refresh optimizer-specific parameter row visibility."""
+
+            return lora_optimizer_parameter_row_updates(optimizer_type)
+
         def delete_preset_action_with_specs(
             preset_name: str | None,
             default_values: list[Any] | tuple[Any, ...] | None = None,
@@ -1045,6 +1068,12 @@ def create_gradio_interface(
 
         startup_preset_updates_with_specs.__name__ = "startup_preset_updates"
         load_preset_action_with_specs.__name__ = "load_preset_action"
+        load_lora_optimizer_hyperparameter_updates_for_preset_with_specs.__name__ = (
+            "load_lora_optimizer_hyperparameter_updates_for_preset"
+        )
+        sync_lora_optimizer_parameter_row_visibility.__name__ = (
+            "sync_lora_optimizer_parameter_row_visibility"
+        )
         delete_preset_action_with_specs.__name__ = "delete_preset_action"
 
         def sync_preset_audio_format_visibility(audio_format: str) -> tuple[Any, ...]:
@@ -1056,6 +1085,12 @@ def create_gradio_interface(
             generation_section["mp3_controls_row"],
             generation_section["mp3_bitrate"],
             generation_section["mp3_sample_rate"],
+        ]
+        lora_optimizer_parameter_row_outputs = [
+            training_section[key] for key in LORA_OPTIMIZER_PARAMETER_ROW_KEYS
+        ]
+        lora_optimizer_hyperparameter_outputs = [
+            training_section[key] for key in LORA_OPTIMIZER_HYPERPARAMETER_KEYS
         ]
 
         startup_preset_event = demo.load(
@@ -1069,10 +1104,20 @@ def create_gradio_interface(
                 studio_page["studio_overview"],
             ],
         )
-        startup_preset_event.then(
+        startup_audio_visibility_event = startup_preset_event.then(
             fn=sync_preset_audio_format_visibility,
             inputs=[generation_section["audio_format"]],
             outputs=preset_audio_visibility_outputs,
+        )
+        startup_optimizer_row_event = startup_audio_visibility_event.then(
+            fn=sync_lora_optimizer_parameter_row_visibility,
+            inputs=[training_section["lora_optimizer_type"]],
+            outputs=lora_optimizer_parameter_row_outputs,
+        )
+        startup_optimizer_row_event.then(
+            fn=load_lora_optimizer_hyperparameter_updates_for_preset_with_specs,
+            inputs=[studio_page["preset_dropdown"]],
+            outputs=lora_optimizer_hyperparameter_outputs,
         )
         preset_load_outputs = preset_components + [
             generation_section["lora_status"],
@@ -1086,20 +1131,40 @@ def create_gradio_interface(
             inputs=[studio_page["preset_dropdown"]],
             outputs=preset_load_outputs,
         )
-        preset_dropdown_event.then(
+        preset_dropdown_audio_visibility_event = preset_dropdown_event.then(
             fn=sync_preset_audio_format_visibility,
             inputs=[generation_section["audio_format"]],
             outputs=preset_audio_visibility_outputs,
+        )
+        preset_dropdown_optimizer_row_event = preset_dropdown_audio_visibility_event.then(
+            fn=sync_lora_optimizer_parameter_row_visibility,
+            inputs=[training_section["lora_optimizer_type"]],
+            outputs=lora_optimizer_parameter_row_outputs,
+        )
+        preset_dropdown_optimizer_row_event.then(
+            fn=load_lora_optimizer_hyperparameter_updates_for_preset_with_specs,
+            inputs=[studio_page["preset_dropdown"]],
+            outputs=lora_optimizer_hyperparameter_outputs,
         )
         preset_load_event = studio_page["load_preset_btn"].click(
             fn=load_preset_action_with_specs,
             inputs=[studio_page["preset_dropdown"]],
             outputs=preset_load_outputs,
         )
-        preset_load_event.then(
+        preset_load_audio_visibility_event = preset_load_event.then(
             fn=sync_preset_audio_format_visibility,
             inputs=[generation_section["audio_format"]],
             outputs=preset_audio_visibility_outputs,
+        )
+        preset_load_optimizer_row_event = preset_load_audio_visibility_event.then(
+            fn=sync_lora_optimizer_parameter_row_visibility,
+            inputs=[training_section["lora_optimizer_type"]],
+            outputs=lora_optimizer_parameter_row_outputs,
+        )
+        preset_load_optimizer_row_event.then(
+            fn=load_lora_optimizer_hyperparameter_updates_for_preset_with_specs,
+            inputs=[studio_page["preset_dropdown"]],
+            outputs=lora_optimizer_hyperparameter_outputs,
         )
         studio_page["save_preset_btn"].click(
             fn=save_preset_action,
@@ -1123,10 +1188,20 @@ def create_gradio_interface(
             ],
             outputs=preset_load_outputs,
         )
-        preset_delete_event.then(
+        preset_delete_audio_visibility_event = preset_delete_event.then(
             fn=sync_preset_audio_format_visibility,
             inputs=[generation_section["audio_format"]],
             outputs=preset_audio_visibility_outputs,
+        )
+        preset_delete_optimizer_row_event = preset_delete_audio_visibility_event.then(
+            fn=sync_lora_optimizer_parameter_row_visibility,
+            inputs=[training_section["lora_optimizer_type"]],
+            outputs=lora_optimizer_parameter_row_outputs,
+        )
+        preset_delete_optimizer_row_event.then(
+            fn=load_lora_optimizer_hyperparameter_updates_for_preset_with_specs,
+            inputs=[studio_page["preset_dropdown"]],
+            outputs=lora_optimizer_hyperparameter_outputs,
         )
         studio_page["refresh_dashboard_btn"].click(
             fn=refresh_dashboard,

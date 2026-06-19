@@ -114,6 +114,75 @@ class TestSamAudioBatch(unittest.TestCase):
             self.assertNotIn("sam_audio_batch_manifest.json", "\n".join(updates[-1][1]))
             self.assertFalse(any(output_dir.glob("sam_audio_*")))
 
+    def test_batch_save_output_only_renames_existing_file_by_default(self):
+        """Output-only batch mode should keep existing target files unless overwrite is on."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            input_dir = root / "input"
+            output_dir = root / "output"
+            input_dir.mkdir()
+            output_dir.mkdir()
+            source = input_dir / "My Song.wav"
+            source.write_bytes(b"placeholder")
+            (output_dir / "My Song.wav").write_bytes(b"existing")
+            service = MagicMock()
+            artifact = MagicMock()
+            artifact.file_list.return_value = [str(output_dir / "My Song_extract1.wav")]
+            service.process_file.return_value = artifact
+
+            with patch("acestep.sam_audio_segment.batch.SamAudioService", return_value=service):
+                list(
+                    run_batch_sam_audio(
+                        str(input_dir),
+                        str(output_dir),
+                        False,
+                        SamAudioSettings(
+                            batch_save_output_only=True,
+                            output_format="wav",
+                        ),
+                    )
+                )
+
+            call = service.process_file.mock_calls[0]
+            self.assertEqual("My Song_extract1", call.kwargs["output_stem"])
+            self.assertTrue(call.kwargs["output_only"])
+
+    def test_batch_save_output_only_overwrites_when_enabled(self):
+        """Output-only batch mode should reuse the target stem when overwrite is on."""
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            input_dir = root / "input"
+            output_dir = root / "output"
+            input_dir.mkdir()
+            output_dir.mkdir()
+            source = input_dir / "My Song.wav"
+            source.write_bytes(b"placeholder")
+            (output_dir / "My Song.wav").write_bytes(b"existing")
+            service = MagicMock()
+            artifact = MagicMock()
+            artifact.file_list.return_value = [str(output_dir / "My Song.wav")]
+            service.process_file.return_value = artifact
+
+            with patch("acestep.sam_audio_segment.batch.SamAudioService", return_value=service):
+                list(
+                    run_batch_sam_audio(
+                        str(input_dir),
+                        str(output_dir),
+                        False,
+                        SamAudioSettings(
+                            batch_save_output_only=True,
+                            batch_overwrite_existing=True,
+                            output_format="wav",
+                        ),
+                    )
+                )
+
+            call = service.process_file.mock_calls[0]
+            self.assertEqual("My Song", call.kwargs["output_stem"])
+            self.assertTrue(call.kwargs["output_only"])
+
 
 if __name__ == "__main__":
     unittest.main()
