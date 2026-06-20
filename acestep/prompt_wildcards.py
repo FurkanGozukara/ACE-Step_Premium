@@ -30,7 +30,7 @@ _Node = _Literal | _Sequence | _Choice
 
 
 class WildcardSyntaxError(ValueError):
-    """Raised when prompt wildcard bracket syntax is malformed."""
+    """Raised when prompt wildcard brace syntax is malformed."""
 
     def __init__(self, message: str, *, position: int | None = None) -> None:
         self.position = position
@@ -49,10 +49,10 @@ class PromptWildcardExpansion:
 
 
 WILDCARD_HELP_MARKDOWN = (
-    "**Wildcards:** use `[option A|option B|option C]`; one option is picked "
-    "when you generate. Nested example: `cinematic [piano|guitar [clean|crunchy]] "
-    "hook`. Lyrics example: `I feel [alive|ready|free] tonight`. Lyric tags "
-    "without `|`, like `[Verse]` and `[Instrumental]`, stay unchanged."
+    "**Wildcards:** use `{option A|option B|option C}`; one option is picked "
+    "when you generate. Nested example: `cinematic {piano|guitar {clean|crunchy}} "
+    "hook`. Lyrics example: `I feel {alive|ready|free} tonight`. Lyric tags "
+    "like `[Verse]` and `[Instrumental]` stay unchanged."
 )
 
 
@@ -63,9 +63,9 @@ def expand_prompt_wildcards(
 ) -> str:
     """Return ``text`` with prompt wildcards expanded.
 
-    Wildcards use square brackets with top-level pipe-separated options:
-    ``[a|b|c]``. Bracketed lyric tags without a top-level pipe, such as
-    ``[Verse]``, are preserved as literal text.
+    Wildcards use curly braces with top-level pipe-separated options:
+    ``{a|b|c}``. Bracketed lyric tags such as ``[Verse]`` are preserved
+    as literal text.
     """
 
     source = "" if text is None else str(text)
@@ -165,7 +165,7 @@ def _merge_parts(parts: list[_Node]) -> tuple[_Node, ...]:
 
 
 class _Parser:
-    """Small recursive parser for nested wildcard bracket groups."""
+    """Small recursive parser for nested wildcard brace groups."""
 
     def __init__(self, text: str) -> None:
         self.text = text
@@ -176,35 +176,35 @@ class _Parser:
         index = 0
         while index < self.length:
             char = self.text[index]
-            if char == "[":
-                node, index = self._parse_bracket(index)
+            if char == "{":
+                node, index = self._parse_group(index)
                 parts.append(node)
-            elif char == "]":
-                raise WildcardSyntaxError("Unexpected closing ].", position=index)
+            elif char == "}":
+                raise WildcardSyntaxError("Unexpected closing }.", position=index)
             else:
                 literal, index = self._read_literal(index, stop_on_pipe=False)
                 parts.append(_Literal(literal))
         return _Sequence(_merge_parts(parts))
 
-    def _parse_bracket(self, start: int) -> tuple[_Node, int]:
+    def _parse_group(self, start: int) -> tuple[_Node, int]:
         options: list[list[_Node]] = [[]]
         separators = 0
         index = start + 1
         while index < self.length:
             char = self.text[index]
-            if char == "[":
-                node, index = self._parse_bracket(index)
+            if char == "{":
+                node, index = self._parse_group(index)
                 options[-1].append(node)
-            elif char == "]":
+            elif char == "}":
                 index += 1
                 if separators:
                     option_nodes = tuple(
                         _Sequence(_merge_parts(option)) for option in options
                     )
                     return _Choice(option_nodes), index
-                literal_parts: list[_Node] = [_Literal("[")]
+                literal_parts: list[_Node] = [_Literal("{")]
                 literal_parts.extend(options[0])
-                literal_parts.append(_Literal("]"))
+                literal_parts.append(_Literal("}"))
                 return _Sequence(_merge_parts(literal_parts)), index
             elif char == "|":
                 separators += 1
@@ -214,13 +214,13 @@ class _Parser:
                 literal, index = self._read_literal(index, stop_on_pipe=True)
                 options[-1].append(_Literal(literal))
 
-        raise WildcardSyntaxError("Missing closing ] for wildcard group.", position=start)
+        raise WildcardSyntaxError("Missing closing } for wildcard group.", position=start)
 
     def _read_literal(self, index: int, *, stop_on_pipe: bool) -> tuple[str, int]:
         start = index
         while index < self.length:
             char = self.text[index]
-            if char in "[]":
+            if char in "{}":
                 break
             if stop_on_pipe and char == "|":
                 break

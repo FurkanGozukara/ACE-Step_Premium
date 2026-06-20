@@ -9,7 +9,9 @@ import torch
 from acestep.sam_audio_segment.service import (
     _load_checkpoint_into_model,
     _set_local_ranker_map_location,
+    _should_use_meta_direct_sam_load,
 )
+from acestep.sam_audio_segment.settings import SamAudioSettings
 
 
 class _AssignAwareModel(torch.nn.Module):
@@ -119,6 +121,40 @@ class ServiceLoadTests(unittest.TestCase):
 
         load_checkpoint.assert_called_once()
         self.assertEqual(("vision_encoder.",), load_checkpoint.call_args.kwargs["skip_prefixes"])
+
+    def test_should_use_meta_direct_sam_load_for_cuda_text_safetensors(self):
+        """Text-mode CUDA safetensors can skip real CPU construction."""
+
+        settings = SamAudioSettings(prompt_mode="text", ranker_mode="none")
+
+        self.assertTrue(
+            _should_use_meta_direct_sam_load(
+                settings,
+                model_path=Path("SAM-Audio-Large-BF16.safetensors"),
+                device=torch.device("cuda"),
+                skip_visual_encoder=True,
+            )
+        )
+
+    def test_should_not_use_meta_direct_sam_load_for_visual_or_ranker_modes(self):
+        """Modes that construct extra external components keep the existing path."""
+
+        self.assertFalse(
+            _should_use_meta_direct_sam_load(
+                SamAudioSettings(prompt_mode="visual", ranker_mode="none"),
+                model_path=Path("SAM-Audio-Large-BF16.safetensors"),
+                device=torch.device("cuda"),
+                skip_visual_encoder=False,
+            )
+        )
+        self.assertFalse(
+            _should_use_meta_direct_sam_load(
+                SamAudioSettings(prompt_mode="text", ranker_mode="judge"),
+                model_path=Path("SAM-Audio-Large-BF16.safetensors"),
+                device=torch.device("cuda"),
+                skip_visual_encoder=True,
+            )
+        )
 
     def test_set_local_ranker_map_location_updates_nested_judge_rankers(self):
         """Nested Judge rankers should load directly on the service device."""

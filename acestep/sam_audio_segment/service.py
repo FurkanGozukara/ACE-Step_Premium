@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import gc
+import importlib
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import torch
@@ -80,7 +82,6 @@ class SamAudioService:
         )
         ensure_vendor_path()
         from sam_audio.model.config import SAMAudioConfig
-        from sam_audio.model.model import SAMAudio
         from sam_audio.processor import SAMAudioProcessor
 
         started = time.time()
@@ -110,10 +111,13 @@ class SamAudioService:
         skip_visual_encoder = should_skip_visual_encoder(self.settings)
         skip_prefixes = checkpoint_skip_prefixes_for_settings(self.settings)
         try:
-            with fast_checkpoint_model_initialization(
+            model, meta_direct_init = _build_sam_audio_model(
+                config=config,
+                settings=self.settings,
+                model_path=self.model_path,
+                device=self.device,
                 skip_visual_encoder=skip_visual_encoder,
-            ):
-                model = SAMAudio(config).eval()
+            )
         except Exception as exc:
             raise RuntimeError(
                 f"Could not initialize SAM-Audio optional components: {exc}"
@@ -139,6 +143,8 @@ class SamAudioService:
                 self.device,
                 skip_prefixes=skip_prefixes,
             )
+        if meta_direct_init:
+            _materialize_deferred_sam_text_encoder(model, config)
         report_progress(
             self.progress_callback,
             0.18,
@@ -372,6 +378,118 @@ def _ranker_kind(config: object) -> str:
     if not isinstance(config, dict):
         return "disabled"
     return str(config.get("kind") or "unknown")
+
+
+def _build_sam_audio_model(
+    *,
+    config,
+    settings: SamAudioSettings,
+    model_path: Path,
+    device: torch.device,
+    skip_visual_encoder: bool,
+) -> tuple[torch.nn.Module, bool]:
+    """Build SAM-Audio, using meta init for direct CUDA safetensors when safe."""
+
+    ensure_vendor_path()
+    from sam_audio.model.model import SAMAudio
+
+    use_meta_direct_init = _should_use_meta_direct_sam_load(
+        settings,
+        model_path=model_path,
+        device=device,
+        skip_visual_encoder=skip_visual_encoder,
+    )
+    with fast_checkpoint_model_initialization(
+        skip_visual_encoder=skip_visual_encoder,
+    ):
+        if use_meta_direct_init:
+            with _sam_audio_meta_initialization_context():
+                with torch.device("meta"):
+                    model = SAMAudio(config).eval()
+            logger.info(
+                "[sam_audio] Built checkpoint-backed modules on meta for direct CUDA assignment"
+            )
+            return model, True
+        model = SAMAudio(config).eval()
+        return model, False
+
+
+def _should_use_meta_direct_sam_load(
+    settings: SamAudioSettings,
+    *,
+    model_path: Path,
+    device: torch.device,
+    skip_visual_encoder: bool,
+) -> bool:
+    """Return whether SAM-Audio can skip real CPU construction for large modules."""
+
+    return (
+        device.type == "cuda"
+        and model_path.suffix.lower() == ".safetensors"
+        and not settings.low_vram_lite
+        and skip_visual_encoder
+        and not settings.predict_spans
+        and str(settings.ranker_mode).lower() == "none"
+    )
+
+
+@contextmanager
+def _sam_audio_meta_initialization_context():
+    """Defer external text encoder loading while SAM checkpoint modules use meta."""
+
+    model_module = importlib.import_module("sam_audio.model.model")
+    original_text_encoder = model_module.T5TextEncoder
+    original_arange = torch.arange
+    original_tensor = torch.tensor
+
+    class _DeferredTextEncoder(torch.nn.Module):
+        """Placeholder replaced by the real T5 encoder after checkpoint assignment."""
+
+        _acestep_deferred_text_encoder = True
+
+        def __init__(self, config) -> None:
+            super().__init__()
+            self.config = config
+
+        def forward(self, *_args, **_kwargs):
+            raise RuntimeError("Deferred SAM-Audio text encoder was not materialized.")
+
+    def _cpu_arange_without_explicit_device(*args, **kwargs):
+        if kwargs.get("device") is None:
+            kwargs = dict(kwargs)
+            kwargs["device"] = "cpu"
+        return original_arange(*args, **kwargs)
+
+    def _cpu_tensor_without_explicit_device(*args, **kwargs):
+        if kwargs.get("device") is None:
+            kwargs = dict(kwargs)
+            kwargs["device"] = "cpu"
+        return original_tensor(*args, **kwargs)
+
+    model_module.T5TextEncoder = _DeferredTextEncoder
+    torch.arange = _cpu_arange_without_explicit_device
+    torch.tensor = _cpu_tensor_without_explicit_device
+    try:
+        yield
+    finally:
+        model_module.T5TextEncoder = original_text_encoder
+        torch.arange = original_arange
+        torch.tensor = original_tensor
+
+
+def _materialize_deferred_sam_text_encoder(model: torch.nn.Module, config) -> None:
+    """Replace the meta-init placeholder with the real SAM text encoder."""
+
+    if not getattr(
+        getattr(model, "text_encoder", None),
+        "_acestep_deferred_text_encoder",
+        False,
+    ):
+        return
+    from sam_audio.model.text_encoder import T5TextEncoder
+
+    model.text_encoder = T5TextEncoder(config.text_encoder)
+    logger.info("[sam_audio] Materialized deferred T5 text encoder")
 
 
 def _load_checkpoint_into_model(

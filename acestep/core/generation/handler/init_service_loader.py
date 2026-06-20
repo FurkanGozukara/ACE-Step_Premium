@@ -193,10 +193,10 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
         )
         direct_device_load = self._should_direct_load_main_model(device)
         if use_transformers_meta_init_compat and direct_device_load:
-            direct_device_load = False
             logger.info(
                 "[initialize_service] Transformers meta-init compatibility active for "
-                "ACE-Step checkpoint; using staged load to preserve quantizer buffers."
+                "ACE-Step checkpoint; preserving direct CUDA load with FSQ metadata "
+                "compatibility."
             )
         loaded_directly = False
         for candidate in attn_candidates:
@@ -215,7 +215,8 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
                         direct_device_load=attempt_direct,
                     )
                     with self._transformers_meta_init_compatibility_context(
-                        enabled=use_transformers_meta_init_compat
+                        enabled=use_transformers_meta_init_compat,
+                        direct_device_load=attempt_direct,
                     ):
                         self.model = AutoModel.from_pretrained(
                             model_checkpoint_path,
@@ -378,13 +379,21 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
         return False
 
     @contextmanager
-    def _transformers_meta_init_compatibility_context(self, *, enabled: bool):
-        """Temporarily disable Transformers 5 meta construction for ACE-Step.
+    def _transformers_meta_init_compatibility_context(
+        self,
+        *,
+        enabled: bool,
+        direct_device_load: bool = False,
+    ):
+        """Keep ACE-Step compatible with Transformers 5 meta construction.
 
         ACE-Step remote code builds ResidualFSQ during ``__init__``.  That
         dependency performs scalar checks and creates computed non-persistent
-        buffers, both of which are invalid or lossy under Transformers 5's
-        unconditional meta-device construction path.
+        buffers, both of which are invalid or lossy under a pure meta-device
+        construction path.  For direct device loads we keep Transformers' fast
+        meta initialization for checkpoint-backed weights and force only the
+        tiny FSQ metadata tensors onto CPU.  Staged fallback loads use the older
+        broad opt-out path.
         """
 
         if not enabled:
@@ -404,6 +413,13 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
         )
         if get_init_context_func is None or not callable(move_missing_func):
             yield
+            return
+
+        if direct_device_load:
+            with self._transformers_meta_direct_load_context(
+                move_missing_func=move_missing_func
+            ):
+                yield
             return
 
         def _acestep_get_init_context(cls, *args, **kwargs):
@@ -431,6 +447,109 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
             yield
         finally:
             PreTrainedModel.get_init_context = get_init_context_descriptor
+            PreTrainedModel._move_missing_keys_from_meta_to_device = move_missing_func
+
+    @contextmanager
+    def _transformers_meta_direct_load_context(self, *, move_missing_func):
+        """Patch only ACE-Step FSQ metadata while keeping fast meta init enabled."""
+
+        try:
+            from transformers.integrations.accelerate import get_device
+            from transformers.modeling_utils import (
+                PreTrainedModel,
+                _load_parameter_into_model,
+            )
+            from vector_quantize_pytorch import finite_scalar_quantization as fsq_module
+            from vector_quantize_pytorch import residual_fsq as residual_fsq_module
+        except Exception:
+            yield
+            return
+
+        original_residual_tensor = getattr(residual_fsq_module, "tensor", None)
+        original_fsq_tensor = getattr(fsq_module, "tensor", None)
+        original_torch_arange = torch.arange
+
+        def _cpu_tensor_when_default_device_is_meta(original_func):
+            def _wrapped_tensor(*args, **kwargs):
+                if (
+                    kwargs.get("device") is None
+                    and torch.get_default_device().type == "meta"
+                ):
+                    kwargs = dict(kwargs)
+                    kwargs["device"] = "cpu"
+                return original_func(*args, **kwargs)
+
+            return _wrapped_tensor
+
+        def _cpu_arange_when_default_device_is_meta(*args, **kwargs):
+            if (
+                kwargs.get("device") is None
+                and torch.get_default_device().type == "meta"
+            ):
+                kwargs = dict(kwargs)
+                kwargs["device"] = "cpu"
+            return original_torch_arange(*args, **kwargs)
+
+        def _acestep_move_missing_keys_from_meta_to_device(
+            model,
+            missing_keys,
+            device_map,
+            device_mesh,
+            hf_quantizer,
+        ):
+            if device_mesh is not None:
+                return move_missing_func(
+                    model,
+                    missing_keys,
+                    device_map,
+                    device_mesh,
+                    hf_quantizer,
+                )
+
+            tied_keys = getattr(model, "all_tied_weights_keys", {})
+            if hasattr(tied_keys, "keys"):
+                tied_keys = set(tied_keys.keys())
+            else:
+                tied_keys = set(tied_keys or [])
+
+            for key in set(missing_keys) - tied_keys:
+                param = model.get_parameter_or_buffer(key)
+                param_device = get_device(device_map, key, valid_torch_device=True)
+                if getattr(param, "is_meta", False):
+                    value = torch.empty_like(param, device=param_device)
+                else:
+                    value = param.to(param_device)
+                _load_parameter_into_model(model, key, value)
+
+            for key, buffer in model.named_non_persistent_buffers():
+                buffer_device = get_device(device_map, key, valid_torch_device=True)
+                if getattr(buffer, "is_meta", False):
+                    value = torch.empty_like(buffer, device=buffer_device)
+                else:
+                    value = buffer.to(buffer_device)
+                _load_parameter_into_model(model, key, value)
+            return None
+
+        if original_residual_tensor is not None:
+            residual_fsq_module.tensor = _cpu_tensor_when_default_device_is_meta(
+                original_residual_tensor
+            )
+        if original_fsq_tensor is not None:
+            fsq_module.tensor = _cpu_tensor_when_default_device_is_meta(
+                original_fsq_tensor
+            )
+        torch.arange = _cpu_arange_when_default_device_is_meta
+        PreTrainedModel._move_missing_keys_from_meta_to_device = (
+            _acestep_move_missing_keys_from_meta_to_device
+        )
+        try:
+            yield
+        finally:
+            if original_residual_tensor is not None:
+                residual_fsq_module.tensor = original_residual_tensor
+            if original_fsq_tensor is not None:
+                fsq_module.tensor = original_fsq_tensor
+            torch.arange = original_torch_arange
             PreTrainedModel._move_missing_keys_from_meta_to_device = move_missing_func
 
     def _should_direct_load_main_model(self, device: str) -> bool:

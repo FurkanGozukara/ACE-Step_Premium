@@ -844,8 +844,8 @@ class InitServiceMixinTests(unittest.TestCase):
         self.assertEqual(torch.bfloat16, load.call_args.kwargs["dtype"])
         model.to.assert_not_called()
 
-    def test_load_main_model_uses_staged_load_for_transformers_meta_init_compat(self):
-        """ACE checkpoints avoid Transformers meta init and load through the staged path."""
+    def test_load_main_model_uses_direct_load_for_transformers_meta_init_compat(self):
+        """ACE checkpoints keep direct CUDA loading with targeted meta-init compatibility."""
         host = _Host(project_root="K:/fake_root", device="cuda")
         host.dtype = torch.bfloat16
 
@@ -907,9 +907,9 @@ class InitServiceMixinTests(unittest.TestCase):
                 )
 
         self.assertEqual("sdpa", attn)
-        self.assertNotIn("device_map", load.call_args.kwargs)
-        self.assertNotIn("low_cpu_mem_usage", load.call_args.kwargs)
-        model.to.assert_any_call("cuda")
+        self.assertEqual({"": "cuda"}, load.call_args.kwargs["device_map"])
+        self.assertTrue(load.call_args.kwargs["low_cpu_mem_usage"])
+        model.to.assert_not_called()
 
     def test_load_main_model_retries_staged_load_after_direct_failure(self):
         """A failed direct Transformers load should fall back to the previous path."""

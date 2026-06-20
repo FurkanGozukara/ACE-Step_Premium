@@ -100,8 +100,8 @@ class TrainingLoraRunWrapperWildcardTests(unittest.TestCase):
             sample_setting_keys=("audio_duration", "inference_steps", "config_path"),
         )
         args = _wrapper_args(
-            sample_prompt="[warm|bright] sample",
-            sample_lyrics="[Verse]\nI feel [alive|free]",
+            sample_prompt="{warm|bright} sample",
+            sample_lyrics="[Verse]\nI feel {alive|free}",
         )
 
         with patch.object(wrapper_mod.train_h, "start_training", fake_start_training), patch.object(
@@ -128,7 +128,7 @@ class TrainingLoraRunWrapperWildcardTests(unittest.TestCase):
             normalize_training_state=lambda _state: {"cancelled": False},
             sample_setting_keys=("audio_duration", "inference_steps", "config_path"),
         )
-        args = _wrapper_args(sample_prompt="bad [warm|bright")
+        args = _wrapper_args(sample_prompt="bad {warm|bright")
 
         with patch.object(wrapper_mod.train_h, "start_training", fake_start_training), patch.object(
             wrapper_mod,
@@ -139,7 +139,7 @@ class TrainingLoraRunWrapperWildcardTests(unittest.TestCase):
 
         self.assertEqual(len(outputs), 1)
         self.assertIn("Wildcard syntax error", outputs[0][0])
-        self.assertIn("Missing closing ]", outputs[0][0])
+        self.assertIn("Missing closing }", outputs[0][0])
 
     def test_disabled_sample_generation_does_not_validate_sample_wildcards(self) -> None:
         captured = {}
@@ -155,7 +155,7 @@ class TrainingLoraRunWrapperWildcardTests(unittest.TestCase):
         )
         args = _wrapper_args(
             sample_generation_enabled=False,
-            sample_prompt="unused [warm|bright",
+            sample_prompt="unused {warm|bright",
         )
 
         with patch.object(wrapper_mod.train_h, "start_training", fake_start_training), patch.object(
@@ -166,7 +166,7 @@ class TrainingLoraRunWrapperWildcardTests(unittest.TestCase):
             outputs = list(training_wrapper(*args))
 
         self.assertEqual(outputs[-1][0], "done")
-        self.assertEqual(captured["sample_prompt"], "unused [warm|bright")
+        self.assertEqual(captured["sample_prompt"], "unused {warm|bright")
 
 
 if __name__ == "__main__":

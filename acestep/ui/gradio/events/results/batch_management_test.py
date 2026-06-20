@@ -215,8 +215,8 @@ class BatchManagementWrapperTests(unittest.TestCase):
             yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
-        kwargs["captions"] = "[warm|bright] pop"
-        kwargs["lyrics"] = "[Verse]\nI feel [alive|free]"
+        kwargs["captions"] = "{warm|bright} pop"
+        kwargs["lyrics"] = "[Verse]\nI feel {alive|free}"
         with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
             list(module.generate_with_batch_management(None, None, **kwargs))
 
@@ -234,13 +234,13 @@ class BatchManagementWrapperTests(unittest.TestCase):
             yield build_progress_result(length=56)
 
         kwargs = _build_call_kwargs(module)
-        kwargs["captions"] = "modern [warm|bright"
+        kwargs["captions"] = "modern {warm|bright"
         with patch.dict(module.generate_with_batch_management.__globals__, {"generate_with_progress": _gen}):
             outputs = list(module.generate_with_batch_management(None, None, **kwargs))
 
         self.assertEqual(len(outputs), 1)
         self.assertIn("Wildcard syntax error in Style", outputs[0][18])
-        self.assertIn("Missing closing ]", outputs[0][18])
+        self.assertIn("Missing closing }", outputs[0][18])
         self.assertEqual(state["warning_messages"], [outputs[0][18]])
         self.assertEqual(len(state["store_calls"]), 0)
 

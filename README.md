@@ -75,6 +75,7 @@
 
 -   Wildcard feature implemented
 -   It works both for Style / Captions and Lyrics with syntax verification as well
+-   Wildcard syntax is `{option 1|option 2|option 3}`; square-bracket lyric tags such as `[Verse]` stay unchanged
 -   It will work in batch folder processing as well so you can write that way in txt files
 	-   If you enable Auto improve lyrics or Auto improve style they may break your syntax so don't enable when using wildcards 
 -   Just run Windows_Install_or_Update.bat to update same zip file still
