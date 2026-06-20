@@ -23,12 +23,12 @@ class TestSamAudioVramPresets(unittest.TestCase):
         """Detected VRAM should map to concrete visible preset names."""
 
         cases = [
-            (30.5, SAM_VRAM_PRESET_32GB),
-            (22.5, SAM_VRAM_PRESET_24GB),
-            (14.5, SAM_VRAM_PRESET_16GB),
-            (10.5, SAM_VRAM_PRESET_12GB),
-            (8.5, SAM_VRAM_PRESET_10GB),
-            (8.0, SAM_VRAM_PRESET_8GB),
+            (28.0, SAM_VRAM_PRESET_32GB),
+            (20.0, SAM_VRAM_PRESET_24GB),
+            (14.0, SAM_VRAM_PRESET_16GB),
+            (11.0, SAM_VRAM_PRESET_12GB),
+            (10.0, SAM_VRAM_PRESET_10GB),
+            (9.99, SAM_VRAM_PRESET_8GB),
         ]
         for memory_gb, expected in cases:
             with self.subTest(memory_gb=memory_gb):
@@ -84,10 +84,22 @@ class TestSamAudioVramPresets(unittest.TestCase):
 
         labels = [label for label, _ in SAM_VRAM_PRESET_CHOICES]
 
-        self.assertIn("32GB Highest Quality - 4 candidates + Judge", labels)
-        self.assertIn("24GB High Quality - 2 candidates + Judge", labels)
-        self.assertIn("12GB Normal Quality - 10s GPU chunks", labels)
-        self.assertIn("10GB Normal Quality - 10s GPU chunks", labels)
+        self.assertIn(
+            "32GB Highest Quality - 4 candidates + Judge (peak 24.5GiB)",
+            labels,
+        )
+        self.assertIn(
+            "24GB High Quality - 2 candidates + Judge (peak 17.6GiB)",
+            labels,
+        )
+        self.assertIn(
+            "12GB Normal Quality - 10s GPU chunks (peak 9.3GiB)",
+            labels,
+        )
+        self.assertIn(
+            "10GB Normal Quality - 10s GPU chunks (peak 9.3GiB)",
+            labels,
+        )
         self.assertTrue(any("Normal Quality" in label for label in labels))
 
     def test_quality_presets_use_paper_default_window(self):

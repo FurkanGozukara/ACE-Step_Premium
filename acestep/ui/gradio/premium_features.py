@@ -23,6 +23,7 @@ from acestep.audio_processing.auto_editor_trim_settings import (
     coerce_auto_editor_threshold_db,
 )
 from acestep.gpu_config import (
+    GPU_TIER_LABELS,
     find_best_lm_model_on_disk,
     get_global_gpu_config,
 )
@@ -138,6 +139,7 @@ _LORA_ADAFACTOR_PRESET_KEYS = frozenset(
 TRIM_MARGIN_PRESET_KEYS = frozenset({"ap_trim_margin_seconds"})
 TRIM_MINCUT_PRESET_KEYS = frozenset({"ap_trim_mincut"})
 TRIM_MINCLIP_PRESET_KEYS = frozenset({"ap_trim_minclip"})
+GPU_TIER_PRESET_KEYS = frozenset({"tier_dropdown", "simple_create_tier_dropdown"})
 DEFAULT_PRESET_CAPTION = (
     "Conscious melodic rap and modern cinematic pop-rap anthem, uplifting and humble, "
     "warm synth pads, punchy drums, deep 808 bass, subtle clean guitar textures, big "
@@ -257,6 +259,29 @@ SIMPLE_MODEL_ALIASES = {
     LEGACY_BF16_TURBO_DIT_MODEL: DEFAULT_TURBO_DIT_MODEL,
     LEGACY_BF16_BASE_DIT_MODEL: DEFAULT_BASE_DIT_MODEL,
 }
+
+
+def _gpu_tier_value_from_config(gpu_config: Any) -> str:
+    """Return a persisted tier value supported by the current UI."""
+
+    tier = str(getattr(gpu_config, "tier", "") or "").strip()
+    return tier if tier in GPU_TIER_LABELS else "tier1"
+
+
+def _current_gpu_tier_value() -> str:
+    """Return the detected GPU tier, falling back to CPU when detection fails."""
+
+    try:
+        return _gpu_tier_value_from_config(get_global_gpu_config())
+    except Exception:
+        return "tier1"
+
+
+def _coerce_gpu_tier_preset_value(value: Any) -> str:
+    """Coerce saved VRAM tier values without demoting legacy values to tier1."""
+
+    tier = str(value or "").strip()
+    return tier if tier in GPU_TIER_LABELS else _current_gpu_tier_value()
 
 PRESET_COMPONENT_KEYS: tuple[str, ...] = (
     "language_dropdown",
@@ -517,7 +542,13 @@ def _runtime_default_values(base_values: dict[str, Any] | None = None) -> dict[s
     values["dataset_vram_preset"] = default_dataset_vram_preset_name()
     values["lora_output_dir"] = str(_project_root() / "Loras")
     try:
-        values["mlx_vae_chunk_size"] = get_global_gpu_config().mlx_vae_chunk_size
+        gpu_config = get_global_gpu_config()
+        tier = _gpu_tier_value_from_config(gpu_config)
+        values["tier_dropdown"] = tier
+        values["simple_create_tier_dropdown"] = tier
+        values["mlx_vae_chunk_size"] = gpu_config.mlx_vae_chunk_size
+        if not values.get("device"):
+            values["device"] = "cpu" if tier == "tier1" else "auto"
     except Exception:
         pass
     return {
@@ -721,6 +752,7 @@ def _apply_runtime_defaults(
             "cover_noise_strength"
         ) is None:
             merged["cover_noise_strength"] = melody_retention
+    _apply_gpu_tier_preset_migration(merged, provided_keys)
     _apply_cross_tab_defaults(merged, provided_keys)
     raw_quantization = payload.get("quantization_checkbox")
     raw_simple_quantization = payload.get("simple_quantization")
@@ -747,6 +779,33 @@ def _apply_runtime_defaults(
         merged["lora_scale_slider"] = merged.get("simple_lora_scale_slider", 1.0)
     _clamp_trim_threshold_defaults(merged)
     return merged
+
+
+def _apply_gpu_tier_preset_migration(
+    merged: dict[str, Any],
+    provided_keys: set[str],
+) -> None:
+    """Map removed or unknown saved VRAM presets to the detected GPU tier."""
+
+    provided_tier_values = [
+        str(merged.get(key) or "").strip()
+        for key in GPU_TIER_PRESET_KEYS
+        if key in provided_keys and merged.get(key) not in (None, "")
+    ]
+    if any(tier not in GPU_TIER_LABELS for tier in provided_tier_values):
+        tier = _current_gpu_tier_value()
+        for key in GPU_TIER_PRESET_KEYS:
+            merged[key] = tier
+        return
+    fallback_tier = next(
+        (tier for tier in provided_tier_values if tier in GPU_TIER_LABELS),
+        _current_gpu_tier_value(),
+    )
+    for key in GPU_TIER_PRESET_KEYS:
+        if key not in merged or merged.get(key) in (None, ""):
+            merged[key] = fallback_tier
+        else:
+            merged[key] = _coerce_gpu_tier_preset_value(merged.get(key))
 
 
 def _clamp_trim_threshold_defaults(payload: dict[str, Any]) -> None:
@@ -912,6 +971,9 @@ def _payload_to_component_updates(
                 value = _safe_file_upload_value(value)
             if key in {"quantization_checkbox", "simple_quantization"}:
                 value = default_quantization_value(value)
+            if key in GPU_TIER_PRESET_KEYS:
+                updates.append(gr.update(value=_coerce_gpu_tier_preset_value(value)))
+                continue
             if key in {"lora_dropdown", "simple_lora_dropdown"}:
                 choices = lora_dropdown_choices(_project_root())
                 valid_values = {choice[1] for choice in choices}

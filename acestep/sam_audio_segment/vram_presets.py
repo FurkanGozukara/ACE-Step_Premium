@@ -12,12 +12,37 @@ SAM_VRAM_PRESET_12GB = "12gb_lite_fp8"
 SAM_VRAM_PRESET_10GB = "10gb_lite_fp8"
 SAM_VRAM_PRESET_8GB = "8gb_cpu_lite"
 
+SAM_VRAM_PRESET_MEASURED_PEAK_GIB: dict[str, float] = {
+    # Max-of-3 measured on 2026-06-21 with Windows_Start_App.bat, browser/Gradio
+    # defaults, full-song SAM-Audio, GPU0 isolated, and app restart per preset.
+    SAM_VRAM_PRESET_32GB: 24.527,
+    SAM_VRAM_PRESET_24GB: 17.570,
+    SAM_VRAM_PRESET_16GB: 12.137,
+    SAM_VRAM_PRESET_12GB: 9.348,
+    SAM_VRAM_PRESET_10GB: 9.348,
+}
+
 SAM_VRAM_PRESET_CHOICES: tuple[tuple[str, str], ...] = (
-    ("32GB Highest Quality - 4 candidates + Judge", SAM_VRAM_PRESET_32GB),
-    ("24GB High Quality - 2 candidates + Judge", SAM_VRAM_PRESET_24GB),
-    ("16GB Normal Quality - 1 candidate", SAM_VRAM_PRESET_16GB),
-    ("12GB Normal Quality - 10s GPU chunks", SAM_VRAM_PRESET_12GB),
-    ("10GB Normal Quality - 10s GPU chunks", SAM_VRAM_PRESET_10GB),
+    (
+        "32GB Highest Quality - 4 candidates + Judge (peak 24.5GiB)",
+        SAM_VRAM_PRESET_32GB,
+    ),
+    (
+        "24GB High Quality - 2 candidates + Judge (peak 17.6GiB)",
+        SAM_VRAM_PRESET_24GB,
+    ),
+    (
+        "16GB Normal Quality - 1 candidate (peak 12.1GiB)",
+        SAM_VRAM_PRESET_16GB,
+    ),
+    (
+        "12GB Normal Quality - 10s GPU chunks (peak 9.3GiB)",
+        SAM_VRAM_PRESET_12GB,
+    ),
+    (
+        "10GB Normal Quality - 10s GPU chunks (peak 9.3GiB)",
+        SAM_VRAM_PRESET_10GB,
+    ),
     ("8GB Normal Quality - CPU safe", SAM_VRAM_PRESET_8GB),
 )
 
@@ -123,7 +148,9 @@ _LEGACY_ALIASES = {
 def get_sam_vram_preset(name: object) -> dict[str, Any]:
     """Return settings for a SAM-Audio VRAM preset."""
 
-    return deepcopy(_PRESETS.get(normalize_sam_vram_preset(name), _PRESETS[SAM_VRAM_PRESET_24GB]))
+    return deepcopy(
+        _PRESETS.get(normalize_sam_vram_preset(name), _PRESETS[SAM_VRAM_PRESET_24GB])
+    )
 
 
 def normalize_sam_vram_preset(name: object) -> str:
@@ -141,15 +168,15 @@ def normalize_sam_vram_preset(name: object) -> str:
 def select_sam_vram_preset_for_gpu(gpu_memory_gb: float) -> str:
     """Return the SAM-Audio preset that best matches detected VRAM."""
 
-    if gpu_memory_gb >= 30.5:
+    if gpu_memory_gb >= 28.0:
         return SAM_VRAM_PRESET_32GB
-    if gpu_memory_gb >= 22.5:
+    if gpu_memory_gb >= 20.0:
         return SAM_VRAM_PRESET_24GB
-    if gpu_memory_gb >= 14.5:
+    if gpu_memory_gb >= 14.0:
         return SAM_VRAM_PRESET_16GB
-    if gpu_memory_gb >= 10.5:
+    if gpu_memory_gb >= 11.0:
         return SAM_VRAM_PRESET_12GB
-    if gpu_memory_gb >= 8.5:
+    if gpu_memory_gb >= 10.0:
         return SAM_VRAM_PRESET_10GB
     return SAM_VRAM_PRESET_8GB
 

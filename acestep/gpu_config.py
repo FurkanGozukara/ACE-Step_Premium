@@ -26,14 +26,14 @@ DEBUG_MAX_MPS_VRAM_ENV = "MAX_MPS_VRAM"
 DEBUG_MAX_XPU_VRAM_ENV = "MAX_XPU_VRAM"
 SAVE_MEMORY_ENV = "ACESTEP_SAVE_MEMORY"
 
-# Tolerance for 16GB detection: reported VRAM like 15.5GB is effectively 16GB hardware
-# Real-world 16GB GPUs often report 15.7-15.9GB due to system/driver reservations
-VRAM_16GB_TOLERANCE_GB = 0.5
-VRAM_16GB_MIN_GB = 16.0 - VRAM_16GB_TOLERANCE_GB  # treat as 16GB class if >= this
-
-# Threshold below which auto_offload is enabled.
-# 16GB GPUs cannot hold DiT + VAE + text_encoder + LM simultaneously without offloading.
-VRAM_AUTO_OFFLOAD_THRESHOLD_GB = 20.0
+# Tolerance for advertised VRAM classes. PyTorch reports GiB from raw bytes, so
+# exact hardware classes can appear slightly below their marketed size:
+# 8GB -> ~7.99GiB, 12GB -> ~11.99GiB, 16GB -> ~15.5-15.9GiB, 24GB -> ~23.99GiB.
+VRAM_TIER_TOLERANCE_GB = 0.5
+VRAM_8GB_MIN_GB = 8.0 - VRAM_TIER_TOLERANCE_GB
+VRAM_12GB_MIN_GB = 12.0 - VRAM_TIER_TOLERANCE_GB
+VRAM_16GB_MIN_GB = 16.0 - VRAM_TIER_TOLERANCE_GB
+VRAM_24GB_MIN_GB = 24.0 - VRAM_TIER_TOLERANCE_GB
 
 # PyTorch installation URLs for diagnostics
 PYTORCH_CUDA_INSTALL_URL = "https://download.pytorch.org/whl/cu121"
@@ -221,7 +221,7 @@ def get_dit_type_from_path(config_path: str) -> str:
 class GPUConfig:
     """GPU configuration based on available memory"""
 
-    tier: str  # "tier1", "tier2", etc. or "unlimited"
+    tier: str  # "tier1", "tier4", etc. or "unlimited"
     gpu_memory_gb: float
 
     # Duration limits (in seconds)
@@ -326,25 +326,40 @@ def resolve_lm_backend(
 
 # GPU tier configurations.
 #
-# Calibrated on 2026-05-10 and 2026-05-11 with local XL Base, XL SFT, XL Turbo,
-# and 5Hz LM checkpoints using real Gradio generation runs:
-# - XL Base/Turbo/SFT, int8 + full offload, batch 1: 9.5-9.7 GiB reserved.
-# - XL Base/Turbo/SFT, int8 + CPU offload, batch 8: 12.4-12.5 GiB reserved.
-# - XL Base/Turbo/SFT, bf16 no offload, batch 8: 13.3-13.5 GiB reserved.
-# - XL Base/Turbo/SFT, bf16 no offload + local 1.7B LM, batch 8: 18.6 GiB reserved.
-# - XL Turbo + 4B LM, batch 1: tier5 lower bound fails at 12.5GB, tier6a
-#   passes at 15.5GB with int8 + CPU offload, tier6b passes at 24GB with CPU
-#   offload, and unlimited passes on a 31.8GB RTX 5090 with no offload.
-# These peaks make XL unsafe below 12GB even though smaller 2B checkpoints can
-# still use the low-VRAM tiers.
+# Calibrated on 2026-06-21 with Windows_Start_App.bat, browser/Gradio defaults,
+# full-song generation, GPU0 isolated via CUDA_VISIBLE_DEVICES=0, and app
+# restart before each preset. Values below are max-of-3 peak deltas over idle
+# GPU0 baseline for ACEStep_1_5_XL_Turbo_BF16 with the live tier controls.
+GPU_TIER_MEASURED_PEAK_GIB = {
+    "tier4": 6.844,
+    "tier5": 10.859,
+    "tier6a": 14.596,
+    "tier6b": 18.477,
+    "unlimited": 20.729,
+}
 #
-# tier6 is split into tier6a (16-20GB) and tier6b (20-24GB). 16GB-class GPUs
-# need quantization/offload with the XL model and 4B LM. 20-24GB GPUs need CPU
-# offload for the 4B LM; higher-VRAM GPUs can keep the model stack on GPU.
+# Measured control profiles:
+# - tier1: CPU/PyTorch-only fallback, no LM.
+# - tier4: 0.6B LM, PyTorch backend, int8, CPU + DiT offload.
+# - tier5: 1.7B LM, PyTorch backend, int8, CPU offload.
+# - tier6a: 4B LM, PyTorch backend, int8, CPU offload.
+# - tier6b: 4B LM, PyTorch backend, bf16/no quant, CPU offload.
+# - unlimited: 4B LM, PyTorch backend, bf16/no quant, no offload.
+#
+# These are measured browser-path peaks, not theoretical hardware capacities.
+# Smaller checkpoints and manual no-LM paths can still fit lower hardware tiers.
+#
+# Current public tiers:
+# - tier1: CPU / less than 8GB VRAM.
+# - tier4: 8-10GB safe preset (also used conservatively for 10-12GB).
+# - tier5: 12-16GB.
+# - tier6a: 16-24GB.
+# - tier6b: manual 24GB safe preset.
+# - unlimited: auto-selected for 24GB or larger.
 GPU_TIER_CONFIGS = {
-    "tier1": {  # <= 4GB
+    "tier1": {  # CPU / <8GB
         # XL does not fit this tier even with full offload. Keep the safest
-        # settings for smaller checkpoints and warn when users select XL.
+        # CPU/PyTorch-only settings for smaller checkpoints and warn on XL.
         "max_duration_with_lm": 240,  # 4 minutes
         "max_duration_without_lm": 360,  # 6 minutes
         "max_batch_size_with_lm": 1,
@@ -352,53 +367,17 @@ GPU_TIER_CONFIGS = {
         "init_lm_default": False,
         "available_lm_models": [],
         "recommended_lm_model": "",
-        "lm_backend_restriction": "all",
-        "recommended_backend": "vllm",
+        "lm_backend_restriction": "pt_only",
+        "recommended_backend": "pt",
         "offload_to_cpu_default": True,
         "offload_dit_to_cpu_default": True,
-        "quantization_default": True,  # INT8 essential to fit DiT in ~4GB
+        "quantization_default": False,
         "compile_model_default": False,
         "lm_memory_gb": {},
     },
-    "tier2": {  # 4-6GB
-        # XL batch 1 now measures about 9.5 GiB with full offload, so this
-        # tier is only safe for smaller checkpoints. Keep LM disabled by default.
-        "max_duration_with_lm": 480,  # 8 minutes
-        "max_duration_without_lm": 600,  # 10 minutes (max supported)
-        "max_batch_size_with_lm": 1,
-        "max_batch_size_without_lm": 1,
-        "init_lm_default": False,
-        "available_lm_models": [],
-        "recommended_lm_model": "",
-        "lm_backend_restriction": "all",
-        "recommended_backend": "vllm",
-        "offload_to_cpu_default": True,
-        "offload_dit_to_cpu_default": True,
-        "quantization_default": True,
-        "compile_model_default": False,
-        "lm_memory_gb": {},
-    },
-    "tier3": {  # 6-8GB
-        # XL full-offload batch 1 measures about 9.5 GiB, which exceeds this
-        # tier. These settings remain for smaller checkpoints.
-        "max_duration_with_lm": 480,  # 8 minutes
-        "max_duration_without_lm": 600,  # 10 minutes (max supported)
-        "max_batch_size_with_lm": 1,
-        "max_batch_size_without_lm": 1,
-        "init_lm_default": False,
-        "available_lm_models": ["acestep-5Hz-lm-0.6B"],
-        "recommended_lm_model": "acestep-5Hz-lm-0.6B",
-        "lm_backend_restriction": "all",
-        "recommended_backend": "vllm",
-        "offload_to_cpu_default": True,
-        "offload_dit_to_cpu_default": True,
-        "quantization_default": True,
-        "compile_model_default": False,
-        "lm_memory_gb": {"0.6B": 3},
-    },
-    "tier4": {  # 8-12GB
-        # XL full-offload batch 4 measured about 10.6 GiB reserved, but presets
-        # stay batch-1 to keep quality and model-switch behavior consistent.
+    "tier4": {  # 8-10GB safe, conservative fallback up to 12GB
+        # Browser max-of-3 measured XL Turbo + 0.6B LM full-offload generation
+        # at 6.844 GiB. Presets stay batch-1 for consistent model switches.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
         "max_batch_size_with_lm": 1,
@@ -415,8 +394,8 @@ GPU_TIER_CONFIGS = {
         "lm_memory_gb": {"0.6B": 3},
     },
     "tier5": {  # 12-16GB
-        # Higher batches fit here, but presets stay batch-1 for deterministic
-        # quality and safe model switches. Keep 1.7B LM for this tier.
+        # Browser max-of-3 measured XL Turbo + 1.7B LM at 10.859 GiB with int8
+        # and CPU offload. Keep batch-1 for deterministic quality.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
         "max_batch_size_with_lm": 1,
@@ -432,9 +411,9 @@ GPU_TIER_CONFIGS = {
         "compile_model_default": False,
         "lm_memory_gb": {"0.6B": 3, "1.7B": 8},
     },
-    "tier6a": {  # 16-20GB (e.g., RTX 4060 Ti 16GB, RTX 3080 16GB)
-        # XL Turbo + 4B LM batch-1 generation fits the 15.5GB lower-bound
-        # profile at 14.91 GiB peak with INT8 + CPU offload.
+    "tier6a": {  # 16-24GB
+        # Browser max-of-3 measured XL Turbo + 4B LM at 14.596 GiB with int8
+        # and CPU offload.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 600,  # 10 minutes (max supported)
         "max_batch_size_with_lm": 1,
@@ -454,9 +433,9 @@ GPU_TIER_CONFIGS = {
         "compile_model_default": False,
         "lm_memory_gb": {"0.6B": 3, "1.7B": 8, "4B": 12},
     },
-    "tier6b": {  # 20-24GB (e.g., RTX 3090, RTX 4090)
-        # XL Turbo + 4B LM batch-1 generation OOMs at 24GB without offload, but
-        # fits at 18.81 GiB peak with CPU offload.
+    "tier6b": {  # 24GB safe manual preset
+        # Browser max-of-3 measured XL Turbo + 4B LM at 18.477 GiB with bf16
+        # and CPU offload.
         "max_duration_with_lm": 480,  # 8 minutes
         "max_duration_without_lm": 480,  # 8 minutes
         "max_batch_size_with_lm": 1,
@@ -470,15 +449,15 @@ GPU_TIER_CONFIGS = {
         "recommended_lm_model": "acestep-5Hz-lm-4B",
         "lm_backend_restriction": "all",
         "recommended_backend": "vllm",
-        "offload_to_cpu_default": True,  # Required for the 4B LM on 20-24GB
+        "offload_to_cpu_default": True,  # Required for the 4B LM in 24GB safe mode
         "offload_dit_to_cpu_default": False,
         "quantization_default": False,  # Enough VRAM, quantization optional
         "compile_model_default": False,
         "lm_memory_gb": {"0.6B": 3, "1.7B": 8, "4B": 12},
     },
-    "unlimited": {  # > 24GB
-        # XL Turbo + 4B LM batch-1 generation fits a 31.8GB RTX 5090 at
-        # 28.10 GiB peak without offload.
+    "unlimited": {  # >= 24GB auto preset
+        # Browser max-of-3 measured XL Turbo + 4B LM at 20.729 GiB with bf16
+        # and no offload on RTX 5090.
         "max_duration_with_lm": 600,  # 10 minutes (max supported)
         "max_duration_without_lm": 600,  # 10 minutes
         "max_batch_size_with_lm": 1,
@@ -500,7 +479,7 @@ GPU_TIER_CONFIGS = {
     },
 }
 
-# Backward compatibility alias: code that references "tier6" gets tier6b behavior
+# Backward compatibility alias: code that references "tier6" gets tier6b safe behavior
 GPU_TIER_CONFIGS["tier6"] = GPU_TIER_CONFIGS["tier6b"]
 
 
@@ -779,30 +758,23 @@ def get_gpu_tier(gpu_memory_gb: float) -> str:
         gpu_memory_gb: GPU memory in GB
 
     Returns:
-        Tier string: "tier1", "tier2", "tier3", "tier4", "tier5", "tier6a", "tier6b", or "unlimited"
+        Tier string: "tier1", "tier4", "tier5", "tier6a", or "unlimited".
+        "tier6b" remains available as a manual 24GB safe preset.
     """
     if gpu_memory_gb <= 0:
         # CPU mode - use tier1 limits
         return "tier1"
-    elif gpu_memory_gb <= 4:
+    elif gpu_memory_gb < VRAM_8GB_MIN_GB:
         return "tier1"
-    elif gpu_memory_gb <= 6:
-        return "tier2"
-    elif gpu_memory_gb <= 8:
-        return "tier3"
-    elif gpu_memory_gb <= 12:
+    elif gpu_memory_gb < VRAM_12GB_MIN_GB:
+        # User-facing tier4 is the 8-10GB safe preset; 10-12GB remains on
+        # this conservative preset until the 12GB tier5 boundary.
         return "tier4"
     elif gpu_memory_gb < VRAM_16GB_MIN_GB:
         return "tier5"
-    elif gpu_memory_gb < VRAM_AUTO_OFFLOAD_THRESHOLD_GB:
-        # 16-20GB range: tier6a (constrained, needs offload)
-        if gpu_memory_gb < 16.0:
-            logger.info(
-                f"Detected {gpu_memory_gb:.2f}GB VRAM — treating as 16GB class GPU"
-            )
+    elif gpu_memory_gb < VRAM_24GB_MIN_GB:
+        # 16-24GB range: tier6a (constrained, needs offload).
         return "tier6a"
-    elif gpu_memory_gb <= 24:
-        return "tier6b"
     else:
         return "unlimited"
 
@@ -1090,7 +1062,7 @@ def get_lm_gpu_memory_ratio(
         )
 
     # Fallback: compute ratio from total VRAM (less accurate)
-    if total_gpu_memory_gb >= 24:
+    if total_gpu_memory_gb >= VRAM_24GB_MIN_GB:
         ratio = min(0.9, max(0.2, total_target_gb / total_gpu_memory_gb))
     else:
         ratio = min(0.9, max(0.1, total_target_gb / total_gpu_memory_gb))
@@ -1152,19 +1124,19 @@ def compute_adaptive_config(total_vram_gb: float, dit_type: str = "turbo") -> GP
 
     # Determine duration limits based on available VRAM
     # Longer durations need more VRAM for latents
-    if total_vram_gb >= 24:
+    if total_vram_gb >= VRAM_24GB_MIN_GB:
         max_dur_lm = 600
         max_dur_no_lm = 600
     elif total_vram_gb >= 20:
         max_dur_lm = 480
         max_dur_no_lm = 480
-    elif total_vram_gb >= 16:
+    elif total_vram_gb >= VRAM_16GB_MIN_GB:
         max_dur_lm = 360
         max_dur_no_lm = 480
-    elif total_vram_gb >= 12:
+    elif total_vram_gb >= VRAM_12GB_MIN_GB:
         max_dur_lm = 240
         max_dur_no_lm = 360
-    elif total_vram_gb >= 8:
+    elif total_vram_gb >= VRAM_8GB_MIN_GB:
         max_dur_lm = 240
         max_dur_no_lm = 360
     else:
@@ -1472,14 +1444,12 @@ def print_gpu_config_info(gpu_config: GPUConfig):
 
 # Human-readable tier labels for UI display
 GPU_TIER_LABELS = {
-    "tier1": "tier1 (≤4GB)",
-    "tier2": "tier2 (4-6GB)",
-    "tier3": "tier3 (6-8GB)",
-    "tier4": "tier4 (8-12GB)",
-    "tier5": "tier5 (12-16GB)",
-    "tier6a": "tier6a (16-20GB)",
-    "tier6b": "tier6b (20-24GB)",
-    "unlimited": "unlimited (>24GB)",
+    "tier1": "tier1 (CPU)",
+    "tier4": "tier4 (8-10GB / peak 6.8GiB)",
+    "tier5": "tier5 (12-16GB / peak 10.9GiB)",
+    "tier6a": "tier6a (16-24GB / peak 14.6GiB)",
+    "tier6b": "tier6b (24GB safe / peak 18.5GiB)",
+    "unlimited": "unlimited (>=24GB / peak 20.7GiB)",
 }
 
 # Ordered list of tier keys for dropdown
@@ -1526,7 +1496,7 @@ def get_gpu_config_for_tier(tier: str) -> GPUConfig:
     but all tier-based settings come from the selected tier's config.
 
     Args:
-        tier: Tier key, e.g. "tier3", "tier6a", "unlimited"
+        tier: Tier key, e.g. "tier4", "tier6a", "unlimited"
 
     Returns:
         GPUConfig with the selected tier's settings

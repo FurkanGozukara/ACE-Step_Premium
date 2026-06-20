@@ -6,7 +6,7 @@ import os
 from typing import Any, Callable, Dict, Optional
 
 from acestep.gpu_config import (
-    VRAM_AUTO_OFFLOAD_THRESHOLD_GB,
+    VRAM_16GB_MIN_GB,
     get_gpu_config,
     resolve_lm_backend,
 )
@@ -99,7 +99,7 @@ def initialize_models_for_request(
         raise RuntimeError("No DiT model specified")
 
     gpu_config = get_gpu_config()
-    auto_offload = gpu_config.gpu_memory_gb > 0 and gpu_config.gpu_memory_gb < VRAM_AUTO_OFFLOAD_THRESHOLD_GB
+    auto_offload = gpu_config.gpu_memory_gb > 0 and gpu_config.gpu_memory_gb < VRAM_16GB_MIN_GB
     offload_to_cpu_env = os.getenv("ACESTEP_OFFLOAD_TO_CPU")
     offload_to_cpu = env_bool("ACESTEP_OFFLOAD_TO_CPU", False) if offload_to_cpu_env is not None else auto_offload
     use_flash_attention = env_bool("ACESTEP_USE_FLASH_ATTENTION", True)

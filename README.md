@@ -610,7 +610,7 @@
 	- Make sure to get latest zip file and overwrite previous installer files
 	- New all 3 models folder takes 41.9 GB, previously it was 69.8 GB
 - All default generation presets for all 3-models updated - the parameters are now more accurate 
-	- unlimited (>24GB) , tier6b (20-24GB), tier6a (16-20GB), tier5 (12-16GB), tier4 (8-12GB), tier3 (6-8GB), tier2 (4-6GB), tier1 (≤4GB)
+	- unlimited (>=24GB), tier6b (24GB safe), tier6a (16-24GB), tier5 (12-16GB), tier4 (8-10GB), tier1 (CPU)
 	- ACEStep XL 1.5 Turbo, ACEStep XL 1.5 SFT, ACEStep XL 1.5 Base
 	- Thus, you may expect better quality generation on ACEStep Turbo, SFT and Base models
  - LoRA selection added to Generate song tab as well since we now fully support LoRA training
@@ -941,14 +941,14 @@ Open http://localhost:7860 (Gradio) or http://localhost:8001 (API).
 
 | Your GPU VRAM | Recommended DiT | Recommended LM Model | Backend | Notes |
 |---------------|----------------|---------------------|---------|-------|
-| **≤6GB** | 2B turbo | None (DiT only) | — | LM disabled by default; INT8 quantization + full CPU offload |
-| **6-8GB** | 2B turbo | `acestep-5Hz-lm-0.6B` | `pt` | Lightweight LM with PyTorch backend |
-| **8-16GB** | 2B turbo/sft | `acestep-5Hz-lm-0.6B` / `1.7B` | `vllm` | 0.6B for 8-12GB, 1.7B for 12-16GB |
-| **16-20GB** | 2B sft or XL turbo | `acestep-5Hz-lm-1.7B` | `vllm` | XL requires CPU offload below 20GB |
-| **20-24GB** | XL turbo/sft | `acestep-5Hz-lm-1.7B` | `vllm` | XL fits without offload; 4B LM available |
-| **≥24GB** | XL sft (or xl-base for extract/lego/complete) | `acestep-5Hz-lm-4B` | `vllm` | Best quality, all models fit without offload |
+| **tier1: CPU / <8GB** | CPU fallback | None (DiT only) | `pt` | LM disabled by default; CPU device selected for this preset |
+| **tier4: 8-10GB** | XL turbo with full offload | `acestep-5Hz-lm-0.6B` | `vllm` | Auto also uses this conservative preset for 10-12GB |
+| **tier5: 12-16GB** | XL turbo/sft | `acestep-5Hz-lm-1.7B` | `vllm` | INT8 quantization with CPU offload |
+| **tier6a: 16-24GB** | XL turbo/sft | `acestep-5Hz-lm-4B` | `vllm` | 4B LM with INT8 quantization and CPU offload |
+| **tier6b: 24GB safe** | XL turbo/sft | `acestep-5Hz-lm-4B` | `vllm` | Manual safe preset with CPU offload and no DiT quantization |
+| **unlimited: >=24GB** | XL sft (or xl-base for extract/lego/complete) | `acestep-5Hz-lm-4B` | `vllm` | Auto-selected at 24GB or larger; all models stay on GPU |
 
-> **XL (4B) models** (`acestep-v15-xl-*`) offer higher audio quality with ~9GB VRAM for weights (vs ~4.7GB for 2B). They require ≥12GB VRAM (with offload + quantization) or ≥20GB (without offload). All LM models are fully compatible with XL.
+> **XL (4B) models** (`acestep-v15-xl-*`) offer higher audio quality with ~9GB VRAM for weights (vs ~4.7GB for 2B). They require >=12GB VRAM with offload + quantization, while the no-offload unlimited preset is auto-selected at >=24GB. All LM models are fully compatible with XL.
 
 The UI automatically selects the best configuration for your GPU. All settings (LM model, backend, offloading, quantization) are tier-aware and pre-configured.
 

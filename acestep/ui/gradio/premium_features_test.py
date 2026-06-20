@@ -6,6 +6,8 @@ import tempfile
 import unittest
 from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from acestep.model_downloader import (
     DEFAULT_BASE_DIT_MODEL,
@@ -632,6 +634,10 @@ class PremiumFeaturesTests(unittest.TestCase):
         dropdown_update = updates[len(keys) + 2]
         self.assertEqual(dropdown_update.get("value"), "custom high")
         self.assertEqual(updates[keys.index("tier_dropdown")].get("value"), "tier6b")
+        self.assertEqual(
+            updates[keys.index("simple_create_tier_dropdown")].get("value"),
+            "tier6b",
+        )
         self.assertEqual(updates[keys.index("offload_to_cpu_checkbox")].get("value"), True)
         self.assertEqual(updates[keys.index("quantization_checkbox")].get("value"), "fp8_scaled")
         self.assertEqual(updates[keys.index("simple_quantization")].get("value"), "fp8_scaled")
@@ -639,6 +645,44 @@ class PremiumFeaturesTests(unittest.TestCase):
         self.assertEqual(updates[keys.index("inference_steps")].get("value"), 88)
         self.assertEqual(updates[keys.index("guidance_scale")].get("value"), 8.5)
         self.assertEqual(updates[keys.index("use_adg")].get("value"), False)
+
+    def test_legacy_removed_vram_tier_preset_uses_detected_gpu_tier(self) -> None:
+        """Removed tier2/tier3 preset values should migrate to the auto GPU tier."""
+
+        fake_gpu_config = SimpleNamespace(
+            tier="unlimited",
+            mlx_vae_chunk_size=1024,
+            recommended_lm_model="acestep-5Hz-lm-4B",
+        )
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            values[keys.index("tier_dropdown")] = "tier2"
+            values[keys.index("simple_create_tier_dropdown")] = "tier3"
+            values[keys.index("subprocess_mode_checkbox")] = False
+            try:
+                with patch.object(
+                    premium_features,
+                    "get_global_gpu_config",
+                    return_value=fake_gpu_config,
+                ):
+                    premium_features.save_preset_action("legacy vram", None, *values)
+                    loaded = premium_features.load_named_preset("legacy vram")
+                    updates = premium_features.load_preset_action("legacy vram")
+            finally:
+                self._restore_project_root(original)
+
+        self.assertEqual(loaded["tier_dropdown"], "unlimited")
+        self.assertEqual(loaded["simple_create_tier_dropdown"], "unlimited")
+        self.assertEqual(updates[keys.index("tier_dropdown")].get("value"), "unlimited")
+        self.assertEqual(
+            updates[keys.index("simple_create_tier_dropdown")].get("value"),
+            "unlimited",
+        )
 
     def test_user_preset_saves_and_loads_lora_selection(self) -> None:
         """LoRA path/dropdown/scale should persist through user preset save/load."""

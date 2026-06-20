@@ -68,11 +68,13 @@ try:
         build_startup_gpu_state,
     )
     from .gpu_config import (
+        GPU_TIER_CONFIGS,
+        VRAM_16GB_MIN_GB,
+        VRAM_24GB_MIN_GB,
         find_best_lm_model_on_disk,
         is_lm_model_size_allowed,
         resolve_lm_backend,
         set_global_gpu_config,
-        VRAM_AUTO_OFFLOAD_THRESHOLD_GB,
     )
     from .model_downloader import (
         DEFAULT_BASE_DIT_MODEL,
@@ -99,11 +101,13 @@ except ImportError:
         build_startup_gpu_state,
     )
     from acestep.gpu_config import (
+        GPU_TIER_CONFIGS,
+        VRAM_16GB_MIN_GB,
+        VRAM_24GB_MIN_GB,
         find_best_lm_model_on_disk,
         is_lm_model_size_allowed,
         resolve_lm_backend,
         set_global_gpu_config,
-        VRAM_AUTO_OFFLOAD_THRESHOLD_GB,
     )
     from acestep.model_downloader import (
         DEFAULT_BASE_DIT_MODEL,
@@ -278,22 +282,38 @@ def _apply_4b_lm_memory_safety(args, gpu_config, gpu_memory_gb: float) -> None:
     if not args.lm_model_path or "4B" not in args.lm_model_path:
         return
 
-    if 0 < gpu_memory_gb <= 24 and not args.offload_to_cpu:
+    if 0 < gpu_memory_gb < VRAM_24GB_MIN_GB and not args.offload_to_cpu:
         args.offload_to_cpu = True
         print(
             "Auto-enabling CPU offload "
             f"(4B LM model requires offloading on {gpu_memory_gb:.0f}GB GPU)"
         )
 
-    if 0 < gpu_memory_gb < VRAM_AUTO_OFFLOAD_THRESHOLD_GB:
-        available_lm_models = getattr(gpu_config, "available_lm_models", [])
-        if not is_lm_model_size_allowed(args.lm_model_path, available_lm_models):
-            fallback = args.lm_model_path.replace("4B", "1.7B")
-            print(
-                f"WARNING: 4B LM model is too large for {gpu_memory_gb:.0f}GB GPU. "
-                f"Downgrading to 1.7B variant: {fallback}"
-            )
-            args.lm_model_path = fallback
+    available_lm_models = getattr(gpu_config, "available_lm_models", [])
+    if 0 < gpu_memory_gb and not is_lm_model_size_allowed(
+        args.lm_model_path,
+        available_lm_models,
+    ):
+        fallback = args.lm_model_path.replace("4B", "1.7B")
+        print(
+            f"WARNING: 4B LM model is too large for {gpu_memory_gb:.0f}GB GPU. "
+            f"Downgrading to 1.7B variant: {fallback}"
+        )
+        args.lm_model_path = fallback
+
+
+def _startup_offload_default(gpu_config, gpu_memory_gb: float) -> bool:
+    """Return the detected tier's startup offload default with legacy fallback."""
+
+    explicit = getattr(gpu_config, "offload_to_cpu_default", None)
+    if explicit is not None:
+        return bool(explicit)
+
+    tier_config = GPU_TIER_CONFIGS.get(str(getattr(gpu_config, "tier", "") or ""))
+    if tier_config and "offload_to_cpu_default" in tier_config:
+        return bool(tier_config["offload_to_cpu_default"])
+
+    return 0 < gpu_memory_gb < VRAM_16GB_MIN_GB
 
 
 def main():
@@ -307,15 +327,12 @@ def main():
 
     gpu_memory_gb = gpu_config.gpu_memory_gb
     _is_mac = startup_gpu_state.device_kind == "mps"
-    # Enable auto-offload for GPUs below 20 GB.  16 GB GPUs cannot hold all
-    # models simultaneously (DiT ~4.7 + VAE ~0.3 + text_enc ~1.2 + LM â‰¥1.2 +
-    # activations) so they *must* offload.  The old threshold of 16 GB caused
-    # 16 GB GPUs to never offload, leading to OOM.
-    # Mac (Apple Silicon) uses unified memory â€” offloading provides no benefit.
+    # Default offload comes from the detected tier config. Mac (Apple Silicon)
+    # uses unified memory, so offloading provides no benefit.
     auto_offload = (
         (not _is_mac)
         and gpu_memory_gb > 0
-        and gpu_memory_gb < VRAM_AUTO_OFFLOAD_THRESHOLD_GB
+        and _startup_offload_default(gpu_config, gpu_memory_gb)
     )
     _default_backend = gpu_config.recommended_backend
 
@@ -344,11 +361,13 @@ def main():
         )
     elif auto_offload:
         print(
-            f"Auto-enabling CPU offload (GPU {gpu_memory_gb:.1f}GB < {VRAM_AUTO_OFFLOAD_THRESHOLD_GB}GB threshold)"
+            f"Auto-enabling CPU offload for tier {gpu_config.tier} "
+            f"(GPU {gpu_memory_gb:.1f}GB)"
         )
     elif gpu_memory_gb > 0:
         print(
-            f"CPU offload disabled by default (GPU {gpu_memory_gb:.1f}GB >= {VRAM_AUTO_OFFLOAD_THRESHOLD_GB}GB threshold)"
+            f"CPU offload disabled by default for tier {gpu_config.tier} "
+            f"(GPU {gpu_memory_gb:.1f}GB)"
         )
     else:
         print("No GPU detected, running on CPU")

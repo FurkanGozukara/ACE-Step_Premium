@@ -103,6 +103,7 @@ def register_simple_create_handlers(
             generation_section["gpu_info_display"],
             simple_page["simple_batch_size"],
             simple_page["simple_duration"],
+            generation_section["device"],
             simple_page["simple_status"],
         ],
     )
@@ -471,8 +472,8 @@ def _apply_simple_tier_change(tier: str | None, llm_handler: Any) -> tuple[Any, 
     """Apply a GPU tier preset to advanced and simple controls."""
 
     updates = gen_h.on_tier_change(tier, llm_handler)
-    if len(updates) != 10:
-        return (gr.update(value=tier),) + tuple(gr.update() for _ in range(14))
+    if len(updates) != 11:
+        return (gr.update(value=tier),) + tuple(gr.update() for _ in range(15))
     quantization_update = _clone_update(updates[3])
     simple_quantization_update = _clone_update(updates[3])
     batch_update = _clone_update(updates[7])
@@ -494,6 +495,7 @@ def _apply_simple_tier_change(tier: str | None, llm_handler: Any) -> tuple[Any, 
         updates[9],
         simple_batch_update,
         simple_duration_update,
+        updates[10],
         f"Applied GPU preset: {tier}",
     )
 

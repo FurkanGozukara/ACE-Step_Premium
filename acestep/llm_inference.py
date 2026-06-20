@@ -27,7 +27,13 @@ from acestep.core.generation.cancellation import check_generation_cancelled
 from acestep.llm_backend_compat import get_vllm_preflight_warning
 from acestep.constrained_logits_processor import MetadataConstrainedLogitsProcessor
 from acestep.constants import DEFAULT_LM_INSTRUCTION, DEFAULT_LM_UNDERSTAND_INSTRUCTION, DEFAULT_LM_INSPIRED_INSTRUCTION, DEFAULT_LM_REWRITE_INSTRUCTION, DURATION_MIN, DURATION_MAX
-from acestep.gpu_config import get_lm_gpu_memory_ratio, get_gpu_memory_gb, get_lm_model_size, get_global_gpu_config
+from acestep.gpu_config import (
+    VRAM_8GB_MIN_GB,
+    get_lm_gpu_memory_ratio,
+    get_gpu_memory_gb,
+    get_lm_model_size,
+    get_global_gpu_config,
+)
 from acestep.torch_compile_runtime import compile_module_forward
 
 # Minimum free VRAM (GB) required to attempt vLLM initialization.
@@ -272,7 +278,7 @@ class LLMHandler:
                 logger.info(f"Adaptive LM memory allocation: model={model_path}, target={target_memory_gb}GB, ratio={ratio:.3f}, total_gpu={total_gpu:.1f}GB")
 
                 # Enable low memory mode for small GPUs
-                if total_gpu < 8:
+                if total_gpu < VRAM_8GB_MIN_GB:
                     low_gpu_memory_mode = True
 
                 return ratio, low_gpu_memory_mode

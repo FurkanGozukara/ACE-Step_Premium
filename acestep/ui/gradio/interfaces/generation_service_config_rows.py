@@ -145,6 +145,7 @@ def build_model_device_controls(
     dit_handler: Any,
     service_pre_initialized: bool,
     params: dict[str, Any],
+    gpu_config: Any | None = None,
 ) -> dict[str, Any]:
     """Create model-path and device selection controls.
 
@@ -152,6 +153,7 @@ def build_model_device_controls(
         dit_handler: DiT handler used to list available model configs.
         service_pre_initialized: Whether existing init params should prefill values.
         params: Startup state dictionary containing optional model/device values.
+        gpu_config: Active GPU configuration used for first-load device defaults.
 
     Returns:
         A component map containing ``config_path``, ``device``, ``vae_checkpoint``,
@@ -172,7 +174,14 @@ def build_model_device_controls(
             info=t("service.model_path_info"),
             elem_classes=["has-info-container"],
         )
-        device_value = params.get("device", "auto") if service_pre_initialized else "auto"
+        default_device = (
+            "cpu" if getattr(gpu_config, "tier", None) == "tier1" else "auto"
+        )
+        device_value = (
+            params.get("device", default_device)
+            if service_pre_initialized
+            else default_device
+        )
         device = gr.Dropdown(
             choices=["auto", "cuda", "mps", "xpu", "cpu"],
             value=device_value,

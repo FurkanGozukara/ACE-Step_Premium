@@ -66,6 +66,7 @@ def create_service_config_content(
             dit_handler=dit_handler,
             service_pre_initialized=service_pre_initialized,
             params=params,
+            gpu_config=defaults["gpu_config"],
         )
         lm_backend_controls = build_lm_backend_controls(
             llm_handler=llm_handler,

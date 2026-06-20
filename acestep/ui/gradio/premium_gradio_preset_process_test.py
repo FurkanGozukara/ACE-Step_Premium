@@ -6,7 +6,9 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import patch
 
 from acestep.model_downloader import (
     DEFAULT_LM_MODEL,
@@ -194,6 +196,55 @@ class PremiumGradioPresetProcessTests(unittest.IsolatedAsyncioTestCase):
             "Latest (auto)",
         )
         self.assertIn("Saved preset: sanitized-copy", save_result.get("data", [])[1])
+
+    async def test_load_preset_process_api_migrates_removed_vram_tiers(self) -> None:
+        """Removed VRAM tier values should load as the detected GPU tier."""
+
+        fake_gpu_config = SimpleNamespace(
+            tier="unlimited",
+            mlx_vae_chunk_size=1024,
+            recommended_lm_model="acestep-5Hz-lm-4B",
+        )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            original = os.environ.get("ACESTEP_PROJECT_ROOT")
+            os.environ["ACESTEP_PROJECT_ROOT"] = tmp_dir
+            try:
+                keys = get_preset_component_keys()
+                values = [DEFAULT_PRESET_VALUES.get(key, "") for key in keys]
+                values[keys.index("tier_dropdown")] = "tier2"
+                values[keys.index("simple_create_tier_dropdown")] = "tier3"
+                with patch(
+                    "acestep.ui.gradio.premium_features.get_global_gpu_config",
+                    return_value=fake_gpu_config,
+                ):
+                    save_preset_action("legacy-tier", None, *values)
+                    demo = create_gradio_interface(
+                        dit_handler=_FakeDitHandler(),
+                        llm_handler=_FakeLlmHandler(),
+                        dataset_handler=_FakeDatasetHandler(),
+                        init_params=None,
+                        language="en",
+                    )
+                    load_id = next(
+                        key for key, block_fn in demo.fns.items()
+                        if getattr(block_fn.fn, "__name__", "") == "load_preset_action"
+                    )
+                    demo.fns[load_id].inputs[0].choices = [
+                        ("legacy-tier", "legacy-tier")
+                    ]
+                    result = await demo.process_api(load_id, ["legacy-tier"])
+            finally:
+                if original is None:
+                    os.environ.pop("ACESTEP_PROJECT_ROOT", None)
+                else:
+                    os.environ["ACESTEP_PROJECT_ROOT"] = original
+
+        data = result.get("data", [])
+        self.assertEqual(data[keys.index("tier_dropdown")].get("value"), "unlimited")
+        self.assertEqual(
+            data[keys.index("simple_create_tier_dropdown")].get("value"),
+            "unlimited",
+        )
 
     async def test_load_preset_process_api_restores_sam_prompt_multiselect(self) -> None:
         """SAM Quick Prompt multiselect values should load through real components."""

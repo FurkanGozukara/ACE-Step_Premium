@@ -15,6 +15,7 @@ from acestep.lazy_runtime import (
     build_startup_gpu_state,
 )
 from acestep.gpu_config import (
+    VRAM_12GB_MIN_GB,
     get_global_gpu_config, is_lm_model_size_allowed, find_best_lm_model_on_disk,
     set_global_gpu_config, GPU_TIER_LABELS, GPU_TIER_CONFIGS,
     resolve_lm_backend,
@@ -168,7 +169,7 @@ def init_service_wrapper(
     # 9.7 GiB reserved with full offload, so 12GB is the practical floor.
     if is_xl_model(config_path_lower) and gpu_config is not None:
         gpu_mem = getattr(gpu_config, "gpu_memory_gb", 0)
-        if 0 < gpu_mem < 12:
+        if 0 < gpu_mem < VRAM_12GB_MIN_GB:
             gr.Warning(
                 f"XL (4B) model needs about 10GB peak VRAM and is recommended "
                 f"for >=12GB GPUs (detected {gpu_mem:.0f}GB). "
@@ -229,11 +230,11 @@ def on_tier_change(selected_tier, llm_handler=None):
     Returns a tuple of gr.update() objects for:
         (offload_to_cpu, offload_dit_to_cpu, compile_model, quantization,
          backend_dropdown, lm_model_path, init_llm, batch_size_input,
-         audio_duration, gpu_info_display)
+         audio_duration, gpu_info_display, device)
     """
     if not selected_tier or selected_tier not in GPU_TIER_CONFIGS:
         logger.warning(f"Invalid tier selection: {selected_tier}")
-        return (gr.update(),) * 10
+        return (gr.update(),) * 11
 
     new_config = build_startup_gpu_config_for_tier(selected_tier)
     set_global_gpu_config(new_config)
@@ -260,6 +261,7 @@ def on_tier_change(selected_tier, llm_handler=None):
         f"🖥️ **{_gpu_device_name}** — {new_config.gpu_memory_gb:.1f} GB VRAM "
         f"— {t('service.gpu_auto_tier')}: **{tier_label}**"
     )
+    device_update = gr.update(value="cpu") if selected_tier == "tier1" else gr.update()
 
     return (
         gr.update(
@@ -296,4 +298,5 @@ def on_tier_change(selected_tier, llm_handler=None):
             elem_classes=["has-info-container"],
         ),
         gr.update(value=gpu_info_text),
+        device_update,
     )

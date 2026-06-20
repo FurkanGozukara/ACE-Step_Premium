@@ -6,7 +6,13 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from acestep.gpu_config import get_gpu_config, resolve_lm_backend
+from acestep.gpu_config import (
+    GPU_TIER_LABELS,
+    get_gpu_config,
+    get_gpu_config_for_tier,
+    get_gpu_tier,
+    resolve_lm_backend,
+)
 
 
 class GpuConfigLegacyCudaTests(unittest.TestCase):
@@ -48,12 +54,25 @@ class GpuConfigLegacyCudaTests(unittest.TestCase):
 class GpuConfigMeasuredPresetTests(unittest.TestCase):
     """Verify measured XL preset defaults stay conservative by VRAM tier."""
 
-    def test_tier3_defaults_to_full_offload_without_lm(self) -> None:
-        """6-8GB GPUs should not default to LM or batch sizes above measured headroom."""
-        config = get_gpu_config(gpu_memory_gb=7.5)
+    def test_sub_8gb_auto_selects_cpu_tier(self) -> None:
+        """GPUs below the tier4 floor should auto-select the CPU tier."""
+        config = get_gpu_config(gpu_memory_gb=7.49)
 
-        self.assertEqual("tier3", config.tier)
+        self.assertEqual("tier1", config.tier)
         self.assertFalse(config.init_lm_default)
+        self.assertEqual("pt", config.recommended_backend)
+        self.assertEqual("pt_only", config.lm_backend_restriction)
+        self.assertTrue(config.offload_to_cpu_default)
+        self.assertTrue(config.offload_dit_to_cpu_default)
+        self.assertFalse(config.quantization_default)
+        self.assertFalse(config.compile_model_default)
+
+    def test_tier4_presets_full_offload_at_batch_one(self) -> None:
+        """8-12GB GPUs use the conservative measured 0.6B LM path."""
+        config = get_gpu_config(gpu_memory_gb=10.5)
+
+        self.assertEqual("tier4", config.tier)
+        self.assertTrue(config.init_lm_default)
         self.assertEqual(1, config.max_batch_size_with_lm)
         self.assertEqual(1, config.max_batch_size_without_lm)
         self.assertTrue(config.offload_to_cpu_default)
@@ -74,7 +93,7 @@ class GpuConfigMeasuredPresetTests(unittest.TestCase):
         self.assertFalse(config.compile_model_default)
 
     def test_tier6a_recommends_4b_with_int8_offload_at_batch_one(self) -> None:
-        """16-20GB GPUs use the measured batch-1 4B LM path."""
+        """16-24GB GPUs use the measured batch-1 4B LM path."""
         config = get_gpu_config(gpu_memory_gb=16.0)
 
         self.assertEqual("tier6a", config.tier)
@@ -87,9 +106,19 @@ class GpuConfigMeasuredPresetTests(unittest.TestCase):
         self.assertTrue(config.quantization_default)
         self.assertFalse(config.compile_model_default)
 
-    def test_tier6b_recommends_4b_with_cpu_offload_at_batch_one(self) -> None:
-        """20-24GB GPUs require CPU offload for the measured batch-1 4B LM path."""
-        config = get_gpu_config(gpu_memory_gb=20.0)
+    def test_tier6a_extends_until_24gb_tolerance_floor(self) -> None:
+        """GPUs below the 24GB tolerance floor remain tier6a."""
+        config = get_gpu_config(gpu_memory_gb=23.49)
+
+        self.assertEqual("tier6a", config.tier)
+        self.assertEqual("acestep-5Hz-lm-4B", config.recommended_lm_model)
+        self.assertTrue(config.offload_to_cpu_default)
+        self.assertTrue(config.quantization_default)
+
+    def test_tier6b_remains_manual_safe_profile(self) -> None:
+        """The 24GB safe profile remains selectable manually."""
+        with patch("acestep.gpu_config.get_gpu_memory_gb", return_value=24.0):
+            config = get_gpu_config_for_tier("tier6b")
 
         self.assertEqual("tier6b", config.tier)
         self.assertEqual(1, config.max_batch_size_with_lm)
@@ -102,8 +131,8 @@ class GpuConfigMeasuredPresetTests(unittest.TestCase):
         self.assertFalse(config.compile_model_default)
 
     def test_unlimited_recommends_measured_4b_at_batch_one(self) -> None:
-        """Unlimited tier can use the measured batch-1 4B LM path."""
-        config = get_gpu_config(gpu_memory_gb=32.0)
+        """24GB-class and larger GPUs auto-select unlimited."""
+        config = get_gpu_config(gpu_memory_gb=23.9995)
 
         self.assertEqual("unlimited", config.tier)
         self.assertEqual(1, config.max_batch_size_with_lm)
@@ -111,6 +140,31 @@ class GpuConfigMeasuredPresetTests(unittest.TestCase):
         self.assertEqual("acestep-5Hz-lm-4B", config.recommended_lm_model)
         self.assertFalse(config.offload_to_cpu_default)
         self.assertFalse(config.compile_model_default)
+
+    def test_tier_boundaries_use_half_gb_tolerance(self) -> None:
+        """Advertised VRAM classes tolerate reports up to 0.5GB below nominal."""
+        cases = {
+            0.0: "tier1",
+            7.49: "tier1",
+            7.5: "tier4",
+            11.49: "tier4",
+            11.5: "tier5",
+            15.49: "tier5",
+            15.5: "tier6a",
+            23.49: "tier6a",
+            23.5: "unlimited",
+            23.9995: "unlimited",
+            31.8423: "unlimited",
+        }
+        for memory_gb, expected_tier in cases.items():
+            with self.subTest(memory_gb=memory_gb):
+                self.assertEqual(expected_tier, get_gpu_tier(memory_gb))
+
+    def test_removed_tiers_are_not_ui_choices(self) -> None:
+        """Removed GPU tiers should not be exposed through UI labels."""
+        self.assertNotIn("tier2", GPU_TIER_LABELS)
+        self.assertNotIn("tier3", GPU_TIER_LABELS)
+        self.assertEqual("tier1 (CPU)", GPU_TIER_LABELS["tier1"])
 
 
 class AutoMlxVaeChunkSizeTests(unittest.TestCase):

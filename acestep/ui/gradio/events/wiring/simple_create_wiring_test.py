@@ -243,6 +243,7 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
             {"value": 1, "maximum": 1},  # batch
             {"maximum": 480.0},  # duration
             {"value": "gpu info"},  # display
+            {"value": "cpu"},  # device
         )
 
         with patch(
@@ -258,6 +259,7 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
         self.assertEqual(result[7].get("value"), "acestep-5Hz-lm-4B")
         self.assertEqual(result[12].get("value"), 1)
         self.assertEqual(result[13].get("maximum"), 480.0)
+        self.assertEqual(result[14].get("value"), "cpu")
         self.assertIsNot(result[4], result[5])
         self.assertIsNot(result[9], result[12])
         self.assertIsNot(result[10], result[13])

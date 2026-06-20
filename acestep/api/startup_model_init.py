@@ -7,7 +7,7 @@ from typing import Any, Callable, Optional
 
 from acestep.model_downloader import DEFAULT_PREMIUM_DIT_MODEL, get_models_dir
 from acestep.gpu_config import (
-    VRAM_AUTO_OFFLOAD_THRESHOLD_GB,
+    VRAM_16GB_MIN_GB,
     get_gpu_config,
     set_global_gpu_config,
 )
@@ -36,13 +36,13 @@ def do_model_initialization(
 
     gpu_config = app.state.gpu_config
     gpu_memory_gb = gpu_config.gpu_memory_gb
-    auto_offload = gpu_memory_gb > 0 and gpu_memory_gb < VRAM_AUTO_OFFLOAD_THRESHOLD_GB
+    auto_offload = gpu_memory_gb > 0 and gpu_memory_gb < VRAM_16GB_MIN_GB
 
     print("[API Server] Initializing models...")
     if auto_offload:
-        print("[API Server] Auto-enabling CPU offload (GPU < 16GB)")
+        print("[API Server] Auto-enabling CPU offload (below 16GB class)")
     elif gpu_memory_gb > 0:
-        print("[API Server] CPU offload disabled by default (GPU >= 16GB)")
+        print("[API Server] CPU offload disabled by default (16GB class or higher)")
     else:
         print("[API Server] No GPU detected, running on CPU")
 

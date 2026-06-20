@@ -48,8 +48,6 @@ MODEL_DEFAULTS = {
 }
 DEFAULT_TIERS = (
     "tier1",
-    "tier2",
-    "tier3",
     "tier4",
     "tier5",
     "tier6a",

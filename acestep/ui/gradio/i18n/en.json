@@ -55,7 +55,7 @@
     "flash_attention_info_enabled": "Speeds up DiT inference by ~20–30% with lower memory usage. No quality difference — purely a performance optimization. Recommended if available. Requires the flash_attn package.",
     "flash_attention_info_disabled": "Flash attention not available (flash_attn package not installed). Install with: pip install flash-attn. Provides ~20–30% speedup with no quality change.",
     "offload_cpu_label": "Offload to CPU",
-    "offload_cpu_info": "Moves models to system RAM when not actively running, freeing GPU VRAM for the active model. Adds a small delay (~1–3s) when switching between models. Essential for GPUs with <16GB VRAM. Negligible impact on GPUs with >24GB.",
+    "offload_cpu_info": "Moves models to system RAM when not actively running, freeing GPU VRAM for the active model. Adds a small delay (~1–3s) when switching between models. Essential for GPUs with <16GB VRAM. Negligible impact on GPUs with >=24GB.",
     "offload_dit_cpu_label": "Offload DiT to CPU",
     "offload_dit_cpu_info": "Also offloads the DiT model to CPU (in addition to the base offload). Saves more VRAM but adds extra swap time. Requires 'Offload to CPU' to be enabled. Use on very low VRAM GPUs (<10GB).",
     "compile_model_label": "Compile Model (torch.compile)",

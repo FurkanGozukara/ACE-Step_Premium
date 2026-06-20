@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest.mock import ANY, MagicMock, patch
@@ -55,7 +56,7 @@ class StartupModelInitTests(unittest.TestCase):
             handler3=None,
             config_path2="",
             config_path3="",
-            get_project_root=MagicMock(return_value="k:/repo"),
+            get_project_root=MagicMock(return_value=tempfile.gettempdir()),
             get_model_name=MagicMock(return_value="acestep-v15-turbo"),
             ensure_model_downloaded=MagicMock(),
             env_bool=_env_bool,
@@ -90,7 +91,7 @@ class StartupModelInitTests(unittest.TestCase):
             handler3=None,
             config_path2="",
             config_path3="",
-            get_project_root=MagicMock(return_value="k:/repo"),
+            get_project_root=MagicMock(return_value=tempfile.gettempdir()),
             get_model_name=MagicMock(return_value="acestep-v15-turbo"),
             ensure_model_downloaded=MagicMock(),
             env_bool=lambda _name, default: default,
@@ -144,7 +145,7 @@ class StartupModelInitTests(unittest.TestCase):
                 handler3=None,
                 config_path2="",
                 config_path3="",
-                get_project_root=MagicMock(return_value="k:/repo"),
+                get_project_root=MagicMock(return_value=tempfile.gettempdir()),
                 get_model_name=MagicMock(return_value="acestep-v15-turbo"),
                 ensure_model_downloaded=ensure_model_downloaded,
                 env_bool=_env_bool,
@@ -194,7 +195,7 @@ class StartupModelInitTests(unittest.TestCase):
                     handler3=None,
                     config_path2="",
                     config_path3="",
-                    get_project_root=MagicMock(return_value="k:/repo"),
+                    get_project_root=MagicMock(return_value=tempfile.gettempdir()),
                     get_model_name=MagicMock(return_value="acestep-v15-turbo"),
                     ensure_model_downloaded=MagicMock(),
                     env_bool=_env_bool,

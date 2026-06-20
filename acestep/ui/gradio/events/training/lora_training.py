@@ -364,7 +364,7 @@ def start_training(
                 "(non-quantized DiT). Performance will be sub-optimal.",
                 "", None, training_state,
             )
-        elif gpu_config.tier in {"tier1", "tier2", "tier3", "tier4"}:
+        elif gpu_config.tier in {"tier1", "tier4"}:
             yield (
                 f"WARNING: Low VRAM tier detected ({gpu_config.gpu_memory_gb:.1f} GB, "
                 f"{gpu_config.tier}). Using best-effort training path (non-quantized DiT). "
