@@ -113,6 +113,8 @@ def run_batch_folder_processing(
     """Process lyrics/style text-file pairs into generated audio runs."""
 
     status_lines: list[str] = []
+    status_lines.append("Batch folder processing started. Scanning input folder...")
+    yield _render_status(status_lines)
     try:
         items = discover_batch_folder_items(input_folder)
         target_folder = resolve_output_folder(output_folder)

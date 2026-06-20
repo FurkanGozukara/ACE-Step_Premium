@@ -65,6 +65,7 @@ def register_generation_text_format_handlers(
             results_section["is_format_caption_state"],
             results_section["status_output"],
         ],
+        show_progress_on=[results_section["status_output"]],
     ).then(
         fn=gen_h.uncheck_auto_for_populated_fields,
         inputs=list(auto_checkbox_inputs),
@@ -154,6 +155,7 @@ def register_generation_text_format_handlers(
             results_section["is_format_caption_state"],
             results_section["status_output"],
         ],
+        show_progress_on=[results_section["status_output"]],
     ).then(
         fn=gen_h.uncheck_auto_for_populated_fields,
         inputs=list(auto_checkbox_inputs),

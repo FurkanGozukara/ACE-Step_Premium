@@ -118,6 +118,7 @@ def register_results_aux_handlers(
                 results_section[f"details_accordion_{btn_idx}"],
                 results_section["batch_queue"],
             ],
+            show_progress_on=[results_section[f"score_display_{btn_idx}"]],
         )
 
     # ========== LRC Timestamp Handlers ==========
@@ -153,6 +154,7 @@ def register_results_aux_handlers(
                 results_section[f"details_accordion_{btn_idx}"],
                 results_section["batch_queue"],
             ],
+            show_progress_on=[results_section[f"lrc_display_{btn_idx}"]],
         )
 
     # ========== Convert To Codes Handlers ==========
@@ -164,6 +166,7 @@ def register_results_aux_handlers(
                 results_section[f"codes_display_{btn_idx}"],
                 results_section[f"details_accordion_{btn_idx}"],
             ],
+            show_progress_on=[results_section[f"codes_display_{btn_idx}"]],
         )
 
     # ========== Save LRC Handlers ==========

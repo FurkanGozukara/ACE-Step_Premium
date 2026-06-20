@@ -78,6 +78,7 @@ def register_generation_metadata_handlers(
             generation_section["lm_codes_audio_preview"],
         ],
         outputs=[generation_section["text2music_audio_code_string"]],
+        show_progress_on=[generation_section["text2music_audio_code_string"]],
     )
     generation_section["lm_codes_audio_upload"].change(
         fn=preview_audio_purpose_upload,
@@ -122,6 +123,7 @@ def register_generation_metadata_handlers(
             generation_section["time_signature"],
             results_section["is_format_caption_state"],
         ],
+        show_progress_on=[results_section["status_output"]],
     ).then(
         fn=gen_h.uncheck_auto_for_populated_fields,
         inputs=list(auto_checkbox_inputs),
@@ -226,6 +228,7 @@ def register_generation_metadata_handlers(
             generation_section["time_signature"],
             results_section["is_format_caption_state"],
         ],
+        show_progress_on=[results_section["status_output"]],
     ).then(
         fn=gen_h.uncheck_auto_for_populated_fields,
         inputs=list(auto_checkbox_inputs),

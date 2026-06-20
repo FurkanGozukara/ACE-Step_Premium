@@ -111,9 +111,10 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
             state,
             use_only_custom_trigger,
         )
+        yield "Dataset preprocessing started. Preparing tensor export..."
 
         if should_run_dataset_action_in_subprocess(vram_preset, subprocess_mode):
-            return run_preprocess_subprocess(
+            yield run_preprocess_subprocess(
                 output_dir=output_dir,
                 preprocess_mode=mode,
                 save_debug_text=save_debug_text,
@@ -126,7 +127,8 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
                 ),
                 progress=progress,
             )
-        return train_h.preprocess_dataset(
+            return
+        yield train_h.preprocess_dataset(
             output_dir,
             mode,
             dit_handler,
@@ -152,6 +154,7 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
             training_section["use_only_custom_trigger"],
         ],
         outputs=[training_section["preprocess_progress"]],
+        show_progress_on=[training_section["preprocess_progress"]],
     )
 
     training_section["cancel_preprocess_btn"].click(

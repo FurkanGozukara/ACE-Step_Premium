@@ -143,6 +143,11 @@ def register_sam_audio_handlers(
             sam_page["sam_single_status"],
         ],
         api_name="sam_audio_process",
+        show_progress_on=[
+            sam_page["sam_target_audio"],
+            sam_page["sam_target_video"],
+            sam_page["sam_single_status"],
+        ],
     )
     sam_page["sam_cancel_btn"].click(
         fn=None,
@@ -188,6 +193,7 @@ def register_sam_audio_handlers(
         ],
         outputs=[sam_page["sam_batch_status"], sam_page["sam_batch_files"]],
         api_name="sam_audio_batch",
+        show_progress_on=[sam_page["sam_batch_status"]],
     )
     sam_page["sam_batch_cancel_btn"].click(
         fn=None,

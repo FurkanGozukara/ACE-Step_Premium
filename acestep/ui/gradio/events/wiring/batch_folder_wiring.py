@@ -57,6 +57,7 @@ def register_batch_folder_handlers(
             *build_generation_run_inputs(generation_section, results_section),
         ],
         outputs=[batch_section["batch_status"]],
+        show_progress_on=[batch_section["batch_status"]],
     )
     batch_cancel_event = batch_section["batch_cancel_btn"].click(
         fn=None,

@@ -43,6 +43,12 @@ def _build_lokr_training_wrapper(
         """Stream LoKr training progress and normalize failure outputs for UI."""
 
         state = normalize_training_state(training_state)
+        yield (
+            "LoKr training start requested. Preparing training configuration...",
+            "",
+            None,
+            state,
+        )
         try:
             for progress, log_msg, plot, next_state in train_h.start_lokr_training(
                 tensor_dir,
@@ -148,6 +154,10 @@ def register_lokr_training_handlers(
             training_section["lokr_training_loss_plot"],
             training_section["training_state"],
         ],
+        show_progress_on=[
+            training_section["lokr_training_progress"],
+            training_section["lokr_training_log"],
+        ],
     )
 
     training_section["stop_lokr_training_btn"].click(
@@ -176,4 +186,5 @@ def register_lokr_training_handlers(
             training_section["lokr_export_epoch"],
         ],
         outputs=[training_section["lokr_export_status"]],
+        show_progress_on=[training_section["lokr_export_status"]],
     )

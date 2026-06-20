@@ -91,6 +91,7 @@ def register_generation_metadata_file_handlers(
             metadata_tab["metadata_manifest_path"],
         ],
         outputs=metadata_tab_outputs,
+        show_progress_on=[metadata_tab["metadata_load_status"]],
     ).then(
         fn=gen_h.uncheck_auto_for_populated_fields,
         inputs=list(auto_checkbox_inputs),
@@ -107,6 +108,7 @@ def register_generation_metadata_file_handlers(
             metadata_tab["metadata_manifest_path"],
         ],
         outputs=metadata_tab_outputs,
+        show_progress_on=[metadata_tab["metadata_load_status"]],
     ).then(
         fn=gen_h.uncheck_auto_for_populated_fields,
         inputs=list(auto_checkbox_inputs),

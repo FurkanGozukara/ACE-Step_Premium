@@ -97,6 +97,12 @@ def build_lora_training_wrapper(
         """Stream LoRA training progress and normalize failure outputs for UI."""
 
         state = normalize_training_state(training_state)
+        yield (
+            "LoRA training start requested. Preparing training configuration...",
+            "",
+            None,
+            state,
+        )
         try:
             sample_generation_settings = sample_generation_settings_from_values(
                 sample_setting_keys,

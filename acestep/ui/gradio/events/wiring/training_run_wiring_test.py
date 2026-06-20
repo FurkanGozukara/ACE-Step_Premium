@@ -197,7 +197,8 @@ class TrainingRunWiringTests(unittest.TestCase):
                 )
             )
 
-        self.assertEqual("started", outputs[0][0])
+        self.assertIn("start requested", outputs[0][0])
+        self.assertEqual("started", outputs[-1][0])
 
     def test_training_wrapper_streams_subprocess_when_enabled(self) -> None:
         """The subprocess checkbox should route LoRA training through the worker stream."""
@@ -280,7 +281,8 @@ class TrainingRunWiringTests(unittest.TestCase):
                 )
             )
 
-        self.assertEqual("subprocess", outputs[0][0])
+        self.assertIn("start requested", outputs[0][0])
+        self.assertEqual("subprocess", outputs[-1][0])
         build_init.assert_called_once()
         training_args = stream.call_args.kwargs["training_args"]
         self.assertEqual("my-awesome-song", training_args["lora_name"])

@@ -47,6 +47,8 @@ def run_batch_audio_processing(
     status_lines: list[str] = []
     generated_files: list[str] = []
     rows: list[dict[str, object]] = []
+    status_lines.append("Audio Processing batch started. Scanning input folder...")
+    yield _render_status(status_lines), generated_files
     try:
         files = iter_media_files(input_folder, recursive=recursive)
         run_dir = create_audio_processing_run_dir(output_folder.strip() or None)

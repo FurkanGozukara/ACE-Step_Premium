@@ -111,6 +111,7 @@ class TrainingLoraRunWrapperWildcardTests(unittest.TestCase):
         ):
             outputs = list(training_wrapper(*args))
 
+        self.assertIn("start requested", outputs[0][0])
         self.assertEqual(outputs[-1][0], "done")
         self.assertIn(captured["sample_prompt"], {"warm sample", "bright sample"})
         self.assertIn(
@@ -137,9 +138,10 @@ class TrainingLoraRunWrapperWildcardTests(unittest.TestCase):
         ):
             outputs = list(training_wrapper(*args))
 
-        self.assertEqual(len(outputs), 1)
-        self.assertIn("Wildcard syntax error", outputs[0][0])
-        self.assertIn("Missing closing }", outputs[0][0])
+        self.assertEqual(len(outputs), 2)
+        self.assertIn("start requested", outputs[0][0])
+        self.assertIn("Wildcard syntax error", outputs[1][0])
+        self.assertIn("Missing closing }", outputs[1][0])
 
     def test_disabled_sample_generation_does_not_validate_sample_wildcards(self) -> None:
         captured = {}
@@ -165,6 +167,7 @@ class TrainingLoraRunWrapperWildcardTests(unittest.TestCase):
         ):
             outputs = list(training_wrapper(*args))
 
+        self.assertIn("start requested", outputs[0][0])
         self.assertEqual(outputs[-1][0], "done")
         self.assertEqual(captured["sample_prompt"], "unused {warm|bright")
 

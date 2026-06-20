@@ -88,6 +88,7 @@ def register_grid_testing_handlers(
             grid_section["grid_status"],
             grid_section["grid_generated_files"],
         ],
+        show_progress_on=[grid_section["grid_status"]],
     )
     cancel_event = grid_section["grid_cancel_btn"].click(
         fn=None,

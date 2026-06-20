@@ -65,6 +65,7 @@ def register_generation_batch_extract_handlers(context: GenerationWiringContext)
             *build_generation_run_inputs(generation_section, results_section),
         ],
         outputs=[generation_section["batch_extract_status"]],
+        show_progress_on=[generation_section["batch_extract_status"]],
     )
     cancel_event = generation_section["batch_extract_cancel_btn"].click(
         fn=None,

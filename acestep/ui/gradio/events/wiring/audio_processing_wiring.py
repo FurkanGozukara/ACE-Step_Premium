@@ -6,8 +6,14 @@ from typing import Any
 
 import gradio as gr
 
+from acestep.audio_processing.auto_editor_workflow import (
+    AUTO_EDITOR_WORKFLOW_EXPORT_KEY,
+    workflow_export_enabled,
+)
+from acestep.audio_processing.media_io import is_video_file
 from acestep.audio_processing.presets import STAGE_KEYS
 from acestep.audio_processing.settings import UI_SETTING_KEYS
+from acestep.ui.gradio.media_upload_values import latest_upload_path
 from acestep.ui.gradio.events.local_media_dialogs import select_media_file_path
 from acestep.ui.gradio.events.local_path_dialogs import select_folder_path
 from acestep.ui.gradio.events.wiring.audio_processing_batch_handlers import (
@@ -21,8 +27,15 @@ from acestep.ui.gradio.events.wiring.audio_processing_preset_actions import (
     apply_builtin_preset as _apply_builtin_preset,
     toggle_audio_enhancement_stages as _toggle_audio_enhancement_stages,
 )
+from acestep.ui.gradio.events.wiring.audio_processing_output_updates import (
+    hidden_output,
+)
 from acestep.ui.gradio.events.wiring.audio_processing_process_status import (
     open_audio_processing_outputs_folder,
+)
+from acestep.ui.gradio.events.wiring.audio_processing_source_paths import (
+    effective_single_file_input,
+    local_media_path,
 )
 from acestep.ui.gradio.events.wiring.audio_processing_single_file_handlers import (
     preview_single_file as _preview_single_file,
@@ -35,6 +48,11 @@ from acestep.ui.gradio.events.wiring.audio_processing_upload_preview import (
     preview_diffpitcher_reference as _preview_diffpitcher_reference,
     preview_upload as _preview_upload,
 )
+
+PROCESS_FILE_UPLOAD_REQUIRED_STATUS = "Upload an audio or video file first."
+PROCESS_FILE_AUDIO_PROGRESS_STATUS = "Processing audio..."
+PROCESS_FILE_VIDEO_PROGRESS_STATUS = "Processing video..."
+PROCESS_FILE_WORKFLOW_PROGRESS_STATUS = "Exporting Auto-Editor workflow..."
 
 
 def audio_processing_generation_inputs(component_map: dict[str, Any]) -> list[Any]:
@@ -119,7 +137,25 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
         ],
         api_name="audio_processing_preview",
     )
-    process_event = audio_page["ap_process_btn"].click(
+    process_prepare_event = audio_page["ap_process_btn"].click(
+        fn=_prepare_process_file_outputs,
+        inputs=[
+            audio_page["ap_single_file"],
+            audio_page["ap_upload_audio_preview"],
+            audio_page["ap_single_local_path"],
+            audio_page["ap_export_audio_only"],
+            audio_page[AUTO_EDITOR_WORKFLOW_EXPORT_KEY],
+        ],
+        outputs=[
+            audio_page["ap_output_audio"],
+            audio_page["ap_output_video"],
+            audio_page["ap_single_status"],
+        ],
+        queue=False,
+        show_progress="hidden",
+        show_progress_on=[],
+    )
+    process_event = process_prepare_event.then(
         fn=_process_single_file_event,
         inputs=[
             audio_page["ap_single_file"],
@@ -136,8 +172,11 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
             audio_page["ap_single_status"],
         ],
         api_name="audio_processing_process",
-        show_progress="hidden",
-        show_progress_on=[],
+        show_progress="full",
+        show_progress_on=[
+            audio_page["ap_output_audio"],
+            audio_page["ap_output_video"],
+        ],
     )
     audio_page["ap_cancel_processing_btn"].click(
         fn=None,
@@ -184,6 +223,51 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
         ],
         outputs=[audio_page["ap_batch_status"], audio_page["ap_batch_files"]],
         api_name="audio_processing_batch",
+        show_progress_on=[audio_page["ap_batch_status"]],
+    )
+
+
+def _prepare_process_file_outputs(
+    input_value: Any,
+    audio_preview_value: Any,
+    local_path_value: Any,
+    export_audio_only: Any,
+    workflow_export: Any,
+) -> tuple[Any, Any, str]:
+    """Show the target output immediately before processing starts."""
+
+    source_path = _process_progress_display_path(
+        input_value, audio_preview_value, local_path_value
+    )
+    if not source_path:
+        return hidden_output(), hidden_output(), PROCESS_FILE_UPLOAD_REQUIRED_STATUS
+    if workflow_export_enabled(workflow_export):
+        return hidden_output(), hidden_output(), PROCESS_FILE_WORKFLOW_PROGRESS_STATUS
+    if is_video_file(source_path) and not bool(export_audio_only):
+        return (
+            hidden_output(),
+            gr.update(value=None, visible=True),
+            PROCESS_FILE_VIDEO_PROGRESS_STATUS,
+        )
+    return (
+        gr.update(value=None, visible=True),
+        hidden_output(),
+        PROCESS_FILE_AUDIO_PROGRESS_STATUS,
+    )
+
+
+def _process_progress_display_path(
+    input_value: Any,
+    audio_preview_value: Any,
+    local_path_value: Any,
+) -> str | None:
+    """Return the source path used to choose the visible progress target."""
+
+    return (
+        local_media_path(local_path_value)
+        or latest_upload_path(input_value)
+        or latest_upload_path(audio_preview_value)
+        or effective_single_file_input(input_value, audio_preview_value, local_path_value)
     )
 
 

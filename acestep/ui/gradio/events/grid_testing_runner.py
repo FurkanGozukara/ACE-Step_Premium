@@ -71,6 +71,8 @@ def run_grid_testing(
 
     status_lines: list[str] = []
     final_paths: list[str] = []
+    emit_grid_status(status_lines, "Grid Testing started. Preparing selected LoRAs...")
+    yield render_grid_status(status_lines), grid_files_update(final_paths)
     try:
         args = prepare_grid_generation_args(generation_args, mp3_only=bool(mp3_only))
         generation_count = apply_grid_generation_count(args, generations_per_lora)

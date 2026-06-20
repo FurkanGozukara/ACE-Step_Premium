@@ -226,6 +226,10 @@ def register_training_run_handlers(context: TrainingWiringContext) -> None:
             training_section["training_loss_plot"],
             training_section["training_state"],
         ],
+        show_progress_on=[
+            training_section["training_progress"],
+            training_section["training_log"],
+        ],
     )
 
     training_section["stop_training_btn"].click(

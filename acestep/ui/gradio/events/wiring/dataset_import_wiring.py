@@ -84,6 +84,7 @@ def register_dataset_import_handlers(context: GenerationWiringContext) -> None:
             dataset_section["dataset_json_file"],
         ],
         outputs=[dataset_section["dataset_import_path"], *import_outputs],
+        show_progress_on=[dataset_section["data_status"]],
     )
 
     dataset_section["import_dataset_btn"].click(
@@ -93,6 +94,7 @@ def register_dataset_import_handlers(context: GenerationWiringContext) -> None:
             dataset_section["dataset_import_path"],
         ],
         outputs=import_outputs,
+        show_progress_on=[dataset_section["data_status"]],
     )
     dataset_section["get_item_btn"].click(
         fn=dataset_handler.get_item_for_ui,

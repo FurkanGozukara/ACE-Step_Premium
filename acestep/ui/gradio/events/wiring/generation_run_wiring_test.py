@@ -74,8 +74,8 @@ class InlineResultPreviewTests(unittest.TestCase):
         self.assertFalse(lego_part["visible"])
         self.assertEqual(status, t("messages.extract_stem_processing"))
 
-    def test_prepare_inline_result_preview_keeps_non_extract_behavior(self):
-        """Starting non-Extract generation should keep the existing blank status."""
+    def test_prepare_inline_result_preview_shows_non_extract_start_status(self):
+        """Starting non-Extract generation should give immediate user feedback."""
 
         audio, remaining, area, area_original, lego_part, status = (
             prepare_inline_result_preview("text2music")
@@ -87,7 +87,7 @@ class InlineResultPreviewTests(unittest.TestCase):
         self.assertFalse(area["visible"])
         self.assertFalse(area_original["visible"])
         self.assertFalse(lego_part["visible"])
-        self.assertEqual(status, "")
+        self.assertEqual(status, "Generation started. Preparing model request...")
 
     def test_inline_result_preview_from_generation_outputs_copies_status(self):
         """Streamed generation status should be mirrored into the inline preview."""

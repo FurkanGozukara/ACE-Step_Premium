@@ -378,6 +378,7 @@ def _register_simple_enhance_handlers(
             simple_page["simple_caption"],
             *shared_outputs,
         ],
+        show_progress_on=[simple_page["simple_status"]],
     )
     simple_page["simple_enhance_lyrics_btn"].click(
         fn=lambda *args: _enhance_simple_lyrics(llm_handler, *args),
@@ -386,6 +387,7 @@ def _register_simple_enhance_handlers(
             simple_page["simple_lyrics"],
             *shared_outputs,
         ],
+        show_progress_on=[simple_page["simple_status"]],
     )
 
 

@@ -16,8 +16,13 @@ from acestep.ui.gradio.events.wiring.audio_processing_process_status import (
     open_audio_processing_outputs_folder,
 )
 from acestep.ui.gradio.events.wiring.audio_processing_wiring import (
+    PROCESS_FILE_AUDIO_PROGRESS_STATUS,
+    PROCESS_FILE_UPLOAD_REQUIRED_STATUS,
+    PROCESS_FILE_VIDEO_PROGRESS_STATUS,
+    PROCESS_FILE_WORKFLOW_PROGRESS_STATUS,
     _preview_diffpitcher_reference,
     _preview_single_file,
+    _prepare_process_file_outputs,
     _process_single_file,
     _toggle_audio_enhancement_stages,
 )
@@ -42,6 +47,65 @@ class AudioProcessingWiringTests(unittest.TestCase):
         updates = _toggle_audio_enhancement_stages(*([True] * 6), False, *([True] * 5))
 
         self.assertTrue(all(update["value"] is True for update in updates))
+
+    def test_process_file_progress_prepare_requires_input(self) -> None:
+        """Process File should ask for media before showing result progress."""
+
+        audio, video, status = _prepare_process_file_outputs(
+            None, None, None, False, "none"
+        )
+
+        self.assertFalse(audio["visible"])
+        self.assertFalse(video["visible"])
+        self.assertEqual(PROCESS_FILE_UPLOAD_REQUIRED_STATUS, status)
+
+    def test_process_file_progress_prepare_shows_audio_for_audio_input(self) -> None:
+        """Audio sources should reveal the Processed Audio result while running."""
+
+        audio, video, status = _prepare_process_file_outputs(
+            "C:/media/song.wav", None, None, False, "none"
+        )
+
+        self.assertTrue(audio["visible"])
+        self.assertFalse(video["visible"])
+        self.assertEqual(PROCESS_FILE_AUDIO_PROGRESS_STATUS, status)
+
+    def test_process_file_progress_prepare_shows_video_for_video_input(self) -> None:
+        """Video sources should reveal the Processed Video result while running."""
+
+        audio, video, status = _prepare_process_file_outputs(
+            {"path": "C:/media/clip.mp4"},
+            {"path": "C:/media/clip-preview.wav"},
+            None,
+            False,
+            "none",
+        )
+
+        self.assertFalse(audio["visible"])
+        self.assertTrue(video["visible"])
+        self.assertEqual(PROCESS_FILE_VIDEO_PROGRESS_STATUS, status)
+
+    def test_process_file_progress_prepare_shows_audio_for_export_audio_only(self) -> None:
+        """Export Only Audio should target Processed Audio even for video sources."""
+
+        audio, video, status = _prepare_process_file_outputs(
+            "C:/media/clip.mp4", None, None, True, "none"
+        )
+
+        self.assertTrue(audio["visible"])
+        self.assertFalse(video["visible"])
+        self.assertEqual(PROCESS_FILE_AUDIO_PROGRESS_STATUS, status)
+
+    def test_process_file_progress_prepare_hides_media_for_workflow_export(self) -> None:
+        """Workflow export should not show processed media previews while running."""
+
+        audio, video, status = _prepare_process_file_outputs(
+            "C:/media/clip.mp4", None, None, False, "resolve"
+        )
+
+        self.assertFalse(audio["visible"])
+        self.assertFalse(video["visible"])
+        self.assertEqual(PROCESS_FILE_WORKFLOW_PROGRESS_STATUS, status)
 
     def test_process_file_workflow_export_skips_processed_media(self) -> None:
         """Selected workflow export should return only the Auto-Editor workflow file."""

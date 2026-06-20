@@ -128,6 +128,7 @@ class BatchExtractRunnerTests(unittest.TestCase):
                 )
             )
 
+            self.assertIn("Batch Process started", statuses[0])
             self.assertIn("Batch Process complete: 2/2 file(s) saved", statuses[-1])
             self.assertEqual(b"flac-data", (output_dir / "Alpha.flac").read_bytes())
             self.assertEqual(
@@ -325,7 +326,13 @@ class BatchExtractRunnerTests(unittest.TestCase):
                 )
             )
 
-            self.assertEqual(["Enter a Batch Process Output Folder before starting."], statuses)
+            self.assertEqual(
+                [
+                    "Batch Process started. Scanning input folder...",
+                    "Enter a Batch Process Output Folder before starting.",
+                ],
+                statuses,
+            )
             self.assertEqual([], calls)
 
     def test_cancel_stops_remaining_files(self) -> None:

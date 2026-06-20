@@ -75,6 +75,7 @@ class GridTestingRunnerTests(unittest.TestCase):
             final_status, final_files = outputs[-1]
             final_paths = final_files["value"]
 
+        self.assertIn("Grid Testing started", outputs[0][0])
         self.assertIn("Grid complete", final_status)
         self.assertEqual(
             [

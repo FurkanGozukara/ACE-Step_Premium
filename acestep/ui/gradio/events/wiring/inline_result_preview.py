@@ -48,7 +48,7 @@ def clear_inline_result_preview() -> tuple[Any, Any, Any, Any, Any, str]:
 def prepare_inline_result_preview(
     task_type: str | None = None,
 ) -> tuple[Any, Any, Any, Any, Any, str]:
-    """Clear the inline preview and show Extract-mode foreground progress."""
+    """Clear the inline preview and show foreground progress immediately."""
 
     if str(task_type or "").strip().lower() == "extract":
         return (
@@ -59,7 +59,15 @@ def prepare_inline_result_preview(
             _hidden_lego_part_update(),
             t("messages.extract_stem_processing"),
         )
-    return clear_inline_result_preview()
+    audio, remaining, repaint, repaint_original, lego, _status = clear_inline_result_preview()
+    return (
+        audio,
+        remaining,
+        repaint,
+        repaint_original,
+        lego,
+        "Generation started. Preparing model request...",
+    )
 
 
 def append_inline_result_preview(outputs: Any) -> tuple[Any, ...]:

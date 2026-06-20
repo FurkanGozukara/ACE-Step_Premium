@@ -274,6 +274,7 @@ def register_generation_mode_handlers(
             results_section["status_output"],
             generation_section["generation_mode"],
         ],
+        show_progress_on=[results_section["status_output"]],
     ).then(
         fn=gen_h.uncheck_auto_for_populated_fields,
         inputs=list(auto_checkbox_inputs),

@@ -76,6 +76,7 @@ class BatchFolderRunnerTests(unittest.TestCase):
                 )
             )
 
+            self.assertIn("Batch folder processing started", statuses[0])
             self.assertIn("Batch complete: 1/1", statuses[-1])
             self.assertEqual("bright synth pop", calls[0][CAPTION_ARG_INDEX])
             self.assertEqual("[verse]\nhello", calls[0][LYRICS_ARG_INDEX])
@@ -135,6 +136,7 @@ class BatchFolderRunnerTests(unittest.TestCase):
             )
 
         self.assertEqual(1, len(calls))
+        self.assertIn("Batch folder processing started", statuses[0])
         self.assertIn("Batch cancelled. Remaining files were not started.", statuses[-1])
 
 

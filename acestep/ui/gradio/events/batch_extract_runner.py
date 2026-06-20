@@ -142,6 +142,8 @@ def run_batch_extract_processing(
     """Run Extract for every audio file in a folder and save renamed outputs."""
 
     status_lines: list[str] = []
+    status_lines.append("Batch Process started. Scanning input folder...")
+    yield _render_status(status_lines)
     try:
         track_names = _validate_extract_settings(generation_args)
         audio_files = discover_batch_extract_audio_files(

@@ -488,6 +488,11 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
             results_section["restore_params_btn"],
             *build_inline_result_outputs(generation_section),
         ],
+        show_progress_on=[
+            results_section["generated_audio_1"],
+            results_section["status_output"],
+            generation_section["inline_generation_status"],
+        ],
     ).then(
         fn=sync_inline_result_preview,
         inputs=[

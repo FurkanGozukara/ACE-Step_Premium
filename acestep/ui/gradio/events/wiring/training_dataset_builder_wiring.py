@@ -93,6 +93,11 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             state,
             use_only_custom_trigger,
         )
+        yield (
+            gr.update(),
+            "Auto-label started. Preparing dataset and model services...",
+            state,
+        )
 
         if should_run_dataset_action_in_subprocess(vram_preset, subprocess_mode):
             dit_init_params, llm_init_params = build_auto_label_init_payloads(
@@ -101,7 +106,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
                 model,
                 vram_preset,
             )
-            return run_auto_label_subprocess(
+            result = run_auto_label_subprocess(
                 builder_state=state,
                 settings={
                     "skip_metas": skip,
@@ -123,8 +128,10 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
                 llm_init_params=llm_init_params,
                 progress=progress,
             )
+            yield result
+            return
 
-        return train_h.auto_label_all(
+        result = train_h.auto_label_all(
             dit_handler,
             llm_handler,
             state,
@@ -142,6 +149,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             batch_size=batch_size,
             use_only_custom_trigger=use_only_custom_trigger,
         )
+        yield result
 
     training_section["scan_directory_browse_btn"].click(
         fn=select_folder_path,
@@ -196,6 +204,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
             training_section["label_progress"],
             training_section["dataset_builder_state"],
         ],
+        show_progress_on=[training_section["label_progress"]],
     )
     auto_label_preview_event = auto_label_event.then(
         fn=train_h.get_sample_preview,

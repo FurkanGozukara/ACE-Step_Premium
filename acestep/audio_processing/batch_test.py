@@ -108,6 +108,7 @@ class TestAudioProcessingBatch(unittest.TestCase):
 
             args, _kwargs = process_media_file.call_args
             self.assertTrue(args[2].export_audio_only)
+            self.assertIn("Audio Processing batch started", updates[0][0])
             self.assertIn("Saving processed audio under", updates[1][0])
 
 
