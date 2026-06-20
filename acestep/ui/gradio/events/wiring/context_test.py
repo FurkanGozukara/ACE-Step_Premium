@@ -92,6 +92,7 @@ MODE_OUTPUT_EXPECTED = [
     "extract_all_stems_column",
     "extract_all_stems",
     "repaint_mode_options_group",
+    "remix_preset",
 ]
 
 

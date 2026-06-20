@@ -15,6 +15,11 @@ from acestep.ui.gradio.help_content import create_help_button
 from acestep.ui.gradio.events.generation.strength_defaults import (
     DEFAULT_AUDIO_COVER_STRENGTH,
 )
+from acestep.ui.gradio.events.generation.remix_presets import (
+    REMIX_PRESET_CHOICES,
+    REMIX_PRESET_SAME_LANGUAGE,
+    remix_preset_elem_classes,
+)
 from acestep.ui.gradio.i18n import t
 from .generation_tab_secondary_controls import build_cover_strength_controls
 
@@ -50,6 +55,17 @@ def build_variation_morph_controls() -> dict[str, Any]:
             min_width=150,
             elem_classes=["ace-variation-column"],
         ) as variation_group:
+            remix_preset = gr.Dropdown(
+                choices=list(REMIX_PRESET_CHOICES),
+                value=REMIX_PRESET_SAME_LANGUAGE,
+                label="Remix Preset",
+                info=(
+                    "Sets Remix Strength and Remix Melody Retention for "
+                    "same-language remixes or translations."
+                ),
+                elem_classes=remix_preset_elem_classes(False),
+                visible=True,
+            )
             with gr.Row():
                 retake_enabled = gr.Checkbox(
                     label="Retake",
@@ -211,6 +227,7 @@ def build_variation_morph_controls() -> dict[str, Any]:
         "cover_noise_strength": cover_controls["cover_noise_strength"],
         "custom_help_group": custom_help_group,
         "variation_group": variation_group,
+        "remix_preset": remix_preset,
         "remix_help_group": remix_help_group,
         "no_fsq": no_fsq,
         "no_fsq_column": no_fsq_column,

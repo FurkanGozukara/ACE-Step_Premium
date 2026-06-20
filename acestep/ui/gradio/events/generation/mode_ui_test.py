@@ -21,12 +21,22 @@ try:
         DEFAULT_AUDIO_COVER_STRENGTH,
         DEFAULT_REMIX_MELODY_RETENTION,
     )
+    from acestep.ui.gradio.events.generation.remix_presets import (
+        REMIX_PRESET_SAME_LANGUAGE,
+        REMIX_PRESET_TRANSLATION,
+        apply_remix_preset,
+        remix_preset_values,
+    )
     from acestep.ui.gradio.events.generation.mode_ui import compute_mode_ui_updates
     _IMPORT_ERROR = None
 except Exception as exc:  # pragma: no cover - environment dependency guard
     compute_mode_ui_updates = None
     DEFAULT_AUDIO_COVER_STRENGTH = 0.95
     DEFAULT_REMIX_MELODY_RETENTION = 0.97
+    REMIX_PRESET_SAME_LANGUAGE = "Same Language"
+    REMIX_PRESET_TRANSLATION = "Translation"
+    apply_remix_preset = None
+    remix_preset_values = None
     _IMPORT_ERROR = exc
 
 # Output indices for the two new state-clearing outputs
@@ -65,7 +75,8 @@ _IDX_REPAINT_DONT_SWITCH_WITH_LYRICS = 61
 _IDX_EXTRACT_ALL_STEMS_COLUMN = 62
 _IDX_EXTRACT_ALL_STEMS = 63
 _IDX_REPAINT_MODE_OPTIONS_GROUP = 64
-_EXPECTED_TUPLE_LENGTH = 65
+_IDX_REMIX_PRESET = 65
+_EXPECTED_TUPLE_LENGTH = 66
 _IDX_BPM = 21
 _IDX_KEY = 22
 _IDX_TIMESIG = 23
@@ -257,11 +268,17 @@ class ModeUiStateClearingTests(unittest.TestCase):
         )
         self.assertEqual(
             result[_IDX_REMIX_STRENGTH].get("value"),
-            DEFAULT_AUDIO_COVER_STRENGTH,
+            remix_preset_values(REMIX_PRESET_SAME_LANGUAGE)[0],
         )
         self.assertEqual(
             result[_IDX_COVER_NOISE].get("value"),
-            DEFAULT_REMIX_MELODY_RETENTION,
+            remix_preset_values(REMIX_PRESET_SAME_LANGUAGE)[1],
+        )
+        self.assertTrue(result[_IDX_REMIX_PRESET].get("visible"))
+        self.assertFalse(_has_class(result[_IDX_REMIX_PRESET], "ace-mode-hidden"))
+        self.assertEqual(
+            result[_IDX_REMIX_PRESET].get("value"),
+            REMIX_PRESET_SAME_LANGUAGE,
         )
         self.assertTrue(result[_IDX_REPAINTING_GROUP].get("visible"))
         self.assertIn("Remix Source Segment", result[_IDX_REPAINTING_HEADER].get("value"))
@@ -364,6 +381,35 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertTrue(result[_IDX_FLOW_EDIT_COLUMN].get("visible"))
         self.assertTrue(result[_IDX_FLOW_EDIT_MORPH].get("visible"))
         self.assertTrue(result[_IDX_FLOW_EDIT_MORPH].get("interactive"))
+
+    def test_remix_preset_dropdown_is_remix_only(self):
+        """The Remix preset dropdown should only be visible in Remix mode."""
+
+        remix_result = compute_mode_ui_updates("Remix", previous_mode="Custom")
+        custom_result = compute_mode_ui_updates("Custom", previous_mode="Remix")
+        repaint_result = compute_mode_ui_updates("Repaint", previous_mode="Remix")
+
+        self.assertTrue(remix_result[_IDX_REMIX_PRESET].get("visible"))
+        self.assertFalse(_has_class(remix_result[_IDX_REMIX_PRESET], "ace-mode-hidden"))
+        self.assertEqual(
+            remix_result[_IDX_REMIX_PRESET].get("value"),
+            REMIX_PRESET_SAME_LANGUAGE,
+        )
+        self.assertTrue(custom_result[_IDX_REMIX_PRESET].get("visible"))
+        self.assertTrue(repaint_result[_IDX_REMIX_PRESET].get("visible"))
+        self.assertTrue(_has_class(custom_result[_IDX_REMIX_PRESET], "ace-mode-hidden"))
+        self.assertTrue(_has_class(repaint_result[_IDX_REMIX_PRESET], "ace-mode-hidden"))
+
+    def test_remix_preset_value_updates(self):
+        """Preset choices should update Remix Strength and Melody Retention."""
+
+        same_language_updates = apply_remix_preset(REMIX_PRESET_SAME_LANGUAGE)
+        translation_updates = apply_remix_preset(REMIX_PRESET_TRANSLATION)
+
+        self.assertEqual(same_language_updates[0].get("value"), 0.97)
+        self.assertEqual(same_language_updates[1].get("value"), 0.97)
+        self.assertEqual(translation_updates[0].get("value"), 0.70)
+        self.assertEqual(translation_updates[1].get("value"), 0.20)
 
     def test_round_trip_remix_to_custom_clears_both(self):
         """Switching Remix -> Custom should clear both audio_codes and src_audio.

@@ -17,6 +17,7 @@ from .generation_upload_handlers import (
 )
 from .generation_range_preview_wiring import register_generation_range_preview_handlers
 from acestep.constants import MODE_TO_TASK_TYPE
+from acestep.ui.gradio.events.generation.remix_presets import apply_remix_preset
 
 
 def _on_repaint_mode_change(mode, current_strength, memory):
@@ -127,9 +128,9 @@ def register_generation_mode_handlers(
     )
 
     # ========== Initial Mode State on Page Load ==========
-    # compute_mode_ui_updates() controls visibility/content for 60
-    # mode-dependent UI components (think_checkbox, generate_btn_row,
-    # src_audio_row, composition_guide, etc.) but
+    # compute_mode_ui_updates() controls visibility/content for mode-dependent
+    # UI components (think_checkbox, generate_btn_row, src_audio_row,
+    # composition_guide, etc.) but
     # is only triggered via the .change() event above.  Gradio does not fire
     # .change() for the initial value assignment, so mode-dependent state is
     # never applied on first render — causing the Think checkbox (and
@@ -153,6 +154,18 @@ def register_generation_mode_handlers(
         fn=gen_h.update_dcw_defaults_for_think,
         inputs=[generation_section["think_checkbox"]],
         outputs=dcw_default_outputs,
+    )
+
+    generation_section["remix_preset"].change(
+        fn=apply_remix_preset,
+        inputs=[generation_section["remix_preset"]],
+        outputs=[
+            generation_section["audio_cover_strength"],
+            generation_section["cover_noise_strength"],
+        ],
+        queue=False,
+        show_progress="hidden",
+        show_progress_on=[],
     )
 
     # ========== Extract Mode: Auto-fill caption from track_name ==========

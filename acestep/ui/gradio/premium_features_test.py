@@ -14,6 +14,9 @@ from acestep.model_downloader import (
     get_models_dir,
 )
 from acestep.ui.gradio import premium_features
+from acestep.ui.gradio.events.generation.remix_presets import (
+    REMIX_PRESET_TRANSLATION,
+)
 
 
 def _write_peft_adapter(path: Path) -> Path:
@@ -101,6 +104,48 @@ class PremiumFeaturesTests(unittest.TestCase):
         self.assertEqual(
             updates[keys.index("simple_model_dropdown")].get("value"),
             DEFAULT_TURBO_DIT_MODEL,
+        )
+
+    def test_user_preset_saves_and_loads_remix_preset_selector(self) -> None:
+        """Remix preset selection and paired strength values should round-trip."""
+
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            values[keys.index("generation_mode")] = "Remix"
+            values[keys.index("remix_preset")] = REMIX_PRESET_TRANSLATION
+            values[keys.index("audio_cover_strength")] = 0.70
+            values[keys.index("cover_noise_strength")] = 0.20
+            try:
+                premium_features.save_preset_action("translation remix", None, *values)
+                loaded = premium_features.load_named_preset("translation remix")
+                updates = premium_features.load_preset_action("translation remix")
+            finally:
+                self._restore_project_root(original)
+
+        self.assertEqual(loaded["remix_preset"], REMIX_PRESET_TRANSLATION)
+        self.assertEqual(loaded["audio_cover_strength"], 0.70)
+        self.assertEqual(loaded["cover_noise_strength"], 0.20)
+        self.assertEqual(
+            updates[keys.index("remix_preset")].get("value"),
+            REMIX_PRESET_TRANSLATION,
+        )
+        self.assertTrue(updates[keys.index("remix_preset")].get("visible"))
+        self.assertNotIn(
+            "ace-mode-hidden",
+            updates[keys.index("remix_preset")].get("elem_classes"),
+        )
+        self.assertEqual(
+            updates[keys.index("audio_cover_strength")].get("value"),
+            0.70,
+        )
+        self.assertEqual(
+            updates[keys.index("cover_noise_strength")].get("value"),
+            0.20,
         )
 
     def test_user_preset_saves_and_loads_sam_trim_controls(self) -> None:

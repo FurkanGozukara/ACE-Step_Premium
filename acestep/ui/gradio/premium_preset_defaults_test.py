@@ -10,6 +10,9 @@ from acestep.ui.gradio.events.generation.strength_defaults import (
     DEFAULT_AUDIO_COVER_STRENGTH,
     DEFAULT_REMIX_MELODY_RETENTION,
 )
+from acestep.ui.gradio.events.generation.remix_presets import (
+    REMIX_PRESET_SAME_LANGUAGE,
+)
 
 
 class PremiumPresetDefaultsTests(unittest.TestCase):
@@ -54,6 +57,14 @@ class PremiumPresetDefaultsTests(unittest.TestCase):
         self.assertEqual(
             DEFAULT_REMIX_MELODY_RETENTION,
             DEFAULT_PRESET_VALUES["cover_noise_strength"],
+        )
+
+    def test_remix_preset_defaults_to_same_language(self) -> None:
+        """Generation presets should select Same Language by default."""
+
+        self.assertEqual(
+            REMIX_PRESET_SAME_LANGUAGE,
+            DEFAULT_PRESET_VALUES["remix_preset"],
         )
 
     def test_audio_processing_subprocess_defaults_to_enabled(self) -> None:

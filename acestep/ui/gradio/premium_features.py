@@ -58,6 +58,13 @@ from acestep.ui.gradio.events.generation.strength_defaults import (
     DEFAULT_AUDIO_COVER_STRENGTH,
     DEFAULT_REMIX_MELODY_RETENTION,
 )
+from acestep.ui.gradio.events.generation.remix_presets import (
+    REMIX_PRESET_CHOICES,
+    REMIX_PRESET_SAME_LANGUAGE,
+    normalize_remix_preset,
+    remix_preset_elem_classes,
+    remix_preset_values,
+)
 from acestep.ui.gradio.events.generation.audio_format_options import (
     normalize_audio_format,
     normalize_extract_audio_format,
@@ -289,6 +296,7 @@ PRESET_COMPONENT_KEYS: tuple[str, ...] = (
     "text2music_audio_code_string",
     "audio_cover_strength",
     "cover_noise_strength",
+    "remix_preset",
     "repainting_start",
     "repainting_end",
     "repaint_mode",
@@ -383,6 +391,7 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "repaint_dont_switch_with_lyrics": False,
     "audio_cover_strength": DEFAULT_AUDIO_COVER_STRENGTH,
     "cover_noise_strength": DEFAULT_REMIX_MELODY_RETENTION,
+    "remix_preset": REMIX_PRESET_SAME_LANGUAGE,
     "batch_size_input": 1,
     "inference_steps": 8,
     "guidance_scale": 1.0,
@@ -699,6 +708,19 @@ def _apply_runtime_defaults(
     for ui_key, optimizer_key in _LORA_OPTIMIZER_PRESET_KEY_MAP.items():
         if ui_key not in provided_keys or merged.get(ui_key) in (None, ""):
             merged[ui_key] = lora_optimizer_defaults[optimizer_key]
+    merged["remix_preset"] = normalize_remix_preset(merged.get("remix_preset"))
+    if merged.get("generation_mode") == "Remix":
+        remix_strength, melody_retention = remix_preset_values(
+            merged["remix_preset"]
+        )
+        if "audio_cover_strength" not in provided_keys or merged.get(
+            "audio_cover_strength"
+        ) is None:
+            merged["audio_cover_strength"] = remix_strength
+        if "cover_noise_strength" not in provided_keys or merged.get(
+            "cover_noise_strength"
+        ) is None:
+            merged["cover_noise_strength"] = melody_retention
     _apply_cross_tab_defaults(merged, provided_keys)
     raw_quantization = payload.get("quantization_checkbox")
     raw_simple_quantization = payload.get("simple_quantization")
@@ -1011,6 +1033,17 @@ def _payload_to_component_updates(
                     gr.update(
                         choices=choices,
                         value=value,
+                    )
+                )
+            elif key == "remix_preset":
+                updates.append(
+                    gr.update(
+                        choices=list(REMIX_PRESET_CHOICES),
+                        value=normalize_remix_preset(value),
+                        visible=True,
+                        elem_classes=remix_preset_elem_classes(
+                            payload.get("generation_mode") == "Remix"
+                        ),
                     )
                 )
             elif key in TRIM_THRESHOLD_PRESET_KEYS:

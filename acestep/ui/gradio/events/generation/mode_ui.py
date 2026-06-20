@@ -19,7 +19,11 @@ from .mode_ui_helpers import (
 )
 from .strength_defaults import (
     DEFAULT_AUDIO_COVER_STRENGTH,
-    DEFAULT_REMIX_MELODY_RETENTION,
+)
+from .remix_presets import (
+    REMIX_PRESET_SAME_LANGUAGE,
+    remix_preset_elem_classes,
+    remix_preset_values,
 )
 
 
@@ -140,8 +144,11 @@ def compute_mode_ui_updates(
         strength_label = t("generation.cover_strength_label")
         strength_info = t("generation.cover_strength_info")
     strength_kwargs = {"visible": show_strength, "label": strength_label, "info": strength_info}
+    same_language_strength, same_language_retention = remix_preset_values(
+        REMIX_PRESET_SAME_LANGUAGE
+    )
     if is_cover:
-        strength_kwargs["value"] = DEFAULT_AUDIO_COVER_STRENGTH
+        strength_kwargs["value"] = same_language_strength
     elif is_custom and previous_mode != "Custom":
         strength_kwargs["value"] = DEFAULT_AUDIO_COVER_STRENGTH
     elif not show_strength:
@@ -152,11 +159,23 @@ def compute_mode_ui_updates(
         if is_cover
         else "ace-remix-retention-hidden"
     )
-    retention_value = DEFAULT_REMIX_MELODY_RETENTION if is_cover else 0.0
+    retention_value = same_language_retention if is_cover else 0.0
     cover_noise_update = gr.update(
         visible=True,
         value=retention_value,
         elem_classes=[*_RETENTION_BASE_CLASSES, retention_visibility_class],
+    )
+    remix_preset_update = (
+        gr.update(
+            visible=True,
+            value=REMIX_PRESET_SAME_LANGUAGE,
+            elem_classes=remix_preset_elem_classes(True),
+        )
+        if is_cover
+        else gr.update(
+            visible=True,
+            elem_classes=remix_preset_elem_classes(False),
+        )
     )
 
     # Think checkbox
@@ -363,6 +382,7 @@ def compute_mode_ui_updates(
         extract_all_stems_column_update,                   # 62: extract_all_stems_column
         extract_all_stems_update,                          # 63: extract_all_stems
         gr.update(visible=is_repaint),                     # 64: repaint_mode_options_group
+        remix_preset_update,                               # 65: remix_preset
     )
 
 
