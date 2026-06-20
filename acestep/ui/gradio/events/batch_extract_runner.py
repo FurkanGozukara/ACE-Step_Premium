@@ -72,14 +72,22 @@ def _validate_extract_settings(generation_args: Sequence[Any]) -> list[str]:
 
     if len(generation_args) <= EXTRACT_ALL_STEMS_ARG_INDEX:
         raise ValueError("Batch Process received incomplete generation settings.")
-    if generation_args[TASK_TYPE_ARG_INDEX] != "extract":
-        raise ValueError("Switch Generation Mode to Extract before starting Batch Process.")
     if bool(generation_args[EXTRACT_ALL_STEMS_ARG_INDEX]):
         return supported_extract_track_names()
     try:
         return [normalize_extract_track_name(generation_args[TRACK_NAME_ARG_INDEX])]
     except ValueError as exc:
         raise ValueError(str(exc).replace("running Extract", "starting Batch Process")) from exc
+
+
+def _batch_extract_generation_args(generation_args: Sequence[Any]) -> list[Any]:
+    """Return generation args normalized for the Advanced Batch Extract button."""
+
+    if len(generation_args) <= EXTRACT_ALL_STEMS_ARG_INDEX:
+        raise ValueError("Batch Process received incomplete generation settings.")
+    args = list(generation_args)
+    args[TASK_TYPE_ARG_INDEX] = "extract"
+    return args
 
 
 def _build_extract_args_for_file(
@@ -145,7 +153,8 @@ def run_batch_extract_processing(
     status_lines.append("Batch Process started. Scanning input folder...")
     yield _render_status(status_lines)
     try:
-        track_names = _validate_extract_settings(generation_args)
+        extract_args = _batch_extract_generation_args(generation_args)
+        track_names = _validate_extract_settings(extract_args)
         audio_files = discover_batch_extract_audio_files(
             input_folder,
             recursive=bool(recursive),
@@ -185,7 +194,7 @@ def run_batch_extract_processing(
                         )
                         yield _render_status(status_lines)
                     item_args = _build_extract_args_for_file(
-                        generation_args,
+                        extract_args,
                         audio_path,
                         track_name,
                     )

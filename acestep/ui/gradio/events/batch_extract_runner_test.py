@@ -150,6 +150,42 @@ class BatchExtractRunnerTests(unittest.TestCase):
             self.assertAlmostEqual(0.5, calls[0][AUDIO_DURATION_ARG_INDEX], places=2)
             self.assertAlmostEqual(1.0, calls[1][AUDIO_DURATION_ARG_INDEX], places=2)
 
+    def test_batch_extract_forces_extract_when_hidden_task_type_is_stale(self) -> None:
+        """The Batch Process button should not depend on stale generation mode state."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            input_dir = root / "input"
+            output_dir = root / "output"
+            generated_dir = root / "generated"
+            input_dir.mkdir()
+            generated_dir.mkdir()
+            _write_wav(input_dir / "Alpha.wav")
+            args = _generation_args()
+            args[TASK_TYPE_ARG_INDEX] = "text2music"
+            calls: list[tuple[Any, ...]] = []
+
+            def fake_runner(_dit, _llm, *run_args):
+                calls.append(run_args)
+                extracted = generated_dir / "generated.flac"
+                extracted.write_bytes(b"extracted")
+                yield _result([str(extracted)])
+
+            statuses = list(
+                run_batch_extract_processing(
+                    None,
+                    None,
+                    str(input_dir),
+                    str(output_dir),
+                    args,
+                    generation_runner=fake_runner,
+                )
+            )
+
+            self.assertIn("Batch Process complete: 1/1 file(s) saved", statuses[-1])
+            self.assertEqual("extract", calls[0][TASK_TYPE_ARG_INDEX])
+            self.assertEqual(b"extracted", (output_dir / "Alpha.flac").read_bytes())
+
     def test_extract_all_stems_processes_every_stem_with_suffixes(self) -> None:
         """Batch Process can extract every stem for each source audio file."""
 
