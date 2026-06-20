@@ -73,6 +73,7 @@ def register_generation_batch_extract_handlers(context: GenerationWiringContext)
         js=BATCH_CANCEL_CONFIRM_JS,
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )
     cancel_event.then(
         fn=request_full_generation_cancel_from_ui,
@@ -80,4 +81,5 @@ def register_generation_batch_extract_handlers(context: GenerationWiringContext)
         outputs=[generation_section["batch_extract_status"]],
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )

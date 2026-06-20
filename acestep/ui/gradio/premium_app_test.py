@@ -10,6 +10,7 @@ from acestep.ui.gradio.events.generation.cancel_actions import (
     BATCH_CANCEL_CONFIRM_JS,
     CANCEL_CONFIRM_JS,
 )
+from acestep.ui.gradio.events.wiring import library_wiring
 from acestep.ui.gradio.interfaces.source_audio_preview import (
     TRIM_AUDIO_PREVIEW_CLASS,
 )
@@ -68,11 +69,38 @@ class PremiumAppTests(unittest.TestCase):
         source = Path(premium_app.__file__).read_text(encoding="utf-8")
         self.assertEqual(
             premium_app._UI_SYNC_EVENT_OPTIONS,
-            {"queue": False, "show_progress": "hidden"},
+            {"queue": False, "show_progress": "hidden", "show_progress_on": []},
         )
         self.assertGreaterEqual(source.count("**_UI_SYNC_EVENT_OPTIONS"), 16)
         self.assertIn("startup_preset_event = demo.load", source)
         self.assertIn('studio_page["preset_dropdown"].change', source)
+
+    def test_hidden_progress_events_have_no_progress_targets(self):
+        """Hidden Gradio events should not attach trackers to every output."""
+
+        root = Path(premium_app.__file__).resolve().parent
+        missing: list[str] = []
+        for path in (root / "events" / "wiring").rglob("*.py"):
+            lines = path.read_text(encoding="utf-8").splitlines()
+            for index, line in enumerate(lines):
+                if 'show_progress="hidden"' not in line and "show_progress='hidden'" not in line:
+                    continue
+                next_index = index + 1
+                while next_index < len(lines) and not lines[next_index].strip():
+                    next_index += 1
+                if next_index >= len(lines) or "show_progress_on" not in lines[next_index]:
+                    missing.append(f"{path.name}:{index + 1}")
+        self.assertEqual([], missing)
+
+    def test_library_events_do_not_overlay_outputs(self):
+        """Library refresh/filter/select events should not leave timer overlays."""
+
+        self.assertEqual(
+            library_wiring._LIBRARY_EVENT_OPTIONS,
+            {"queue": False, "show_progress": "hidden", "show_progress_on": []},
+        )
+        source = Path(library_wiring.__file__).read_text(encoding="utf-8")
+        self.assertEqual(4, source.count("**_LIBRARY_EVENT_OPTIONS"))
 
     def test_head_recovers_stale_input_status_trackers(self):
         """Rapid tab changes should recover stuck timer-only status overlays."""

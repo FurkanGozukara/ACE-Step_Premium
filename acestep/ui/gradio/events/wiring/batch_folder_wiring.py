@@ -65,6 +65,7 @@ def register_batch_folder_handlers(
         js=BATCH_CANCEL_CONFIRM_JS,
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )
     batch_cancel_event.then(
         fn=request_generation_cancel_from_ui,
@@ -75,4 +76,5 @@ def register_batch_folder_handlers(
         outputs=[batch_section["batch_status"]],
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )

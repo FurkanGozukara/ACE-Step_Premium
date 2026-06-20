@@ -96,6 +96,7 @@ def register_grid_testing_handlers(
         js=BATCH_CANCEL_CONFIRM_JS,
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )
     cancel_event.then(
         fn=request_generation_cancel_from_ui,
@@ -106,6 +107,7 @@ def register_grid_testing_handlers(
         outputs=[grid_section["grid_status"]],
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )
 
 

@@ -145,6 +145,7 @@ def register_simple_create_handlers(
             simple_page["simple_status"],
         ],
         show_progress="hidden",
+        show_progress_on=[],
     )
 
     simple_page["simple_quantization"].change(
@@ -231,6 +232,7 @@ def register_simple_create_handlers(
         js=CANCEL_CONFIRM_JS,
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )
     simple_cancel_event.then(
         fn=request_generation_cancel_from_ui,
@@ -241,6 +243,7 @@ def register_simple_create_handlers(
         outputs=[simple_page["simple_status"]],
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )
 
 

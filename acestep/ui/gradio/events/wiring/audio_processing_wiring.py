@@ -137,6 +137,7 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
         ],
         api_name="audio_processing_process",
         show_progress="hidden",
+        show_progress_on=[],
     )
     audio_page["ap_cancel_processing_btn"].click(
         fn=None,
@@ -145,6 +146,7 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
         js=AUDIO_PROCESSING_CANCEL_CONFIRM_JS,
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
         cancels=[process_event],
     ).then(
         fn=request_audio_processing_cancel_from_ui,
@@ -155,6 +157,7 @@ def register_audio_processing_handlers(audio_page: dict[str, Any]) -> None:
         outputs=[audio_page["ap_single_status"]],
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )
     audio_page["ap_open_outputs_folder_btn"].click(
         fn=open_audio_processing_outputs_folder,

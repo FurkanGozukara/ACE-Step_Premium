@@ -167,6 +167,7 @@ def register_generation_metadata_handlers(
         outputs=[generation_section["instruction_display_gen"]],
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )
 
     # ========== Sample/Transcribe Handlers ==========

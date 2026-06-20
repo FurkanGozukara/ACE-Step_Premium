@@ -218,6 +218,7 @@ def register_training_dataset_builder_handlers(context: TrainingWiringContext) -
         queue=False,
         concurrency_limit=None,
         show_progress="hidden",
+        show_progress_on=[],
     )
 
     training_section["auto_label_output_dir_browse_btn"].click(

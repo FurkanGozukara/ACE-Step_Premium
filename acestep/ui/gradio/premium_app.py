@@ -88,6 +88,7 @@ _FAVICON_PATH = Path(__file__).resolve().parent / "assets" / "ace_step_premium_f
 _UI_SYNC_EVENT_OPTIONS = {
     "queue": False,
     "show_progress": "hidden",
+    "show_progress_on": [],
 }
 _TOOLTIP_SCRIPT = """
 <script>

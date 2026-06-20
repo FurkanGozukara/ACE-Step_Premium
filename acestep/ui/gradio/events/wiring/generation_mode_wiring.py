@@ -107,6 +107,7 @@ def register_generation_mode_handlers(
         outputs=mode_ui_outputs,
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )
     mode_source_preview_event = mode_change_event.then(
         fn=handle_src_audio_upload,
@@ -114,6 +115,7 @@ def register_generation_mode_handlers(
         outputs=source_upload_outputs,
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )
     mode_source_preview_event.then(
         fn=finalize_src_audio_upload,
@@ -139,6 +141,7 @@ def register_generation_mode_handlers(
         inputs=mode_change_inputs,
         outputs=mode_ui_outputs,
         show_progress="hidden",
+        show_progress_on=[],
     )
     load_event.then(
         fn=gen_h.update_dcw_defaults_for_think,
@@ -184,6 +187,7 @@ def register_generation_mode_handlers(
         outputs=source_upload_outputs,
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )
     source_upload_event.then(
         fn=finalize_src_audio_upload,
@@ -204,6 +208,7 @@ def register_generation_mode_handlers(
         outputs=[generation_section["audio_duration"]],
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )
     register_generation_range_preview_handlers(context)
 

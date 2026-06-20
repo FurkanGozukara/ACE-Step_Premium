@@ -162,4 +162,5 @@ def register_training_preprocess_handler(context: TrainingWiringContext) -> None
         queue=False,
         concurrency_limit=None,
         show_progress="hidden",
+        show_progress_on=[],
     )

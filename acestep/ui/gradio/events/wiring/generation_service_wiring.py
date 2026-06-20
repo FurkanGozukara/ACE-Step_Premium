@@ -106,6 +106,7 @@ def register_generation_service_handlers(
                 *advanced_model_reset_outputs,
             ],
             show_progress="hidden",
+            show_progress_on=[],
         )
     else:
         generation_section["config_path"].input(
@@ -119,6 +120,7 @@ def register_generation_service_handlers(
                 *advanced_model_reset_outputs,
             ],
             show_progress="hidden",
+            show_progress_on=[],
         )
 
     if "simple_quantization" in generation_section:

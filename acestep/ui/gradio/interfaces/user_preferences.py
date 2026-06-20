@@ -39,6 +39,11 @@ _SCHEMA_VERSION = 1
 _DEFAULT_AUDIO_FORMAT = "mp3"
 _DEFAULT_MP3_BITRATE = "256k"
 _DEFAULT_EXTRACT_AUDIO_FORMAT = "mp3"
+_RESTORE_EVENT_OPTIONS = {
+    "queue": False,
+    "show_progress": "hidden",
+    "show_progress_on": [],
+}
 
 # Ordered list of preference keys.  The order here MUST match the order of
 # *outputs* passed to ``demo.load()`` in ``wire_preference_restore``.
@@ -320,4 +325,5 @@ def wire_preference_restore(
         inputs=None,
         outputs=outputs,
         js=_build_restore_js(num_outputs=len(outputs)),
+        **_RESTORE_EVENT_OPTIONS,
     )

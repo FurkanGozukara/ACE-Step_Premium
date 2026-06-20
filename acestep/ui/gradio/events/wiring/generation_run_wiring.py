@@ -520,6 +520,7 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
         js=CANCEL_CONFIRM_JS,
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )
     cancel_event.then(
         fn=request_generation_cancel_pair_from_ui,
@@ -533,4 +534,5 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
         ],
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )

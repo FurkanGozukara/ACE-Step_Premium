@@ -39,6 +39,7 @@ _build_restore_js = _MODULE._build_restore_js
 restore_preferences = _MODULE.restore_preferences
 PREF_KEYS = _MODULE.PREF_KEYS
 _DEFAULTS = _MODULE._DEFAULTS
+_RESTORE_EVENT_OPTIONS = _MODULE._RESTORE_EVENT_OPTIONS
 _SCRIPT_PATH = Path(__file__).with_name("user_preferences.js")
 
 
@@ -292,6 +293,16 @@ class RestoreTests(unittest.TestCase):
         js_1 = _build_restore_js(_NUM_OUTPUTS)
         js_2 = _build_restore_js(_NUM_OUTPUTS)
         self.assertEqual(js_1, js_2)
+
+    def test_preference_restore_load_event_hides_progress(self):
+        """Preference restore should not overlay startup timers on controls."""
+
+        self.assertEqual(
+            _RESTORE_EVENT_OPTIONS,
+            {"queue": False, "show_progress": "hidden", "show_progress_on": []},
+        )
+        source = Path(_MODULE.__file__).read_text(encoding="utf-8")
+        self.assertIn("**_RESTORE_EVENT_OPTIONS", source)
 
 
 if __name__ == "__main__":

@@ -151,6 +151,7 @@ def register_sam_audio_handlers(
         js=SAM_CANCEL_CONFIRM_JS,
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
         cancels=[single_event],
     ).then(
         fn=request_sam_audio_cancel_from_ui,
@@ -161,6 +162,7 @@ def register_sam_audio_handlers(
         outputs=[sam_page["sam_single_status"]],
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )
     sam_page["sam_open_outputs_btn"].click(
         fn=open_outputs_folder,
@@ -194,6 +196,7 @@ def register_sam_audio_handlers(
         js=SAM_BATCH_CANCEL_CONFIRM_JS,
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
         cancels=[batch_event],
     ).then(
         fn=request_sam_audio_cancel_from_ui,
@@ -204,6 +207,7 @@ def register_sam_audio_handlers(
         outputs=[sam_page["sam_batch_status"]],
         queue=False,
         show_progress="hidden",
+        show_progress_on=[],
     )
 
 

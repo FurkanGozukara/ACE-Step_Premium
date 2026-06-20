@@ -32,6 +32,7 @@ def register_generation_range_preview_handlers(context: GenerationWiringContext)
             outputs=outputs,
             queue=False,
             show_progress="hidden",
+            show_progress_on=[],
         )
     for trigger_key in ("repainting_start", "repainting_end"):
         generation_section[trigger_key].input(
@@ -40,6 +41,7 @@ def register_generation_range_preview_handlers(context: GenerationWiringContext)
             outputs=outputs,
             queue=False,
             show_progress="hidden",
+            show_progress_on=[],
         )
 
 
