@@ -62,6 +62,31 @@ class PremiumAppTests(unittest.TestCase):
         self.assertIn("button[data-ace-command-button", premium_app._PREMIUM_CSS)
         self.assertIn(".gradio-container .action-btn", premium_app._PREMIUM_CSS)
 
+    def test_ui_sync_events_hide_bulk_progress_trackers(self):
+        """Preset and startup sync events should not overlay every output component."""
+
+        source = Path(premium_app.__file__).read_text(encoding="utf-8")
+        self.assertEqual(
+            premium_app._UI_SYNC_EVENT_OPTIONS,
+            {"queue": False, "show_progress": "hidden"},
+        )
+        self.assertGreaterEqual(source.count("**_UI_SYNC_EVENT_OPTIONS"), 16)
+        self.assertIn("startup_preset_event = demo.load", source)
+        self.assertIn('studio_page["preset_dropdown"].change', source)
+
+    def test_head_recovers_stale_input_status_trackers(self):
+        """Rapid tab changes should recover stuck timer-only status overlays."""
+
+        head = premium_app._build_head(service_mode=False)
+        self.assertIn("ace-stale-status-tracker", head)
+        self.assertIn('data-testid="status-tracker"', head)
+        self.assertIn("STALE_TIMER_SECONDS", head)
+        self.assertIn("isInputLikeBlock", head)
+        self.assertIn("isPrimaryOutputBlock", head)
+        self.assertIn("ace-stale-status-tracker", premium_app._PREMIUM_CSS)
+        self.assertIn(".block.has-info-container", premium_app._PREMIUM_CSS)
+        self.assertIn(":not(.no-click)", premium_app._PREMIUM_CSS)
+
     def test_wildcard_help_uses_theme_readable_colors(self):
         """Wildcard syntax help should stay readable in light and dark themes."""
 

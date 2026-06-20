@@ -59,7 +59,14 @@ def create_library_page() -> dict[str, Any]:
                 max_lines=22,
                 buttons=["copy"],
             )
-            library_metadata = gr.JSON(label="Full Metadata", value={})
+            library_metadata = gr.Textbox(
+                label="Full Metadata JSON",
+                value="",
+                interactive=False,
+                lines=14,
+                max_lines=22,
+                buttons=["copy"],
+            )
 
     return {
         "library_state": library_state,

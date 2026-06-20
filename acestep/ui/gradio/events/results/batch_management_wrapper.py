@@ -194,7 +194,7 @@ def _lm_service_needs_init(
     backend_dropdown: str | None,
     device: str | None,
     offload_to_cpu: bool,
-    compile_model: bool,
+    compile_model: bool = False,
 ) -> tuple[bool, str]:
     """Return whether the foreground LM handler must be initialized."""
 

@@ -76,12 +76,12 @@ def select_library_item(
 
     record = _find_record(item_id, records or [])
     if record is None:
-        return None, "No generated song selected.", "", {}
+        return None, "No generated song selected.", "", ""
     return (
         record.get("audio_path"),
         _details_markdown(record),
         record.get("lyrics", ""),
-        record.get("metadata", {}),
+        _metadata_display_json(record.get("metadata", {})),
     )
 
 
@@ -93,13 +93,24 @@ def select_library_table_item(
 
     record = record_from_table_event(records or [], evt)
     if record is None:
-        return None, "No generated song selected.", "", {}
+        return None, "No generated song selected.", "", ""
     return (
         record.get("audio_path"),
         _details_markdown(record),
         record.get("lyrics", ""),
-        record.get("metadata", {}),
+        _metadata_display_json(record.get("metadata", {})),
     )
+
+
+def _metadata_display_json(metadata: Any) -> str:
+    """Return metadata as copy-friendly JSON text without a heavy DOM tree."""
+
+    if not metadata:
+        return ""
+    try:
+        return json.dumps(metadata, ensure_ascii=False, indent=2, default=str)
+    except (TypeError, ValueError):
+        return json.dumps({"metadata": str(metadata)}, ensure_ascii=False, indent=2)
 
 
 def scan_generated_songs(

@@ -144,7 +144,7 @@ class MediaUploadQueueContractTests(unittest.TestCase):
                 "acestep-advanced-reference-audio-upload",
             ),
             (
-                "acestep/ui/gradio/pages/audio_processing_page.py",
+                "acestep/ui/gradio/pages/audio_processing_single_file_controls.py",
                 "ap_single_file",
             ): (
                 "audio_processing_single_upload",

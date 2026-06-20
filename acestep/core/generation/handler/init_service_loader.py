@@ -1,6 +1,9 @@
 """Checkpoint and model-loading helpers for service initialization."""
 
+from contextlib import contextmanager
 import importlib
+import inspect
+import json
 import os
 from typing import Optional
 
@@ -185,7 +188,16 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
 
         last_attn_error = None
         self.model = None
+        use_transformers_meta_init_compat = self._should_disable_transformers_meta_init(
+            model_checkpoint_path
+        )
         direct_device_load = self._should_direct_load_main_model(device)
+        if use_transformers_meta_init_compat and direct_device_load:
+            direct_device_load = False
+            logger.info(
+                "[initialize_service] Transformers meta-init compatibility active for "
+                "ACE-Step checkpoint; using staged load to preserve quantizer buffers."
+            )
         loaded_directly = False
         for candidate in attn_candidates:
             direct_attempts = [True, False] if direct_device_load else [False]
@@ -202,10 +214,13 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
                         device=device,
                         direct_device_load=attempt_direct,
                     )
-                    self.model = AutoModel.from_pretrained(
-                        model_checkpoint_path,
-                        **load_kwargs,
-                    )
+                    with self._transformers_meta_init_compatibility_context(
+                        enabled=use_transformers_meta_init_compat
+                    ):
+                        self.model = AutoModel.from_pretrained(
+                            model_checkpoint_path,
+                            **load_kwargs,
+                        )
                     loaded_directly = attempt_direct
                     attn_implementation = candidate
                     break
@@ -294,6 +309,129 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
             kwargs["device_map"] = {"": device}
             kwargs["low_cpu_mem_usage"] = True
         return kwargs
+
+    @staticmethod
+    def _is_acestep_transformers_checkpoint(model_checkpoint_path: str) -> bool:
+        """Return whether a checkpoint config points to ACE-Step remote code."""
+
+        config_file = os.path.join(model_checkpoint_path, "config.json")
+        try:
+            with open(config_file, "r", encoding="utf-8") as handle:
+                config = json.load(handle)
+        except (OSError, json.JSONDecodeError):
+            return False
+
+        if str(config.get("model_type", "")).lower() == "acestep":
+            return True
+
+        architectures = config.get("architectures") or []
+        auto_map = config.get("auto_map") or {}
+        markers = [*architectures, *auto_map.values()]
+        return any("acestep" in str(marker).lower() for marker in markers)
+
+    @staticmethod
+    def _is_transformers_meta_device_context(context_manager) -> bool:
+        """Return whether a Transformers init context enters the meta device."""
+
+        return isinstance(context_manager, torch.device) and context_manager.type == "meta"
+
+    @classmethod
+    def _transformers_uses_meta_init_for_pretrained_models(cls) -> bool:
+        """Return whether installed Transformers builds pretrained models on meta."""
+
+        try:
+            from transformers.modeling_utils import PreTrainedModel
+        except Exception:
+            return False
+
+        descriptor = PreTrainedModel.__dict__.get("get_init_context")
+        original_func = getattr(descriptor, "__func__", None)
+        if original_func is None:
+            return False
+        try:
+            init_context_args = [PreTrainedModel, torch.float32, False, False]
+            if "allow_all_kernels" in inspect.signature(original_func).parameters:
+                init_context_args.append(None)
+            contexts = original_func(*init_context_args)
+        except Exception:
+            return False
+        return any(cls._is_transformers_meta_device_context(context) for context in contexts)
+
+    def _should_disable_transformers_meta_init(self, model_checkpoint_path: str) -> bool:
+        """Return whether ACE-Step needs to opt out of Transformers meta init."""
+
+        return (
+            self._is_acestep_transformers_checkpoint(model_checkpoint_path)
+            and self._transformers_uses_meta_init_for_pretrained_models()
+        )
+
+    @staticmethod
+    def _module_has_meta_tensors(module) -> bool:
+        """Return whether a module still contains meta parameters or buffers."""
+
+        for tensor in module.parameters(recurse=True):
+            if getattr(tensor, "is_meta", False):
+                return True
+        for tensor in module.buffers(recurse=True):
+            if getattr(tensor, "is_meta", False):
+                return True
+        return False
+
+    @contextmanager
+    def _transformers_meta_init_compatibility_context(self, *, enabled: bool):
+        """Temporarily disable Transformers 5 meta construction for ACE-Step.
+
+        ACE-Step remote code builds ResidualFSQ during ``__init__``.  That
+        dependency performs scalar checks and creates computed non-persistent
+        buffers, both of which are invalid or lossy under Transformers 5's
+        unconditional meta-device construction path.
+        """
+
+        if not enabled:
+            yield
+            return
+
+        try:
+            from transformers.modeling_utils import PreTrainedModel
+        except Exception:
+            yield
+            return
+
+        get_init_context_descriptor = PreTrainedModel.__dict__.get("get_init_context")
+        get_init_context_func = getattr(get_init_context_descriptor, "__func__", None)
+        move_missing_func = PreTrainedModel.__dict__.get(
+            "_move_missing_keys_from_meta_to_device"
+        )
+        if get_init_context_func is None or not callable(move_missing_func):
+            yield
+            return
+
+        def _acestep_get_init_context(cls, *args, **kwargs):
+            contexts = get_init_context_func(cls, *args, **kwargs)
+            return [
+                context
+                for context in contexts
+                if not self._is_transformers_meta_device_context(context)
+            ]
+
+        def _acestep_move_missing_keys_from_meta_to_device(
+            model,
+            *args,
+            **kwargs,
+        ):
+            if not self._module_has_meta_tensors(model):
+                return None
+            return move_missing_func(model, *args, **kwargs)
+
+        PreTrainedModel.get_init_context = classmethod(_acestep_get_init_context)
+        PreTrainedModel._move_missing_keys_from_meta_to_device = (
+            _acestep_move_missing_keys_from_meta_to_device
+        )
+        try:
+            yield
+        finally:
+            PreTrainedModel.get_init_context = get_init_context_descriptor
+            PreTrainedModel._move_missing_keys_from_meta_to_device = move_missing_func
 
     def _should_direct_load_main_model(self, device: str) -> bool:
         """Return whether the main model's final placement is CUDA."""

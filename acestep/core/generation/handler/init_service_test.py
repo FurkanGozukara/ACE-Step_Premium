@@ -2,6 +2,7 @@
 
 import importlib
 import importlib.util
+import inspect
 import os
 import tempfile
 import builtins
@@ -843,6 +844,73 @@ class InitServiceMixinTests(unittest.TestCase):
         self.assertEqual(torch.bfloat16, load.call_args.kwargs["dtype"])
         model.to.assert_not_called()
 
+    def test_load_main_model_uses_staged_load_for_transformers_meta_init_compat(self):
+        """ACE checkpoints avoid Transformers meta init and load through the staged path."""
+        host = _Host(project_root="K:/fake_root", device="cuda")
+        host.dtype = torch.bfloat16
+
+        class _DummyModel:
+            """Minimal model stub matching loader expectations."""
+
+            def __init__(self):
+                self.config = types.SimpleNamespace(_attn_implementation="sdpa")
+                self.to = Mock(return_value=self)
+                self.eval = Mock(return_value=self)
+
+        class _FakeLatent:
+            """Tensor-like silence latent stub that avoids CUDA allocation in tests."""
+
+            def transpose(self, *_args):
+                return self
+
+            def to(self, *_args, **_kwargs):
+                return self
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            checkpoint_dir = os.path.join(tmpdir, "acestep-v15-base")
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            Path(os.path.join(checkpoint_dir, "silence_latent.pt")).touch()
+            Path(os.path.join(checkpoint_dir, "config.json")).write_text(
+                '{"model_type": "acestep"}',
+                encoding="utf-8",
+            )
+            model = _DummyModel()
+
+            with patch("torch.cuda.is_available", return_value=False), \
+                    patch.object(
+                        INIT_SERVICE_LOADER_MODULE.gpu_config,
+                        "cuda_supports_bfloat16",
+                        return_value=True,
+                    ), \
+                    patch.object(
+                        host,
+                        "_transformers_uses_meta_init_for_pretrained_models",
+                        return_value=True,
+                    ), \
+                    patch(
+                        "transformers.AutoModel.from_pretrained",
+                        return_value=model,
+                    ) as load, \
+                    patch.object(host, "is_flash_attention_available", return_value=False), \
+                    patch.object(host, "_apply_cuda_bool_argsort_workaround"), \
+                    patch.object(
+                        INIT_SERVICE_LOADER_MODULE.torch,
+                        "load",
+                        return_value=_FakeLatent(),
+                    ):
+                attn = host._load_main_model_from_checkpoint(
+                    model_checkpoint_path=checkpoint_dir,
+                    device="cuda",
+                    use_flash_attention=False,
+                    compile_model=False,
+                    quantization=None,
+                )
+
+        self.assertEqual("sdpa", attn)
+        self.assertNotIn("device_map", load.call_args.kwargs)
+        self.assertNotIn("low_cpu_mem_usage", load.call_args.kwargs)
+        model.to.assert_any_call("cuda")
+
     def test_load_main_model_retries_staged_load_after_direct_failure(self):
         """A failed direct Transformers load should fall back to the previous path."""
         host = _Host(project_root="K:/fake_root", device="cuda")
@@ -901,6 +969,49 @@ class InitServiceMixinTests(unittest.TestCase):
         self.assertIn("device_map", first_kwargs)
         self.assertNotIn("device_map", second_kwargs)
         model.to.assert_any_call("cuda")
+
+    def test_transformers_meta_init_compat_context_filters_meta_device(self):
+        """The compatibility context removes meta init and preserves real buffers."""
+        host = _Host(project_root="K:/fake_root", device="cpu")
+        from transformers.modeling_utils import PreTrainedModel
+
+        original_get_init_context = PreTrainedModel.__dict__["get_init_context"]
+        original_move_missing = PreTrainedModel.__dict__["_move_missing_keys_from_meta_to_device"]
+
+        class _NoMetaModule(torch.nn.Module):
+            """Module with a computed non-persistent buffer."""
+
+            def __init__(self):
+                super().__init__()
+                self.register_buffer("computed", torch.ones(2), persistent=False)
+
+        module = _NoMetaModule()
+        with host._transformers_meta_init_compatibility_context(enabled=True):
+            init_context_args = [torch.float32, False, False]
+            if "allow_all_kernels" in inspect.signature(
+                original_get_init_context.__func__
+            ).parameters:
+                init_context_args.append(None)
+            contexts = PreTrainedModel.get_init_context(*init_context_args)
+            has_meta = any(
+                host._is_transformers_meta_device_context(context)
+                for context in contexts
+            )
+            PreTrainedModel._move_missing_keys_from_meta_to_device(
+                module,
+                set(),
+                None,
+                None,
+                None,
+            )
+
+        self.assertFalse(has_meta)
+        self.assertTrue(torch.equal(module.computed, torch.ones(2)))
+        self.assertIs(PreTrainedModel.__dict__["get_init_context"], original_get_init_context)
+        self.assertIs(
+            PreTrainedModel.__dict__["_move_missing_keys_from_meta_to_device"],
+            original_move_missing,
+        )
 
     def test_apply_cuda_bool_argsort_workaround_patches_pack_sequences(self):
         """It monkey-patches dynamic ``pack_sequences`` when CUDA bool argsort is unsupported."""

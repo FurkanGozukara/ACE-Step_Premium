@@ -85,6 +85,10 @@ APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium v5.5"
 APP_RELEASE_URL = "https://www.patreon.com/posts/157675060"
 APP_HEADER_MARKDOWN = f"# {APP_BROWSER_TITLE} : [{APP_RELEASE_URL}]({APP_RELEASE_URL})"
 _FAVICON_PATH = Path(__file__).resolve().parent / "assets" / "ace_step_premium_favicon.svg"
+_UI_SYNC_EVENT_OPTIONS = {
+    "queue": False,
+    "show_progress": "hidden",
+}
 _TOOLTIP_SCRIPT = """
 <script>
 document.addEventListener('mouseover', function(e) {
@@ -97,6 +101,130 @@ document.addEventListener('mouseover', function(e) {
         el.classList.remove('tooltip-flip');
     }
 });
+</script>
+"""
+
+_STALE_STATUS_TRACKER_SCRIPT = """
+<script>
+(function() {
+    const STALE_STATUS_CLASS = "ace-stale-status-tracker";
+    const STALE_BLOCK_CLASS = "ace-hide-stale-status-tracker";
+    const STALE_TIMER_SECONDS = 5.0;
+
+    function visible(el) {
+        const rect = el.getBoundingClientRect();
+        const style = window.getComputedStyle(el);
+        return rect.width > 2
+            && rect.height > 2
+            && style.display !== "none"
+            && style.visibility !== "hidden"
+            && Number(style.opacity || "1") > 0.01;
+    }
+
+    function timerSeconds(tracker) {
+        const text = (tracker.innerText || tracker.textContent || "").trim();
+        const match = text.match(/^(\\d+(?:\\.\\d+)?)s$/);
+        return match ? Number(match[1]) : null;
+    }
+
+    function componentBlock(tracker) {
+        return tracker.closest(".block, fieldset");
+    }
+
+    function isInputLikeBlock(block) {
+        if (!block) return false;
+        if (block.tagName === "FIELDSET") return true;
+        if (block.classList.contains("block")) return true;
+        return Boolean(block.querySelector([
+            "input",
+            "textarea",
+            "select",
+            "[contenteditable='true']",
+            "[role='checkbox']",
+            "[role='combobox']",
+            "[role='radio']",
+            "[role='slider']",
+            "[role='spinbutton']",
+            ".upload-container",
+            ".file-preview"
+        ].join(",")));
+    }
+
+    function isPrimaryOutputBlock(block) {
+        return Boolean(block && block.querySelector([
+            "audio",
+            "video",
+            "canvas",
+            "table",
+            "[data-testid*='gallery']",
+            ".gallery",
+            ".waveform"
+        ].join(",")));
+    }
+
+    function clearRecovered(tracker) {
+        const block = componentBlock(tracker);
+        if (block) block.classList.remove(STALE_BLOCK_CLASS);
+        if (!tracker.classList.contains(STALE_STATUS_CLASS)) return;
+        tracker.classList.remove(STALE_STATUS_CLASS);
+        tracker.style.removeProperty("display");
+        tracker.style.removeProperty("pointer-events");
+    }
+
+    function recoverStaleStatusTrackers() {
+        document.querySelectorAll('[data-testid="status-tracker"]').forEach((tracker) => {
+            const seconds = timerSeconds(tracker);
+            const block = componentBlock(tracker);
+            const shouldWatch = seconds !== null
+                && seconds >= STALE_TIMER_SECONDS
+                && visible(tracker)
+                && isInputLikeBlock(block)
+                && !isPrimaryOutputBlock(block);
+
+            if (!shouldWatch) {
+                clearRecovered(tracker);
+                return;
+            }
+
+            tracker.classList.add(STALE_STATUS_CLASS);
+            block.classList.add(STALE_BLOCK_CLASS);
+            tracker.style.setProperty("display", "none", "important");
+            tracker.style.setProperty("pointer-events", "none", "important");
+        });
+    }
+
+    let scheduled = false;
+    function scheduleRecovery() {
+        if (scheduled) return;
+        scheduled = true;
+        window.requestAnimationFrame(() => {
+            scheduled = false;
+            recoverStaleStatusTrackers();
+        });
+    }
+
+    document.addEventListener("click", (event) => {
+        if (!(event.target instanceof Element)) return;
+        if (event.target.closest('button[role="tab"]')) {
+            window.setTimeout(scheduleRecovery, 600);
+            window.setTimeout(scheduleRecovery, 1800);
+        }
+    }, true);
+    document.addEventListener("change", scheduleRecovery, true);
+    new MutationObserver(scheduleRecovery).observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class", "style"],
+        childList: true,
+        subtree: true,
+    });
+    window.setInterval(recoverStaleStatusTrackers, 1000);
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", scheduleRecovery, { once: true });
+    } else {
+        scheduleRecovery();
+    }
+})();
 </script>
 """
 
@@ -468,6 +596,19 @@ _UNAVAILABLE_GENERATION_MODE_SCRIPT = """
 """
 
 _PREMIUM_CSS = """
+[data-testid="status-tracker"].ace-stale-status-tracker {
+    display: none !important;
+    pointer-events: none !important;
+}
+.ace-hide-stale-status-tracker > [data-testid="status-tracker"] {
+    display: none !important;
+    pointer-events: none !important;
+}
+.gradio-container .block.has-info-container > [data-testid="status-tracker"].wrap.full:not(.no-click),
+.gradio-container fieldset.block > [data-testid="status-tracker"].wrap.full:not(.no-click) {
+    display: none !important;
+    pointer-events: none !important;
+}
 #acestep-generation-mode .ace-mode-unavailable {
     cursor: not-allowed !important;
     opacity: 0.52 !important;
@@ -791,6 +932,7 @@ def _build_head(service_mode: bool) -> str:
         + get_audio_player_preferences_head()
         + ("" if service_mode else get_user_preferences_head())
         + _TOOLTIP_SCRIPT
+        + _STALE_STATUS_TRACKER_SCRIPT
         + _BUTTON_PERSONALIZATION_SCRIPT
         + _UNAVAILABLE_GENERATION_MODE_SCRIPT
     )
@@ -1112,21 +1254,25 @@ def create_gradio_interface(
                 studio_page["preset_status"],
                 studio_page["studio_overview"],
             ],
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         startup_audio_visibility_event = startup_preset_event.then(
             fn=sync_preset_audio_format_visibility,
             inputs=[generation_section["audio_format"]],
             outputs=preset_audio_visibility_outputs,
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         startup_optimizer_row_event = startup_audio_visibility_event.then(
             fn=sync_lora_optimizer_parameter_row_visibility,
             inputs=[training_section["lora_optimizer_type"]],
             outputs=lora_optimizer_parameter_row_outputs,
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         startup_optimizer_row_event.then(
             fn=load_lora_optimizer_hyperparameter_updates_for_preset_with_specs,
             inputs=[studio_page["preset_dropdown"]],
             outputs=lora_optimizer_hyperparameter_outputs,
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         preset_load_outputs = preset_components + [
             generation_section["lora_status"],
@@ -1139,41 +1285,49 @@ def create_gradio_interface(
             fn=load_preset_action_with_specs,
             inputs=[studio_page["preset_dropdown"]],
             outputs=preset_load_outputs,
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         preset_dropdown_audio_visibility_event = preset_dropdown_event.then(
             fn=sync_preset_audio_format_visibility,
             inputs=[generation_section["audio_format"]],
             outputs=preset_audio_visibility_outputs,
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         preset_dropdown_optimizer_row_event = preset_dropdown_audio_visibility_event.then(
             fn=sync_lora_optimizer_parameter_row_visibility,
             inputs=[training_section["lora_optimizer_type"]],
             outputs=lora_optimizer_parameter_row_outputs,
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         preset_dropdown_optimizer_row_event.then(
             fn=load_lora_optimizer_hyperparameter_updates_for_preset_with_specs,
             inputs=[studio_page["preset_dropdown"]],
             outputs=lora_optimizer_hyperparameter_outputs,
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         preset_load_event = studio_page["load_preset_btn"].click(
             fn=load_preset_action_with_specs,
             inputs=[studio_page["preset_dropdown"]],
             outputs=preset_load_outputs,
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         preset_load_audio_visibility_event = preset_load_event.then(
             fn=sync_preset_audio_format_visibility,
             inputs=[generation_section["audio_format"]],
             outputs=preset_audio_visibility_outputs,
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         preset_load_optimizer_row_event = preset_load_audio_visibility_event.then(
             fn=sync_lora_optimizer_parameter_row_visibility,
             inputs=[training_section["lora_optimizer_type"]],
             outputs=lora_optimizer_parameter_row_outputs,
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         preset_load_optimizer_row_event.then(
             fn=load_lora_optimizer_hyperparameter_updates_for_preset_with_specs,
             inputs=[studio_page["preset_dropdown"]],
             outputs=lora_optimizer_hyperparameter_outputs,
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         studio_page["save_preset_btn"].click(
             fn=save_preset_action,
@@ -1187,6 +1341,7 @@ def create_gradio_interface(
                 studio_page["preset_status"],
                 studio_page["studio_overview"],
             ],
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         preset_delete_event = studio_page["delete_preset_btn"].click(
             fn=delete_preset_action_with_specs,
@@ -1196,21 +1351,25 @@ def create_gradio_interface(
                 studio_page["preset_name_input"],
             ],
             outputs=preset_load_outputs,
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         preset_delete_audio_visibility_event = preset_delete_event.then(
             fn=sync_preset_audio_format_visibility,
             inputs=[generation_section["audio_format"]],
             outputs=preset_audio_visibility_outputs,
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         preset_delete_optimizer_row_event = preset_delete_audio_visibility_event.then(
             fn=sync_lora_optimizer_parameter_row_visibility,
             inputs=[training_section["lora_optimizer_type"]],
             outputs=lora_optimizer_parameter_row_outputs,
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         preset_delete_optimizer_row_event.then(
             fn=load_lora_optimizer_hyperparameter_updates_for_preset_with_specs,
             inputs=[studio_page["preset_dropdown"]],
             outputs=lora_optimizer_hyperparameter_outputs,
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         studio_page["refresh_dashboard_btn"].click(
             fn=refresh_dashboard,
@@ -1219,6 +1378,7 @@ def create_gradio_interface(
                 create_page["subprocess_mode_checkbox"],
             ],
             outputs=[studio_page["studio_overview"]],
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         create_page["subprocess_mode_checkbox"].change(
             fn=refresh_dashboard,
@@ -1227,6 +1387,7 @@ def create_gradio_interface(
                 create_page["subprocess_mode_checkbox"],
             ],
             outputs=[studio_page["studio_overview"]],
+            **_UI_SYNC_EVENT_OPTIONS,
         )
         studio_page["open_outputs_btn"].click(
             fn=open_outputs_folder,

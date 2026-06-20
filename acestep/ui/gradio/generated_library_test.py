@@ -75,7 +75,9 @@ class GeneratedLibraryTests(unittest.TestCase):
 
             local_timezone = timezone(timedelta(hours=-4))
             records = scan_generated_songs(tmp, local_timezone=local_timezone)
-            audio, details, lyrics, metadata = select_library_item(records[0]["id"], records)
+            audio, details, lyrics, metadata_json = select_library_item(
+                records[0]["id"], records
+            )
             table = _records_to_table(records)
 
         self.assertEqual(1, len(records))
@@ -85,7 +87,7 @@ class GeneratedLibraryTests(unittest.TestCase):
         self.assertIn("Created: `15 April 2026, 3:12 PM`", details)
         self.assertIn("ace-xl / fp8_scaled", details)
         self.assertEqual("request lyrics", lyrics)
-        self.assertEqual("abc", metadata["audio_codes"])
+        self.assertIn('"audio_codes": "abc"', metadata_json)
 
     def test_filters_library_by_date_and_loads_first_song(self) -> None:
         """Selecting a day filters the table and loads that day's first song."""
@@ -111,7 +113,7 @@ class GeneratedLibraryTests(unittest.TestCase):
             },
         ]
 
-        filtered, table, audio, details, lyrics, metadata = filter_library_by_date(
+        filtered, table, audio, details, lyrics, metadata_json = filter_library_by_date(
             "16 April 2026",
             records,
         )
@@ -121,7 +123,7 @@ class GeneratedLibraryTests(unittest.TestCase):
         self.assertEqual("second.flac", audio)
         self.assertIn("second song", details)
         self.assertEqual("second lyrics", lyrics)
-        self.assertEqual({"id": 2}, metadata)
+        self.assertIn('"id": 2', metadata_json)
 
     def test_table_click_loads_clicked_song(self) -> None:
         """Clicking a filtered table row should load that row's song details."""

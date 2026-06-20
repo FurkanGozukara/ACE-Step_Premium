@@ -222,8 +222,52 @@ def build_lora_run_and_export_controls(
         "training_shift": training_shift,
         "training_num_inference_steps": training_num_inference_steps,
         "training_seed": training_seed,
-        **option_controls,
-        **path_controls,
+        "lora_optimizer_type": option_controls["lora_optimizer_type"],
+        "lora_adam_parameters_row": option_controls["lora_adam_parameters_row"],
+        "lora_adamw8bit_parameters_row": option_controls["lora_adamw8bit_parameters_row"],
+        "lora_adafactor_parameters_row": option_controls["lora_adafactor_parameters_row"],
+        "lora_weight_decay": option_controls["lora_weight_decay"],
+        "lora_adam_beta1": option_controls["lora_adam_beta1"],
+        "lora_adam_beta2": option_controls["lora_adam_beta2"],
+        "lora_adam_epsilon": option_controls["lora_adam_epsilon"],
+        "lora_adamw8bit_min_8bit_size": option_controls[
+            "lora_adamw8bit_min_8bit_size"
+        ],
+        "lora_adamw8bit_percentile_clipping": option_controls[
+            "lora_adamw8bit_percentile_clipping"
+        ],
+        "lora_adamw8bit_block_wise": option_controls["lora_adamw8bit_block_wise"],
+        "lora_adamw8bit_paged": option_controls["lora_adamw8bit_paged"],
+        "lora_adafactor_epsilon1": option_controls["lora_adafactor_epsilon1"],
+        "lora_adafactor_epsilon2": option_controls["lora_adafactor_epsilon2"],
+        "lora_adafactor_clip_threshold": option_controls[
+            "lora_adafactor_clip_threshold"
+        ],
+        "lora_adafactor_decay_rate": option_controls["lora_adafactor_decay_rate"],
+        "lora_adafactor_beta1": option_controls["lora_adafactor_beta1"],
+        "lora_adafactor_scale_parameter": option_controls[
+            "lora_adafactor_scale_parameter"
+        ],
+        "lora_adafactor_relative_step": option_controls[
+            "lora_adafactor_relative_step"
+        ],
+        "lora_adafactor_warmup_init": option_controls["lora_adafactor_warmup_init"],
+        "lora_scheduler_type": option_controls["lora_scheduler_type"],
+        "lora_timestep_mode": option_controls["lora_timestep_mode"],
+        "lora_adaptive_timestep_ratio": option_controls[
+            "lora_adaptive_timestep_ratio"
+        ],
+        "lora_validation_split_percent": option_controls[
+            "lora_validation_split_percent"
+        ],
+        "lora_validation_split_info": option_controls["lora_validation_split_info"],
+        "lora_output_dir": path_controls["lora_output_dir"],
+        "lora_output_dir_browse_btn": path_controls["lora_output_dir_browse_btn"],
+        "lora_open_output_dir_btn": path_controls["lora_open_output_dir_btn"],
+        "resume_checkpoint_dir": path_controls["resume_checkpoint_dir"],
+        "resume_checkpoint_dir_browse_btn": path_controls[
+            "resume_checkpoint_dir_browse_btn"
+        ],
         "training_subprocess": training_subprocess,
         "start_training_btn": start_training_btn,
         "stop_training_btn": stop_training_btn,

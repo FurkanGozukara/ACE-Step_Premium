@@ -63,11 +63,14 @@ class DecompositionContractTrainingTests(unittest.TestCase):
         lokr_call_names = []
         lokr_attribute_names = []
         lora_wrapper_call_names = []
+        lora_wrapper_attribute_names = []
         for node in ast.walk(lora_wrapper_node):
             if isinstance(node, ast.Call):
                 name = call_name(node.func)
                 if name:
                     lora_wrapper_call_names.append(name)
+            if isinstance(node, ast.Attribute):
+                lora_wrapper_attribute_names.append(node.attr)
         for node in ast.walk(lokr_node):
             if isinstance(node, ast.Call):
                 name = call_name(node.func)
@@ -77,7 +80,8 @@ class DecompositionContractTrainingTests(unittest.TestCase):
                 lokr_attribute_names.append(node.attr)
 
         self.assertIn("build_lora_training_wrapper", training_run_call_names)
-        self.assertIn("start_training", lora_wrapper_call_names)
+        self.assertIn("stream_inline_lora_training", lora_wrapper_call_names)
+        self.assertIn("start_training", lora_wrapper_attribute_names)
         self.assertIn("register_lokr_training_handlers", training_run_call_names)
         self.assertIn("start_lokr_training", lokr_call_names)
         self.assertIn("stop_training", lokr_attribute_names)
