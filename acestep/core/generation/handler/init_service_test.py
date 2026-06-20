@@ -144,6 +144,22 @@ class InitServiceMixinTests(unittest.TestCase):
 
         free_mock.assert_called_once_with(1)
 
+    def test_get_auto_decode_chunk_size_uses_256_at_midrange_cuda_vram(self):
+        """It avoids the pathological 128-frame decode path on midrange free VRAM."""
+        host = types.SimpleNamespace(
+            device="cuda:0",
+            VAE_DECODE_MAX_CHUNK_SIZE=512,
+            _get_effective_mps_memory_gb=lambda: None,
+            _get_system_memory_gb=lambda: None,
+        )
+
+        with patch.object(
+            MEMORY_UTILS_MODULE,
+            "get_effective_free_vram_gb",
+            return_value=11.5,
+        ):
+            self.assertEqual(MEMORY_UTILS_MODULE.MemoryUtilsMixin._get_auto_decode_chunk_size(host), 256)
+
     def test_vram_guard_reduce_batch_uses_cuda_device_index(self):
         """It queries VRAM against the requested CUDA device when reducing batch size."""
         host = types.SimpleNamespace(
@@ -976,7 +992,9 @@ class InitServiceMixinTests(unittest.TestCase):
         from transformers.modeling_utils import PreTrainedModel
 
         original_get_init_context = PreTrainedModel.__dict__["get_init_context"]
-        original_move_missing = PreTrainedModel.__dict__["_move_missing_keys_from_meta_to_device"]
+        original_move_missing = PreTrainedModel.__dict__.get("_move_missing_keys_from_meta_to_device")
+        if original_move_missing is None:
+            self.skipTest("Transformers build does not expose _move_missing_keys_from_meta_to_device")
 
         class _NoMetaModule(torch.nn.Module):
             """Module with a computed non-persistent buffer."""

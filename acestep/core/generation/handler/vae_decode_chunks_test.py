@@ -39,6 +39,25 @@ class VaeDecodeChunksMixinTests(unittest.TestCase):
         self.assertEqual(host.recorded["overlap"], 1)
         self.assertEqual(tuple(out.shape), (1, 2, 4))
 
+    def test_overlap_adjustment_caps_small_chunk_overlap_to_practical_stride(self):
+        """Small chunks should not advance by only a few latent frames."""
+        host = _ChunksHost()
+
+        def _capture_gpu(latents, stride, overlap, num_steps):
+            """Capture tiling arguments passed to GPU decode path."""
+            _ = latents
+            host.recorded["stride"] = stride
+            host.recorded["overlap"] = overlap
+            host.recorded["num_steps"] = num_steps
+            return torch.ones(1, 2, 4)
+
+        host._tiled_decode_gpu = _capture_gpu
+        out = host._tiled_decode_inner(torch.zeros(1, 4, 256), chunk_size=128, overlap=64, offload_wav_to_cpu=False)
+        self.assertEqual(host.recorded["overlap"], 32)
+        self.assertEqual(host.recorded["stride"], 64)
+        self.assertEqual(host.recorded["num_steps"], 4)
+        self.assertEqual(tuple(out.shape), (1, 2, 4))
+
     def test_oom_fallback_gpu_to_offload_path(self):
         """GPU OOM should fallback to offload path before full CPU fallback."""
         host = _ChunksHost()

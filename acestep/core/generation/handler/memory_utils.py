@@ -110,7 +110,7 @@ class MemoryUtilsMixin:
                 return min(512, max_chunk)
             if free_gb >= 16.0:
                 return min(384, max_chunk)
-            if free_gb >= 12.0:
+            if free_gb >= 10.0:
                 return min(256, max_chunk)
             return min(128, max_chunk)
         return min(256, max_chunk)

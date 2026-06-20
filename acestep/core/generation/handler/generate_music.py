@@ -519,6 +519,7 @@ class GenerateMusicMixin:
                 latent_shift=latent_shift,
                 latent_rescale=latent_rescale,
             )
+            self._offload_outputs_before_vae_decode(outputs)
             pred_wavs, pred_latents_cpu, time_costs = self._decode_generate_music_pred_latents(
                 pred_latents=pred_latents,
                 progress=progress,

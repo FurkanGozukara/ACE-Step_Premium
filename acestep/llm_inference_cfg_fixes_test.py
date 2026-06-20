@@ -51,6 +51,9 @@ def _make_constrained_processor(state: "FSMState", vocab_size: int = 10) -> Magi
     non_audio_mask[0, 2] = 0.0  # audio code
     non_audio_mask[0, 3] = 0.0  # audio code
     proc.non_audio_code_mask = non_audio_mask
+    proc.codes_temperature = None
+    proc.target_codes = None
+    proc.codes_count = 0
     # Make __call__ return scores unchanged by default
     proc.side_effect = lambda input_ids, scores: scores
     return proc
@@ -65,6 +68,116 @@ def _make_fake_model(batch_size: int, vocab_size: int = 10, logit_val: float = 1
     model.generation_config = MagicMock()
     model.generation_config.use_cache = False
     return model
+
+
+class _ForwardKwargModel:
+    """Callable fake model with a forward signature matching modern causal LMs."""
+
+    def __init__(self):
+        self.calls = []
+
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        past_key_values=None,
+        use_cache=None,
+        cache_position=None,
+        logits_to_keep=0,
+    ):
+        raise AssertionError("forward signature is only used for kwarg detection")
+
+    def __call__(self, **kwargs):
+        self.calls.append(kwargs)
+        batch_size = kwargs["input_ids"].shape[0]
+        return SimpleNamespace(
+            logits=torch.zeros((batch_size, 1, 10)),
+            past_key_values="cache",
+        )
+
+
+class _LegacyForwardModel(_ForwardKwargModel):
+    """Callable fake model without Transformers generation helper kwargs."""
+
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        past_key_values=None,
+        use_cache=None,
+    ):
+        raise AssertionError("forward signature is only used for kwarg detection")
+
+
+# ---------------------------------------------------------------------------
+# Forward-pass performance helpers
+# ---------------------------------------------------------------------------
+
+@unittest.skipIf(LLMHandler is None, f"llm_inference import unavailable: {_IMPORT_ERROR}")
+class TestForwardPassOptimizations(unittest.TestCase):
+    """Custom generation loops should use the same cheap-forward hints as generate()."""
+
+    def test_forward_pass_requests_only_last_logits_for_prefill(self):
+        handler = _make_handler()
+        model = _ForwardKwargModel()
+        input_ids = torch.zeros((2, 5), dtype=torch.long)
+        attention_mask = torch.ones_like(input_ids)
+
+        handler._forward_pass(
+            model,
+            input_ids,
+            {"attention_mask": attention_mask},
+            past_key_values=None,
+            use_cache=True,
+        )
+
+        call_kwargs = model.calls[0]
+        self.assertEqual(call_kwargs["input_ids"].shape, (2, 5))
+        self.assertEqual(call_kwargs["logits_to_keep"], 1)
+        self.assertTrue(
+            torch.equal(call_kwargs["cache_position"], torch.arange(5)),
+            f"Unexpected cache_position: {call_kwargs['cache_position']}",
+        )
+
+    def test_forward_pass_sends_last_token_position_when_cache_exists(self):
+        handler = _make_handler()
+        model = _ForwardKwargModel()
+        generated_ids = torch.zeros((2, 6), dtype=torch.long)
+        attention_mask = torch.ones_like(generated_ids)
+
+        handler._forward_pass(
+            model,
+            generated_ids,
+            {"attention_mask": attention_mask},
+            past_key_values="cache",
+            use_cache=True,
+        )
+
+        call_kwargs = model.calls[0]
+        self.assertEqual(call_kwargs["input_ids"].shape, (2, 1))
+        self.assertEqual(call_kwargs["past_key_values"], "cache")
+        self.assertEqual(call_kwargs["logits_to_keep"], 1)
+        self.assertTrue(
+            torch.equal(call_kwargs["cache_position"], torch.tensor([5])),
+            f"Unexpected cache_position: {call_kwargs['cache_position']}",
+        )
+
+    def test_forward_pass_does_not_send_helper_kwargs_to_legacy_models(self):
+        handler = _make_handler()
+        model = _LegacyForwardModel()
+        input_ids = torch.zeros((2, 5), dtype=torch.long)
+
+        handler._forward_pass(
+            model,
+            input_ids,
+            {"attention_mask": torch.ones_like(input_ids)},
+            past_key_values=None,
+            use_cache=True,
+        )
+
+        call_kwargs = model.calls[0]
+        self.assertNotIn("logits_to_keep", call_kwargs)
+        self.assertNotIn("cache_position", call_kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -326,7 +439,9 @@ class TestCfgMaskBeforeCFG(unittest.TestCase):
                 cfg_scale=2.0,
                 top_k=None,
                 top_p=None,
-                repetition_penalty=1.0,
+                # Non-default repetition penalty forces the full-vocab fallback
+                # path, where invalid token positions are represented as -inf.
+                repetition_penalty=1.1,
                 pad_token_id=1,
                 streamer=None,
                 constrained_processor=constrained_proc,
@@ -343,6 +458,51 @@ class TestCfgMaskBeforeCFG(unittest.TestCase):
                     float("-inf"),
                     f"Token {idx} should be -inf (invalid), got {logits[idx].item()}",
                 )
+
+
+    def test_codes_generation_compact_fast_path_maps_sampled_positions(self):
+        """The compact CODES_GENERATION path samples over valid-token positions
+        and maps them back to full vocabulary token IDs."""
+        handler = _make_handler()
+        vocab_size = self.VOCAB_SIZE
+        total_batch = self.BATCH_SIZE * 2
+
+        cond_logits = torch.full((self.BATCH_SIZE, 1, vocab_size), 2.0)
+        uncond_logits = torch.full((self.BATCH_SIZE, 1, vocab_size), 1.0)
+        combined = torch.cat([cond_logits, uncond_logits], dim=0)
+        outputs = SimpleNamespace(logits=combined, past_key_values=None)
+        model = MagicMock(return_value=outputs)
+        model.generation_config = MagicMock()
+        model.generation_config.use_cache = False
+        handler.llm = model
+
+        constrained_proc = _make_constrained_processor(FSMState.CODES_GENERATION, vocab_size)
+        captured_logits = []
+
+        def fake_sample(logits, temperature):
+            captured_logits.append(logits.clone())
+            # valid_indices are [1, 2, 3], so compact position 1 maps to token 2.
+            return torch.tensor([1])
+
+        with patch.object(handler, "_sample_tokens", side_effect=fake_sample):
+            input_ids = torch.zeros((total_batch, 3), dtype=torch.long)
+            result = handler._generate_with_cfg_custom(
+                batch_input_ids=input_ids,
+                batch_attention_mask=None,
+                max_new_tokens=1,
+                temperature=1.0,
+                cfg_scale=2.0,
+                top_k=None,
+                top_p=None,
+                repetition_penalty=1.0,
+                pad_token_id=1,
+                streamer=None,
+                constrained_processor=constrained_proc,
+            )
+
+        self.assertEqual(len(captured_logits), 1)
+        self.assertEqual(captured_logits[0].shape, (1, 3))
+        self.assertEqual(result[0, -1].item(), 2)
 
 
 # ---------------------------------------------------------------------------

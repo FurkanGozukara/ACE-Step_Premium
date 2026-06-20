@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 from acestep.llm_backend_compat import get_vllm_preflight_warning
 
 try:
-    from acestep.llm_inference import LLMHandler
+    from acestep.llm_inference import LLMHandler, _pytorch_lm_attention_candidates
 
     _IMPORT_ERROR = None
 except ImportError as exc:  # pragma: no cover - dependency guard
@@ -74,6 +74,16 @@ class VllmBackendCompatTests(unittest.TestCase):
 class LlmInitializeBackendCompatTests(unittest.TestCase):
     """Verify ``LLMHandler.initialize`` uses the Windows Triton preflight cleanly."""
 
+    def test_pytorch_lm_attention_candidates_prefer_sdpa_on_cuda(self) -> None:
+        """CUDA PyTorch LM loading should prefer SDPA, then default."""
+
+        self.assertEqual(_pytorch_lm_attention_candidates("cuda"), ["sdpa", None])
+
+    def test_pytorch_lm_attention_candidates_use_default_off_cuda(self) -> None:
+        """Non-CUDA PyTorch LM loading should use the model default attention."""
+
+        self.assertEqual(_pytorch_lm_attention_candidates("cpu"), [None])
+
     @patch("acestep.llm_inference.compile_module_forward")
     @patch("acestep.llm_inference.AutoModelForCausalLM.from_pretrained")
     def test_load_pytorch_model_compiles_lm_when_requested(
@@ -103,6 +113,43 @@ class LlmInitializeBackendCompatTests(unittest.TestCase):
             enabled=True,
         )
         model.eval.assert_called_once()
+
+    @patch("acestep.llm_inference._pytorch_lm_attention_candidates")
+    @patch("acestep.llm_inference.compile_module_forward")
+    @patch("acestep.llm_inference.AutoModelForCausalLM.from_pretrained")
+    def test_load_pytorch_model_falls_back_from_flash_to_sdpa(
+        self,
+        mock_from_pretrained: MagicMock,
+        mock_compile_forward: MagicMock,
+        mock_attention_candidates: MagicMock,
+    ) -> None:
+        """PyTorch LM loading should fall back if the preferred attention backend fails."""
+
+        handler = LLMHandler()
+        model = MagicMock()
+        model.to.return_value = model
+        model.config._attn_implementation = "sdpa"
+        mock_attention_candidates.return_value = ["flash_attention_2", "sdpa", None]
+        mock_from_pretrained.side_effect = [RuntimeError("flash failed"), model]
+        mock_compile_forward.return_value = SimpleNamespace(compiled=False, detail="disabled")
+
+        ok, status = handler._load_pytorch_model(
+            "C:/repo/checkpoints/acestep-5Hz-lm-4B",
+            "cuda",
+            compile_model=False,
+        )
+
+        self.assertTrue(ok)
+        self.assertIn("Attention: sdpa", status)
+        self.assertEqual(mock_from_pretrained.call_count, 2)
+        self.assertEqual(
+            mock_from_pretrained.call_args_list[0].kwargs["attn_implementation"],
+            "flash_attention_2",
+        )
+        self.assertEqual(
+            mock_from_pretrained.call_args_list[1].kwargs["attn_implementation"],
+            "sdpa",
+        )
 
     @patch("torch.cuda.synchronize")
     @patch("torch.cuda.empty_cache")

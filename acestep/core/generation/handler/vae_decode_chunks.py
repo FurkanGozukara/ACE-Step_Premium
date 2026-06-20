@@ -29,7 +29,10 @@ class VaeDecodeChunksMixin:
             return result
 
         min_overlap = 4  # Minimum floor to prevent audio artifacts at chunk boundaries
-        max_valid_overlap = max(0, (chunk_size - 1) // 2)
+        # Keep tiled decode progress practical on low-VRAM paths.  The old
+        # half-window cap let chunk_size=128 with overlap=64 degrade to a
+        # stride of 2 frames, producing thousands of tiny decode chunks.
+        max_valid_overlap = max(0, chunk_size // 4)
         effective_overlap = min(overlap, max_valid_overlap)
         # Enforce minimum overlap floor to avoid near-zero values that cause corruption
         if (

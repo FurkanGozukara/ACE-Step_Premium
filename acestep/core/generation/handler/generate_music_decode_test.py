@@ -191,6 +191,54 @@ class GenerateMusicDecodeMixinTests(unittest.TestCase):
         self.assertAlmostEqual(updated_costs["offload_time_cost"], 0.25, places=6)
         self.assertEqual(host.progress_calls[0][0], 0.8)
 
+    def test_offload_outputs_before_vae_decode_preserves_extra_output_tensors(self):
+        """It keeps intermediate tensors for extra_outputs while excluding decode latents."""
+        host = _Host()
+        pred_latents = torch.ones(1, 4, 3)
+        outputs = {
+            "target_latents": pred_latents,
+            "encoder_hidden_states": torch.ones(1, 2, 3),
+            "context_latents": torch.ones(1, 4, 3),
+            "spans": [[0, 1]],
+        }
+
+        with patch.object(
+            GENERATE_MUSIC_DECODE_MODULE,
+            "get_global_gpu_config",
+            return_value=types.SimpleNamespace(save_memory_mode=False),
+        ):
+            host._offload_outputs_before_vae_decode(outputs)
+
+        self.assertIs(outputs["target_latents"], pred_latents)
+        self.assertIn("encoder_hidden_states", outputs)
+        self.assertIn("context_latents", outputs)
+        self.assertEqual(outputs["encoder_hidden_states"].device.type, "cpu")
+        self.assertEqual(outputs["context_latents"].device.type, "cpu")
+        self.assertEqual(outputs["spans"], [[0, 1]])
+
+    def test_offload_outputs_before_vae_decode_drops_intermediates_in_save_memory_mode(self):
+        """It drops tensors that are not returned when save-memory mode is active."""
+        host = _Host()
+        pred_latents = torch.ones(1, 4, 3)
+        outputs = {
+            "target_latents": pred_latents,
+            "src_latents": torch.ones(1, 4, 3),
+            "encoder_attention_mask": torch.ones(1, 2, dtype=torch.bool),
+            "spans": [[0, 1]],
+        }
+
+        with patch.object(
+            GENERATE_MUSIC_DECODE_MODULE,
+            "get_global_gpu_config",
+            return_value=types.SimpleNamespace(save_memory_mode=True),
+        ):
+            host._offload_outputs_before_vae_decode(outputs)
+
+        self.assertIs(outputs["target_latents"], pred_latents)
+        self.assertNotIn("src_latents", outputs)
+        self.assertNotIn("encoder_attention_mask", outputs)
+        self.assertEqual(outputs["spans"], [[0, 1]])
+
     def test_decode_pred_latents_restores_vae_device_on_decode_error(self):
         """It restores VAE device in the CPU-offload path even when decode raises."""
 

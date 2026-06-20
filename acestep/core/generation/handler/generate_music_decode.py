@@ -8,11 +8,22 @@ from typing import Any, Dict, Optional, Tuple
 import torch
 from loguru import logger
 
-from acestep.gpu_config import get_effective_free_vram_gb
+from acestep.gpu_config import get_effective_free_vram_gb, get_global_gpu_config
 
 
 class GenerateMusicDecodeMixin:
     """Validate generated latents and decode them into waveform tensors."""
+
+    _PRE_DECODE_INTERMEDIATE_OUTPUT_KEYS = (
+        "src_latents",
+        "target_latents_input",
+        "chunk_masks",
+        "latent_masks",
+        "encoder_hidden_states",
+        "encoder_attention_mask",
+        "context_latents",
+        "lyric_token_idss",
+    )
 
     def _prepare_generate_music_decode_state(
         self,
@@ -103,6 +114,43 @@ class GenerateMusicDecodeMixin:
                     f"std={pred_latents.std():.4f}"
                 )
         return pred_latents, time_costs
+
+    def _offload_outputs_before_vae_decode(self, outputs: Dict[str, Any]) -> None:
+        """Move preserved service intermediates off GPU before VAE decode.
+
+        VAE decode is the next memory-heavy phase.  These tensors are not needed
+        for decoding; they are only copied into ``extra_outputs`` later.  Moving
+        them before decode lowers peak VRAM without changing the final payload.
+        In save-memory mode they are not returned at all, so drop them outright.
+        """
+        try:
+            save_memory = bool(get_global_gpu_config().save_memory_mode)
+        except Exception:
+            save_memory = False
+
+        moved = 0
+        dropped = 0
+        for key in self._PRE_DECODE_INTERMEDIATE_OUTPUT_KEYS:
+            value = outputs.get(key)
+            if value is None:
+                continue
+            if save_memory:
+                outputs.pop(key, None)
+                dropped += 1
+                continue
+            if isinstance(value, torch.Tensor) and value.device.type != "cpu":
+                outputs[key] = value.detach().cpu()
+                moved += 1
+
+        if moved or dropped:
+            action = "dropped" if save_memory else "moved to CPU"
+            logger.info(
+                "[generate_music] Pre-VAE cleanup: {} intermediate tensor(s) {} before decode.",
+                dropped if save_memory else moved,
+                action,
+            )
+            gc.collect()
+            self._empty_cache()
 
     def _decode_generate_music_pred_latents(
         self,

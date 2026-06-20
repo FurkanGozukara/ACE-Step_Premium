@@ -3,6 +3,7 @@
 Handles all LM-related operations including initialization and generation
 """
 import gc
+import inspect
 import os
 import sys
 import traceback
@@ -67,6 +68,36 @@ def _truncate_after_stop_token(
     return generated_ids
 
 
+def _callable_accepts_kwarg(callable_obj: Any, kwarg_name: str) -> bool:
+    """Return whether a callable can accept a specific keyword argument."""
+
+    try:
+        parameters = inspect.signature(callable_obj).parameters
+    except (TypeError, ValueError):
+        return False
+
+    if kwarg_name in parameters:
+        return True
+    return any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD
+        for parameter in parameters.values()
+    )
+
+
+def _pytorch_lm_attention_candidates(device: str) -> List[Optional[str]]:
+    """Ordered attention implementations to try for the PyTorch 5Hz LM."""
+
+    candidates: List[Optional[str]] = []
+    # The 5Hz LM PyTorch backend uses a token-by-token custom CFG loop with a
+    # growing 2D attention mask. On Windows/CUDA this path benchmarks faster
+    # with Transformers SDPA than flash_attention_2, even when flash-attn is
+    # faster in isolated forward microbenchmarks.
+    if str(device).split(":")[0] == "cuda":
+        candidates.append("sdpa")
+    candidates.append(None)
+    return candidates
+
+
 class LLMHandler:
     """5Hz LM Handler for audio code generation"""
 
@@ -86,6 +117,9 @@ class LLMHandler:
         self.device = "cpu"
         self.dtype = torch.float32
         self.offload_to_cpu = False
+        self._llm_forward_supports_cache_position: Optional[bool] = None
+        self._llm_forward_supports_logits_to_keep: Optional[bool] = None
+        self._llm_attention_implementation: Optional[str] = None
         self.disable_tqdm = os.environ.get("ACESTEP_DISABLE_TQDM", "").lower() in ("1", "true", "yes") or not (hasattr(sys.stderr, 'isatty') and sys.stderr.isatty())
 
         # HuggingFace Space persistent storage support
@@ -163,6 +197,9 @@ class LLMHandler:
             self.llm_backend = None
             self._mlx_model = None
             self._mlx_model_path = None
+            self._llm_forward_supports_cache_position = None
+            self._llm_forward_supports_logits_to_keep = None
+            self._llm_attention_implementation = None
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
@@ -430,7 +467,37 @@ class LLMHandler:
     ) -> Tuple[bool, str]:
         """Load PyTorch model from path and return (success, status_message)"""
         try:
-            self.llm = AutoModelForCausalLM.from_pretrained(model_path, trust_remote_code=True)
+            load_errors: List[Tuple[Optional[str], BaseException]] = []
+            for attn_implementation in _pytorch_lm_attention_candidates(device):
+                load_kwargs = {"trust_remote_code": True}
+                if attn_implementation is not None:
+                    load_kwargs["attn_implementation"] = attn_implementation
+                try:
+                    self.llm = AutoModelForCausalLM.from_pretrained(
+                        model_path,
+                        **load_kwargs,
+                    )
+                    self._llm_attention_implementation = getattr(
+                        self.llm.config,
+                        "_attn_implementation",
+                        attn_implementation,
+                    )
+                    break
+                except Exception as exc:
+                    load_errors.append((attn_implementation, exc))
+                    logger.warning(
+                        "[5Hz LM] PyTorch load failed with attention={}: {}",
+                        attn_implementation or "default",
+                        exc,
+                    )
+                    self.llm = None
+                    gc.collect()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+            if self.llm is None:
+                if load_errors:
+                    raise load_errors[-1][1]
+                raise RuntimeError("no PyTorch LM attention candidates were available")
             if not self.offload_to_cpu:
                 self.llm = self.llm.to(device).to(self.dtype)
             else:
@@ -438,6 +505,16 @@ class LLMHandler:
             self.llm.eval()
             self.llm_backend = "pt"
             self.llm_initialized = True
+            self._llm_forward_supports_cache_position = None
+            self._llm_forward_supports_logits_to_keep = None
+            self._llm_forward_supports_cache_position = self._model_forward_accepts_kwarg(
+                self.llm,
+                "cache_position",
+            )
+            self._llm_forward_supports_logits_to_keep = self._model_forward_accepts_kwarg(
+                self.llm,
+                "logits_to_keep",
+            )
             compile_result = compile_module_forward(
                 self.llm,
                 label="5Hz LM PyTorch",
@@ -445,8 +522,18 @@ class LLMHandler:
             )
             if compile_model and not compile_result.compiled:
                 logger.warning("[5Hz LM] torch.compile disabled: {}", compile_result.detail)
-            logger.info(f"5Hz LM initialized successfully using PyTorch backend on {device}")
-            status_msg = f"✅ 5Hz LM initialized successfully\nModel: {model_path}\nBackend: PyTorch\nDevice: {device}"
+            logger.info(
+                "5Hz LM initialized successfully using PyTorch backend on {} (attention={})",
+                device,
+                self._llm_attention_implementation or "default",
+            )
+            status_msg = (
+                f"✅ 5Hz LM initialized successfully\n"
+                f"Model: {model_path}\n"
+                f"Backend: PyTorch\n"
+                f"Device: {device}\n"
+                f"Attention: {self._llm_attention_implementation or 'default'}"
+            )
             return True, status_msg
         except Exception as e:
             return False, f"❌ Error initializing 5Hz LM: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
@@ -509,20 +596,66 @@ class LLMHandler:
         use_cache: bool,
     ) -> Any:
         """Perform forward pass with KV cache support"""
+        input_ids = generated_ids if past_key_values is None else generated_ids[:, -1:]
+        forward_kwargs = dict(model_kwargs)
+        forward_kwargs["use_cache"] = use_cache
+
+        if self._model_forward_accepts_kwarg(model, "logits_to_keep"):
+            # Match transformers.generate(): only the last token's logits are
+            # needed, and full prompt logits are very expensive with 217k vocab.
+            forward_kwargs["logits_to_keep"] = 1
+
+        if self._model_forward_accepts_kwarg(model, "cache_position"):
+            if past_key_values is None:
+                cache_position = torch.arange(
+                    generated_ids.shape[1],
+                    device=generated_ids.device,
+                    dtype=torch.long,
+                )
+            else:
+                token_position = generated_ids.shape[1] - 1
+                cache_position = torch.arange(
+                    token_position,
+                    token_position + input_ids.shape[1],
+                    device=generated_ids.device,
+                    dtype=torch.long,
+                )
+            forward_kwargs["cache_position"] = cache_position
+
         if past_key_values is None:
             outputs = model(
-                input_ids=generated_ids,
-                **model_kwargs,
-                use_cache=use_cache,
+                input_ids=input_ids,
+                **forward_kwargs,
             )
         else:
             outputs = model(
-                input_ids=generated_ids[:, -1:],
                 past_key_values=past_key_values,
-                **model_kwargs,
-                use_cache=use_cache,
+                input_ids=input_ids,
+                **forward_kwargs,
             )
         return outputs
+
+    def _model_forward_accepts_kwarg(self, model: Any, kwarg_name: str) -> bool:
+        """Detect and cache support for generation-forward convenience kwargs."""
+
+        if kwarg_name == "cache_position":
+            cached = self._llm_forward_supports_cache_position
+        elif kwarg_name == "logits_to_keep":
+            cached = self._llm_forward_supports_logits_to_keep
+        else:
+            cached = None
+        if cached is not None:
+            return cached
+
+        forward = getattr(model, "forward", None)
+        callable_obj = forward if callable(forward) else model
+        supported = _callable_accepts_kwarg(callable_obj, kwarg_name)
+
+        if kwarg_name == "cache_position":
+            self._llm_forward_supports_cache_position = supported
+        elif kwarg_name == "logits_to_keep":
+            self._llm_forward_supports_logits_to_keep = supported
+        return supported
 
     def _normalize_batch_input(self, formatted_prompts: Union[str, List[str]]) -> Tuple[List[str], bool]:
         """Normalize batch input: convert single string to list and return (list, is_batch)"""
@@ -2867,15 +3000,94 @@ class LLMHandler:
                     non_audio_mask = constrained_processor.non_audio_code_mask
                     if non_audio_mask.device != device or non_audio_mask.dtype != torch.float32:
                         non_audio_mask = non_audio_mask.to(device=device, dtype=torch.float32)
-                    # valid_mask is True where tokens are allowed (mask value == 0)
-                    valid_mask = (non_audio_mask[0] == 0)  # [vocab_size]
-                    valid_indices = valid_mask.nonzero(as_tuple=False).squeeze(1)  # [num_valid]
+                        constrained_processor.non_audio_code_mask = non_audio_mask
 
-                    # CFG on valid tokens only; all others get -inf
+                    valid_indices = getattr(
+                        constrained_processor,
+                        "_acestep_audio_code_valid_indices",
+                        None,
+                    )
+                    if valid_indices is None or valid_indices.device != device:
+                        # valid_mask is True where tokens are allowed (mask value == 0)
+                        valid_mask = (non_audio_mask[0] == 0)  # [vocab_size]
+                        valid_indices = valid_mask.nonzero(as_tuple=False).squeeze(1)  # [num_valid]
+                        setattr(
+                            constrained_processor,
+                            "_acestep_audio_code_valid_indices",
+                            valid_indices,
+                        )
+
+                    # CFG on valid tokens only; invalid tokens would be -inf in
+                    # CODES_GENERATION and must not leak into CFG or softmax.
                     cond_valid = cond_logits[:, valid_indices].float()
                     uncond_valid = uncond_logits[:, valid_indices].float()
                     cfg_valid = uncond_valid + cfg_scale * (cond_valid - uncond_valid)
+                    cfg_valid = torch.nan_to_num(cfg_valid, nan=float('-inf'))
 
+                    if (
+                        len(logits_processor) == 0
+                        and getattr(constrained_processor, "codes_temperature", None) is None
+                    ):
+                        # Fast path: sample directly over the compact valid set.
+                        # This avoids rebuilding a full [batch, 217k] logits tensor
+                        # and softmaxing invalid tokens every audio-code step.
+                        cfg_logits = cfg_valid
+
+                        eos_positions = (valid_indices == eos_token_id).nonzero(as_tuple=False)
+                        eos_valid_idx = (
+                            eos_positions[0, 0]
+                            if eos_positions.numel() > 0
+                            else None
+                        )
+
+                        target_codes = getattr(constrained_processor, "target_codes", None)
+                        if target_codes is not None and eos_valid_idx is not None:
+                            if getattr(constrained_processor, "codes_count", 0) < target_codes:
+                                cfg_logits[:, eos_valid_idx] = float('-inf')
+                            else:
+                                eos_scores = cfg_logits[:, eos_valid_idx].clone()
+                                cfg_logits.fill_(float('-inf'))
+                                cfg_logits[:, eos_valid_idx] = eos_scores
+
+                        # Apply top-k and top-p filtering on the compact valid set.
+                        cfg_logits = self._apply_top_k_filter(cfg_logits, top_k)
+                        cfg_logits = self._apply_top_p_filter(cfg_logits, top_p)
+
+                        if seq_finished.any() and eos_valid_idx is not None:
+                            for b in range(batch_size):
+                                if seq_finished[b]:
+                                    cfg_logits[b, :] = float('-inf')
+                                    cfg_logits[b, eos_valid_idx] = 0.0
+
+                        sampled_valid_positions = self._sample_tokens(cfg_logits, temperature)
+                        next_tokens = valid_indices[sampled_valid_positions]
+
+                        # Skip the full-vocab post-processing path below; all masking
+                        # and sampling for the code state has already happened.
+                        self._update_constrained_processor_state(constrained_processor, next_tokens)
+
+                        is_eos = next_tokens == eos_token_id
+                        if pad_token_id is not None and pad_token_id != eos_token_id:
+                            is_eos = is_eos | (next_tokens == pad_token_id)
+                        seq_finished = seq_finished | is_eos
+
+                        next_tokens_unsqueezed = next_tokens.unsqueeze(1)
+                        generated_ids = torch.cat([generated_ids, next_tokens_unsqueezed.repeat(2, 1)], dim=1)
+                        attention_mask = torch.cat([attention_mask, torch.ones((batch_size*2, 1), device=device, dtype=attention_mask.dtype)], dim=1)
+                        model_kwargs['attention_mask'] = attention_mask
+
+                        if use_cache and hasattr(outputs, 'past_key_values'):
+                            past_key_values = outputs.past_key_values
+
+                        if streamer is not None:
+                            streamer.put(next_tokens_unsqueezed)
+
+                        if seq_finished.all():
+                            break
+                        continue
+
+                    # Full-vocab fallback: preserve compatibility with repetition
+                    # penalty and processor-level code temperatures.
                     cfg_logits = torch.full(
                         (batch_size, cond_logits.shape[1]),
                         float('-inf'),
