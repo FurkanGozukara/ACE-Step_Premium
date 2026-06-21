@@ -263,6 +263,24 @@ class GenerateMusicMixinTests(unittest.TestCase):
             0.97,
         )
 
+    def test_repaint_ignores_leaked_cover_noise_strength(self):
+        """Source-range edit tasks should not inherit Remix melody retention."""
+        host = _Host()
+        out = host.generate_music(
+            captions="cap",
+            lyrics="lyr",
+            task_type="repaint",
+            cover_noise_strength=0.97,
+            repainting_start=1.0,
+            repainting_end=2.0,
+        )
+
+        self.assertEqual(out, host._final_payload)
+        self.assertEqual(
+            host.calls["_run_generate_music_service_with_progress"]["cover_noise_strength"],
+            0.0,
+        )
+
     def test_generate_music_rejects_non_finite_timesteps(self):
         """Invalid custom timesteps should return a clear error payload."""
         host = _Host()

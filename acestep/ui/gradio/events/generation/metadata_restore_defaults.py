@@ -13,7 +13,6 @@ from acestep.model_downloader import (
 )
 from acestep.ui.gradio.events.generation.strength_defaults import (
     DEFAULT_AUDIO_COVER_STRENGTH,
-    DEFAULT_REMIX_MELODY_RETENTION,
 )
 
 from .audio_format_options import (
@@ -71,7 +70,7 @@ def default_metadata_values() -> dict[str, Any]:
         "use_cot_caption": False,
         "use_cot_language": False,
         "audio_cover_strength": DEFAULT_AUDIO_COVER_STRENGTH,
-        "cover_noise_strength": DEFAULT_REMIX_MELODY_RETENTION,
+        "cover_noise_strength": 0.0,
         "think_checkbox": True,
         "text2music_audio_code_string": "",
         "repainting_start": 0.0,

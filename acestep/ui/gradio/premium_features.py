@@ -52,6 +52,7 @@ from acestep.training.optim import (
     OPTIMIZER_CHOICES,
     optimizer_hyperparameter_defaults,
 )
+from acestep.constants import MODE_TO_TASK_TYPE
 from acestep.ui.gradio.events.generation.model_config import (
     get_ui_control_config_for_path,
 )
@@ -732,6 +733,9 @@ def _apply_runtime_defaults(
     for key, value in quality_defaults.items():
         if key not in provided_keys or merged.get(key) is None:
             merged[key] = value
+    generation_mode = str(merged.get("generation_mode") or "Custom").strip()
+    if generation_mode in MODE_TO_TASK_TYPE:
+        merged["task_type"] = MODE_TO_TASK_TYPE[generation_mode]
     if (
         "lora_optimizer_type" not in provided_keys
         and "lora_use_8bit_adam" in payload
@@ -746,7 +750,7 @@ def _apply_runtime_defaults(
         if ui_key not in provided_keys or merged.get(ui_key) in (None, ""):
             merged[ui_key] = lora_optimizer_defaults[optimizer_key]
     merged["remix_preset"] = normalize_remix_preset(merged.get("remix_preset"))
-    if merged.get("generation_mode") == "Remix":
+    if generation_mode == "Remix":
         remix_strength, melody_retention = remix_preset_values(
             merged["remix_preset"]
         )
@@ -758,6 +762,8 @@ def _apply_runtime_defaults(
             "cover_noise_strength"
         ) is None:
             merged["cover_noise_strength"] = melody_retention
+    else:
+        merged["cover_noise_strength"] = 0.0
     _apply_gpu_tier_preset_migration(merged, provided_keys)
     _apply_cross_tab_defaults(merged, provided_keys)
     _sync_vocal_language_preset_values(merged, provided_keys)

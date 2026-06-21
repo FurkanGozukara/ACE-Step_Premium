@@ -308,10 +308,11 @@ class GenerateMusicMixin:
             audio_code_string=audio_code_string,
             instruction=instruction,
         )
-        if requested_task_type == "text2music" and cover_noise_strength > 0.0:
+        if requested_task_type not in ("cover", "cover-nofsq") and cover_noise_strength > 0.0:
             logger.info(
-                "[generate_music] text2music ignores cover_noise_strength {:.2f}; "
+                "[generate_music] task_type={!r} ignores cover_noise_strength {:.2f}; "
                 "source-audio retention is only applied to explicit source-audio tasks.",
+                requested_task_type,
                 cover_noise_strength,
             )
             cover_noise_strength = 0.0

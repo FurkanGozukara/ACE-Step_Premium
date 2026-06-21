@@ -145,6 +145,35 @@ class BatchManagementBackgroundTests(unittest.TestCase):
 
         self.assertTrue(seen["no_fsq"])
 
+    def test_background_text2music_defaults_cover_noise_to_zero(self):
+        """Background AutoGen should not apply Remix retention to text generation."""
+        module, _state = load_batch_management_module(is_windows=False)
+        seen = {}
+
+        def _gen(*_args, **kwargs):
+            """Capture generation kwargs and yield one synthetic result."""
+            seen["cover_noise_strength"] = kwargs.get("cover_noise_strength")
+            yield build_progress_result(length=56)
+
+        with patch.dict(module.generate_next_batch_background.__globals__, {"generate_with_progress": _gen}):
+            module.generate_next_batch_background(
+                None,
+                None,
+                autogen_enabled=True,
+                generation_params={
+                    "task_type": "text2music",
+                    "batch_size_input": 1,
+                    "allow_lm_batch": False,
+                    "auto_lrc": False,
+                },
+                current_batch_index=0,
+                total_batches=1,
+                batch_queue={},
+                is_format_caption=False,
+            )
+
+        self.assertEqual(seen["cover_noise_strength"], 0.0)
+
     def test_background_auto_lrc_copies_lrc_fields(self):
         """Background Auto-LRC should copy LRC/subtitle lists into queue entry."""
         module, _state = load_batch_management_module(is_windows=False)

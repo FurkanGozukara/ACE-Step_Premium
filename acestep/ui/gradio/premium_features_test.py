@@ -83,6 +83,28 @@ class PremiumFeaturesTests(unittest.TestCase):
             "Remix",
         )
 
+    def test_runtime_defaults_align_mode_task_type_and_retention(self) -> None:
+        """Loaded preset defaults should not leave Remix retention on text generation."""
+
+        custom = premium_features._apply_runtime_defaults(
+            {
+                "generation_mode": "Custom",
+                "task_type": "cover",
+                "cover_noise_strength": 0.97,
+            }
+        )
+        remix = premium_features._apply_runtime_defaults(
+            {
+                "generation_mode": "Remix",
+                "task_type": "text2music",
+            }
+        )
+
+        self.assertEqual(custom["task_type"], "text2music")
+        self.assertEqual(custom["cover_noise_strength"], 0.0)
+        self.assertEqual(remix["task_type"], "cover")
+        self.assertGreater(remix["cover_noise_strength"], 0.0)
+
     def test_no_system_preset_files_are_created(self) -> None:
         """The removed Premium Default/Turbo/Base files should not be regenerated."""
         with self._with_project_root() as tmp_dir:

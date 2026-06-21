@@ -136,6 +136,8 @@ def metadata_values_from_payload(
         default=None,
     )
     apply_simple_aliases(values, payload, generation_params)
+    if str(task_type or "").strip() not in ("cover", "cover-nofsq"):
+        values["cover_noise_strength"] = 0.0
     apply_audio_format_values(values, payload, task_type)
     apply_extract_values(values, payload, generation_params, task_type)
     apply_runtime_values(values, runtime)
