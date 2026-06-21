@@ -49,6 +49,7 @@ class _FakeDitHandler:
         lyrics="",
         audio_duration=None,
         src_audio=None,
+        vocal_language="unknown",
         **kwargs,
     ):
         self.generate_kwargs = {
@@ -59,6 +60,7 @@ class _FakeDitHandler:
             "lyrics": lyrics,
             "audio_duration": audio_duration,
             "src_audio": src_audio,
+            "vocal_language": vocal_language,
             **kwargs,
         }
         return {
@@ -79,20 +81,21 @@ class _FakeLlmHandler:
 
     llm_initialized = True
 
-    def __init__(self) -> None:
+    def __init__(self, metadata=None) -> None:
         self.generate_kwargs = {}
+        self.metadata = metadata or {
+            "bpm": 40,
+            "duration": 10,
+            "keyscale": "C major",
+            "timesignature": "4",
+            "language": "en",
+        }
 
     def generate_with_stop_condition(self, **kwargs):
         self.generate_kwargs = kwargs
         return {
             "success": True,
-            "metadata": {
-                "bpm": 40,
-                "duration": 10,
-                "keyscale": "C major",
-                "timesignature": "4",
-                "vocal_language": "en",
-            },
+            "metadata": self.metadata,
             "audio_codes": "<|audio_code_1|><|audio_code_2|>",
             "extra_outputs": {"time_costs": {}},
         }
@@ -196,6 +199,38 @@ class MetadataNormalizationTests(unittest.TestCase):
         )
 
         self.assertEqual(duration, 205.0)
+
+    def test_cot_language_field_updates_auto_vocal_language(self):
+        """The LM's canonical CoT language key should update auto language."""
+
+        *_, vocal_language, _, _ = _update_metadata_from_lm(
+            metadata={"language": "ja"},
+            bpm=120,
+            key_scale="",
+            time_signature="",
+            audio_duration=30,
+            vocal_language="unknown",
+            caption="",
+            lyrics="",
+        )
+
+        self.assertEqual(vocal_language, "ja")
+
+    def test_cot_language_field_does_not_override_explicit_vocal_language(self):
+        """Direct metadata normalization should keep an explicit user language."""
+
+        *_, vocal_language, _, _ = _update_metadata_from_lm(
+            metadata={"language": "ja"},
+            bpm=120,
+            key_scale="",
+            time_signature="",
+            audio_duration=30,
+            vocal_language="en",
+            caption="",
+            lyrics="",
+        )
+
+        self.assertEqual(vocal_language, "en")
 
 
 class SeedPlumbingTests(unittest.TestCase):
@@ -357,6 +392,44 @@ class LmAudioCodeRoutingTests(unittest.TestCase):
         self.assertEqual(llm_handler.generate_kwargs["infer_type"], "dit")
         self.assertEqual(dit_handler.generate_kwargs["audio_code_string"], "")
         self.assertEqual(result.audios[0]["params"]["audio_codes"], "")
+
+    def test_cot_language_field_reaches_dit_vocal_language(self):
+        """Parsed CoT `language` metadata should condition the DiT language."""
+
+        dit_handler = _FakeDitHandler(config_path="acestep-v15-xl-turbo")
+        llm_handler = _FakeLlmHandler(
+            metadata={
+                "bpm": 120,
+                "duration": 10,
+                "keyscale": "C major",
+                "timesignature": "4",
+                "language": "ja",
+            }
+        )
+        params = GenerationParams(
+            caption="anime rock",
+            lyrics="[verse]\nwords",
+            vocal_language="unknown",
+            duration=-1,
+            thinking=True,
+            use_cot_metas=True,
+            use_cot_language=True,
+        )
+        config = GenerationConfig(batch_size=1, use_random_seed=True, audio_format="wav")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = generate_music(
+                dit_handler,
+                llm_handler,
+                params=params,
+                config=config,
+                save_dir=temp_dir,
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual(dit_handler.generate_kwargs["vocal_language"], "ja")
+        self.assertEqual(result.audios[0]["params"]["vocal_language"], "ja")
+        self.assertEqual(result.audios[0]["params"]["cot_vocal_language"], "ja")
 
     def test_complete_lm_target_duration_uses_source_before_dit_lock(self):
         """Complete Think-mode codes should target source duration even when UI duration is auto."""

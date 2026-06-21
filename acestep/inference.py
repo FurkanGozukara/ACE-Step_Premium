@@ -398,6 +398,8 @@ def _update_metadata_from_lm(
 ) -> Tuple[Optional[int], str, str, Optional[float], str, str, str]:
     """Update metadata fields from LM output if not provided by user."""
 
+    metadata_vocal_language = _metadata_vocal_language(metadata)
+
     if bpm is None and metadata.get('bpm'):
         normalized_bpm = _normalize_lm_bpm(
             metadata.get('bpm'),
@@ -432,13 +434,29 @@ def _update_metadata_from_lm(
             caption=caption,
         )
 
-    if not vocal_language and metadata.get('vocal_language'):
-        vocal_language = metadata.get('vocal_language')
+    if _is_auto_vocal_language(vocal_language) and metadata_vocal_language:
+        vocal_language = metadata_vocal_language
     if not caption and metadata.get('caption'):
         caption = metadata.get('caption')
     if not lyrics and metadata.get('lyrics'):
         lyrics = metadata.get('lyrics')
     return bpm, key_scale, time_signature, audio_duration, vocal_language, caption, lyrics
+
+
+def _metadata_vocal_language(metadata: Dict[str, Any]) -> str:
+    """Return the LM language metadata, accepting both old and CoT field names."""
+
+    language = str(metadata.get('vocal_language') or "").strip()
+    if not language:
+        language = str(metadata.get('language') or "").strip()
+    return "" if not language or language.upper() == "N/A" else language
+
+
+def _is_auto_vocal_language(vocal_language: str) -> bool:
+    """Return whether the current vocal language should accept LM detection."""
+
+    normalized = str(vocal_language or "").strip().lower()
+    return normalized in ("", "unknown", "auto")
 
 
 def _candidate_repaint_sidecars(src_audio: str) -> List[str]:
@@ -1065,7 +1083,7 @@ def generate_music(
                     params.cot_timesignature = time_signature
                 if (not params.duration or params.duration <= 0) and audio_duration and float(audio_duration) > 0:
                     params.cot_duration = audio_duration
-                if not params.vocal_language:
+                if _is_auto_vocal_language(params.vocal_language):
                     params.cot_vocal_language = vocal_language
                 if not params.caption:
                     params.cot_caption = caption
@@ -1089,7 +1107,9 @@ def generate_music(
                     "LM caption rewrite remains recorded as metadata only."
                 )
             if params.use_cot_language:
-                dit_input_vocal_language = lm_generated_metadata.get("vocal_language", dit_input_vocal_language)
+                lm_vocal_language = _metadata_vocal_language(lm_generated_metadata)
+                if lm_vocal_language:
+                    dit_input_vocal_language = lm_vocal_language
 
         if params.instrumental:
             dit_input_lyrics = "[Instrumental]"
