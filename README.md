@@ -46,6 +46,33 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+### 21 June 2026 V6.1 Update
+
+-   Same V6 zip file just run installer to update    
+-   Negative prompt feature implemented to every field    
+-   Works only with SFT and Base model since Turbo model has CFG 1
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/2d65f767-a8dd-47a9-8fde-5947c57a7340" />
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/63695372-57ff-415d-ba11-ff1533b772a6" />
+    
+-   New button Use Generated Result as Source added so that you can quickly set generated song to remix, edit, whatever you want to do    
+-   Useful for iterative processing
+
+<img height="600" alt="image" src="https://github.com/user-attachments/assets/ca61d80c-6546-448f-b6d3-7ca07dd77e88" />
+
+-   Advanced section of ACESTEP XL 1.5 app completely revamped and made much better as below
+
+<img width="3566" height="348" alt="image" src="https://github.com/user-attachments/assets/b60a58b6-7aa3-495c-86e0-4c4e0178af68" />
+
+<img width="3522" height="540" alt="image" src="https://github.com/user-attachments/assets/02032a43-55ee-489f-9a2c-d1b52b979a21" />
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/ca05e62c-c39a-410b-ab18-37ad4b2efd1b" />
+
+<img  height="600" alt="image" src="https://github.com/user-attachments/assets/47a140f2-1b85-4773-8dc7-b514d4799e6d" />
+
+
+
 ### 21 June 2026 V6.0 Update
 -   **Gangam Style in English :** [**https://x.com/SECourses/status/2068512611725975733**](https://x.com/SECourses/status/2068512611725975733)    
 -   This is a massive improvements and fixes update    
