@@ -64,6 +64,17 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                 max_lines=8,
                 buttons=["copy"],
             )
+            simple_negative_prompt = gr.Textbox(
+                label="Negative Prompt",
+                placeholder="Optional. Example: low quality, noise, distorted",
+                value=params.get("lm_negative_prompt", ""),
+                lines=1,
+                max_lines=2,
+                info=(
+                    "Only affects SFT and Base model quality paths where CFG is above 1. "
+                    "Turbo uses CFG 1, so this field is ignored there."
+                ),
+            )
             gr.Markdown(
                 WILDCARD_HELP_MARKDOWN,
                 elem_classes=["ace-wildcard-help"],
@@ -247,6 +258,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
 
     return {
         "simple_caption": simple_caption,
+        "simple_negative_prompt": simple_negative_prompt,
         "simple_enhance_caption_btn": simple_enhance_caption_btn,
         "simple_enhance_lyrics_btn": simple_enhance_lyrics_btn,
         "simple_lyrics": simple_lyrics,

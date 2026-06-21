@@ -32,6 +32,8 @@ class SimpleCreatePageTests(unittest.TestCase):
         self.assertEqual("tier6a", controls["simple_tier_dropdown"].value)
         self.assertEqual(480, controls["simple_duration"].maximum)
         self.assertEqual("int8_weight_only", controls["simple_quantization"].value)
+        self.assertEqual("", controls["simple_negative_prompt"].value)
+        self.assertIn("SFT and Base", controls["simple_negative_prompt"].info)
 
     def test_prefills_simple_lora_controls_from_generation_params(self) -> None:
         """The simple tab should display the same LoRA selection as Advanced."""

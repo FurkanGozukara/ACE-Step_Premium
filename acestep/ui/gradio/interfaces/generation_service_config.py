@@ -27,6 +27,8 @@ def create_service_config_content(
     defaults: dict[str, Any],
     init_params: dict[str, Any] | None,
     show_compile_toggle: bool = True,
+    title: str | None = None,
+    open_by_default: bool = True,
 ) -> dict[str, Any]:
     """Build service-configuration controls embedded inside the Settings accordion.
 
@@ -36,6 +38,8 @@ def create_service_config_content(
         defaults: Precomputed defaults from ``compute_init_defaults``.
         init_params: Optional startup state used to prefill control values.
         show_compile_toggle: Whether to render the service compile checkbox visibly.
+        title: Optional visible section title.
+        open_by_default: Whether the section starts expanded.
 
     Returns:
         A keyed component dictionary for all service configuration controls.
@@ -46,8 +50,8 @@ def create_service_config_content(
     service_mode = defaults["service_mode"]
 
     with gr.Accordion(
-        t("service.title"),
-        open=True,
+        title or t("service.title"),
+        open=open_by_default,
         visible=not service_mode,
         elem_classes=["has-info-container"],
     ) as service_config_accordion:

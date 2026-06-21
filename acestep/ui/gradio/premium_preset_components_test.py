@@ -29,6 +29,7 @@ class PremiumPresetComponentMapTests(unittest.TestCase):
             for simple_key in SIMPLE_CREATE_COMPONENT_ALIASES.values()
         }
         expected_alias_component = simple_page["simple_caption"]
+        expected_negative_prompt_component = simple_page["simple_negative_prompt"]
 
         component_map = build_preset_component_map(
             generation_section=generation_section,
@@ -44,6 +45,10 @@ class PremiumPresetComponentMapTests(unittest.TestCase):
             component_map["simple_create_caption"],
             expected_alias_component,
         )
+        self.assertIs(
+            component_map["simple_create_negative_prompt"],
+            expected_negative_prompt_component,
+        )
 
     def test_missing_schema_key_raises_clear_error(self) -> None:
         """Missing component keys should fail before Gradio event wiring."""
@@ -54,4 +59,3 @@ class PremiumPresetComponentMapTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

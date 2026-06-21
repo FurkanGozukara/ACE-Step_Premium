@@ -31,7 +31,7 @@ def create_advanced_settings_section(
     language: str = "en",
     show_compile_toggle: bool = True,
 ) -> dict[str, Any]:
-    """Create the Settings accordion and return advanced generation controls.
+    """Create advanced generation controls as separate part accordions.
 
     Args:
         dit_handler: DiT service handler used for model-aware control defaults.
@@ -63,31 +63,46 @@ def create_advanced_settings_section(
         )
         ui_config = get_ui_control_config_for_path(selected_config_path)
 
+    lora_components = build_lora_controls(
+        title=t("generation.engine_lora_section"),
+        open_by_default=False,
+    )
+    dit_components = build_dit_controls(
+        ui_config,
+        think_enabled=lm_initialized,
+        title=t("generation.engine_dit_section"),
+        open_by_default=False,
+    )
     with gr.Accordion(
-        t("generation.advanced_settings"),
+        t("generation.engine_lm_output_section"),
         open=False,
-    ) as advanced_settings_accordion:
-        service_components = create_service_config_content(
-            dit_handler=dit_handler,
-            llm_handler=llm_handler,
-            defaults=defaults,
-            init_params=init_params,
-            show_compile_toggle=show_compile_toggle,
-        )
-        lora_components = build_lora_controls()
-        dit_components = build_dit_controls(ui_config, think_enabled=lm_initialized)
+        elem_classes=["has-info-container"],
+    ):
+        gr.Markdown(f"#### {t('generation.advanced_lm_section')}")
         lm_components = build_lm_controls(
             service_mode=service_mode,
             generate_lm_audio_codes_default=True,
+            wrap_accordion=False,
         )
+        gr.Markdown(f"#### {t('generation.advanced_output_section')}")
         output_components = build_output_controls(
             service_pre_initialized=service_pre_initialized,
             service_mode=service_mode,
             init_params=init_params,
+            wrap_accordion=False,
         )
-        automation_components = build_automation_controls(service_mode=service_mode)
+    automation_components = build_automation_controls(service_mode=service_mode)
+    service_components = create_service_config_content(
+        dit_handler=dit_handler,
+        llm_handler=llm_handler,
+        defaults=defaults,
+        init_params=init_params,
+        show_compile_toggle=show_compile_toggle,
+        title=t("generation.engine_service_section"),
+        open_by_default=False,
+    )
 
-    result: dict[str, Any] = {"advanced_settings_accordion": advanced_settings_accordion}
+    result: dict[str, Any] = {}
     result.update(dit_components)
     result.update(lm_components)
     result.update(output_components)

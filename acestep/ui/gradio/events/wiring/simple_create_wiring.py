@@ -81,6 +81,10 @@ def register_simple_create_handlers(
         simple_page=simple_page,
         generation_section=generation_section,
     )
+    _register_negative_prompt_sync_handlers(
+        simple_page=simple_page,
+        generation_section=generation_section,
+    )
 
     _register_simple_enhance_handlers(
         simple_page=simple_page,
@@ -271,6 +275,7 @@ def build_simple_prepare_inputs(simple_page: dict[str, Any]) -> list[Any]:
         simple_page["simple_key_scale_state"],
         simple_page["simple_time_signature_state"],
         simple_page["simple_is_format_caption_state"],
+        simple_page["simple_negative_prompt"],
     ]
 
 
@@ -361,6 +366,7 @@ def build_simple_prepare_outputs(
         generation_section["custom_timesteps"],
         generation_section["dcw_wavelet"],
         generation_section["generate_lm_audio_codes"],
+        generation_section["lm_negative_prompt"],
     ]
 
 
@@ -392,6 +398,37 @@ def _sync_vocal_language_value(value: Any) -> Any:
 
     text = str(value or "").strip()
     return text or "unknown"
+
+
+def _register_negative_prompt_sync_handlers(
+    *,
+    simple_page: dict[str, Any],
+    generation_section: dict[str, Any],
+) -> None:
+    """Keep Generate Song and advanced negative prompts synchronized."""
+
+    for event_name in ("input", "change"):
+        getattr(simple_page["simple_negative_prompt"], event_name)(
+            fn=_sync_negative_prompt_value,
+            inputs=[simple_page["simple_negative_prompt"]],
+            outputs=[generation_section["lm_negative_prompt"]],
+            show_progress="hidden",
+            show_progress_on=[],
+        )
+        getattr(generation_section["lm_negative_prompt"], event_name)(
+            fn=_sync_negative_prompt_value,
+            inputs=[generation_section["lm_negative_prompt"]],
+            outputs=[simple_page["simple_negative_prompt"]],
+            show_progress="hidden",
+            show_progress_on=[],
+        )
+
+
+def _sync_negative_prompt_value(value: Any) -> str:
+    """Normalize negative prompt sync values across simple and advanced fields."""
+
+    text = str(value or "").strip()
+    return "" if text.upper() == "NO USER INPUT" else text
 
 
 def _register_simple_enhance_handlers(

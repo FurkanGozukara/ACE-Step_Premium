@@ -105,6 +105,15 @@ def build_custom_mode_controls() -> dict[str, Any]:
                             info=t("generation.caption_info"),
                             elem_classes=["has-info-container"],
                         )
+                        lm_negative_prompt = gr.Textbox(
+                            label=t("generation.lm_negative_prompt_label"),
+                            value="",
+                            placeholder=t("generation.lm_negative_prompt_placeholder"),
+                            info=t("generation.lm_negative_prompt_info"),
+                            lines=1,
+                            max_lines=2,
+                            elem_classes=["has-info-container"],
+                        )
                         gr.Markdown(
                             WILDCARD_HELP_MARKDOWN,
                             elem_classes=["ace-wildcard-help"],
@@ -158,6 +167,7 @@ def build_custom_mode_controls() -> dict[str, Any]:
         "reference_audio_preview": reference_audio_preview,
         "reference_video_preview": reference_video_preview,
         "captions": captions,
+        "lm_negative_prompt": lm_negative_prompt,
         "format_caption_btn": format_caption_btn,
         "lyrics": lyrics,
         "instrumental_checkbox": instrumental_checkbox,

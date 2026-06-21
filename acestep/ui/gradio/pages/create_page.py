@@ -90,7 +90,6 @@ def create_generation_workspace_page(
                     results_section = create_results_section(dit_handler)
 
         with gr.Group():
-            gr.Markdown("### Engine Settings")
             settings_section = create_advanced_settings_section(
                 dit_handler=dit_handler,
                 llm_handler=llm_handler,

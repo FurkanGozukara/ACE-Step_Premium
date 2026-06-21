@@ -13,6 +13,7 @@ from acestep.ui.gradio.events.wiring.audio_processing_wiring import (
 from acestep.ui.gradio.events.wiring.generation_upload_handlers import (
     finalize_src_audio_upload,
     handle_src_audio_upload,
+    use_generated_result_as_source,
 )
 from acestep.ui.gradio.events.wiring.media_upload_preview import (
     PREVIEW_AUDIO_SECONDS,
@@ -238,6 +239,119 @@ class MediaUploadPreviewTests(unittest.TestCase):
         extract_mock.assert_called_once_with("clip.mp4", progress=progress)
         duration_mock.assert_called_once_with("clip.mp4", "Complete")
         self.assertGreaterEqual(progress.call_count, 3)
+
+    @patch("acestep.ui.gradio.events.wiring.generation_upload_handlers.gr.Info")
+    @patch(
+        "acestep.ui.gradio.events.wiring.generation_upload_handlers."
+        "preview_source_range",
+        return_value=(
+            {"value": "range.wav", "visible": True, "__type__": "update"},
+            {"value": None, "visible": False, "__type__": "update"},
+        ),
+    )
+    @patch(
+        "acestep.ui.gradio.events.wiring.generation_upload_handlers.gen_h."
+        "handle_extract_src_audio_change",
+        return_value={"value": 42.0, "__type__": "update"},
+    )
+    def test_use_generated_result_as_source_updates_source_preview_and_remix_range(
+        self,
+        duration_mock,
+        range_preview_mock,
+        info_mock,
+    ):
+        """Inline generated audio should replace the Remix source and full range."""
+
+        (
+            src_audio,
+            audio_update,
+            video_update,
+            duration_update,
+            original,
+            start_update,
+            end_update,
+            range_audio_update,
+            range_video_update,
+        ) = (
+            use_generated_result_as_source("generated.wav", "Remix", 12.0, 20.0)
+        )
+
+        self.assertEqual(src_audio, "generated.wav")
+        self.assertEqual(audio_update.get("value"), "generated.wav")
+        self.assertTrue(audio_update.get("visible"))
+        self.assertIsNone(video_update.get("value"))
+        self.assertFalse(video_update.get("visible"))
+        self.assertEqual(duration_update.get("value"), 42.0)
+        self.assertEqual(original, "generated.wav")
+        self.assertEqual(start_update.get("value"), 0.0)
+        self.assertEqual(end_update.get("value"), -1)
+        self.assertEqual(range_audio_update.get("value"), "range.wav")
+        self.assertTrue(range_audio_update.get("visible"))
+        self.assertIsNone(range_video_update.get("value"))
+        self.assertFalse(range_video_update.get("visible"))
+        duration_mock.assert_called_once_with("generated.wav", "Remix")
+        range_preview_mock.assert_called_once_with(
+            "generated.wav",
+            "generated.wav",
+            "generated.wav",
+            0.0,
+            -1,
+            "Remix",
+        )
+        info_mock.assert_called_once()
+
+    @patch("acestep.ui.gradio.events.wiring.generation_upload_handlers.gr.Info")
+    @patch(
+        "acestep.ui.gradio.events.wiring.generation_upload_handlers."
+        "preview_source_range",
+        return_value=(
+            {"value": "complete_range.wav", "visible": True, "__type__": "update"},
+            {"value": None, "visible": False, "__type__": "update"},
+        ),
+    )
+    @patch(
+        "acestep.ui.gradio.events.wiring.generation_upload_handlers.gen_h."
+        "handle_extract_src_audio_change",
+        return_value={"value": 42.0, "__type__": "update"},
+    )
+    def test_use_generated_result_as_source_preserves_non_remix_range(
+        self,
+        duration_mock,
+        range_preview_mock,
+        info_mock,
+    ):
+        """Repaint/Lego/Complete ranges should be preserved and previewed."""
+
+        updates = use_generated_result_as_source("generated.wav", "Complete", 12.0, 20.0)
+
+        self.assertEqual(updates[5], {"__type__": "update"})
+        self.assertEqual(updates[6], {"__type__": "update"})
+        self.assertEqual(updates[7].get("value"), "complete_range.wav")
+        self.assertTrue(updates[7].get("visible"))
+        duration_mock.assert_called_once_with("generated.wav", "Complete")
+        range_preview_mock.assert_called_once_with(
+            "generated.wav",
+            "generated.wav",
+            "generated.wav",
+            12.0,
+            20.0,
+            "Complete",
+        )
+        info_mock.assert_called_once()
+
+    @patch("acestep.ui.gradio.events.wiring.generation_upload_handlers.gr.Warning")
+    def test_use_generated_result_as_source_without_audio_skips_updates(
+        self,
+        warning_mock,
+    ):
+        """Clicking the source-copy action before generation should be a no-op."""
+
+        updates = use_generated_result_as_source(None, "Remix")
+
+        self.assertEqual(len(updates), 9)
+        for update in updates:
+            self.assertEqual(update, {"__type__": "update"})
+        warning_mock.assert_called_once()
 
     def test_video_upload_shows_video_preview(self):
         """Video-only fields should show uploaded video previews."""

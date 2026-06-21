@@ -221,13 +221,27 @@ def build_generate_row_controls(
                     elem_classes=TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
                     waveform_options=TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
                 )
-            inline_generation_status = gr.Textbox(
-                label=t("generation.inline_result_status_label"),
-                interactive=False,
-                lines=3,
-                max_lines=3,
-                autoscroll=True,
-            )
+            with gr.Row(equal_height=True):
+                with gr.Column(scale=1, min_width=220):
+                    use_inline_result_as_source_btn = gr.Button(
+                        "Use Generated Result as Source",
+                        variant="secondary",
+                        size="lg",
+                        elem_id="acestep-use-inline-result-as-source-btn",
+                        elem_classes=[
+                            "action-btn",
+                            "action-btn-source",
+                            "action-btn-inline-source",
+                        ],
+                    )
+                with gr.Column(scale=5, min_width=420):
+                    inline_generation_status = gr.Textbox(
+                        label=t("generation.inline_result_status_label"),
+                        interactive=False,
+                        lines=3,
+                        max_lines=3,
+                        autoscroll=True,
+                    )
             batch_extract_controls = build_batch_extract_controls()
     return {
         "think_checkbox": think_checkbox,
@@ -248,6 +262,7 @@ def build_generate_row_controls(
         "inline_repainted_area_audio": inline_repainted_area_audio,
         "inline_repainted_area_original_audio": inline_repainted_area_original_audio,
         "inline_lego_part_audio": inline_lego_part_audio,
+        "use_inline_result_as_source_btn": use_inline_result_as_source_btn,
         "inline_generation_status": inline_generation_status,
         **batch_extract_controls,
     }

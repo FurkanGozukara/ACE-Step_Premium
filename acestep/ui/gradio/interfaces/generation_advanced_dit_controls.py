@@ -10,19 +10,31 @@ from acestep.ui.gradio.help_content import create_help_button
 from acestep.ui.gradio.i18n import t
 
 
-def build_dit_controls(ui_config: dict[str, Any], think_enabled: bool = False) -> dict[str, Any]:
+def build_dit_controls(
+    ui_config: dict[str, Any],
+    think_enabled: bool = False,
+    *,
+    title: str | None = None,
+    open_by_default: bool = True,
+) -> dict[str, Any]:
     """Create DiT diffusion controls for advanced settings.
 
     Args:
         ui_config: Visibility/range/value configuration returned by generation handler UI config logic.
         think_enabled: Whether initial Think-mode DCW defaults should be used.
+        title: Optional visible section title.
+        open_by_default: Whether the section starts expanded.
 
     Returns:
         A component map containing DiT sampling, CFG interval, ADG, and shift controls.
     """
     dcw_defaults = get_dcw_defaults_for_think(think_enabled)
 
-    with gr.Accordion(t("generation.advanced_dit_section"), open=True, elem_classes=["has-info-container"]):
+    with gr.Accordion(
+        title or t("generation.advanced_dit_section"),
+        open=open_by_default,
+        elem_classes=["has-info-container"],
+    ):
         create_help_button("generation_advanced")
         with gr.Row():
             inference_steps = gr.Slider(
@@ -126,6 +138,7 @@ def build_dit_controls(ui_config: dict[str, Any], think_enabled: bool = False) -
                 elem_classes=["has-info-container"],
                 visible=ui_config["use_adg_visible"],
             )
+        with gr.Row():
             shift = gr.Slider(
                 minimum=ui_config["shift_minimum"],
                 maximum=ui_config["shift_maximum"],
@@ -135,14 +148,15 @@ def build_dit_controls(ui_config: dict[str, Any], think_enabled: bool = False) -
                 info=t("generation.shift_info"),
                 elem_classes=["has-info-container"],
                 visible=ui_config["shift_visible"],
+                scale=1,
             )
-        with gr.Row():
             custom_timesteps = gr.Textbox(
                 label=t("generation.custom_timesteps_label"),
                 placeholder="0.97,0.76,0.615,0.5,0.395,0.28,0.18,0.085,0",
                 value="",
                 info=t("generation.custom_timesteps_info"),
                 elem_classes=["has-info-container"],
+                scale=1,
             )
         with gr.Row():
             cfg_interval_start = gr.Slider(

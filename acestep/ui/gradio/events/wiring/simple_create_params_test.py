@@ -28,6 +28,8 @@ VELOCITY_NORM_THRESHOLD_INDEX = 40
 VELOCITY_EMA_FACTOR_INDEX = 41
 CUSTOM_TIMESTEPS_INDEX = 42
 DCW_WAVELET_INDEX = 43
+GENERATE_LM_AUDIO_CODES_INDEX = 44
+NEGATIVE_PROMPT_INDEX = 45
 
 
 class SimpleCreateParamsTests(unittest.TestCase):
@@ -309,6 +311,45 @@ class SimpleCreateParamsTests(unittest.TestCase):
 
         self.assertFalse(result[11])
         self.assertEqual(result[12], "12345")
+
+    def test_negative_prompt_is_forwarded_at_end_of_contract(self):
+        """Simple negative prompt should feed the shared advanced field."""
+
+        result = prepare_simple_generation(
+            caption="cinematic pop",
+            lyrics="verse",
+            vocal_language="en",
+            instrumental=False,
+            vocal_gender="male",
+            duration=60,
+            batch_size=1,
+            random_seed=True,
+            seed="-1",
+            quantization="none",
+            negative_prompt="low quality, noise",
+        )
+
+        self.assertIsInstance(result[GENERATE_LM_AUDIO_CODES_INDEX], bool)
+        self.assertEqual(result[NEGATIVE_PROMPT_INDEX], "low quality, noise")
+
+    def test_negative_prompt_old_sentinel_maps_to_empty(self):
+        """The old NO USER INPUT UI sentinel should behave like an empty prompt."""
+
+        result = prepare_simple_generation(
+            caption="cinematic pop",
+            lyrics="verse",
+            vocal_language="en",
+            instrumental=False,
+            vocal_gender="male",
+            duration=60,
+            batch_size=1,
+            random_seed=True,
+            seed="-1",
+            quantization="none",
+            negative_prompt="NO USER INPUT",
+        )
+
+        self.assertEqual(result[NEGATIVE_PROMPT_INDEX], "")
 
 
 if __name__ == "__main__":

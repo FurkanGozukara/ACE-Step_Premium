@@ -66,7 +66,7 @@ def default_metadata_values() -> dict[str, Any]:
         "lm_cfg_scale": 2.0,
         "lm_top_k": 0,
         "lm_top_p": 0.9,
-        "lm_negative_prompt": "NO USER INPUT",
+        "lm_negative_prompt": "",
         "use_cot_metas": True,
         "use_cot_caption": False,
         "use_cot_language": False,

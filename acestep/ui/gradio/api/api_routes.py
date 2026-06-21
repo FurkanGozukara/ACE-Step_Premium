@@ -526,7 +526,7 @@ async def release_task(request: Request, authorization: Optional[str] = Header(N
             generate_lm_audio_codes=generate_lm_audio_codes,
             lm_temperature=lm_temperature,
             lm_cfg_scale=float(get_param("lm_cfg_scale", default=2.0) or 2.0),
-            lm_negative_prompt=get_param("lm_negative_prompt", default="NO USER INPUT") or "NO USER INPUT",
+            lm_negative_prompt=get_param("lm_negative_prompt", default="") or "",
             repaint_latent_crossfade_frames=int(
                 get_param("repaint_latent_crossfade_frames", default=10) or 10,
             ),

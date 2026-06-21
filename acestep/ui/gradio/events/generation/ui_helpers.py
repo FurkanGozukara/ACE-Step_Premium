@@ -21,8 +21,9 @@ from .validation import _has_reference_audio
 
 
 def update_negative_prompt_visibility(init_llm_checked):
-    """Update negative prompt visibility: show if Initialize 5Hz LM checkbox is checked."""
-    return gr.update(visible=init_llm_checked)
+    """Keep the negative prompt visible; the field explains model-specific limits."""
+    _ = init_llm_checked
+    return gr.update(visible=True)
 
 
 def update_dcw_defaults_for_think(think_enabled: bool):

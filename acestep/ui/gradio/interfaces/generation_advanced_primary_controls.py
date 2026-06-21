@@ -1,5 +1,6 @@
 """Primary advanced-settings controls for generation UI."""
 
+from contextlib import nullcontext
 from typing import Any
 
 import gradio as gr
@@ -8,17 +9,33 @@ from acestep.core.generation.handler.lora.folder_scan import lora_dropdown_choic
 from acestep.ui.gradio.i18n import t
 
 
-def build_lora_controls() -> dict[str, Any]:
+def build_lora_controls(
+    *,
+    title: str | None = None,
+    open_by_default: bool = True,
+    wrap_accordion: bool = True,
+) -> dict[str, Any]:
     """Create LoRA adapter controls for selecting and scaling inference adapters.
 
     Args:
-        None.
+        title: Optional visible section title.
+        open_by_default: Whether the section starts expanded.
+        wrap_accordion: Whether to create an accordion wrapper around controls.
 
     Returns:
         A component map containing LoRA selection, scale, and status controls.
     """
 
-    with gr.Accordion(t("generation.lora_accordion_title"), open=True, elem_classes=["has-info-container"]):
+    section = (
+        gr.Accordion(
+            title or t("generation.lora_accordion_title"),
+            open=open_by_default,
+            elem_classes=["has-info-container"],
+        )
+        if wrap_accordion
+        else nullcontext()
+    )
+    with section:
         with gr.Row():
             lora_path = gr.Textbox(
                 label=t("generation.lora_path_label"),
@@ -55,13 +72,14 @@ def build_lora_controls() -> dict[str, Any]:
                 info=t("generation.lora_scale_info"),
                 scale=2,
             )
-        lora_status = gr.Textbox(
-            label=t("generation.lora_status_label"),
-            value=t("generation.lora_status_default"),
-            interactive=False,
-            lines=1,
-            elem_classes=["no-tooltip"],
-        )
+            lora_status = gr.Textbox(
+                label=t("generation.lora_status_label"),
+                value=t("generation.lora_status_default"),
+                interactive=False,
+                lines=1,
+                scale=2,
+                elem_classes=["no-tooltip"],
+            )
     return {
         "lora_path": lora_path,
         "lora_dropdown": lora_dropdown,
@@ -75,18 +93,34 @@ def build_lora_controls() -> dict[str, Any]:
 def build_lm_controls(
     service_mode: bool,
     generate_lm_audio_codes_default: bool = True,
+    *,
+    title: str | None = None,
+    open_by_default: bool = True,
+    wrap_accordion: bool = True,
 ) -> dict[str, Any]:
     """Create language-model generation controls for advanced settings.
 
     Args:
         service_mode: Whether the UI is running in service mode (disables some controls).
         generate_lm_audio_codes_default: Initial semantic-code generation toggle value.
+        title: Optional visible section title.
+        open_by_default: Whether the section starts expanded.
+        wrap_accordion: Whether to create an accordion wrapper around controls.
 
     Returns:
         A component map containing LM sampling, CoT, negative prompt, and batch controls.
     """
 
-    with gr.Accordion(t("generation.advanced_lm_section"), open=True, elem_classes=["has-info-container"]):
+    section = (
+        gr.Accordion(
+            title or t("generation.advanced_lm_section"),
+            open=open_by_default,
+            elem_classes=["has-info-container"],
+        )
+        if wrap_accordion
+        else nullcontext()
+    )
+    with section:
         with gr.Row():
             lm_temperature = gr.Slider(
                 label=t("generation.lm_temperature_label"),
@@ -128,15 +162,6 @@ def build_lm_controls(
                 scale=1,
                 info=t("generation.lm_top_p_info"),
                 elem_classes=["has-info-container"],
-            )
-        with gr.Row():
-            lm_negative_prompt = gr.Textbox(
-                label=t("generation.lm_negative_prompt_label"),
-                value="NO USER INPUT",
-                placeholder=t("generation.lm_negative_prompt_placeholder"),
-                info=t("generation.lm_negative_prompt_info"),
-                elem_classes=["has-info-container"],
-                lines=2,
             )
         with gr.Row():
             use_cot_metas = gr.Checkbox(
@@ -197,7 +222,6 @@ def build_lm_controls(
         "lm_cfg_scale": lm_cfg_scale,
         "lm_top_k": lm_top_k,
         "lm_top_p": lm_top_p,
-        "lm_negative_prompt": lm_negative_prompt,
         "use_cot_metas": use_cot_metas,
         "use_cot_language": use_cot_language,
         "constrained_decoding_debug": constrained_decoding_debug,

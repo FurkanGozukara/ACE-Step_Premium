@@ -30,6 +30,7 @@ def prepare_simple_generation(
     formatted_key_scale: Any = "",
     formatted_time_signature: Any = "",
     is_format_caption: bool | None = False,
+    negative_prompt: str = "",
 ) -> tuple[Any, ...]:
     """Map simple Create inputs onto the full generation component contract."""
 
@@ -101,6 +102,7 @@ def prepare_simple_generation(
         quality_defaults["custom_timesteps"],
         quality_defaults["dcw_wavelet"],
         quality_defaults["generate_lm_audio_codes"],
+        _normalize_negative_prompt(negative_prompt),
     )
 
 
@@ -200,6 +202,13 @@ def _normalize_text_value(value: Any) -> str:
     if not text or text.lower() == "n/a":
         return ""
     return text
+
+
+def _normalize_negative_prompt(value: Any) -> str:
+    """Return the negative prompt text; the old sentinel should behave as empty."""
+
+    text = str(value or "").strip()
+    return "" if text.upper() == "NO USER INPUT" else text
 
 
 def _is_auto_duration(duration: float) -> bool:

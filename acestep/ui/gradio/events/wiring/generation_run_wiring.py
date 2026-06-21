@@ -12,6 +12,7 @@ from ..generation.cancel_actions import (
 from ...media_upload_values import latest_upload_path
 from .context import GenerationWiringContext
 from .audio_processing_wiring import audio_processing_generation_inputs
+from .generation_upload_handlers import use_generated_result_as_source
 from .sam_audio_wiring import sam_audio_generation_inputs
 from .inline_result_preview import (
     append_inline_result_preview,
@@ -260,6 +261,31 @@ def register_generation_run_handlers(context: GenerationWiringContext) -> None:
     results_section = context.results_section
     dit_handler = context.dit_handler
     llm_handler = context.llm_handler
+
+    generation_section["use_inline_result_as_source_btn"].click(
+        fn=use_generated_result_as_source,
+        inputs=[
+            generation_section["inline_generated_audio"],
+            generation_section["generation_mode"],
+            generation_section["repainting_start"],
+            generation_section["repainting_end"],
+        ],
+        outputs=[
+            generation_section["src_audio"],
+            generation_section["src_audio_preview"],
+            generation_section["src_video_preview"],
+            generation_section["audio_duration"],
+            generation_section["src_audio_preview_original"],
+            generation_section["repainting_start"],
+            generation_section["repainting_end"],
+            generation_section["repainting_range_preview_audio"],
+            generation_section["repainting_range_preview_video"],
+        ],
+        show_progress_on=[
+            generation_section["src_audio_preview"],
+            generation_section["inline_generation_status"],
+        ],
+    )
 
     def generation_wrapper(*args):
         """Stream generation outputs and mirror status into the inline preview.

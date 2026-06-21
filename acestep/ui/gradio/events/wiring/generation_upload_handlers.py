@@ -11,6 +11,7 @@ from .media_upload_preview import (
     preview_audio_purpose_upload,
     preview_audio_purpose_upload_direct,
 )
+from .media_range_preview import preview_source_range
 from ...media_upload_values import latest_upload_path, resolve_effective_source_audio
 
 
@@ -84,6 +85,57 @@ def handle_src_audio_preview_change(
     return gen_h.handle_extract_src_audio_change(effective_source, mode)
 
 
+def use_generated_result_as_source(
+    generated_audio: Any,
+    mode: str,
+    repainting_start: Any = 0.0,
+    repainting_end: Any = -1,
+) -> tuple[Any, Any, Any, Any, str | None, Any, Any, Any, Any]:
+    """Use the latest inline generated result as the Advanced source audio.
+
+    Args:
+        generated_audio: Latest generated audio value from the inline preview.
+        mode: Current generation mode, used for source-locked duration updates.
+        repainting_start: Current source segment start in seconds.
+        repainting_end: Current source segment end in seconds, or ``-1`` for source end.
+
+    Returns:
+        Source upload, audio preview, video preview, duration, original preview
+        state, Remix source start, Remix source end, selected-range audio preview,
+        and selected-range video preview updates.
+    """
+
+    generated_path = latest_upload_path(generated_audio)
+    if not generated_path:
+        gr.Warning("Generate a result first, then use it as Source Audio.")
+        return (gr.skip(),) * 9
+    audio_preview, video_preview = preview_audio_purpose_upload_direct(generated_path)
+    duration_update = gen_h.handle_extract_src_audio_change(generated_path, mode)
+    range_start, range_end, source_start_update, source_end_update = (
+        _generated_source_range_values(mode, repainting_start, repainting_end)
+    )
+    range_audio_preview, range_video_preview = preview_source_range(
+        generated_path,
+        _update_value_path(audio_preview),
+        _update_value_path(audio_preview),
+        range_start,
+        range_end,
+        mode,
+    )
+    gr.Info("Generated result is now the Source Audio.")
+    return (
+        generated_path,
+        audio_preview,
+        video_preview,
+        duration_update,
+        _update_value_path(audio_preview),
+        source_start_update,
+        source_end_update,
+        range_audio_preview,
+        range_video_preview,
+    )
+
+
 def handle_reference_media_upload(dit_handler: Any, *args: Any) -> tuple[Any, Any, Any]:
     """Return instruction and preview updates for Advanced reference uploads.
 
@@ -107,6 +159,14 @@ def _update_value_path(update: Any) -> str | None:
     if isinstance(update, dict):
         return latest_upload_path(update.get("value"))
     return latest_upload_path(update)
+
+
+def _generated_source_range_values(mode: Any, start: Any, end: Any) -> tuple[Any, Any, Any, Any]:
+    """Return effective range values plus Gradio control updates for source copy."""
+
+    if str(mode or "").strip().lower() != "remix":
+        return start, end, gr.skip(), gr.skip()
+    return 0.0, -1, gr.update(value=0.0), gr.update(value=-1)
 
 
 def _report_progress(progress: Any | None, value: float, desc: str) -> None:

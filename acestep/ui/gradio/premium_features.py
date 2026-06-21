@@ -414,7 +414,9 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "lyrics": DEFAULT_PRESET_LYRICS,
     "instrumental_checkbox": False,
     "simple_vocal_language": "en",
+    "simple_create_negative_prompt": "",
     "vocal_language": "en",
+    "lm_negative_prompt": "",
     "use_cot_caption": False,
     "use_cot_language": False,
     "repaint_dont_switch_with_lyrics": False,
@@ -759,6 +761,7 @@ def _apply_runtime_defaults(
     _apply_gpu_tier_preset_migration(merged, provided_keys)
     _apply_cross_tab_defaults(merged, provided_keys)
     _sync_vocal_language_preset_values(merged, provided_keys)
+    _sync_negative_prompt_preset_values(merged, provided_keys)
     raw_quantization = payload.get("quantization_checkbox")
     raw_simple_quantization = payload.get("simple_quantization")
     if raw_quantization in (None, "") and raw_simple_quantization not in (None, ""):
@@ -879,6 +882,13 @@ def _apply_cross_tab_defaults(merged: dict[str, Any], provided_keys: set[str]) -
     _copy_missing_value(
         merged,
         provided_keys,
+        "simple_create_negative_prompt",
+        "lm_negative_prompt",
+        "",
+    )
+    _copy_missing_value(
+        merged,
+        provided_keys,
         "simple_create_instrumental",
         "instrumental_checkbox",
         False,
@@ -977,6 +987,48 @@ def _preferred_vocal_language_preset_value(
             continue
         return text
     return "unknown" if saw_unknown else "en"
+
+
+def _sync_negative_prompt_preset_values(
+    merged: dict[str, Any],
+    provided_keys: set[str],
+) -> None:
+    """Keep Generate Song and advanced negative-prompt preset values aligned."""
+
+    value = _preferred_negative_prompt_preset_value(merged, provided_keys)
+    merged["lm_negative_prompt"] = value
+    merged["simple_create_negative_prompt"] = value
+
+
+def _preferred_negative_prompt_preset_value(
+    merged: dict[str, Any],
+    provided_keys: set[str],
+) -> str:
+    """Choose the saved negative prompt, preserving old empty/sentinel defaults."""
+
+    candidates: list[Any] = []
+    if "simple_create_negative_prompt" in provided_keys:
+        candidates.append(merged.get("simple_create_negative_prompt"))
+    if "lm_negative_prompt" in provided_keys:
+        candidates.append(merged.get("lm_negative_prompt"))
+    candidates.extend(
+        [
+            merged.get("simple_create_negative_prompt"),
+            merged.get("lm_negative_prompt"),
+        ]
+    )
+    for candidate in candidates:
+        text = _normalize_negative_prompt_preset_value(candidate)
+        if text:
+            return text
+    return ""
+
+
+def _normalize_negative_prompt_preset_value(value: Any) -> str:
+    """Return a trimmed preset value, mapping the old sentinel to blank."""
+
+    text = str(value or "").strip()
+    return "" if text.upper() == "NO USER INPUT" else text
 
 
 def _load_resolved_preset_payload(name: str | None) -> tuple[str, bool, dict[str, Any]]:
@@ -1432,6 +1484,7 @@ def save_preset_action(
         )
     payload = _values_to_payload(values)
     _sync_vocal_language_preset_values(payload, set(payload))
+    _sync_negative_prompt_preset_values(payload, set(payload))
     saved_name = _write_user_preset(requested_name, payload)
     return (
         gr.update(choices=list_preset_names(), value=saved_name),

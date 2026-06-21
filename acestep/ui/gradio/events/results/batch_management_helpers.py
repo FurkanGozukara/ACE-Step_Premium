@@ -273,7 +273,7 @@ def _apply_param_defaults(params):
         "think_checkbox": True, "lm_cfg_scale": 2.0,
         "generate_lm_audio_codes": None,
         "lm_top_k": 0, "lm_top_p": 0.9,
-        "lm_negative_prompt": "NO USER INPUT",
+        "lm_negative_prompt": "",
         "use_cot_metas": True, "use_cot_caption": False,
         "use_cot_language": False,
         "constrained_decoding_debug": False,

@@ -1,5 +1,6 @@
 """Output and automation controls for generation advanced settings."""
 
+from contextlib import nullcontext
 from typing import Any
 
 import gradio as gr
@@ -29,6 +30,10 @@ def build_output_controls(
     service_pre_initialized: bool,
     service_mode: bool,
     init_params: dict[str, Any] | None,
+    *,
+    title: str | None = None,
+    open_by_default: bool = True,
+    wrap_accordion: bool = True,
 ) -> dict[str, Any]:
     """Create audio-output and post-processing controls for advanced settings.
 
@@ -36,6 +41,9 @@ def build_output_controls(
         service_pre_initialized: Whether existing init params should prefill values.
         service_mode: Whether the UI is running in service mode (disables some controls).
         init_params: Optional startup state containing persisted output values.
+        title: Optional visible section title.
+        open_by_default: Whether the section starts expanded.
+        wrap_accordion: Whether to create an accordion wrapper around controls.
 
     Returns:
         A component map containing format, scoring, normalization, and latent controls.
@@ -44,7 +52,16 @@ def build_output_controls(
     params = init_params or {}
     initial_audio_format = params.get("audio_format", DEFAULT_AUDIO_FORMAT)
     initial_mp3_visible = mp3_controls_visible(initial_audio_format)
-    with gr.Accordion(t("generation.advanced_output_section"), open=True, elem_classes=["has-info-container"]):
+    section = (
+        gr.Accordion(
+            title or t("generation.advanced_output_section"),
+            open=open_by_default,
+            elem_classes=["has-info-container"],
+        )
+        if wrap_accordion
+        else nullcontext()
+    )
+    with section:
         with gr.Row():
             with gr.Column(scale=1):
                 with gr.Row(visible=initial_mp3_visible) as mp3_controls_row:
