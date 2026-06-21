@@ -57,28 +57,34 @@ def _compute_meta_updates_for_mode(
     leaving_extract_or_lego: bool,
 ):
     """Compute gr.update() for time_signature, vocal_language, audio_duration."""
-    if is_extract or is_lego:
+    if is_extract:
         return (
             gr.update(value="", interactive=False, visible=False),
             gr.update(value="unknown", interactive=False, visible=False),
+            gr.update(value=-1, interactive=False, visible=False),
+        )
+    if is_lego:
+        return (
+            gr.update(value="", interactive=False, visible=False),
+            gr.update(visible=True, interactive=True),
             gr.update(value=-1, interactive=False, visible=False),
         )
     if not_simple:
         if leaving_extract_or_lego:
             return (
                 gr.update(value="", visible=True, interactive=False),
-                gr.update(value="en", visible=True, interactive=False),
+                gr.update(visible=True, interactive=True),
                 gr.update(value=-1, visible=True, interactive=False),
             )
         return (
             gr.update(visible=True),
-            gr.update(visible=True),
+            gr.update(visible=True, interactive=True),
             gr.update(visible=True),
         )
     if leaving_extract_or_lego:
         return (
             gr.update(value=""),
-            gr.update(value="en"),
+            gr.update(),
             gr.update(value=-1),
         )
     return gr.update(), gr.update(), gr.update()

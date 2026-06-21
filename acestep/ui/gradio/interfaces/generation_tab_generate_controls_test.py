@@ -25,6 +25,21 @@ class GenerationTabGenerateControlsTests(unittest.TestCase):
             source.index("_build_seed_controls()"),
         )
 
+    def test_vocal_language_lives_next_to_think_in_runtime_row(self):
+        """Advanced Vocal Language should be a primary runtime control."""
+
+        source = _GENERATE_CONTROLS_PATH.read_text(encoding="utf-8")
+
+        self.assertIn('"vocal_language": vocal_language', source)
+        self.assertLess(
+            source.index("think_checkbox = gr.Checkbox"),
+            source.index("vocal_language = gr.Dropdown"),
+        )
+        self.assertLess(
+            source.index("vocal_language = gr.Dropdown"),
+            source.index("auto_score = gr.Checkbox"),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

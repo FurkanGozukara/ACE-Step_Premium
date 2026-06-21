@@ -6,6 +6,7 @@ import gradio as gr
 
 from acestep.gpu_config import get_global_gpu_config
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.language_choices import language_dropdown_choices
 from acestep.ui.gradio.interfaces.source_audio_preview import (
     TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
     TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
@@ -16,7 +17,7 @@ from .generation_tab_batch_extract_controls import build_batch_extract_controls
 def _build_left_generate_toggles(
     lm_initialized: bool,
     service_mode: bool,
-) -> tuple[gr.Checkbox, gr.Checkbox]:
+) -> tuple[gr.Checkbox, gr.Dropdown, gr.Checkbox]:
     """Create the first two runtime toggles shown above the generate button.
 
     Args:
@@ -24,7 +25,7 @@ def _build_left_generate_toggles(
         service_mode: Whether UI is in service mode, used to gate toggle interactivity.
 
     Returns:
-        The ``think_checkbox`` and ``auto_score`` controls in creation order.
+        The ``think_checkbox``, ``vocal_language``, and ``auto_score`` controls in creation order.
     """
 
     save_memory = get_global_gpu_config().save_memory_mode
@@ -38,6 +39,17 @@ def _build_left_generate_toggles(
         info=t("generation.think_info"),
         elem_classes=["has-info-container"],
     )
+    vocal_language = gr.Dropdown(
+        choices=language_dropdown_choices(),
+        value="en",
+        label=t("generation.vocal_language_label"),
+        info=t("generation.vocal_language_info"),
+        allow_custom_value=True,
+        interactive=True,
+        scale=1,
+        min_width=150,
+        elem_classes=["has-info-container", "ace-runtime-vocal-language"],
+    )
     auto_score = gr.Checkbox(
         label=t("generation.auto_score_label"),
         value=False,
@@ -46,7 +58,7 @@ def _build_left_generate_toggles(
         info=t("generation.auto_score_info"),
         elem_classes=["has-info-container"],
     )
-    return think_checkbox, auto_score
+    return think_checkbox, vocal_language, auto_score
 
 
 def _build_right_generate_toggles(service_mode: bool) -> tuple[gr.Checkbox, gr.Checkbox]:
@@ -125,7 +137,7 @@ def build_generate_row_controls(
     )
     with gr.Column(visible=True) as generate_btn_row:
         with gr.Row(equal_height=True, elem_classes=["ace-runtime-options-row"]) as runtime_options_row:
-            think_checkbox, auto_score = _build_left_generate_toggles(
+            think_checkbox, vocal_language, auto_score = _build_left_generate_toggles(
                 lm_initialized=lm_initialized,
                 service_mode=service_mode,
             )
@@ -219,6 +231,7 @@ def build_generate_row_controls(
             batch_extract_controls = build_batch_extract_controls()
     return {
         "think_checkbox": think_checkbox,
+        "vocal_language": vocal_language,
         "auto_score": auto_score,
         "runtime_options_row": runtime_options_row,
         "generate_btn": generate_btn,

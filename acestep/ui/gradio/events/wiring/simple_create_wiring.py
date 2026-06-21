@@ -77,6 +77,10 @@ def register_simple_create_handlers(
         simple_page=simple_page,
         generation_section=generation_section,
     )
+    _register_vocal_language_sync_handlers(
+        simple_page=simple_page,
+        generation_section=generation_section,
+    )
 
     _register_simple_enhance_handlers(
         simple_page=simple_page,
@@ -358,6 +362,36 @@ def build_simple_prepare_outputs(
         generation_section["dcw_wavelet"],
         generation_section["generate_lm_audio_codes"],
     ]
+
+
+def _register_vocal_language_sync_handlers(
+    *,
+    simple_page: dict[str, Any],
+    generation_section: dict[str, Any],
+) -> None:
+    """Keep Generate Song and advanced vocal-language dropdowns synchronized."""
+
+    simple_page["simple_vocal_language"].input(
+        fn=_sync_vocal_language_value,
+        inputs=[simple_page["simple_vocal_language"]],
+        outputs=[generation_section["vocal_language"]],
+        show_progress="hidden",
+        show_progress_on=[],
+    )
+    generation_section["vocal_language"].input(
+        fn=_sync_vocal_language_value,
+        inputs=[generation_section["vocal_language"]],
+        outputs=[simple_page["simple_vocal_language"]],
+        show_progress="hidden",
+        show_progress_on=[],
+    )
+
+
+def _sync_vocal_language_value(value: Any) -> Any:
+    """Return a dropdown-safe vocal-language value."""
+
+    text = str(value or "").strip()
+    return text or "unknown"
 
 
 def _register_simple_enhance_handlers(

@@ -59,8 +59,8 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertEqual(result[12], "-1")
         self.assertTrue(result[18])
         self.assertTrue(result[19])
-        self.assertTrue(result[20])
-        self.assertTrue(result[21])
+        self.assertFalse(result[20])
+        self.assertFalse(result[21])
         self.assertIn("Auto duration", result[26])
         self.assertEqual(result[INFERENCE_STEPS_INDEX], 8)
         self.assertEqual(result[GUIDANCE_SCALE_INDEX], 1.0)
@@ -141,8 +141,8 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertTrue(result[9])
         self.assertFalse(result[10])
         self.assertTrue(result[19])
-        self.assertTrue(result[20])
-        self.assertTrue(result[21])
+        self.assertFalse(result[20])
+        self.assertFalse(result[21])
         self.assertFalse(result[DCW_ENABLED_INDEX])
 
     def test_sft_auto_duration_uses_lm_planning(self):
@@ -168,8 +168,8 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertFalse(result[10])
         self.assertTrue(result[18])
         self.assertTrue(result[19])
-        self.assertTrue(result[20])
-        self.assertTrue(result[21])
+        self.assertFalse(result[20])
+        self.assertFalse(result[21])
         self.assertIn("Auto duration", result[26])
         self.assertFalse(result[DCW_ENABLED_INDEX])
         self.assertEqual(result[DCW_SCALER_INDEX], 0.0)
@@ -203,8 +203,8 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertEqual(result[12], "-1")
         self.assertFalse(result[18])
         self.assertTrue(result[19])
-        self.assertTrue(result[20])
-        self.assertTrue(result[21])
+        self.assertFalse(result[20])
+        self.assertFalse(result[21])
         self.assertIn("Fixed duration: 90s", result[26])
 
     def test_vocal_gender_rewrites_existing_prompt_gender(self):

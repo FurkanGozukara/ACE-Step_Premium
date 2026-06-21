@@ -148,7 +148,7 @@ def build_lm_controls(
             )
             use_cot_language = gr.Checkbox(
                 label=t("generation.cot_language_label"),
-                value=True,
+                value=False,
                 info=t("generation.cot_language_info"),
                 scale=1,
                 elem_classes=["has-info-container"],

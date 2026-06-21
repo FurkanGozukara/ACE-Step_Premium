@@ -16,6 +16,18 @@ from acestep.ui.gradio.events.results.generation_progress_sequence_test import (
 class GenerationProgressFlowEditParamsTest(unittest.TestCase):
     """Verify Gradio requests cannot pass invalid flow-edit params downstream."""
 
+    def test_cot_language_detection_ignores_dropdown_language(self) -> None:
+        """Manual CoT language detection should make the dropdown non-authoritative."""
+
+        self.assertEqual(
+            generation_progress._effective_vocal_language_for_generation("tr", False),
+            "tr",
+        )
+        self.assertEqual(
+            generation_progress._effective_vocal_language_for_generation("tr", True),
+            "unknown",
+        )
+
     def test_fractional_n_avg_becomes_one_before_generation(self) -> None:
         """The previous ``int(0.5)`` path should no longer pass ``0``."""
 

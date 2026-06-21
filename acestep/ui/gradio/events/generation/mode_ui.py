@@ -117,7 +117,7 @@ def compute_mode_ui_updates(
     show_repainting = is_cover or is_repaint or is_lego or is_complete
     show_audio_codes = is_custom
     show_complete_classes = is_complete
-    show_runtime_options = not (is_extract or is_lego)
+    show_runtime_options = not is_extract
     show_inline_audio_format = show_src_audio and not (is_extract or is_lego)
     has_extract_target = has_track_name or (is_extract and bool(extract_all_stems))
     generate_interactive = not_simple and not (

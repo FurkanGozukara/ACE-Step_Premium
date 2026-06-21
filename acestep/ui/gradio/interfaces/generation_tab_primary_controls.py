@@ -11,6 +11,30 @@ from .generation_tab_simple_controls import build_simple_mode_controls
 from .generation_tab_source_controls import build_source_track_and_code_controls
 
 
+DEFAULT_ADVANCED_GENERATION_MODE = "Remix"
+
+
+def _choice_value(choice: str | tuple[str, str]) -> str:
+    """Return the semantic value for a raw or labeled mode choice."""
+
+    if isinstance(choice, tuple):
+        return str(choice[1])
+    return str(choice)
+
+
+def _default_generation_mode_value(
+    initial_mode_choices: list[str | tuple[str, str]],
+) -> str:
+    """Return the default mode when the advanced tab is first opened."""
+
+    values = [_choice_value(choice) for choice in initial_mode_choices]
+    if DEFAULT_ADVANCED_GENERATION_MODE in values:
+        return DEFAULT_ADVANCED_GENERATION_MODE
+    if not values:
+        return DEFAULT_ADVANCED_GENERATION_MODE
+    return "Custom" if "Custom" in values else values[0]
+
+
 def build_mode_selector_controls(
     initial_mode_choices: list[str | tuple[str, str]],
 ) -> dict[str, Any]:
@@ -26,7 +50,7 @@ def build_mode_selector_controls(
     with gr.Row(equal_height=True):
         generation_mode = gr.Radio(
             choices=initial_mode_choices,
-            value="Custom",
+            value=_default_generation_mode_value(initial_mode_choices),
             label=t("generation.mode_label"),
             info=t("generation.mode_info_custom"),
             elem_id="acestep-generation-mode",
@@ -76,7 +100,7 @@ def build_hidden_generation_state() -> dict[str, Any]:
     )
     simple_sample_created = gr.State(value=False)
     lyrics_before_instrumental = gr.State(value="")
-    previous_generation_mode = gr.State(value="Custom")
+    previous_generation_mode = gr.State(value=DEFAULT_ADVANCED_GENERATION_MODE)
     return {
         "task_type": task_type,
         "instruction_display_gen": instruction_display_gen,

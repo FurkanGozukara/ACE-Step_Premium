@@ -4,7 +4,6 @@ from typing import Any
 
 import gradio as gr
 
-from acestep.ui.gradio.language_choices import language_dropdown_choices
 from acestep.ui.gradio.events.generation.generation_count import generation_count_info
 from acestep.ui.gradio.i18n import t
 
@@ -59,15 +58,6 @@ def build_optional_parameter_controls(
                 elem_classes=["has-info-container"],
                 interactive=False,
             )
-            vocal_language = gr.Dropdown(
-                choices=language_dropdown_choices(),
-                value="unknown",
-                label=t("generation.vocal_language_label"),
-                info=t("generation.vocal_language_info"),
-                allow_custom_value=True,
-                elem_classes=["has-info-container"],
-                interactive=False,
-            )
         with gr.Row(elem_classes=["auto-toggles-row"]):
             bpm_auto = gr.Checkbox(
                 label=t("generation.bpm_auto_label"),
@@ -92,6 +82,7 @@ def build_optional_parameter_controls(
                 value=True,
                 container=False,
                 elem_classes=["auto-toggle"],
+                visible=False,
             )
         with gr.Row():
             audio_duration = gr.Number(
@@ -142,7 +133,6 @@ def build_optional_parameter_controls(
         "bpm": bpm,
         "key_scale": key_scale,
         "time_signature": time_signature,
-        "vocal_language": vocal_language,
         "bpm_auto": bpm_auto,
         "key_auto": key_auto,
         "timesig_auto": timesig_auto,

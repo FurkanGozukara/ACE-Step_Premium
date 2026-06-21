@@ -409,10 +409,14 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "config_path": DEFAULT_TURBO_DIT_MODEL,
     "simple_model_dropdown": DEFAULT_TURBO_DIT_MODEL,
     "lm_model_path": "",
-    "generation_mode": "Custom",
+    "generation_mode": "Remix",
     "captions": DEFAULT_PRESET_CAPTION,
     "lyrics": DEFAULT_PRESET_LYRICS,
     "instrumental_checkbox": False,
+    "simple_vocal_language": "en",
+    "vocal_language": "en",
+    "use_cot_caption": False,
+    "use_cot_language": False,
     "repaint_dont_switch_with_lyrics": False,
     "audio_cover_strength": DEFAULT_AUDIO_COVER_STRENGTH,
     "cover_noise_strength": DEFAULT_REMIX_MELODY_RETENTION,
@@ -523,8 +527,8 @@ def model_quality_defaults(model_path: Any) -> dict[str, Any]:
         "think_checkbox": uses_lm_defaults,
         "generate_lm_audio_codes": True,
         "use_cot_metas": uses_lm_defaults,
-        "use_cot_caption": uses_lm_defaults,
-        "use_cot_language": uses_lm_defaults,
+        "use_cot_caption": False,
+        "use_cot_language": False,
         "allow_lm_batch": is_turbo,
         "dcw_enabled": dcw_enabled,
         "dcw_mode": dcw_defaults["mode"],
@@ -754,6 +758,7 @@ def _apply_runtime_defaults(
             merged["cover_noise_strength"] = melody_retention
     _apply_gpu_tier_preset_migration(merged, provided_keys)
     _apply_cross_tab_defaults(merged, provided_keys)
+    _sync_vocal_language_preset_values(merged, provided_keys)
     raw_quantization = payload.get("quantization_checkbox")
     raw_simple_quantization = payload.get("simple_quantization")
     if raw_quantization in (None, "") and raw_simple_quantization not in (None, ""):
@@ -928,6 +933,50 @@ def _copy_missing_value(
     if target_key in provided_keys and merged.get(target_key) is not None:
         return
     merged[target_key] = merged.get(source_key, fallback)
+
+
+def _sync_vocal_language_preset_values(
+    merged: dict[str, Any],
+    provided_keys: set[str],
+) -> None:
+    """Keep Generate Song and advanced vocal-language preset values aligned."""
+
+    value = _preferred_vocal_language_preset_value(merged, provided_keys)
+    merged["vocal_language"] = value
+    merged["simple_vocal_language"] = value
+    merged["simple_create_vocal_language"] = value
+
+
+def _preferred_vocal_language_preset_value(
+    merged: dict[str, Any],
+    provided_keys: set[str],
+) -> str:
+    """Choose the most explicit saved vocal-language value."""
+
+    candidates: list[Any] = []
+    if "vocal_language" in provided_keys:
+        candidates.append(merged.get("vocal_language"))
+    if "simple_vocal_language" in provided_keys:
+        candidates.append(merged.get("simple_vocal_language"))
+    if "simple_create_vocal_language" in provided_keys:
+        candidates.append(merged.get("simple_create_vocal_language"))
+    candidates.extend(
+        [
+            merged.get("vocal_language"),
+            merged.get("simple_vocal_language"),
+            merged.get("simple_create_vocal_language"),
+        ]
+    )
+    saw_unknown = False
+    for candidate in candidates:
+        text = str(candidate or "").strip()
+        if not text:
+            continue
+        if text.lower() == "unknown":
+            saw_unknown = True
+            continue
+        return text
+    return "unknown" if saw_unknown else "en"
 
 
 def _load_resolved_preset_payload(name: str | None) -> tuple[str, bool, dict[str, Any]]:
@@ -1353,35 +1402,18 @@ def startup_preset_updates(
     component_specs: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> tuple[Any, ...]:
     """Return startup preset updates plus dropdown, status, and dashboard."""
+    _ = component_specs
     remembered = get_last_used_preset_name()
-    selected, fell_back, payload = _load_resolved_preset_payload(remembered)
     choices = list_preset_names()
-    if fell_back:
+    if remembered:
         _clear_last_used_preset_name()
-    if not selected:
-        status = (
-            f"Remembered preset `{remembered}` was missing. "
-            f"Using {GPU_OPTIMIZATION_PRESET_NAME}."
-            if remembered and fell_back
-            else f"Using {GPU_OPTIMIZATION_PRESET_NAME}."
-        )
-        return (
-            *[gr.skip() for _ in PRESET_COMPONENT_KEYS],
-            "No LoRA will be used.",
-            gr.update(value=False),
-            gr.update(choices=choices, value=None),
-            status,
-            _build_dashboard_markdown(None, None),
-        )
-
-    lora_status, use_lora_update = _lora_status_from_payload(payload)
     return (
-        *_payload_to_component_updates(payload, component_specs),
-        lora_status,
-        use_lora_update,
-        gr.update(choices=choices, value=selected),
-        f"Loaded preset: {selected}",
-        _build_dashboard_markdown(selected, payload.get("subprocess_mode_checkbox")),
+        *[gr.skip() for _ in PRESET_COMPONENT_KEYS],
+        "No LoRA will be used.",
+        gr.update(value=False),
+        gr.update(choices=choices, value=None),
+        f"Using {GPU_OPTIMIZATION_PRESET_NAME}.",
+        _build_dashboard_markdown(None, None),
     )
 
 
@@ -1399,6 +1431,7 @@ def save_preset_action(
             _build_dashboard_markdown(current_selection, None),
         )
     payload = _values_to_payload(values)
+    _sync_vocal_language_preset_values(payload, set(payload))
     saved_name = _write_user_preset(requested_name, payload)
     return (
         gr.update(choices=list_preset_names(), value=saved_name),

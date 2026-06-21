@@ -116,6 +116,17 @@ def _resolve_instrumental_request(
     return False, str(lyrics or "")
 
 
+def _effective_vocal_language_for_generation(
+    vocal_language: str | None,
+    use_cot_language: bool,
+) -> str:
+    """Return the language value sent to the generation pipeline."""
+
+    if use_cot_language:
+        return "unknown"
+    return str(vocal_language or "").strip() or "unknown"
+
+
 def generate_with_progress(
     dit_handler, llm_handler,
     captions, lyrics, bpm, key_scale, time_signature, vocal_language,
@@ -258,6 +269,10 @@ def generate_with_progress(
     # Only text2music (Custom mode) with thinking disabled should pass codes.
     if task_type != "text2music":
         text2music_audio_code_string = ""
+    vocal_language = _effective_vocal_language_for_generation(
+        vocal_language,
+        use_cot_language,
+    )
     instrumental, lyrics = _resolve_instrumental_request(instrumental_checkbox, lyrics)
     if instrumental:
         vocal_language = "unknown"

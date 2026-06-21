@@ -502,14 +502,16 @@ class ModeUiStateClearingTests(unittest.TestCase):
     def test_non_extract_modes_do_not_force_auto_fields_interactive(self):
         """Mode switches should not re-enable auto-managed metadata fields."""
         result = compute_mode_ui_updates("Remix", previous_mode="Custom")
-        for idx in (_IDX_BPM, _IDX_KEY, _IDX_TIMESIG, _IDX_VOCAL_LANG, _IDX_DURATION):
+        for idx in (_IDX_BPM, _IDX_KEY, _IDX_TIMESIG, _IDX_DURATION):
             self.assertNotIn("interactive", result[idx])
+        self.assertTrue(result[_IDX_VOCAL_LANG].get("interactive"))
 
     def test_leaving_extract_sets_auto_fields_non_interactive(self):
         """Leaving Extract should reset optional fields in locked auto state."""
         result = compute_mode_ui_updates("Custom", previous_mode="Extract")
-        for idx in (_IDX_BPM, _IDX_KEY, _IDX_TIMESIG, _IDX_VOCAL_LANG, _IDX_DURATION):
+        for idx in (_IDX_BPM, _IDX_KEY, _IDX_TIMESIG, _IDX_DURATION):
             self.assertFalse(result[idx].get("interactive"))
+        self.assertTrue(result[_IDX_VOCAL_LANG].get("interactive"))
 
     def test_sft_model_reverts_base_only_advanced_modes(self):
         """SFT models should revert Lego and Complete to a supported mode."""
@@ -604,6 +606,9 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertTrue(result[_IDX_SRC_AUDIO_ROW].get("visible"))
         self.assertTrue(result[_IDX_REPAINTING_GROUP].get("visible"))
         self.assertTrue(result[_IDX_EXTRACT_HELP_GROUP].get("visible"))
+        self.assertTrue(result[_IDX_RUNTIME_OPTIONS_ROW].get("visible"))
+        self.assertTrue(result[_IDX_VOCAL_LANG].get("visible"))
+        self.assertTrue(result[_IDX_VOCAL_LANG].get("interactive"))
         self.assertFalse(result[_IDX_AUDIO_FORMAT_COLUMN].get("visible"))
         self.assertTrue(result[_IDX_STRENGTH_VARIATION_ROW].get("visible"))
         self.assertTrue(_has_class(result[_IDX_STRENGTH_VARIATION_ROW], "ace-mode-hidden"))

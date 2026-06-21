@@ -65,6 +65,23 @@ class PremiumFeaturesTests(unittest.TestCase):
         self.assertEqual(names, [])
         self.assertEqual(dropdown_update.get("value"), None)
         self.assertIn("GPU Optimization Preset", updates[len(keys) + 3])
+        self.assertEqual(
+            premium_features.DEFAULT_PRESET_VALUES["config_path"],
+            DEFAULT_TURBO_DIT_MODEL,
+        )
+        self.assertEqual(
+            premium_features.DEFAULT_PRESET_VALUES["simple_model_dropdown"],
+            DEFAULT_TURBO_DIT_MODEL,
+        )
+        self.assertEqual(premium_features.DEFAULT_PRESET_VALUES["vocal_language"], "en")
+        self.assertEqual(
+            premium_features.DEFAULT_PRESET_VALUES["simple_vocal_language"],
+            "en",
+        )
+        self.assertEqual(
+            premium_features.DEFAULT_PRESET_VALUES["generation_mode"],
+            "Remix",
+        )
 
     def test_no_system_preset_files_are_created(self) -> None:
         """The removed Premium Default/Turbo/Base files should not be regenerated."""
@@ -107,6 +124,31 @@ class PremiumFeaturesTests(unittest.TestCase):
             updates[keys.index("simple_model_dropdown")].get("value"),
             DEFAULT_TURBO_DIT_MODEL,
         )
+
+    def test_user_preset_save_syncs_vocal_language_keys(self) -> None:
+        """Saved preset JSON should keep simple and advanced language keys aligned."""
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            values[keys.index("vocal_language")] = "ja"
+            values[keys.index("simple_vocal_language")] = "unknown"
+            values[keys.index("simple_create_vocal_language")] = "unknown"
+            try:
+                premium_features.save_preset_action("language sync", None, *values)
+                preset_path = premium_features._user_preset_path("language sync")
+                stored = json.loads(preset_path.read_text(encoding="utf-8"))["values"]
+                loaded = premium_features.load_named_preset("language sync")
+            finally:
+                self._restore_project_root(original)
+
+        for payload in (stored, loaded):
+            self.assertEqual(payload["vocal_language"], "ja")
+            self.assertEqual(payload["simple_vocal_language"], "ja")
+            self.assertEqual(payload["simple_create_vocal_language"], "ja")
 
     def test_user_preset_saves_and_loads_remix_preset_selector(self) -> None:
         """Remix preset selection and paired strength values should round-trip."""
@@ -321,24 +363,33 @@ class PremiumFeaturesTests(unittest.TestCase):
         self.assertEqual(300, updates[keys.index("ap_trim_mincut")].get("value"))
         self.assertEqual(0, updates[keys.index("ap_trim_minclip")].get("value"))
 
-    def test_startup_uses_remembered_existing_user_preset(self) -> None:
-        """Startup should auto-load the last successfully saved user preset."""
+    def test_startup_uses_defaults_instead_of_remembered_user_preset(self) -> None:
+        """Startup should not auto-load the last successfully saved user preset."""
         with self._with_project_root() as tmp_dir:
             original = self._set_project_root(tmp_dir)
             keys = premium_features.get_preset_component_keys()
             values = [""] * len(keys)
-            values[keys.index("config_path")] = DEFAULT_TURBO_DIT_MODEL
+            values[keys.index("config_path")] = DEFAULT_BASE_DIT_MODEL
+            values[keys.index("simple_model_dropdown")] = DEFAULT_BASE_DIT_MODEL
+            values[keys.index("generation_mode")] = "Complete"
+            values[keys.index("vocal_language")] = "ja"
+            values[keys.index("simple_vocal_language")] = "ja"
             values[keys.index("subprocess_mode_checkbox")] = False
             try:
                 premium_features.save_preset_action("daily", None, *values)
                 updates = premium_features.startup_preset_updates()
+                remembered = premium_features.get_last_used_preset_name()
             finally:
                 self._restore_project_root(original)
 
         dropdown_update = updates[len(keys) + 2]
-        self.assertEqual(updates[keys.index("config_path")].get("value"), DEFAULT_TURBO_DIT_MODEL)
-        self.assertEqual(dropdown_update.get("value"), "daily")
-        self.assertIn("Loaded preset: daily", updates[len(keys) + 3])
+        self.assertEqual(updates[keys.index("config_path")], premium_features.gr.skip())
+        self.assertEqual(updates[keys.index("generation_mode")], premium_features.gr.skip())
+        self.assertEqual(updates[keys.index("vocal_language")], premium_features.gr.skip())
+        self.assertEqual(dropdown_update.get("choices"), ["daily"])
+        self.assertEqual(dropdown_update.get("value"), None)
+        self.assertIsNone(remembered)
+        self.assertIn("Using GPU Optimization Preset", updates[len(keys) + 3])
 
     def test_missing_remembered_preset_returns_to_gpu_defaults(self) -> None:
         """Missing last-used presets should clear selection and keep GPU defaults."""
@@ -355,7 +406,7 @@ class PremiumFeaturesTests(unittest.TestCase):
         dropdown_update = updates[len(keys) + 2]
         self.assertEqual(dropdown_update.get("value"), None)
         self.assertIsNone(remembered)
-        self.assertIn("missing", updates[len(keys) + 3])
+        self.assertIn("Using GPU Optimization Preset", updates[len(keys) + 3])
 
     def test_corrupt_remembered_preset_returns_to_gpu_defaults(self) -> None:
         """Unreadable remembered presets should clear selection and keep GPU defaults."""
@@ -536,6 +587,8 @@ class PremiumFeaturesTests(unittest.TestCase):
         self.assertTrue(payload["init_lm_checkbox"])
         self.assertTrue(payload["think_checkbox"])
         self.assertTrue(payload["use_cot_metas"])
+        self.assertFalse(payload["use_cot_caption"])
+        self.assertFalse(payload["use_cot_language"])
         self.assertFalse(payload["dcw_enabled"])
         self.assertEqual(payload["dcw_scaler"], 0.0)
         self.assertEqual(payload["dcw_high_scaler"], 0.0)
@@ -576,6 +629,8 @@ class PremiumFeaturesTests(unittest.TestCase):
             self.assertTrue(payload["init_lm_checkbox"])
             self.assertTrue(payload["think_checkbox"])
             self.assertTrue(payload["use_cot_metas"])
+            self.assertFalse(payload["use_cot_caption"])
+            self.assertFalse(payload["use_cot_language"])
             self.assertFalse(payload["allow_lm_batch"])
             self.assertFalse(payload["dcw_enabled"])
             self.assertEqual(payload["dcw_scaler"], 0.0)
@@ -603,6 +658,36 @@ class PremiumFeaturesTests(unittest.TestCase):
         self.assertEqual(sft_updates[keys.index("dcw_scaler")].get("value"), 0.0)
         self.assertEqual(sft_updates[keys.index("dcw_high_scaler")].get("value"), 0.0)
         self.assertTrue(sft_updates[keys.index("guidance_scale")].get("visible"))
+
+    def test_user_preset_syncs_generate_song_and_advanced_vocal_language(self) -> None:
+        """Saved presets should load one shared vocal-language value across tabs."""
+
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            values[keys.index("vocal_language")] = "tr"
+            values[keys.index("simple_vocal_language")] = "tr"
+            values[keys.index("simple_create_vocal_language")] = "tr"
+            try:
+                premium_features.save_preset_action("language sync", None, *values)
+                loaded = premium_features.load_named_preset("language sync")
+                updates = premium_features.load_preset_action("language sync")
+            finally:
+                self._restore_project_root(original)
+
+        self.assertEqual(loaded["vocal_language"], "tr")
+        self.assertEqual(loaded["simple_vocal_language"], "tr")
+        self.assertEqual(loaded["simple_create_vocal_language"], "tr")
+        self.assertEqual(updates[keys.index("vocal_language")].get("value"), "tr")
+        self.assertEqual(updates[keys.index("simple_vocal_language")].get("value"), "tr")
+        self.assertEqual(
+            updates[keys.index("simple_create_vocal_language")].get("value"),
+            "tr",
+        )
 
     def test_user_preset_keeps_custom_quality_and_vram_settings_selected(self) -> None:
         """User presets should display as selected and override auto VRAM defaults."""

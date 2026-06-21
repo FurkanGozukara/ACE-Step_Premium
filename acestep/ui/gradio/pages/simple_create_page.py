@@ -57,7 +57,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
     with gr.Row(equal_height=True):
         with gr.Column(scale=5, min_width=430):
             simple_caption = gr.Textbox(
-                label="Style",
+                label="Style / Caption",
                 placeholder="Modern pop, warm piano, clean female vocal, emotional chorus",
                 value=params.get("captions", DEFAULT_PRESET_CAPTION),
                 lines=4,

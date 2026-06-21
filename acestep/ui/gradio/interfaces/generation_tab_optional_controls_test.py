@@ -10,7 +10,6 @@ _EXPECTED_NAMES = {
     "bpm",
     "key_scale",
     "time_signature",
-    "vocal_language",
     "audio_duration",
 }
 

@@ -63,6 +63,8 @@ def on_auto_checkbox_change(auto_checked: bool, field_name: str):
         gr.update for the corresponding input component.
     """
     if auto_checked:
+        if field_name == "vocal_language":
+            return gr.update(value=_AUTO_DEFAULTS[field_name], interactive=True)
         return gr.update(value=_AUTO_DEFAULTS[field_name], interactive=False)
     return gr.update(interactive=True)
 
@@ -82,7 +84,7 @@ def reset_all_auto():
         gr.update(value=_AUTO_DEFAULTS["bpm"], interactive=False),
         gr.update(value=_AUTO_DEFAULTS["key_scale"], interactive=False),
         gr.update(value=_AUTO_DEFAULTS["time_signature"], interactive=False),
-        gr.update(value=_AUTO_DEFAULTS["vocal_language"], interactive=False),
+        gr.update(value=_AUTO_DEFAULTS["vocal_language"], interactive=True),
         gr.update(value=_AUTO_DEFAULTS["audio_duration"], interactive=False),
     )
 
@@ -119,7 +121,7 @@ def uncheck_auto_for_populated_fields(bpm, key_scale, time_signature, vocal_lang
         gr.update(interactive=bpm_has_value),
         gr.update(interactive=key_has_value),
         gr.update(interactive=ts_has_value),
-        gr.update(interactive=vl_has_value),
+        gr.update(interactive=True),
         gr.update(interactive=dur_has_value),
     )
 
