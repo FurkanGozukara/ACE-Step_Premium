@@ -46,6 +46,54 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+### 21 June 2026 V6.0 Update
+-   **Gangam Style in English :** [**https://x.com/SECourses/status/2068512611725975733**](https://x.com/SECourses/status/2068512611725975733)    
+-   This is a massive improvements and fixes update    
+-   We have moved to the Gradio 6.19 and thus transformers library upgraded to 5.3    
+    -   So i had to fix pipeline for newest transformers library        
+    -   PyTorch 5Hz LM generation now uses modern Transformers forward-pass features such as cache\_position and logits\_to\_keep when available.        
+-   Gradio interface event handling was heavily improved for Gradio 6.19.    
+    -   Many UI sync events now run without queue overhead and without unnecessary progress overlays.        
+    -   Stale Gradio status timers are automatically hidden, fixing stuck timer/progress artifacts.        
+    -   Long-running actions now show progress only on relevant outputs instead of slowing down unrelated UI elements.        
+    -   Library metadata display was changed from heavy JSON rendering to copy-friendly text, making the library page smoother.        
+-   Batch processing, batch extract, audio processing, generation, library, LoRA, LoKR, dataset, and SAM Audio UI wiring were updated for smoother behavior.    
+-   Model loading architecture updated for newer transformers library and now model loading faster    
+    -   Due to newer transformers library, now torch compile is even faster than before        
+-   PyTorch LM loading now tries the faster SDPA attention path on CUDA.    
+-   Audio-code generation now has a compact valid-token sampling path, avoiding unnecessary full-vocabulary processing during constrained generation - No quality loss    
+-   VAE tiled decode was optimized by preventing pathological tiny-stride chunking - Nno quality loss    
+-   With VAE optimization + transformers library, now torch compile is able to generate full song in 30 seconds on RTX 5090    
+-   GPU VRAM presets are re-tested and updated as below    
+
+<img width="675" height="516" alt="image" src="https://github.com/user-attachments/assets/9bde2193-cd02-4431-8970-8d64f913775d" />
+
+-   Wildcards special character was \[\] and now it is fixed and changed into {}
+
+<img width="2166" height="204" alt="image" src="https://github.com/user-attachments/assets/115ce41f-c38b-4261-880a-64f9a868692b" />
+
+-   CoT Language Detection and Caption / Style Auto Improve was enabled in some presets and now they are all disabled - so you have to manually enable    
+    -   They were causing unexpected issues and problems        
+    -   If CoT language is enabled, the LM-detected language is used only when vocal language is set to auto/unknown.        
+        -   Explicit user-selected vocal language is preserved and no longer unexpectedly overwritten.            
+-   In advanced tab now you can set explicit vocal language and this fixed so many issues    
+
+<img width="1220" height="480" alt="image" src="https://github.com/user-attachments/assets/e7086cb8-bde4-4c6f-965f-9997ab7a452d" />
+
+-   Advanced tab set Vocal Language will update Generate Song tab Vocal Language as well or vice-versa    
+-   Remix presets implemented and literally 1-click first test result you can see here    
+-   **Gangam Style in English :** [**https://x.com/SECourses/status/2068512611725975733**](https://x.com/SECourses/status/2068512611725975733)    
+-   Hopefully will make a mini tutorial video so open bell on Youtube : [https://www.youtube.com/SECourses](https://www.youtube.com/SECourses)    
+
+<img width="2119" height="551" alt="image" src="https://github.com/user-attachments/assets/fb5f1a12-6617-4e9a-a039-0c93b9e36ef4" />
+
+-   Batch audio processing now reports status immediately when scanning starts.    
+-   Batch Extract now normalizes itself to Extract mode internally, instead of requiring the user to manually switch generation mode first.    
+-   Batch progress display was improved.    
+-   Batch queue restore defaults now keep CoT caption/language disabled unless explicitly enabled.    
+-   For updating please get latest v6 zip file, overwrite previous files and run installer bat file    
+    -   If you get any errors, please delete ACE-Step\_Premium\\venv and then run installer again
+
 ### 18 June 2026 V5.5 Update
 
 -   Full tutorial video published finally for inference : https://youtu.be/9C_6qNKjgpA
