@@ -168,6 +168,10 @@ class _Host(GenerateMusicMixin):
         self.calls["_decode_generate_music_pred_latents"] = kwargs
         return torch.ones(1, 2, 8), torch.ones(1, 4, 3), {"total_time_cost": 2.0}
 
+    def _offload_outputs_before_vae_decode(self, outputs):
+        """Capture pre-decode offload calls without mutating test tensors."""
+        self.calls["_offload_outputs_before_vae_decode"] = outputs
+
     def _build_generate_music_success_payload(self, **kwargs):
         """Capture payload-builder args and return deterministic success payload."""
         self.calls["_build_generate_music_success_payload"] = kwargs
@@ -226,6 +230,38 @@ class GenerateMusicMixinTests(unittest.TestCase):
         out = host.generate_music(captions="cap", lyrics="lyr", shift=0.0)
         self.assertEqual(out, host._final_payload)
         self.assertEqual(host.calls["_run_generate_music_service_with_progress"]["shift"], 1.0)
+
+    def test_text2music_ignores_leaked_cover_noise_strength(self):
+        """Text-to-music should not let hidden Remix retention shorten diffusion."""
+        host = _Host()
+        out = host.generate_music(
+            captions="cap",
+            lyrics="lyr",
+            task_type="text2music",
+            cover_noise_strength=0.97,
+        )
+
+        self.assertEqual(out, host._final_payload)
+        self.assertEqual(
+            host.calls["_run_generate_music_service_with_progress"]["cover_noise_strength"],
+            0.0,
+        )
+
+    def test_cover_preserves_cover_noise_strength(self):
+        """Explicit cover/remix tasks should keep user-selected melody retention."""
+        host = _Host()
+        out = host.generate_music(
+            captions="cap",
+            lyrics="lyr",
+            task_type="cover",
+            cover_noise_strength=0.97,
+        )
+
+        self.assertEqual(out, host._final_payload)
+        self.assertEqual(
+            host.calls["_run_generate_music_service_with_progress"]["cover_noise_strength"],
+            0.97,
+        )
 
     def test_generate_music_rejects_non_finite_timesteps(self):
         """Invalid custom timesteps should return a clear error payload."""

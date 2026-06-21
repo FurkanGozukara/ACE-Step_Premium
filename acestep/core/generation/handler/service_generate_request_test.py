@@ -4,7 +4,10 @@ import types
 import unittest
 from unittest.mock import patch
 
-from acestep.core.generation.handler.service_generate_request import ServiceGenerateRequestMixin
+from acestep.core.generation.handler.service_generate_request import (
+    TURBO_MAX_INFER_STEPS,
+    ServiceGenerateRequestMixin,
+)
 
 
 class _Host(ServiceGenerateRequestMixin):
@@ -20,8 +23,8 @@ class _Host(ServiceGenerateRequestMixin):
 class ServiceGenerateRequestMixinTests(unittest.TestCase):
     """Verify request normalization behavior stays stable after extraction."""
 
-    def test_normalize_inputs_clamps_turbo_steps_and_expands_lists(self):
-        """Turbo path should clamp infer steps and normalize list-like inputs."""
+    def test_normalize_inputs_preserves_supported_turbo_steps_and_expands_lists(self):
+        """Turbo path should preserve supported infer steps and normalize list-like inputs."""
         host = _Host(is_turbo=True)
         out = host._normalize_service_generate_inputs(
             captions="cap",
@@ -33,11 +36,11 @@ class ServiceGenerateRequestMixinTests(unittest.TestCase):
             repainting_end=1.2,
             instructions=["i1"],
             audio_code_hints=["h1"],
-            infer_steps=20,
+            infer_steps=16,
             seed=[1],
         )
 
-        self.assertEqual(out["infer_steps"], 8)
+        self.assertEqual(out["infer_steps"], 16)
         self.assertEqual(out["captions"], ["cap"])
         self.assertEqual(out["lyrics"], ["lyric"])
         self.assertEqual(out["keys"], ["k1"])
@@ -46,6 +49,25 @@ class ServiceGenerateRequestMixinTests(unittest.TestCase):
         self.assertEqual(out["repainting_start"], [0.1])
         self.assertEqual(out["repainting_end"], [1.2])
         self.assertEqual(out["seed_list"], [1])
+
+    def test_normalize_inputs_clamps_turbo_steps_above_model_limit(self):
+        """Turbo path should clamp only requests beyond the model-supported limit."""
+        host = _Host(is_turbo=True)
+        out = host._normalize_service_generate_inputs(
+            captions="cap",
+            lyrics="lyric",
+            keys=None,
+            metas=None,
+            vocal_languages=None,
+            repainting_start=None,
+            repainting_end=None,
+            instructions=None,
+            audio_code_hints=None,
+            infer_steps=24,
+            seed=None,
+        )
+
+        self.assertEqual(out["infer_steps"], TURBO_MAX_INFER_STEPS)
 
     def test_build_service_seed_list_duplicates_scalar_seed(self):
         """Scalar seed should be copied across the normalized batch size."""

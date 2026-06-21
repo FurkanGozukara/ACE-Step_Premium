@@ -10,6 +10,7 @@ from acestep.constants import DEFAULT_DIT_INSTRUCTION
 # Maximum batch size supported per coding guidelines
 # (batch operations are supported up to 8 songs)
 MAX_BATCH_SIZE = 8
+TURBO_MAX_INFER_STEPS = 20
 
 
 class ServiceGenerateRequestMixin:
@@ -49,12 +50,14 @@ class ServiceGenerateRequestMixin:
         return_intermediate: bool = False,
     ) -> Dict[str, Any]:
         """Normalize scalar/list generation inputs and clamp turbo infer steps."""
-        if self.config.is_turbo and infer_steps > 8:
+        if self.config.is_turbo and infer_steps > TURBO_MAX_INFER_STEPS:
             logger.warning(
-                "[service_generate] dmd_gan version: infer_steps {} exceeds maximum 8, clamping to 8",
+                "[service_generate] turbo infer_steps {} exceeds maximum {}, clamping to {}",
                 infer_steps,
+                TURBO_MAX_INFER_STEPS,
+                TURBO_MAX_INFER_STEPS,
             )
-            infer_steps = 8
+            infer_steps = TURBO_MAX_INFER_STEPS
 
         # Convert captions to list and determine batch size
         if isinstance(captions, str):

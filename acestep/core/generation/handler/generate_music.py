@@ -302,11 +302,19 @@ class GenerateMusicMixin:
             readiness_error = self._validate_generate_music_readiness()
             return readiness_error
 
+        requested_task_type = task_type
         task_type, instruction = self._resolve_generate_music_task(
             task_type=task_type,
             audio_code_string=audio_code_string,
             instruction=instruction,
         )
+        if requested_task_type == "text2music" and cover_noise_strength > 0.0:
+            logger.info(
+                "[generate_music] text2music ignores cover_noise_strength {:.2f}; "
+                "source-audio retention is only applied to explicit source-audio tasks.",
+                cover_noise_strength,
+            )
+            cover_noise_strength = 0.0
 
         # Turbo models bake guidance into the distillation process and do not
         # use CFG.  Forcing guidance_scale to 1.0 avoids double-application of
@@ -581,7 +589,7 @@ class GenerateMusicMixin:
                 lego_layer_wavs=lego_layer_wavs,
             )
             result.setdefault("extra_outputs", {})["effective_generation"] = {
-                "requested_task_type": task_type,
+                "requested_task_type": requested_task_type,
                 "task_type": service_task_type,
                 "instruction": service_instruction,
                 "caption": service_captions,
