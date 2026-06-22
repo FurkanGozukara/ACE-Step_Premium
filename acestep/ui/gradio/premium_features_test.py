@@ -185,7 +185,7 @@ class PremiumFeaturesTests(unittest.TestCase):
             values[keys.index("generation_mode")] = "Remix"
             values[keys.index("remix_preset")] = REMIX_PRESET_TRANSLATION
             values[keys.index("audio_cover_strength")] = 0.70
-            values[keys.index("cover_noise_strength")] = 0.20
+            values[keys.index("cover_noise_strength")] = 0.15
             try:
                 premium_features.save_preset_action("translation remix", None, *values)
                 loaded = premium_features.load_named_preset("translation remix")
@@ -195,7 +195,7 @@ class PremiumFeaturesTests(unittest.TestCase):
 
         self.assertEqual(loaded["remix_preset"], REMIX_PRESET_TRANSLATION)
         self.assertEqual(loaded["audio_cover_strength"], 0.70)
-        self.assertEqual(loaded["cover_noise_strength"], 0.20)
+        self.assertEqual(loaded["cover_noise_strength"], 0.15)
         self.assertEqual(
             updates[keys.index("remix_preset")].get("value"),
             REMIX_PRESET_TRANSLATION,
@@ -211,7 +211,7 @@ class PremiumFeaturesTests(unittest.TestCase):
         )
         self.assertEqual(
             updates[keys.index("cover_noise_strength")].get("value"),
-            0.20,
+            0.15,
         )
 
     def test_user_preset_saves_and_loads_sam_trim_controls(self) -> None:

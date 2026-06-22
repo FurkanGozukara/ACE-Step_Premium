@@ -15,7 +15,7 @@ REMIX_PRESET_CHOICES: tuple[str, ...] = (
 )
 REMIX_PRESET_VALUES: dict[str, tuple[float, float]] = {
     REMIX_PRESET_SAME_LANGUAGE: (0.97, 0.97),
-    REMIX_PRESET_TRANSLATION: (0.70, 0.20),
+    REMIX_PRESET_TRANSLATION: (0.70, 0.15),
 }
 REMIX_PRESET_BASE_CLASSES: tuple[str, ...] = (
     "has-info-container",

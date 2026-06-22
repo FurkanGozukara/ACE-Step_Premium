@@ -409,7 +409,7 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertEqual(same_language_updates[0].get("value"), 0.97)
         self.assertEqual(same_language_updates[1].get("value"), 0.97)
         self.assertEqual(translation_updates[0].get("value"), 0.70)
-        self.assertEqual(translation_updates[1].get("value"), 0.20)
+        self.assertEqual(translation_updates[1].get("value"), 0.15)
 
     def test_round_trip_remix_to_custom_clears_both(self):
         """Switching Remix -> Custom should clear both audio_codes and src_audio.
