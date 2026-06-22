@@ -17,7 +17,8 @@ from acestep.model_downloader import (
 )
 from acestep.ui.gradio import premium_features
 from acestep.ui.gradio.events.generation.remix_presets import (
-    REMIX_PRESET_TRANSLATION,
+    REMIX_PRESET_DEFAULT,
+    REMIX_PRESET_DIFFERENT_LYRICS,
 )
 
 
@@ -183,22 +184,22 @@ class PremiumFeaturesTests(unittest.TestCase):
                 for key in keys
             ]
             values[keys.index("generation_mode")] = "Remix"
-            values[keys.index("remix_preset")] = REMIX_PRESET_TRANSLATION
+            values[keys.index("remix_preset")] = REMIX_PRESET_DIFFERENT_LYRICS
             values[keys.index("audio_cover_strength")] = 0.70
             values[keys.index("cover_noise_strength")] = 0.15
             try:
-                premium_features.save_preset_action("translation remix", None, *values)
-                loaded = premium_features.load_named_preset("translation remix")
-                updates = premium_features.load_preset_action("translation remix")
+                premium_features.save_preset_action("different lyrics remix", None, *values)
+                loaded = premium_features.load_named_preset("different lyrics remix")
+                updates = premium_features.load_preset_action("different lyrics remix")
             finally:
                 self._restore_project_root(original)
 
-        self.assertEqual(loaded["remix_preset"], REMIX_PRESET_TRANSLATION)
+        self.assertEqual(loaded["remix_preset"], REMIX_PRESET_DIFFERENT_LYRICS)
         self.assertEqual(loaded["audio_cover_strength"], 0.70)
         self.assertEqual(loaded["cover_noise_strength"], 0.15)
         self.assertEqual(
             updates[keys.index("remix_preset")].get("value"),
-            REMIX_PRESET_TRANSLATION,
+            REMIX_PRESET_DIFFERENT_LYRICS,
         )
         self.assertTrue(updates[keys.index("remix_preset")].get("visible"))
         self.assertNotIn(
@@ -212,6 +213,42 @@ class PremiumFeaturesTests(unittest.TestCase):
         self.assertEqual(
             updates[keys.index("cover_noise_strength")].get("value"),
             0.15,
+        )
+
+    def test_legacy_remix_preset_names_load_as_default(self) -> None:
+        """Older preset names should not break the dropdown after the rename."""
+
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            try:
+                preset_path = premium_features._user_preset_path("legacy remix")
+                preset_path.write_text(
+                    json.dumps(
+                        {
+                            "values": {
+                                "generation_mode": "Remix",
+                                "remix_preset": "Translation",
+                                "audio_cover_strength": 0.70,
+                                "cover_noise_strength": 0.15,
+                            }
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                loaded = premium_features.load_named_preset("legacy remix")
+                updates = premium_features.load_preset_action("legacy remix")
+            finally:
+                self._restore_project_root(original)
+
+        self.assertEqual(loaded["remix_preset"], REMIX_PRESET_DEFAULT)
+        self.assertEqual(
+            updates[keys.index("remix_preset")].get("value"),
+            REMIX_PRESET_DEFAULT,
+        )
+        self.assertIn(
+            REMIX_PRESET_DEFAULT,
+            updates[keys.index("remix_preset")].get("choices"),
         )
 
     def test_user_preset_saves_and_loads_sam_trim_controls(self) -> None:

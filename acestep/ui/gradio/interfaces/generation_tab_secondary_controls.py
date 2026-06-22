@@ -16,8 +16,9 @@ from acestep.ui.gradio.premium_features import (
     DEFAULT_PRESET_CAPTION,
     DEFAULT_PRESET_LYRICS,
 )
-from acestep.ui.gradio.events.generation.strength_defaults import (
-    DEFAULT_REMIX_MELODY_RETENTION,
+from acestep.ui.gradio.events.generation.remix_presets import (
+    REMIX_PRESET_DEFAULT,
+    remix_preset_values,
 )
 from .generation_tab_range_preview_controls import build_repainting_range_preview_controls
 
@@ -32,10 +33,13 @@ def build_cover_strength_controls() -> dict[str, Any]:
         A component map containing the melody-retention slider.
     """
 
+    _default_remix_strength, default_remix_retention = remix_preset_values(
+        REMIX_PRESET_DEFAULT
+    )
     cover_noise_strength = gr.Slider(
         minimum=0.0,
         maximum=1.0,
-        value=DEFAULT_REMIX_MELODY_RETENTION,
+        value=default_remix_retention,
         step=0.01,
         label=t("generation.cover_noise_strength_label"),
         info=t("generation.cover_noise_strength_info"),

@@ -6,12 +6,13 @@ import unittest
 
 from acestep.ui.gradio.premium_preset_defaults import ADDITIONAL_DEFAULT_PRESET_VALUES
 from acestep.ui.gradio.premium_features import DEFAULT_PRESET_VALUES
-from acestep.ui.gradio.events.generation.strength_defaults import (
-    DEFAULT_AUDIO_COVER_STRENGTH,
-    DEFAULT_REMIX_MELODY_RETENTION,
-)
 from acestep.ui.gradio.events.generation.remix_presets import (
-    REMIX_PRESET_SAME_LANGUAGE,
+    REMIX_PRESET_CHOICES,
+    REMIX_PRESET_DEFAULT,
+    REMIX_PRESET_DIFFERENT_LYRICS,
+    REMIX_PRESET_SAME_LYRICS_BIG_CHANGE,
+    REMIX_PRESET_SAME_LYRICS_MEDIUM_CHANGE,
+    remix_preset_values,
 )
 
 
@@ -43,28 +44,41 @@ class PremiumPresetDefaultsTests(unittest.TestCase):
         self.assertEqual("mp3", ADDITIONAL_DEFAULT_PRESET_VALUES["sam_output_format"])
         self.assertEqual("256k", DEFAULT_PRESET_VALUES["mp3_bitrate"])
 
-    def test_remix_strength_defaults_to_faithful_source_following(self) -> None:
-        """Generation presets should default Remix Strength to 0.95."""
+    def test_remix_strength_defaults_to_default_preset(self) -> None:
+        """Generation presets should default Remix Strength to the Default preset."""
 
         self.assertEqual(
-            DEFAULT_AUDIO_COVER_STRENGTH,
+            remix_preset_values(REMIX_PRESET_DEFAULT)[0],
             DEFAULT_PRESET_VALUES["audio_cover_strength"],
         )
 
-    def test_remix_melody_retention_defaults_to_high_retention(self) -> None:
-        """Generation presets should default Remix Melody Retention to 0.97."""
+    def test_remix_melody_retention_defaults_to_default_preset(self) -> None:
+        """Generation presets should default Remix Melody Retention to Default."""
 
         self.assertEqual(
-            DEFAULT_REMIX_MELODY_RETENTION,
+            remix_preset_values(REMIX_PRESET_DEFAULT)[1],
             DEFAULT_PRESET_VALUES["cover_noise_strength"],
         )
 
-    def test_remix_preset_defaults_to_same_language(self) -> None:
-        """Generation presets should select Same Language by default."""
+    def test_remix_preset_defaults_to_default(self) -> None:
+        """Generation presets should select Default by default."""
 
         self.assertEqual(
-            REMIX_PRESET_SAME_LANGUAGE,
+            REMIX_PRESET_DEFAULT,
             DEFAULT_PRESET_VALUES["remix_preset"],
+        )
+
+    def test_remix_preset_order_matches_ui_spec(self) -> None:
+        """Remix preset choices should preserve the requested UI order."""
+
+        self.assertEqual(
+            (
+                REMIX_PRESET_DEFAULT,
+                REMIX_PRESET_SAME_LYRICS_BIG_CHANGE,
+                REMIX_PRESET_SAME_LYRICS_MEDIUM_CHANGE,
+                REMIX_PRESET_DIFFERENT_LYRICS,
+            ),
+            REMIX_PRESET_CHOICES,
         )
 
     def test_audio_processing_subprocess_defaults_to_enabled(self) -> None:

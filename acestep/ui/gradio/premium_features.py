@@ -56,13 +56,9 @@ from acestep.constants import MODE_TO_TASK_TYPE
 from acestep.ui.gradio.events.generation.model_config import (
     get_ui_control_config_for_path,
 )
-from acestep.ui.gradio.events.generation.strength_defaults import (
-    DEFAULT_AUDIO_COVER_STRENGTH,
-    DEFAULT_REMIX_MELODY_RETENTION,
-)
 from acestep.ui.gradio.events.generation.remix_presets import (
     REMIX_PRESET_CHOICES,
-    REMIX_PRESET_SAME_LANGUAGE,
+    REMIX_PRESET_DEFAULT,
     normalize_remix_preset,
     remix_preset_elem_classes,
     remix_preset_values,
@@ -421,9 +417,9 @@ DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "use_cot_caption": False,
     "use_cot_language": False,
     "repaint_dont_switch_with_lyrics": False,
-    "audio_cover_strength": DEFAULT_AUDIO_COVER_STRENGTH,
-    "cover_noise_strength": DEFAULT_REMIX_MELODY_RETENTION,
-    "remix_preset": REMIX_PRESET_SAME_LANGUAGE,
+    "audio_cover_strength": remix_preset_values(REMIX_PRESET_DEFAULT)[0],
+    "cover_noise_strength": remix_preset_values(REMIX_PRESET_DEFAULT)[1],
+    "remix_preset": REMIX_PRESET_DEFAULT,
     "batch_size_input": 1,
     "inference_steps": 8,
     "guidance_scale": 1.0,

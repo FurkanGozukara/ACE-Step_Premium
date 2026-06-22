@@ -21,7 +21,7 @@ from .strength_defaults import (
     DEFAULT_AUDIO_COVER_STRENGTH,
 )
 from .remix_presets import (
-    REMIX_PRESET_SAME_LANGUAGE,
+    REMIX_PRESET_DEFAULT,
     remix_preset_elem_classes,
     remix_preset_values,
 )
@@ -144,11 +144,11 @@ def compute_mode_ui_updates(
         strength_label = t("generation.cover_strength_label")
         strength_info = t("generation.cover_strength_info")
     strength_kwargs = {"visible": show_strength, "label": strength_label, "info": strength_info}
-    same_language_strength, same_language_retention = remix_preset_values(
-        REMIX_PRESET_SAME_LANGUAGE
+    default_remix_strength, default_remix_retention = remix_preset_values(
+        REMIX_PRESET_DEFAULT
     )
     if is_cover:
-        strength_kwargs["value"] = same_language_strength
+        strength_kwargs["value"] = default_remix_strength
     elif is_custom and previous_mode != "Custom":
         strength_kwargs["value"] = DEFAULT_AUDIO_COVER_STRENGTH
     elif not show_strength:
@@ -159,7 +159,7 @@ def compute_mode_ui_updates(
         if is_cover
         else "ace-remix-retention-hidden"
     )
-    retention_value = same_language_retention if is_cover else 0.0
+    retention_value = default_remix_retention if is_cover else 0.0
     cover_noise_update = gr.update(
         visible=True,
         value=retention_value,
@@ -168,7 +168,7 @@ def compute_mode_ui_updates(
     remix_preset_update = (
         gr.update(
             visible=True,
-            value=REMIX_PRESET_SAME_LANGUAGE,
+            value=REMIX_PRESET_DEFAULT,
             elem_classes=remix_preset_elem_classes(True),
         )
         if is_cover

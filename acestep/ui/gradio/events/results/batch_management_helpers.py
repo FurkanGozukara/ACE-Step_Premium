@@ -16,7 +16,10 @@ from acestep.ui.gradio.events.generation.audio_format_options import (
 )
 from acestep.ui.gradio.events.generation.strength_defaults import (
     DEFAULT_AUDIO_COVER_STRENGTH,
-    DEFAULT_REMIX_MELODY_RETENTION,
+)
+from acestep.ui.gradio.events.generation.remix_presets import (
+    REMIX_PRESET_DEFAULT,
+    remix_preset_values,
 )
 from acestep.ui.gradio.events.dcw_defaults import get_dcw_defaults_for_think
 from acestep.ui.gradio.events.results.result_output_contract import (
@@ -238,8 +241,16 @@ def _apply_param_defaults(params):
     """Fill missing generation keys in ``params`` with safe defaults."""
     dcw_defaults = get_dcw_defaults_for_think(bool(params.get("think_checkbox", True)))
     task_type = str(params.get("task_type") or "text2music")
+    remix_strength_default, remix_retention_default = remix_preset_values(
+        REMIX_PRESET_DEFAULT
+    )
+    audio_cover_default = (
+        remix_strength_default
+        if task_type in ("cover", "cover-nofsq")
+        else DEFAULT_AUDIO_COVER_STRENGTH
+    )
     cover_noise_default = (
-        DEFAULT_REMIX_MELODY_RETENTION
+        remix_retention_default
         if task_type in ("cover", "cover-nofsq")
         else 0.0
     )
@@ -253,7 +264,7 @@ def _apply_param_defaults(params):
         "text2music_audio_code_string": "",
         "repainting_start": 0.0, "repainting_end": -1,
         "instruction_display_gen": "",
-        "audio_cover_strength": DEFAULT_AUDIO_COVER_STRENGTH,
+        "audio_cover_strength": audio_cover_default,
         "cover_noise_strength": cover_noise_default,
         "task_type": task_type, "no_fsq": False, "use_adg": False,
         "cfg_interval_start": 0.0, "cfg_interval_end": 1.0,

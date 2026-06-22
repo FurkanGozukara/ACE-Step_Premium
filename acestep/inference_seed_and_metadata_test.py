@@ -276,6 +276,40 @@ class SeedPlumbingTests(unittest.TestCase):
 class LmAudioCodeRoutingTests(unittest.TestCase):
     """Verify Think mode only injects LM semantic codes into compatible DiT paths."""
 
+    def test_remix_uses_user_caption_as_dit_conditioning(self):
+        """Remix should pass the UI Style/Caption directly to the DiT."""
+
+        dit_handler = _FakeDitHandler()
+        llm_handler = _FakeLlmHandler(metadata={"caption": "lm rewritten caption"})
+        params = GenerationParams(
+            task_type="cover",
+            caption="target neon rock remix",
+            lyrics="[verse]\nnew lyric line",
+            thinking=True,
+            use_cot_caption=True,
+            use_cot_metas=True,
+        )
+        config = GenerationConfig(
+            batch_size=1,
+            use_random_seed=False,
+            seeds=123,
+            audio_format="wav",
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            result = generate_music(
+                dit_handler,
+                llm_handler,
+                params=params,
+                config=config,
+                save_dir=temp_dir,
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual(dit_handler.generate_kwargs["captions"], "target neon rock remix")
+        self.assertEqual(dit_handler.generate_kwargs["lyrics"], "[verse]\nnew lyric line")
+        self.assertEqual(llm_handler.generate_kwargs, {})
+
     def test_sft_text2music_uses_lm_metadata_without_audio_code_hints(self):
         """SFT should not turn text2music into cover-style code conditioning."""
 

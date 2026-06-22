@@ -7,15 +7,23 @@ from typing import Any
 import gradio as gr
 
 
+REMIX_PRESET_DEFAULT = "Default"
+REMIX_PRESET_SAME_LYRICS_BIG_CHANGE = "Same Lyrics Big Change"
+REMIX_PRESET_SAME_LYRICS_MEDIUM_CHANGE = "Same Lyrics Medium Change"
+REMIX_PRESET_DIFFERENT_LYRICS = "Different Lyrics"
 REMIX_PRESET_SAME_LANGUAGE = "Same Language"
 REMIX_PRESET_TRANSLATION = "Translation"
 REMIX_PRESET_CHOICES: tuple[str, ...] = (
-    REMIX_PRESET_SAME_LANGUAGE,
-    REMIX_PRESET_TRANSLATION,
+    REMIX_PRESET_DEFAULT,
+    REMIX_PRESET_SAME_LYRICS_BIG_CHANGE,
+    REMIX_PRESET_SAME_LYRICS_MEDIUM_CHANGE,
+    REMIX_PRESET_DIFFERENT_LYRICS,
 )
 REMIX_PRESET_VALUES: dict[str, tuple[float, float]] = {
-    REMIX_PRESET_SAME_LANGUAGE: (0.97, 0.97),
-    REMIX_PRESET_TRANSLATION: (0.70, 0.15),
+    REMIX_PRESET_DEFAULT: (0.50, 0.50),
+    REMIX_PRESET_SAME_LYRICS_BIG_CHANGE: (0.10, 0.10),
+    REMIX_PRESET_SAME_LYRICS_MEDIUM_CHANGE: (0.25, 0.25),
+    REMIX_PRESET_DIFFERENT_LYRICS: (0.70, 0.15),
 }
 REMIX_PRESET_BASE_CLASSES: tuple[str, ...] = (
     "has-info-container",
@@ -30,7 +38,7 @@ def normalize_remix_preset(value: Any) -> str:
     for choice in REMIX_PRESET_CHOICES:
         if value_text.casefold() == choice.casefold():
             return choice
-    return REMIX_PRESET_SAME_LANGUAGE
+    return REMIX_PRESET_DEFAULT
 
 
 def remix_preset_values(value: Any) -> tuple[float, float]:

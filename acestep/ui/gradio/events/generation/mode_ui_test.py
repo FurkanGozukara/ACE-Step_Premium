@@ -17,13 +17,11 @@ from types import SimpleNamespace
 
 try:
     from acestep.constants import GENERATION_MODES_BASE, GENERATION_MODES_TURBO, MODE_TO_TASK_TYPE
-    from acestep.ui.gradio.events.generation.strength_defaults import (
-        DEFAULT_AUDIO_COVER_STRENGTH,
-        DEFAULT_REMIX_MELODY_RETENTION,
-    )
     from acestep.ui.gradio.events.generation.remix_presets import (
-        REMIX_PRESET_SAME_LANGUAGE,
-        REMIX_PRESET_TRANSLATION,
+        REMIX_PRESET_DEFAULT,
+        REMIX_PRESET_DIFFERENT_LYRICS,
+        REMIX_PRESET_SAME_LYRICS_BIG_CHANGE,
+        REMIX_PRESET_SAME_LYRICS_MEDIUM_CHANGE,
         apply_remix_preset,
         remix_preset_values,
     )
@@ -31,10 +29,10 @@ try:
     _IMPORT_ERROR = None
 except Exception as exc:  # pragma: no cover - environment dependency guard
     compute_mode_ui_updates = None
-    DEFAULT_AUDIO_COVER_STRENGTH = 0.95
-    DEFAULT_REMIX_MELODY_RETENTION = 0.97
-    REMIX_PRESET_SAME_LANGUAGE = "Same Language"
-    REMIX_PRESET_TRANSLATION = "Translation"
+    REMIX_PRESET_DEFAULT = "Default"
+    REMIX_PRESET_DIFFERENT_LYRICS = "Different Lyrics"
+    REMIX_PRESET_SAME_LYRICS_BIG_CHANGE = "Same Lyrics Big Change"
+    REMIX_PRESET_SAME_LYRICS_MEDIUM_CHANGE = "Same Lyrics Medium Change"
     apply_remix_preset = None
     remix_preset_values = None
     _IMPORT_ERROR = exc
@@ -268,17 +266,17 @@ class ModeUiStateClearingTests(unittest.TestCase):
         )
         self.assertEqual(
             result[_IDX_REMIX_STRENGTH].get("value"),
-            remix_preset_values(REMIX_PRESET_SAME_LANGUAGE)[0],
+            remix_preset_values(REMIX_PRESET_DEFAULT)[0],
         )
         self.assertEqual(
             result[_IDX_COVER_NOISE].get("value"),
-            remix_preset_values(REMIX_PRESET_SAME_LANGUAGE)[1],
+            remix_preset_values(REMIX_PRESET_DEFAULT)[1],
         )
         self.assertTrue(result[_IDX_REMIX_PRESET].get("visible"))
         self.assertFalse(_has_class(result[_IDX_REMIX_PRESET], "ace-mode-hidden"))
         self.assertEqual(
             result[_IDX_REMIX_PRESET].get("value"),
-            REMIX_PRESET_SAME_LANGUAGE,
+            REMIX_PRESET_DEFAULT,
         )
         self.assertTrue(result[_IDX_REPAINTING_GROUP].get("visible"))
         self.assertIn("Remix Source Segment", result[_IDX_REPAINTING_HEADER].get("value"))
@@ -393,7 +391,7 @@ class ModeUiStateClearingTests(unittest.TestCase):
         self.assertFalse(_has_class(remix_result[_IDX_REMIX_PRESET], "ace-mode-hidden"))
         self.assertEqual(
             remix_result[_IDX_REMIX_PRESET].get("value"),
-            REMIX_PRESET_SAME_LANGUAGE,
+            REMIX_PRESET_DEFAULT,
         )
         self.assertTrue(custom_result[_IDX_REMIX_PRESET].get("visible"))
         self.assertTrue(repaint_result[_IDX_REMIX_PRESET].get("visible"))
@@ -403,13 +401,22 @@ class ModeUiStateClearingTests(unittest.TestCase):
     def test_remix_preset_value_updates(self):
         """Preset choices should update Remix Strength and Melody Retention."""
 
-        same_language_updates = apply_remix_preset(REMIX_PRESET_SAME_LANGUAGE)
-        translation_updates = apply_remix_preset(REMIX_PRESET_TRANSLATION)
+        default_updates = apply_remix_preset(REMIX_PRESET_DEFAULT)
+        big_change_updates = apply_remix_preset(REMIX_PRESET_SAME_LYRICS_BIG_CHANGE)
+        medium_change_updates = apply_remix_preset(REMIX_PRESET_SAME_LYRICS_MEDIUM_CHANGE)
+        different_lyrics_updates = apply_remix_preset(REMIX_PRESET_DIFFERENT_LYRICS)
+        legacy_updates = apply_remix_preset("Translation")
 
-        self.assertEqual(same_language_updates[0].get("value"), 0.97)
-        self.assertEqual(same_language_updates[1].get("value"), 0.97)
-        self.assertEqual(translation_updates[0].get("value"), 0.70)
-        self.assertEqual(translation_updates[1].get("value"), 0.15)
+        self.assertEqual(default_updates[0].get("value"), 0.50)
+        self.assertEqual(default_updates[1].get("value"), 0.50)
+        self.assertEqual(big_change_updates[0].get("value"), 0.10)
+        self.assertEqual(big_change_updates[1].get("value"), 0.10)
+        self.assertEqual(medium_change_updates[0].get("value"), 0.25)
+        self.assertEqual(medium_change_updates[1].get("value"), 0.25)
+        self.assertEqual(different_lyrics_updates[0].get("value"), 0.70)
+        self.assertEqual(different_lyrics_updates[1].get("value"), 0.15)
+        self.assertEqual(legacy_updates[0].get("value"), 0.50)
+        self.assertEqual(legacy_updates[1].get("value"), 0.50)
 
     def test_round_trip_remix_to_custom_clears_both(self):
         """Switching Remix -> Custom should clear both audio_codes and src_audio.
