@@ -12,6 +12,7 @@ SIMPLE_CREATE_COMPONENT_ALIASES: dict[str, str] = {
     "simple_create_vocal_language": "simple_vocal_language",
     "simple_create_vocal_gender": "simple_vocal_gender",
     "simple_create_negative_prompt": "simple_negative_prompt",
+    "simple_create_sampler_mode": "simple_sampler_mode",
     "simple_create_instrumental": "simple_instrumental",
     "simple_create_duration": "simple_duration",
     "simple_create_batch_size": "simple_batch_size",

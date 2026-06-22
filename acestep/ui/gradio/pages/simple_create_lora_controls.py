@@ -38,12 +38,21 @@ def build_simple_model_lora_controls(
     lora_choices = lora_dropdown_choices()
     lora_value = _selected_lora_value(params, lora_choices)
 
-    simple_model_dropdown = gr.Dropdown(
-        choices=list(model_choices),
-        value=default_model,
-        label="Model",
-        info=_MODEL_INFO,
-    )
+    with gr.Row():
+        simple_model_dropdown = gr.Dropdown(
+            choices=list(model_choices),
+            value=default_model,
+            label="Model",
+            info=_MODEL_INFO,
+            scale=3,
+        )
+        simple_sampler_mode = gr.Dropdown(
+            choices=["euler", "heun"],
+            value=_selected_sampler_mode(params),
+            label=t("generation.sampler_mode_label"),
+            info=t("generation.simple_sampler_mode_info"),
+            scale=1,
+        )
 
     with gr.Group():
         with gr.Row():
@@ -73,6 +82,7 @@ def build_simple_model_lora_controls(
 
     return {
         "simple_model_dropdown": simple_model_dropdown,
+        "simple_sampler_mode": simple_sampler_mode,
         "simple_lora_dropdown": simple_lora_dropdown,
         "simple_refresh_lora_dropdown_btn": simple_refresh_lora_dropdown_btn,
         "simple_lora_scale_slider": simple_lora_scale_slider,
@@ -101,3 +111,11 @@ def _selected_lora_scale(params: dict[str, Any]) -> float:
     except (TypeError, ValueError):
         return 1.0
     return max(0.0, min(_LORA_SCALE_MAX, value))
+
+
+def _selected_sampler_mode(params: dict[str, Any]) -> str:
+    """Return the shared sampler mode selected for Generate Song startup."""
+
+    raw_value = params.get("simple_create_sampler_mode", params.get("sampler_mode", "heun"))
+    value = str(raw_value or "").strip().lower()
+    return value if value in {"euler", "heun"} else "heun"

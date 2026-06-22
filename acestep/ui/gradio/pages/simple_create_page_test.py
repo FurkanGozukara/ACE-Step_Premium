@@ -32,6 +32,13 @@ class SimpleCreatePageTests(unittest.TestCase):
         self.assertEqual("tier6a", controls["simple_tier_dropdown"].value)
         self.assertEqual(480, controls["simple_duration"].maximum)
         self.assertEqual("int8_weight_only", controls["simple_quantization"].value)
+        self.assertEqual("heun", controls["simple_sampler_mode"].value)
+        self.assertEqual("Sampler Mode", controls["simple_sampler_mode"].label)
+        self.assertEqual(
+            "Euler: Standard solver (faster). Heun: Produces cleaner audio "
+            "especially with 8-step turbo inference.",
+            controls["simple_sampler_mode"].info,
+        )
         self.assertEqual("", controls["simple_negative_prompt"].value)
         self.assertIn("SFT and Base", controls["simple_negative_prompt"].info)
 

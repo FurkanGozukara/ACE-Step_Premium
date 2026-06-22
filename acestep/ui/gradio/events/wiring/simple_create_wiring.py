@@ -85,6 +85,10 @@ def register_simple_create_handlers(
         simple_page=simple_page,
         generation_section=generation_section,
     )
+    _register_sampler_mode_sync_handlers(
+        simple_page=simple_page,
+        generation_section=generation_section,
+    )
 
     _register_simple_enhance_handlers(
         simple_page=simple_page,
@@ -276,6 +280,7 @@ def build_simple_prepare_inputs(simple_page: dict[str, Any]) -> list[Any]:
         simple_page["simple_time_signature_state"],
         simple_page["simple_is_format_caption_state"],
         simple_page["simple_negative_prompt"],
+        simple_page["simple_sampler_mode"],
     ]
 
 
@@ -429,6 +434,37 @@ def _sync_negative_prompt_value(value: Any) -> str:
 
     text = str(value or "").strip()
     return "" if text.upper() == "NO USER INPUT" else text
+
+
+def _register_sampler_mode_sync_handlers(
+    *,
+    simple_page: dict[str, Any],
+    generation_section: dict[str, Any],
+) -> None:
+    """Keep Generate Song and advanced sampler dropdowns synchronized."""
+
+    for event_name in ("input", "change"):
+        getattr(simple_page["simple_sampler_mode"], event_name)(
+            fn=_sync_sampler_mode_value,
+            inputs=[simple_page["simple_sampler_mode"]],
+            outputs=[generation_section["sampler_mode"]],
+            show_progress="hidden",
+            show_progress_on=[],
+        )
+        getattr(generation_section["sampler_mode"], event_name)(
+            fn=_sync_sampler_mode_value,
+            inputs=[generation_section["sampler_mode"]],
+            outputs=[simple_page["simple_sampler_mode"]],
+            show_progress="hidden",
+            show_progress_on=[],
+        )
+
+
+def _sync_sampler_mode_value(value: Any) -> str:
+    """Return a valid sampler mode for linked Generate Song/Advanced controls."""
+
+    text = str(value or "").strip().lower()
+    return text if text in {"euler", "heun"} else "heun"
 
 
 def _register_simple_enhance_handlers(

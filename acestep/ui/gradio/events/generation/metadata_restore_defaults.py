@@ -48,7 +48,7 @@ def default_metadata_values() -> dict[str, Any]:
         "cfg_interval_end": 1.0,
         "shift": 3.0,
         "infer_method": "ode",
-        "sampler_mode": "euler",
+        "sampler_mode": "heun",
         "velocity_norm_threshold": 0.0,
         "velocity_ema_factor": 0.0,
         "dcw_enabled": True,

@@ -71,7 +71,7 @@ def run_training_sample_inprocess(
         cfg_interval_end=_as_float(settings.get("cfg_interval_end"), 1.0),
         shift=_as_float(settings.get("shift"), 3.0),
         infer_method=str(settings.get("infer_method") or "ode"),
-        sampler_mode=str(settings.get("sampler_mode") or "euler"),
+        sampler_mode=str(settings.get("sampler_mode") or "heun"),
         velocity_norm_threshold=_as_float(
             settings.get("velocity_norm_threshold"),
             0.0,

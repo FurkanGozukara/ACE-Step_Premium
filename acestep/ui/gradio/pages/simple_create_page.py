@@ -163,6 +163,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                 params=params,
             )
             simple_model_dropdown = model_lora_controls["simple_model_dropdown"]
+            simple_sampler_mode = model_lora_controls["simple_sampler_mode"]
             simple_lora_dropdown = model_lora_controls["simple_lora_dropdown"]
             simple_refresh_lora_dropdown_btn = model_lora_controls[
                 "simple_refresh_lora_dropdown_btn"
@@ -266,6 +267,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
         "simple_cancel_generation_btn": simple_cancel_generation_btn,
         "simple_random_btn": simple_random_btn,
         "simple_model_dropdown": simple_model_dropdown,
+        "simple_sampler_mode": simple_sampler_mode,
         "simple_lora_dropdown": simple_lora_dropdown,
         "simple_refresh_lora_dropdown_btn": simple_refresh_lora_dropdown_btn,
         "simple_lora_scale_slider": simple_lora_scale_slider,

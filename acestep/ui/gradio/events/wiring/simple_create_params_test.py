@@ -72,7 +72,7 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertEqual(result[DCW_SCALER_INDEX], 0.02)
         self.assertEqual(result[DCW_HIGH_SCALER_INDEX], 0.06)
         self.assertEqual(result[INFER_METHOD_INDEX], "ode")
-        self.assertEqual(result[SAMPLER_MODE_INDEX], "euler")
+        self.assertEqual(result[SAMPLER_MODE_INDEX], "heun")
         self.assertEqual(result[VELOCITY_NORM_THRESHOLD_INDEX], 0.0)
         self.assertEqual(result[VELOCITY_EMA_FACTOR_INDEX], 0.0)
         self.assertEqual(result[CUSTOM_TIMESTEPS_INDEX], "")
@@ -111,7 +111,7 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertEqual(result[DCW_SCALER_INDEX], 0.0)
         self.assertEqual(result[DCW_HIGH_SCALER_INDEX], 0.0)
         self.assertEqual(result[INFER_METHOD_INDEX], "ode")
-        self.assertEqual(result[SAMPLER_MODE_INDEX], "euler")
+        self.assertEqual(result[SAMPLER_MODE_INDEX], "heun")
         self.assertEqual(result[VELOCITY_NORM_THRESHOLD_INDEX], 0.0)
         self.assertEqual(result[VELOCITY_EMA_FACTOR_INDEX], 0.0)
         self.assertEqual(result[CUSTOM_TIMESTEPS_INDEX], "")
@@ -331,6 +331,25 @@ class SimpleCreateParamsTests(unittest.TestCase):
 
         self.assertIsInstance(result[GENERATE_LM_AUDIO_CODES_INDEX], bool)
         self.assertEqual(result[NEGATIVE_PROMPT_INDEX], "low quality, noise")
+
+    def test_sampler_mode_is_forwarded_to_generation_contract(self):
+        """Simple sampler selection should feed the shared advanced field."""
+
+        result = prepare_simple_generation(
+            caption="cinematic pop",
+            lyrics="verse",
+            vocal_language="en",
+            instrumental=False,
+            vocal_gender="male",
+            duration=60,
+            batch_size=1,
+            random_seed=True,
+            seed="-1",
+            quantization="none",
+            sampler_mode="euler",
+        )
+
+        self.assertEqual(result[SAMPLER_MODE_INDEX], "euler")
 
     def test_negative_prompt_old_sentinel_maps_to_empty(self):
         """The old NO USER INPUT UI sentinel should behave like an empty prompt."""

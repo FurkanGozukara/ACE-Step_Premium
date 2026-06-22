@@ -258,7 +258,7 @@ def _apply_param_defaults(params):
         "task_type": task_type, "no_fsq": False, "use_adg": False,
         "cfg_interval_start": 0.0, "cfg_interval_end": 1.0,
         "shift": 1.0, "infer_method": "ode",
-        "sampler_mode": "euler", "velocity_norm_threshold": 0.0,
+        "sampler_mode": "heun", "velocity_norm_threshold": 0.0,
         "velocity_ema_factor": 0.0,
         "dcw_enabled": True,
         "dcw_mode": dcw_defaults["mode"],

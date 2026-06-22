@@ -65,7 +65,7 @@ def build_dit_controls(
             )
             sampler_mode = gr.Dropdown(
                 choices=["euler", "heun"],
-                value="euler",
+                value="heun",
                 label=t("generation.sampler_mode_label"),
                 info=t("generation.sampler_mode_info"),
                 elem_classes=["has-info-container"],

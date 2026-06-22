@@ -31,6 +31,7 @@ def prepare_simple_generation(
     formatted_time_signature: Any = "",
     is_format_caption: bool | None = False,
     negative_prompt: str = "",
+    sampler_mode: str | None = None,
 ) -> tuple[Any, ...]:
     """Map simple Create inputs onto the full generation component contract."""
 
@@ -96,7 +97,7 @@ def prepare_simple_generation(
         quality_defaults["dcw_scaler"],
         quality_defaults["dcw_high_scaler"],
         quality_defaults["infer_method"],
-        quality_defaults["sampler_mode"],
+        _normalize_sampler_mode(sampler_mode, quality_defaults["sampler_mode"]),
         quality_defaults["velocity_norm_threshold"],
         quality_defaults["velocity_ema_factor"],
         quality_defaults["custom_timesteps"],
@@ -209,6 +210,16 @@ def _normalize_negative_prompt(value: Any) -> str:
 
     text = str(value or "").strip()
     return "" if text.upper() == "NO USER INPUT" else text
+
+
+def _normalize_sampler_mode(value: Any, fallback: str = "heun") -> str:
+    """Return a supported sampler mode for the generation contract."""
+
+    text = str(value or "").strip().lower()
+    if text in {"euler", "heun"}:
+        return text
+    fallback_text = str(fallback or "").strip().lower()
+    return fallback_text if fallback_text in {"euler", "heun"} else "heun"
 
 
 def _is_auto_duration(duration: float) -> bool:

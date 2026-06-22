@@ -30,6 +30,7 @@ class PremiumPresetComponentMapTests(unittest.TestCase):
         }
         expected_alias_component = simple_page["simple_caption"]
         expected_negative_prompt_component = simple_page["simple_negative_prompt"]
+        expected_sampler_component = simple_page["simple_sampler_mode"]
 
         component_map = build_preset_component_map(
             generation_section=generation_section,
@@ -48,6 +49,10 @@ class PremiumPresetComponentMapTests(unittest.TestCase):
         self.assertIs(
             component_map["simple_create_negative_prompt"],
             expected_negative_prompt_component,
+        )
+        self.assertIs(
+            component_map["simple_create_sampler_mode"],
+            expected_sampler_component,
         )
 
     def test_missing_schema_key_raises_clear_error(self) -> None:
