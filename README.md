@@ -46,7 +46,7 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
-### 21 June 2026 V6.1 Update
+### 22 June 2026 V6.3 Update
 
 -   Same V6 zip file just run installer to update    
 -   We fixed an important generation quality regression    
