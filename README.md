@@ -49,7 +49,24 @@
 ### 21 June 2026 V6.1 Update
 
 -   Same V6 zip file just run installer to update    
--   Negative prompt feature implemented to every field    
+-   We fixed an important generation quality regression    
+    -   The issue was caused by the new Remix Melody Retention default value leaking into normal Text-to-Music generation        
+    -   This made XL Turbo start diffusion almost at the end of the schedule, so an 8-step generation effectively ran only about 1 real DiT step.        
+    -   That explained why some users saw extremely fast generations, for example around 20 seconds instead of the expected longer runtime, with poor quality results.        
+    -   We also fixed Turbo inference step handling. Previously, Turbo requests above 8 steps were still being clamped back to 8.        
+        -   Now Turbo supports up to 20 steps correctly, so setting 16 steps actually runs 16 steps.            
+-   Sampler mode added to the Generate Song tab and set heun as default since almost no speed difference and it is better than previous euler    
+    -   Still you can test and compare both if you wish
+ 
+<img width="1152" height="297" alt="image" src="https://github.com/user-attachments/assets/064443c8-1be5-46ed-866e-8372bdf3fa23" />
+
+-   I did a lot of testing with Remix presets and sadly it is hard to make best for every case so you better test for your own cases    
+    -   Now there are 4 presets, Default, Same Lyrics Big Change, Same Lyrics Medium Change and Different Lyrics        
+    -   Enable torch compile and generate subsequently until you get a good result really fast
+ 
+<img width="1849" height="426" alt="image" src="https://github.com/user-attachments/assets/eced5e94-dca2-4eaa-8a5d-7a157996f8b2" />
+
+-   Negative prompt feature implemented to every field
 -   Works only with SFT and Base model since Turbo model has CFG 1
 
 <img  height="600" alt="image" src="https://github.com/user-attachments/assets/2d65f767-a8dd-47a9-8fde-5947c57a7340" />
