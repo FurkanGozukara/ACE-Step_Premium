@@ -38,18 +38,21 @@ class ReadAudioFileTests(unittest.TestCase):
         finally:
             os.unlink(tmp.name)
 
-    def test_falls_back_to_torchaudio_on_soundfile_failure(self):
-        """When soundfile fails, torchaudio.load should be tried."""
-        fake_waveform = torch.randn(1, 44100)
+    def test_falls_back_to_media_decoder_on_soundfile_failure(self):
+        """When soundfile fails, the shared FFmpeg media decoder should be tried."""
+        fake_audio = np.random.randn(44100, 1).astype(np.float32)
 
         with patch("acestep.core.generation.handler.io_audio.sf") as mock_sf:
             mock_sf.read.side_effect = Exception("Format not recognised")
-            with patch("torchaudio.load", return_value=(fake_waveform, 44100)) as mock_load:
+            with patch(
+                "acestep.core.generation.handler.io_audio.read_media_audio",
+                return_value=(fake_audio, 44100),
+            ) as read_media_audio_mock:
                 audio_np, sr = _read_audio_file("test.aac")
 
         self.assertEqual(sr, 44100)
         self.assertEqual(audio_np.shape[0], 44100)
-        mock_load.assert_called_once_with("test.aac")
+        read_media_audio_mock.assert_called_once_with("test.aac")
 
     def test_reads_video_via_media_audio_decoder(self):
         """Video files should be decoded through the shared ffmpeg media reader."""
@@ -65,14 +68,17 @@ class ReadAudioFileTests(unittest.TestCase):
         read_media_audio_mock.assert_called_once_with("clip.mp4")
 
     def test_raises_when_both_fail(self):
-        """Should raise RuntimeError when both soundfile and torchaudio fail."""
+        """Should raise RuntimeError when both soundfile and FFmpeg decode fail."""
         with patch("acestep.core.generation.handler.io_audio.sf") as mock_sf:
             mock_sf.read.side_effect = Exception("sf fail")
-            with patch("torchaudio.load", side_effect=RuntimeError("ta fail")):
+            with patch(
+                "acestep.core.generation.handler.io_audio.read_media_audio",
+                side_effect=RuntimeError("ffmpeg fail"),
+            ):
                 with self.assertRaises(RuntimeError) as ctx:
                     _read_audio_file("bad.xyz")
                 self.assertIn("sf fail", str(ctx.exception))
-                self.assertIn("ta fail", str(ctx.exception))
+                self.assertIn("ffmpeg fail", str(ctx.exception))
 
 
 class IoAudioMixinTests(unittest.TestCase):
@@ -158,7 +164,7 @@ class ReadAudioFileIntegrationTest(unittest.TestCase):
 
     @unittest.skipUnless(os.path.exists("/tmp/test_aac.aac"), "test AAC file not present")
     def test_reads_aac_file(self):
-        """AAC file should be readable via torchaudio fallback."""
+        """AAC file should be readable via FFmpeg fallback."""
         audio_np, sr = _read_audio_file("/tmp/test_aac.aac")
         self.assertGreater(sr, 0)
         self.assertGreater(audio_np.shape[0], 0)

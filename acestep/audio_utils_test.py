@@ -305,6 +305,29 @@ class AudioSaverFormatTests(unittest.TestCase):
 
             self.assertTrue(result.endswith('.aac'))
 
+    def test_convert_audio_uses_media_decoder_instead_of_torchaudio_load(self):
+        """Format conversion should avoid TorchCodec-backed torchaudio.load."""
+        saver = AudioSaver()
+        input_path = Path(self.temp_dir) / "input.m4a"
+        output_path = Path(self.temp_dir) / "output.mp3"
+        input_path.write_bytes(b"placeholder")
+        decoded_audio = np.zeros((32, 2), dtype=np.float32)
+
+        with (
+            patch(
+                "acestep.audio_processing.media_io.read_media_audio",
+                return_value=(decoded_audio, self.sample_rate),
+            ) as read_media_audio_mock,
+            patch.object(saver, "save_audio", return_value=str(output_path)) as save_audio_mock,
+            patch("acestep.audio_utils.torchaudio.load", side_effect=AssertionError("do not call torchaudio.load")),
+        ):
+            result = saver.convert_audio(input_path, output_path, "mp3")
+
+        self.assertEqual(result, str(output_path))
+        read_media_audio_mock.assert_called_once_with(input_path)
+        save_audio_mock.assert_called_once()
+        audio_tensor = save_audio_mock.call_args[0][0]
+        self.assertEqual(tuple(audio_tensor.shape), (2, 32))
 
 
     def test_save_audio_mp3_does_not_fallback_to_soundfile_on_failure(self):

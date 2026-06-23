@@ -426,8 +426,13 @@ class AudioSaver:
         if not input_path.exists():
             raise FileNotFoundError(f"Input file not found: {input_path}")
         
-        # Load audio
-        audio_tensor, sample_rate = torchaudio.load(str(input_path))
+        # Load through the shared media decoder instead of torchaudio.load().
+        # Modern torchaudio routes load/save through TorchCodec, which is
+        # brittle on Windows when TorchCodec FFmpeg DLLs are not available.
+        from acestep.audio_processing.media_io import read_media_audio
+
+        audio_np, sample_rate = read_media_audio(input_path)
+        audio_tensor = torch.from_numpy(audio_np.T).to(torch.float32)
         
         # Save as new format
         output_path = self.save_audio(

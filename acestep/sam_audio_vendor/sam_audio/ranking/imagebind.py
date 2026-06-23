@@ -6,6 +6,7 @@ from typing import List, Union
 import torch
 import torchaudio
 
+from acestep.audio_load_fallback import load_audio_with_torchaudio_fallback
 from sam_audio.model.config import ImageBindRankerConfig
 from sam_audio.ranking.ranker import Ranker
 
@@ -49,7 +50,10 @@ def load_and_transform_audio_data(
 
     for audio in audios:
         if isinstance(audio, str):
-            waveform, input_sample_rate = torchaudio.load(audio)
+            waveform, input_sample_rate = load_audio_with_torchaudio_fallback(
+                audio,
+                context="SAM-Audio ImageBind ranker",
+            )
         else:
             assert torch.is_tensor(audio)
             assert sample_rate is not None

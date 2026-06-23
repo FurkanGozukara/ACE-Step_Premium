@@ -13,11 +13,12 @@ from acestep.audio_processing.media_io import is_video_file, read_media_audio
 
 
 def _read_audio_file(audio_file: str) -> Tuple[np.ndarray, int]:
-    """Read an audio file, with torchaudio fallback for formats unsupported by soundfile.
+    """Read an audio file, with FFmpeg fallback for formats unsupported by soundfile.
 
     soundfile (libsndfile) supports WAV/FLAC/OGG/MP3 etc. but NOT AAC/M4A/MP4.
-    When soundfile fails, we fall back to torchaudio.load() which uses torchcodec
-    and can handle virtually any format via FFmpeg.
+    When soundfile fails, use the shared FFmpeg media reader. This avoids
+    torchaudio.load(), which depends on TorchCodec in modern torchaudio builds
+    and is fragile on Windows when TorchCodec DLLs are unavailable.
 
     Args:
         audio_file: Path to the audio file.
@@ -40,25 +41,21 @@ def _read_audio_file(audio_file: str) -> Tuple[np.ndarray, int]:
     except Exception as exc:
         sf_err = exc
         logger.debug(
-            "[_read_audio_file] soundfile cannot read '{}': {}. Trying torchaudio fallback.",
+            "[_read_audio_file] soundfile cannot read '{}': {}. Trying FFmpeg media decoder fallback.",
             audio_file, sf_err,
         )
 
-    # Slow path: torchaudio (uses torchcodec -> FFmpeg under the hood)
+    # Slow path: shared FFmpeg decoder, avoiding torchaudio/TorchCodec.
     try:
-        import torchaudio
-
-        waveform, sr = torchaudio.load(audio_file)
-        # torchaudio returns [channels, samples], convert to numpy [samples, channels]
-        audio_np = waveform.numpy().T  # -> [samples, channels]
-        if audio_np.shape[1] == 1:
-            audio_np = audio_np.squeeze(1)  # -> [samples] for mono
-        return audio_np.astype(np.float32), sr
-    except Exception as ta_err:
+        audio_np, sr = read_media_audio(audio_file)
+        if audio_np.ndim == 2 and audio_np.shape[1] == 1:
+            audio_np = audio_np.squeeze(1)
+        return audio_np.astype(np.float32, copy=False), sr
+    except Exception as media_err:
         raise RuntimeError(
             f"Cannot read '{audio_file}': soundfile ({sf_err}) "
-            f"and torchaudio ({ta_err}) both failed."
-        ) from ta_err
+            f"and ffmpeg media decoder ({media_err}) both failed."
+        ) from media_err
 
 
 class IoAudioMixin:

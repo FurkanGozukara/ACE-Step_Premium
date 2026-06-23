@@ -12,6 +12,8 @@ from huggingface_hub import hf_hub_download
 from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoTokenizer, BatchFeature
 
+from acestep.audio_load_fallback import load_audio_with_torchaudio_fallback
+
 try:
     from torchcodec.decoders import AudioDecoder, VideoDecoder
 except Exception:
@@ -31,7 +33,10 @@ def batch_audio(
     wavs = []
     for audio in audios:
         if isinstance(audio, str):
-            wav, sr = torchaudio.load(audio)
+            wav, sr = load_audio_with_torchaudio_fallback(
+                audio,
+                context="SAM-Audio processor",
+            )
             if sr != audio_sampling_rate:
                 wav = torchaudio.functional.resample(wav, sr, audio_sampling_rate)
         else:

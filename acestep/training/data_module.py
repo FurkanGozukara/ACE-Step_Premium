@@ -11,6 +11,7 @@ import random
 from typing import Optional, List, Dict, Any, Tuple
 from loguru import logger
 
+from acestep.audio_load_fallback import load_audio_with_torchaudio_fallback
 from acestep.training.path_safety import safe_path
 
 import torch
@@ -386,7 +387,10 @@ class AceStepTrainingDataset(Dataset):
         sample = self.valid_samples[idx]
         
         audio_path = sample["audio_path"]
-        audio, sr = torchaudio.load(audio_path)
+        audio, sr = load_audio_with_torchaudio_fallback(
+            audio_path,
+            context="LoRA training dataset",
+        )
         
         # Resample to 48kHz
         if sr != self.target_sample_rate:
