@@ -46,6 +46,13 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+### 25 June 2026 V6.3.2 Update
+
+-   How Remix Source Start and Remix Source End works upgraded
+-   Now it regenerates entire remix and then only merges the selected part into remixed original song
+-   With this approach, you can iteratively remix certain parts quickly and get the ultimate best song
+-   Just run installer / update bat file to upgrade
+
 ### 22 June 2026 V6.3 Update
 
 -   Same V6 zip file just run installer to update    
