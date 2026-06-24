@@ -564,6 +564,51 @@ class SequentialGenerationCountTests(unittest.TestCase):
         layer_audio = next(audio_data for path, audio_data in saved_paths if path == layer_paths[0])
         torch.testing.assert_close(layer_audio, torch.ones(2, 8) * 0.5)
 
+    def test_bounded_remix_uses_spliced_song_for_sample_and_full_remix_for_area(self):
+        """Bounded Remix should display a full-song splice while area clips use the full remix."""
+
+        latest_area_metadata = {
+            "applied": True,
+            "generated_area_path": "/tmp/song_latest_remixed_area.mp3",
+            "original_area_path": "/tmp/song_latest_remixed_area_original.mp3",
+        }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            spliced_path = str(Path(tmp) / "song-100_remix_merged.mp3").replace("\\", "/")
+            splice_metadata = {
+                "applied": True,
+                "audio_path": spliced_path,
+                "full_remix_audio_path": str(Path(tmp) / "song-100.mp3").replace("\\", "/"),
+                "start": 2.0,
+                "end": 4.0,
+            }
+
+            with patch.object(
+                generation_progress,
+                "create_latest_edit_area_clips",
+                return_value=latest_area_metadata,
+            ) as latest_area_mock, patch.object(
+                generation_progress,
+                "save_remix_area_splice",
+                return_value=splice_metadata,
+            ) as splice_mock:
+                final = self._run_generation(
+                    tmp,
+                    lambda _dit, _llm, *, params, config, progress: _fake_result(str(config.seeds[0])),
+                    task_type="cover",
+                    src_audio="source.wav",
+                    repainting_start=2.0,
+                    repainting_end=4.0,
+                )
+
+        full_remix_path = latest_area_mock.call_args.kwargs["generated_audio_path"]
+        self.assertTrue(full_remix_path.endswith("song-100.mp3"))
+        self.assertEqual(splice_mock.call_args.kwargs["generated_audio_path"], full_remix_path)
+        self.assertEqual(final[0]["value"], spliced_path)
+        self.assertIn(spliced_path, final[16])
+        self.assertIn(latest_area_metadata["generated_area_path"], final[16])
+        self.assertIn(latest_area_metadata["original_area_path"], final[16])
+
     def test_lyric_repaint_request_payload_uses_effective_instruction(self):
         """Saved request metadata should show lyric repaint's text-to-song instruction."""
 

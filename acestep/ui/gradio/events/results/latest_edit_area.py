@@ -9,6 +9,11 @@ from typing import Any
 
 from loguru import logger
 
+from acestep.ui.gradio.events.results.remix_source_range import (
+    REMIX_SOURCE_RANGE_TASKS,
+    remix_source_segment_for_clips,
+)
+
 
 EDIT_AREA_COMPARE_TASKS = frozenset({"cover", "cover-nofsq", "repaint", "lego", "complete"})
 _RANGE_TASKS = frozenset({"repaint", "lego", "complete"})
@@ -63,7 +68,7 @@ def create_latest_edit_area_clips(
     if generated is None or source is None:
         return {"applied": False, "reason": "missing_audio"}
 
-    segment = _segment_for_task(task, repainting_start, repainting_end)
+    segment = _segment_for_task(task, repainting_start, repainting_end, str(source))
     if segment is None:
         return {"applied": False, "reason": "invalid_range"}
 
@@ -113,8 +118,17 @@ def _segment_for_task(
     task_type: str,
     repainting_start: Any,
     repainting_end: Any,
+    source_audio_path: str | None = None,
 ) -> tuple[float, float | None] | None:
     """Return ``(start, duration)`` for the inline edited-area clip."""
+
+    if task_type in REMIX_SOURCE_RANGE_TASKS:
+        return remix_source_segment_for_clips(
+            task_type,
+            source_audio_path,
+            repainting_start,
+            repainting_end,
+        )
 
     if task_type not in _RANGE_TASKS:
         return 0.0, None

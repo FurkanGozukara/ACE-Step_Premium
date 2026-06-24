@@ -13,6 +13,12 @@ from acestep.ui.gradio.events.results.session_artifacts import (
 )
 
 
+def _source_file_value(audio_file):
+    """Return the value shape expected by the multiple-file source upload."""
+
+    return [audio_file]
+
+
 def send_audio_to_src_with_metadata(audio_file, lm_metadata):
     """Send generated audio file to ``src_audio`` input.
 
@@ -29,7 +35,7 @@ def send_audio_to_src_with_metadata(audio_file, lm_metadata):
     if audio_file is None:
         return (gr.skip(),) * 10
     return (
-        audio_file,
+        _source_file_value(audio_file),
         gr.skip(),  # bpm
         gr.skip(),  # caption
         gr.skip(),  # lyrics
@@ -92,7 +98,7 @@ def send_audio_to_remix(audio_file, lm_metadata, current_lyrics, current_caption
     # user can use the morph overlay against the previous prompt as V_src
     # and edit the top-level caption / lyrics as V_tar.
     return (
-        audio_file, gr.update(value="Remix"), lyrics, caption,
+        _source_file_value(audio_file), gr.update(value="Remix"), lyrics, caption,
         gr.update(value=caption), gr.update(value=lyrics),
         *mode_updates,
     )
@@ -139,7 +145,7 @@ def send_audio_to_repaint(audio_file, lm_metadata, current_lyrics, current_capti
     mode_updates[20] = gr.update(value=lyrics, visible=True, interactive=True)
 
     return (
-        audio_file, gr.update(value="Repaint"), lyrics, caption,
+        _source_file_value(audio_file), gr.update(value="Repaint"), lyrics, caption,
         gr.update(value=caption), gr.update(value=lyrics),
         gr.update(value=True), gr.update(value=seed_value),
         *mode_updates,

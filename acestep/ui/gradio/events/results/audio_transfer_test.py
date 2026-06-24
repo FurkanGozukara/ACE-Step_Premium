@@ -34,7 +34,7 @@ class SendAudioToRepaintTests(unittest.TestCase):
                 llm_handler=None,
             )
 
-        self.assertEqual(str(audio_path), updates[0])
+        self.assertEqual([str(audio_path)], updates[0])
         self.assertEqual(True, updates[6]["value"])
         self.assertEqual("12345", updates[7]["value"])
 

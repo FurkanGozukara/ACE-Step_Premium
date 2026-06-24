@@ -79,8 +79,8 @@ class LatestEditAreaTests(unittest.TestCase):
             result["original_area_path"].endswith("_latest_repainted_area_original.mp3")
         )
 
-    def test_remix_uses_resolved_whole_source_segment(self) -> None:
-        """Remix clips should compare the whole resolved Remix source segment."""
+    def test_remix_uses_selected_source_range(self) -> None:
+        """Remix clips should compare only the selected source range."""
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -108,11 +108,42 @@ class LatestEditAreaTests(unittest.TestCase):
                 )
 
         self.assertTrue(result["applied"])
-        self.assertEqual(seen_segments, [(0.0, None), (0.0, None)])
+        self.assertEqual(seen_segments, [(40.0, 10.0), (40.0, 10.0)])
         self.assertTrue(result["generated_area_path"].endswith("_latest_remixed_area.wav"))
         self.assertTrue(
             result["original_area_path"].endswith("_latest_remixed_area_original.wav")
         )
+
+    def test_remix_default_range_uses_whole_source_segment(self) -> None:
+        """Default Remix range should still compare the full Remix and source."""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            generated = _touch(root / "generated.flac")
+            source = _touch(root / "source.wav")
+            seen_segments = []
+
+            def fake_extract(_source, target, segment, **_kwargs):
+                seen_segments.append(segment)
+                return str(target).replace("\\", "/")
+
+            with patch(
+                "acestep.ui.gradio.events.results.latest_edit_area."
+                "_extract_audio_segment",
+                side_effect=fake_extract,
+            ):
+                result = create_latest_edit_area_clips(
+                    task_type="cover",
+                    generated_audio_path=str(generated),
+                    source_audio_path=str(source),
+                    run_dir=root,
+                    key="sample",
+                    repainting_start=0.0,
+                    repainting_end=-1,
+                )
+
+        self.assertTrue(result["applied"])
+        self.assertEqual(seen_segments, [(0.0, None), (0.0, None)])
 
     def test_lego_uses_lego_area_filename(self) -> None:
         """Lego clips should use Lego-specific names for inline preview labels."""

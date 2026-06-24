@@ -1,4 +1,4 @@
-"""Resolve Remix source-audio range selection before generation."""
+"""Resolve Remix source-audio range selection for post-generation splicing."""
 
 from __future__ import annotations
 
@@ -29,28 +29,33 @@ def resolve_remix_source_range_audio(
     repainting_start: Any,
     repainting_end: Any,
 ) -> str | None:
-    """Return a trimmed source path when Remix start/end selects a valid segment.
+    """Return the full source path used for Remix generation.
 
-    Args:
-        task_type: Current backend task type.
-        source_audio_path: Effective Source Audio path after preview trimming.
-        repainting_start: Source segment start in seconds.
-        repainting_end: Source segment end in seconds, or ``-1`` for source end.
-
-    Returns:
-        A temporary trimmed media path for bounded Remix source segments, or the
-        original source path when the range is full-source, invalid, or trimming
-        fails.
+    Remix ranges no longer trim the source before generation. The model remixes
+    the whole source, then the selected range is spliced back into the original
+    song after generation.
     """
 
+    _ = task_type, repainting_start, repainting_end
+    return source_audio_path
+
+
+def resolve_bounded_remix_source_range(
+    task_type: str | None,
+    source_audio_path: str | None,
+    repainting_start: Any,
+    repainting_end: Any,
+) -> RemixSourceRange | None:
+    """Return a valid non-full Remix range for post-generation replacement."""
+
     if str(task_type or "").strip().lower() not in REMIX_SOURCE_RANGE_TASKS:
-        return source_audio_path
+        return None
     if not source_audio_path:
-        return source_audio_path
+        return None
 
     source = Path(str(source_audio_path)).expanduser()
     if not source.is_file():
-        return source_audio_path
+        return None
 
     source_range = _validated_remix_source_range(
         str(source),
@@ -58,17 +63,31 @@ def resolve_remix_source_range_audio(
         repainting_end,
     )
     if source_range is None or _covers_full_source(source_range):
-        return source_audio_path
+        return None
+    return source_range
 
-    try:
-        return _trim_source_range_preview(
-            str(source),
-            source_range.start,
-            source_range.duration,
-        )
-    except RuntimeError as exc:
-        logger.warning(f"Failed to trim Remix source range; using full source: {exc}")
-        return source_audio_path
+
+def remix_source_segment_for_clips(
+    task_type: str | None,
+    source_audio_path: str | None,
+    repainting_start: Any,
+    repainting_end: Any,
+) -> tuple[float, float | None]:
+    """Return the generated/original comparison segment for Remix previews.
+
+    Bounded ranges return that selected area. Missing, invalid, or full-source
+    ranges fall back to the whole Remix/source comparison.
+    """
+
+    source_range = resolve_bounded_remix_source_range(
+        task_type,
+        source_audio_path,
+        repainting_start,
+        repainting_end,
+    )
+    if source_range is None:
+        return 0.0, None
+    return source_range.start, source_range.duration
 
 
 def _validated_remix_source_range(
@@ -150,10 +169,7 @@ def _media_audio_duration_seconds(source_path: str) -> float:
 
 
 def _trim_source_range_preview(source_path: str, start: float, duration: float) -> str:
-    """Import and call FFmpeg range trimming only when a valid Remix range exists."""
+    """Deprecated compatibility shim; Remix no longer trims before generation."""
 
-    from acestep.ui.gradio.events.wiring.media_range_preview_trim import (
-        trim_source_range_preview,
-    )
-
-    return trim_source_range_preview(source_path, start, duration)
+    _ = start, duration
+    return source_path

@@ -82,6 +82,10 @@ from acestep.ui.gradio.events.results.result_output_contract import (
     source_audio_update_path,
 )
 from acestep.ui.gradio.events.results.latest_edit_area import create_latest_edit_area_clips
+from acestep.ui.gradio.events.results.remix_area_splice import save_remix_area_splice
+from acestep.ui.gradio.events.results.remix_source_range import (
+    resolve_bounded_remix_source_range,
+)
 from acestep.ui.gradio.events.results.extract_remaining_audio import (
     save_extract_remaining_audio,
 )
@@ -605,6 +609,15 @@ def generate_with_progress(
         repainting_start,
         repainting_end,
     )
+    bounded_remix_edit = (
+        resolve_bounded_remix_source_range(
+            task_type,
+            source_display_path,
+            repainting_start,
+            repainting_end,
+        )
+        is not None
+    )
 
     if not result.success:
         build_generation_manifest(
@@ -746,7 +759,7 @@ def generate_with_progress(
             )
         audio_params["extract_trim"] = extract_trim_metadata
         original_audio_paths = dict(saved_audio_paths)
-        if bounded_source_edit:
+        if bounded_source_edit or bounded_remix_edit:
             postprocess_metadata = _skipped_bounded_edit_metadata(
                 ap_settings.enabled,
                 ap_settings.to_payload(),
@@ -779,7 +792,7 @@ def generate_with_progress(
         if "mp3" in saved_audio_paths:
             audio_params["mp3_path"] = saved_audio_paths["mp3"]
 
-        if bounded_source_edit:
+        if bounded_source_edit or bounded_remix_edit:
             sam_postprocess_metadata = _skipped_bounded_edit_metadata(
                 sam_settings.auto_postprocess,
                 sam_settings.to_payload(),
@@ -805,6 +818,8 @@ def generate_with_progress(
         audio_params["sam_audio"] = sam_postprocess_metadata
         audio_params["saved_audio_formats"] = list(saved_audio_paths.keys())
         audio_params["audio_paths"] = saved_audio_paths
+        full_remix_audio_path = audio_path
+        remix_splice_metadata = {"applied": False, "reason": "not_primary_sample"}
         latest_edit_area_metadata = {"applied": False, "reason": "not_primary_sample"}
         if i == 0:
             lego_layer_path = _save_lego_layer_preview(
@@ -822,7 +837,7 @@ def generate_with_progress(
                 audio_params["lego_generated_track_path"] = lego_layer_path
             latest_edit_area_metadata = create_latest_edit_area_clips(
                 task_type=task_type,
-                generated_audio_path=audio_path,
+                generated_audio_path=full_remix_audio_path,
                 source_audio_path=source_display_path,
                 run_dir=temp_dir,
                 key=key,
@@ -832,7 +847,35 @@ def generate_with_progress(
                 mp3_bitrate=mp3_bitrate,
                 mp3_sample_rate=mp3_sample_rate,
             )
+            remix_splice_metadata = save_remix_area_splice(
+                task_type=task_type,
+                generated_audio_path=full_remix_audio_path,
+                source_audio_path=source_display_path,
+                run_dir=temp_dir,
+                key=key,
+                repainting_start=repainting_start,
+                repainting_end=repainting_end,
+                output_format=backend_audio_format,
+                mp3_bitrate=mp3_bitrate,
+                mp3_sample_rate=mp3_sample_rate,
+                save_audio_fn=save_audio,
+            )
+            if remix_splice_metadata.get("applied"):
+                spliced_audio_path = str(remix_splice_metadata.get("audio_path") or "")
+                if spliced_audio_path:
+                    audio_params["full_remix_audio_path"] = full_remix_audio_path
+                    saved_audio_paths = _replace_audio_path_for_format(
+                        saved_audio_paths,
+                        backend_audio_format,
+                        spliced_audio_path,
+                    )
+                    audio_path = spliced_audio_path
+                    audio_params["saved_audio_formats"] = list(saved_audio_paths.keys())
+                    audio_params["audio_paths"] = saved_audio_paths
+                    if "mp3" in saved_audio_paths:
+                        audio_params["mp3_path"] = saved_audio_paths["mp3"]
         audio_params["latest_edit_area"] = latest_edit_area_metadata
+        audio_params["remix_area_splice"] = remix_splice_metadata
 
         _persist_repaint_source_latents(
             source_latents=_extract_repaint_source_latents(result.extra_outputs, i),
@@ -1650,6 +1693,17 @@ def _postprocessed_audio_paths(original_paths, processed_path, settings):
     if settings.preserve_original:
         return {**original_paths, processed_key: processed_path}
     return {processed_key: processed_path}
+
+
+def _replace_audio_path_for_format(current_paths, audio_format, audio_path):
+    """Return visible audio paths after a concrete format is replaced."""
+
+    updated = dict(current_paths or {})
+    key = str(audio_format or "").strip().lower()
+    if not key:
+        key = os.path.splitext(str(audio_path))[1].lstrip(".").lower() or "wav"
+    updated[key] = str(audio_path).replace("\\", "/")
+    return updated
 
 
 def _sam_audio_paths(current_paths, target_path, settings):

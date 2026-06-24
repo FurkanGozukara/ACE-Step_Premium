@@ -346,8 +346,8 @@ class BatchManagementWrapperTests(unittest.TestCase):
         saved_params = state["store_calls"][0]["generation_params"]
         self.assertEqual(saved_params["src_audio"], "trimmed_source.wav")
 
-    def test_remix_source_range_forwards_to_generation_and_saved_params(self):
-        """Remix start/end should select the source segment sent into generation."""
+    def test_remix_source_range_keeps_full_source_for_generation_and_saved_params(self):
+        """Remix start/end should not trim the source sent into generation."""
 
         module, state = load_batch_management_module(is_windows=False)
         seen = {}
@@ -358,11 +358,6 @@ class BatchManagementWrapperTests(unittest.TestCase):
             seen["kwargs"] = kwargs
             yield build_progress_result(length=56)
 
-        def _resolve_range(task_type, source_path, start, end):
-            """Return a synthetic range-trimmed source path."""
-            seen["range_args"] = (task_type, source_path, start, end)
-            return "range_source.wav"
-
         kwargs = _build_call_kwargs(module)
         kwargs["task_type"] = "cover"
         kwargs["src_audio"] = "source.wav"
@@ -371,17 +366,13 @@ class BatchManagementWrapperTests(unittest.TestCase):
 
         with patch.dict(
             module.generate_with_batch_management.__globals__,
-            {
-                "generate_with_progress": _gen,
-                "resolve_remix_source_range_audio": _resolve_range,
-            },
+            {"generate_with_progress": _gen},
         ):
             list(module.generate_with_batch_management(None, None, **kwargs))
 
-        self.assertEqual(seen["range_args"], ("cover", "source.wav", 4.0, 9.0))
-        self.assertEqual(seen["args"][15], "range_source.wav")
+        self.assertEqual(seen["args"][15], "source.wav")
         saved_params = state["store_calls"][0]["generation_params"]
-        self.assertEqual(saved_params["src_audio"], "range_source.wav")
+        self.assertEqual(saved_params["src_audio"], "source.wav")
 
     def test_extract_requires_track_name_before_generation(self):
         """Extract should stop before backend generation when no track is selected."""

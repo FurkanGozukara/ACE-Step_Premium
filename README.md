@@ -389,8 +389,8 @@
 
 -   **Remix**: Upload source audio and restyle it with your own caption and lyrics. The AI uses the original as a structural guide while applying your new style. Adjust Remix Strength to control how closely it follows the original (high = faithful cover, low = loose reinterpretation).    
     -   **What it does:** uses Source Audio as the structural guide for melody, rhythm, chords, arrangement, and timing while applying your new Caption and Lyrics.        
-    -   **How to use it:** upload Source Audio, optionally trim it in Source Audio Preview, write the target style in Caption, provide replacement Lyrics if you want changed vocals, then adjust Remix Strength and Remix Melody Retention. Higher Remix Strength follows the source more closely; lower strength gives the model more room to reinterpret.        
-    -   **Audio inputs:** Source Audio is the important input here. Reference Audio is only an extra global style cue. If the source is instrumental-only, Remix can follow the instrumental structure but still has to invent the vocal melody and phrasing for new lyrics.        
+    -   **How to use it:** upload Source Audio, optionally trim it in Source Audio Preview, set Remix Source Start/End only when Sample 1 should replace one selected part of the original song, write the target style in Caption, provide replacement Lyrics if you want changed vocals, then adjust Remix Strength and Remix Melody Retention. Higher Remix Strength follows the source more closely; lower strength gives the model more room to reinterpret.
+    -   **Audio inputs:** Source Audio is the important input here. Remix generates from the full source; when a bounded Remix Source Start/End range is set, Sample 1 keeps the original song outside that range and overwrites that part with the matching section from the full remix. Reference Audio is only an extra global style cue. If the source is instrumental-only, Remix can follow the instrumental structure but still has to invent the vocal melody and phrasing for new lyrics.
 
 <img height="600" alt="image" src="https://github.com/user-attachments/assets/a4fb990f-0c83-4709-8609-bd0cb55138fd" />
 

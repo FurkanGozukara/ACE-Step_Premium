@@ -276,13 +276,13 @@ class MediaUploadPreviewTests(unittest.TestCase):
             use_generated_result_as_source("generated.wav", "Remix", 12.0, 20.0)
         )
 
-        self.assertEqual(src_audio, "generated.wav")
+        self.assertEqual(src_audio, ["generated.wav"])
         self.assertEqual(audio_update.get("value"), "generated.wav")
         self.assertTrue(audio_update.get("visible"))
         self.assertIsNone(video_update.get("value"))
         self.assertFalse(video_update.get("visible"))
         self.assertEqual(duration_update.get("value"), 42.0)
-        self.assertEqual(original, "generated.wav")
+        self.assertIsNone(original)
         self.assertEqual(start_update.get("value"), 0.0)
         self.assertEqual(end_update.get("value"), -1)
         self.assertEqual(range_audio_update.get("value"), "range.wav")
@@ -291,9 +291,9 @@ class MediaUploadPreviewTests(unittest.TestCase):
         self.assertFalse(range_video_update.get("visible"))
         duration_mock.assert_called_once_with("generated.wav", "Remix")
         range_preview_mock.assert_called_once_with(
+            ["generated.wav"],
             "generated.wav",
-            "generated.wav",
-            "generated.wav",
+            None,
             0.0,
             -1,
             "Remix",
@@ -330,9 +330,9 @@ class MediaUploadPreviewTests(unittest.TestCase):
         self.assertTrue(updates[7].get("visible"))
         duration_mock.assert_called_once_with("generated.wav", "Complete")
         range_preview_mock.assert_called_once_with(
+            ["generated.wav"],
             "generated.wav",
-            "generated.wav",
-            "generated.wav",
+            None,
             12.0,
             20.0,
             "Complete",

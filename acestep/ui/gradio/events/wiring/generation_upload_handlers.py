@@ -114,21 +114,27 @@ def use_generated_result_as_source(
     range_start, range_end, source_start_update, source_end_update = (
         _generated_source_range_values(mode, repainting_start, repainting_end)
     )
+    # Generated audio is already an audio-purpose source, not an extracted
+    # preview of a different uploaded media file. Keep original-preview state
+    # empty so later start/end edits can still resolve the generated path even
+    # if the multiple-file upload component retains a stale browser value.
+    generated_preview_original = None
+    generated_source_value = [generated_path]
     range_audio_preview, range_video_preview = preview_source_range(
-        generated_path,
+        generated_source_value,
         _update_value_path(audio_preview),
-        _update_value_path(audio_preview),
+        generated_preview_original,
         range_start,
         range_end,
         mode,
     )
     gr.Info("Generated result is now the Source Audio.")
     return (
-        generated_path,
+        generated_source_value,
         audio_preview,
         video_preview,
         duration_update,
-        _update_value_path(audio_preview),
+        generated_preview_original,
         source_start_update,
         source_end_update,
         range_audio_preview,
