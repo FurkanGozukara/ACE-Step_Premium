@@ -709,7 +709,7 @@
 	- Make sure to get latest zip file and overwrite previous installer files
 	- New all 3 models folder takes 41.9 GB, previously it was 69.8 GB
 - All default generation presets for all 3-models updated - the parameters are now more accurate 
-	- unlimited (>=24GB), tier6b (24GB safe), tier6a (16-24GB), tier5 (12-16GB), tier4 (8-10GB), tier1 (CPU)
+	- unlimited (>=24GB), tier6b (24GB safe), tier6a (16-24GB), tier5 (12-16GB), tier4 (8-10GB), tier3 (6-8GB), tier1 (CPU)
 	- ACEStep XL 1.5 Turbo, ACEStep XL 1.5 SFT, ACEStep XL 1.5 Base
 	- Thus, you may expect better quality generation on ACEStep Turbo, SFT and Base models
  - LoRA selection added to Generate song tab as well since we now fully support LoRA training
@@ -1040,7 +1040,8 @@ Open http://localhost:7860 (Gradio) or http://localhost:8001 (API).
 
 | Your GPU VRAM | Recommended DiT | Recommended LM Model | Backend | Notes |
 |---------------|----------------|---------------------|---------|-------|
-| **tier1: CPU / <8GB** | CPU fallback | None (DiT only) | `pt` | LM disabled by default; CPU device selected for this preset |
+| **tier1: CPU / <6GB** | CPU fallback | None (DiT only) | `pt` | LM disabled by default; CPU device selected for this preset |
+| **tier3: 6-8GB** | XL turbo with full offload, no LM by default | Optional `acestep-5Hz-lm-0.6B` | `vllm` | Lowest-VRAM GPU preset; defaults to INT8 DiT, CPU offload, DiT offload, Think/LM off, and DCW off |
 | **tier4: 8-10GB** | XL turbo with full offload | `acestep-5Hz-lm-0.6B` | `vllm` | Auto also uses this conservative preset for 10-12GB |
 | **tier5: 12-16GB** | XL turbo/sft | `acestep-5Hz-lm-1.7B` | `vllm` | INT8 quantization with CPU offload |
 | **tier6a: 16-24GB** | XL turbo/sft | `acestep-5Hz-lm-4B` | `vllm` | 4B LM with INT8 quantization and CPU offload |

@@ -31,7 +31,7 @@ class PremiumAppTests(unittest.TestCase):
         """Head snippet should force the requested browser-tab branding."""
 
         head = premium_app._build_head(service_mode=False)
-        self.assertEqual(premium_app.APP_BROWSER_TITLE, "ACE-Step 1.5 XL Premium V6.3.2")
+        self.assertEqual(premium_app.APP_BROWSER_TITLE, "ACE-Step 1.5 XL Premium V6.3.3")
         self.assertIn(premium_app.APP_BROWSER_TITLE, head)
         self.assertIn('rel="icon"', head)
         self.assertIn("data:image/svg+xml,", head)

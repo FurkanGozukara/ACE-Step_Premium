@@ -22,6 +22,8 @@ class ParseQuantizationArgTests(unittest.TestCase):
         """It returns supported quantization values in canonical form."""
         self.assertEqual("int8_weight_only", parse_quantization_arg("int8_weight_only"))
         self.assertEqual("int8_weight_only", parse_quantization_arg("INT8_WEIGHT_ONLY"))
+        self.assertEqual("int4_weight_only", parse_quantization_arg("int4_weight_only"))
+        self.assertEqual("int4_weight_only", parse_quantization_arg(" INT4 "))
         self.assertEqual("fp8_weight_only", parse_quantization_arg("fp8_weight_only"))
         self.assertEqual("fp8_weight_only", parse_quantization_arg(" FP8_Weight_Only "))
         self.assertEqual("fp8_scaled", parse_quantization_arg("fp8_scaled"))
@@ -32,7 +34,7 @@ class ParseQuantizationArgTests(unittest.TestCase):
     def test_raises_for_invalid_value(self) -> None:
         """It raises ``ArgumentTypeError`` for unsupported values."""
         with self.assertRaises(argparse.ArgumentTypeError):
-            parse_quantization_arg("int4_weight_only")
+            parse_quantization_arg("int3_weight_only")
 
 
 if __name__ == "__main__":

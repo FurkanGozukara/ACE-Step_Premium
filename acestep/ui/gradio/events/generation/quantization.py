@@ -9,6 +9,7 @@ from loguru import logger
 
 QUANTIZATION_CHOICES = [
     ("Disabled", "none"),
+    ("INT4 weight-only (experimental)", "int4_weight_only"),
     ("INT8 weight-only", "int8_weight_only"),
     ("FP8 weight-only", "fp8_weight_only"),
     ("FP8 scaled cache", "fp8_scaled"),

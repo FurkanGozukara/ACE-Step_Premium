@@ -6,7 +6,11 @@ from typing import Any
 
 import gradio as gr
 
-from acestep.gpu_config import GPU_TIER_LABELS, get_global_gpu_config
+from acestep.gpu_config import (
+    GPU_TIER_LABELS,
+    get_default_quantization_method,
+    get_global_gpu_config,
+)
 from acestep.prompt_wildcards import WILDCARD_HELP_MARKDOWN
 from acestep.ui.gradio.events.results.video_export import VIDEO_RESOLUTION_CHOICES
 from acestep.ui.gradio.events.generation.quantization import (
@@ -46,7 +50,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
             "simple_quantization",
             params.get(
                 "quantization_checkbox",
-                getattr(gpu_config, "quantization_default", False),
+                get_default_quantization_method(gpu_config),
             ),
         )
     )
@@ -181,7 +185,7 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                     choices=QUANTIZATION_CHOICES,
                     value=default_quant,
                     label="DiT Quantization",
-                    info="Use FP8 scaled cache to build and reuse scaled FP8 DiT weights.",
+                    info="Use lower-bit DiT weights for VRAM-limited GPUs.",
                     scale=1,
                 )
             with gr.Row():

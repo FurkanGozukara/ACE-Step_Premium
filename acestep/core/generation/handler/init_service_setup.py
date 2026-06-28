@@ -79,8 +79,11 @@ class InitServiceSetupMixin:
                 logger.warning("[initialize_service] Quantization (torchao) is not supported on MPS; disabling.")
                 normalized_quantization = None
 
-        if normalized_quantization == "fp8_scaled" and normalized_compile:
-            logger.info("[initialize_service] Disabling torch.compile for fp8_scaled quantization.")
+        if normalized_quantization in {"fp8_scaled", "int4_weight_only"} and normalized_compile:
+            logger.info(
+                "[initialize_service] Disabling torch.compile for {} quantization.",
+                normalized_quantization,
+            )
             normalized_compile = False
 
         return normalized_compile, normalized_quantization, mlx_compile_requested

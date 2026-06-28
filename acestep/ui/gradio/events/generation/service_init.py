@@ -18,6 +18,7 @@ from acestep.gpu_config import (
     VRAM_12GB_MIN_GB,
     get_global_gpu_config, is_lm_model_size_allowed, find_best_lm_model_on_disk,
     set_global_gpu_config, GPU_TIER_LABELS, GPU_TIER_CONFIGS,
+    get_default_quantization_method,
     resolve_lm_backend,
 )
 from .model_config import is_pure_base_model, is_sft_model, is_xl_model, get_model_type_ui_settings
@@ -255,6 +256,9 @@ def on_tier_change(selected_tier, llm_handler=None):
     default_lm_model = find_best_lm_model_on_disk(recommended_lm, all_disk_models)
 
     max_duration = new_config.max_duration_without_lm
+    tier_quantization = default_quantization_value(
+        get_default_quantization_method(new_config)
+    )
     tier_label = GPU_TIER_LABELS.get(selected_tier, selected_tier)
     _gpu_device_name = build_startup_gpu_state().device_name
     gpu_info_text = (
@@ -276,8 +280,9 @@ def on_tier_change(selected_tier, llm_handler=None):
         ),
         gr.update(value=new_config.compile_model_default),
         gr.update(
-            value=default_quantization_value(new_config.quantization_default),
-            info=t("service.quantization_info") + (" (recommended for this tier)" if new_config.quantization_default else ""),
+            value=tier_quantization,
+            info=t("service.quantization_info")
+            + (" (recommended for this tier)" if tier_quantization != "none" else ""),
             elem_classes=["has-info-container"],
         ),
         gr.update(choices=available_backends, value=recommended_backend, elem_classes=["has-info-container"]),

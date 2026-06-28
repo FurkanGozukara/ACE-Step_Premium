@@ -72,6 +72,7 @@ try:
         VRAM_16GB_MIN_GB,
         VRAM_24GB_MIN_GB,
         find_best_lm_model_on_disk,
+        get_default_quantization_method,
         is_lm_model_size_allowed,
         resolve_lm_backend,
         set_global_gpu_config,
@@ -105,6 +106,7 @@ except ImportError:
         VRAM_16GB_MIN_GB,
         VRAM_24GB_MIN_GB,
         find_best_lm_model_on_disk,
+        get_default_quantization_method,
         is_lm_model_size_allowed,
         resolve_lm_backend,
         set_global_gpu_config,
@@ -509,9 +511,8 @@ def main():
         default=_default_offload_dit,
         help=f"Offload DiT to CPU after diffusion (default: {_default_offload_dit}, auto-detected based on GPU tier)",
     )
-    _default_quantization = None
-    if gpu_config.quantization_default and not _is_mac:
-        _default_quantization = "int8_weight_only"
+    _default_quantization = None if _is_mac else get_default_quantization_method(gpu_config)
+    if _default_quantization == "int8_weight_only":
         if startup_gpu_state.cuda_compute_major is not None and startup_gpu_state.cuda_compute_major < 7:
             _default_quantization = "w8a8_dynamic"
     parser.add_argument(
@@ -519,8 +520,8 @@ def main():
         type=parse_quantization_arg,
         default=_default_quantization,
         help=(
-            "DiT quantization method: int8_weight_only, fp8_weight_only, "
-            "fp8_scaled, w8a8_dynamic, or none "
+            "DiT quantization method: int4_weight_only, int8_weight_only, "
+            "fp8_weight_only, fp8_scaled, w8a8_dynamic, or none "
             f"(default: {_default_quantization}, auto-detected based on GPU tier)"
         ),
     )

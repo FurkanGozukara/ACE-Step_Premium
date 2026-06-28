@@ -2,6 +2,8 @@
 
 import unittest
 import re
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from acestep.model_downloader import (
     DEFAULT_BASE_DIT_MODEL,
@@ -77,6 +79,41 @@ class SimpleCreateParamsTests(unittest.TestCase):
         self.assertEqual(result[VELOCITY_EMA_FACTOR_INDEX], 0.0)
         self.assertEqual(result[CUSTOM_TIMESTEPS_INDEX], "")
         self.assertEqual(result[DCW_WAVELET_INDEX], "haar")
+
+    def test_low_vram_tier_disables_lm_and_dcw(self):
+        """Tier3 should skip LM/Think and DCW paths for lower VRAM."""
+
+        low_vram_config = SimpleNamespace(
+            init_lm_default=False,
+            generate_lm_audio_codes_default=False,
+            dcw_enabled_default=False,
+        )
+        with patch(
+            "acestep.ui.gradio.events.wiring.simple_create_params.get_global_gpu_config",
+            return_value=low_vram_config,
+        ):
+            result = prepare_simple_generation(
+                caption="emotional pop",
+                lyrics="verse\nchorus",
+                vocal_language="en",
+                instrumental=False,
+                vocal_gender="male",
+                duration=60,
+                batch_size=1,
+                random_seed=True,
+                seed="-1",
+                quantization="int8_weight_only",
+                model_path="acestep-v15-xl-turbo",
+            )
+
+        self.assertFalse(result[8])
+        self.assertFalse(result[9])
+        self.assertFalse(result[10])
+        self.assertFalse(result[19])
+        self.assertFalse(result[GENERATE_LM_AUDIO_CODES_INDEX])
+        self.assertFalse(result[DCW_ENABLED_INDEX])
+        self.assertEqual(result[DCW_SCALER_INDEX], 0.0)
+        self.assertEqual(result[DCW_HIGH_SCALER_INDEX], 0.0)
 
     def test_base_model_selector_is_forwarded_to_advanced_generation(self):
         """The simple Base selection should apply quality defaults."""

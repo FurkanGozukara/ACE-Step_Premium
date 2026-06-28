@@ -860,6 +860,67 @@ class InitServiceMixinTests(unittest.TestCase):
         self.assertEqual(torch.bfloat16, load.call_args.kwargs["dtype"])
         model.to.assert_not_called()
 
+    def test_load_main_model_offloaded_streams_to_cpu_device_map(self):
+        """Offloaded low-VRAM DiT loads should stream to CPU, not CUDA."""
+        host = _Host(project_root="K:/fake_root", device="cuda")
+        host.dtype = torch.bfloat16
+        host.offload_to_cpu = True
+        host.offload_dit_to_cpu = True
+
+        class _DummyModel:
+            """Minimal model stub matching loader expectations."""
+
+            def __init__(self):
+                self.config = types.SimpleNamespace(_attn_implementation="sdpa")
+                self.to = Mock(return_value=self)
+                self.eval = Mock(return_value=self)
+
+        class _FakeLatent:
+            """Tensor-like silence latent stub that avoids CUDA allocation in tests."""
+
+            def transpose(self, *_args):
+                return self
+
+            def to(self, *_args, **_kwargs):
+                return self
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            checkpoint_dir = os.path.join(tmpdir, "acestep-v15-base")
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            Path(os.path.join(checkpoint_dir, "silence_latent.pt")).touch()
+            model = _DummyModel()
+
+            with patch("torch.cuda.is_available", return_value=False), \
+                    patch.object(
+                        INIT_SERVICE_LOADER_MODULE.gpu_config,
+                        "cuda_supports_bfloat16",
+                        return_value=True,
+                    ), \
+                    patch(
+                        "transformers.AutoModel.from_pretrained",
+                        return_value=model,
+                    ) as load, \
+                    patch.object(host, "is_flash_attention_available", return_value=False), \
+                    patch.object(host, "_apply_cuda_bool_argsort_workaround"), \
+                    patch.object(
+                        INIT_SERVICE_LOADER_MODULE.torch,
+                        "load",
+                        return_value=_FakeLatent(),
+                    ):
+                attn = host._load_main_model_from_checkpoint(
+                    model_checkpoint_path=checkpoint_dir,
+                    device="cuda",
+                    use_flash_attention=False,
+                    compile_model=False,
+                    quantization=None,
+                )
+
+        self.assertEqual("sdpa", attn)
+        self.assertEqual({"": "cpu"}, load.call_args.kwargs["device_map"])
+        self.assertTrue(load.call_args.kwargs["low_cpu_mem_usage"])
+        self.assertEqual(torch.bfloat16, load.call_args.kwargs["dtype"])
+        model.to.assert_not_called()
+
     def test_load_main_model_uses_direct_load_for_transformers_meta_init_compat(self):
         """ACE checkpoints keep direct CUDA loading with targeted meta-init compatibility."""
         host = _Host(project_root="K:/fake_root", device="cuda")
@@ -1106,6 +1167,188 @@ class InitServiceMixinTests(unittest.TestCase):
         self.assertFalse(observed["encoder"])
         self.assertFalse(observed["tokenizer"])
         self.assertFalse(observed["detokenizer"])
+
+    def test_dit_quantization_cache_info_supports_all_torchao_modes(self):
+        """It builds persistent cache metadata for each TorchAO quantization mode."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            checkpoint_dir = os.path.join(tmpdir, "model")
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            Path(os.path.join(checkpoint_dir, "config.json")).write_text("{}", encoding="utf-8")
+            host = _Host(project_root=tmpdir, device="cpu")
+
+            for quantization in (
+                "int8_weight_only",
+                "int4_weight_only",
+                "fp8_weight_only",
+                "w8a8_dynamic",
+            ):
+                cache_info = host._dit_quantization_cache_info(
+                    quantization=quantization,
+                    model_checkpoint_path=checkpoint_dir,
+                    device="cpu",
+                    attn_implementation="sdpa",
+                )
+                self.assertIsNotNone(cache_info)
+                cache_path, metadata = cache_info
+                self.assertIn(os.path.join(".cache", "acestep", "quantized_dit"), cache_path)
+                self.assertEqual(quantization, metadata["quantization"])
+
+    def test_apply_dit_quantization_restores_cache_without_requantizing(self):
+        """A compatible quantized-weight cache should skip torchao conversion."""
+        class _TinyDit(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.decoder = torch.nn.Module()
+                self.decoder.fc = torch.nn.Linear(2, 2, bias=False)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            checkpoint_dir = os.path.join(tmpdir, "model")
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            Path(os.path.join(checkpoint_dir, "config.json")).write_text("{}", encoding="utf-8")
+            host = _Host(project_root=tmpdir, device="cpu")
+            host.model = _TinyDit()
+
+            with patch.object(host, "_torchao_version", return_value="test"):
+                cache_path, metadata = host._dit_quantization_cache_info(
+                    quantization="int8_weight_only",
+                    model_checkpoint_path=checkpoint_dir,
+                    device="cpu",
+                    attn_implementation="sdpa",
+                )
+            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+            cached_weight = torch.full((2, 2), 7.0)
+            torch.save(
+                {
+                    "metadata": metadata,
+                    "weights": {"decoder.fc": cached_weight},
+                },
+                cache_path,
+            )
+
+            class _DummyConfig:
+                pass
+
+            quantize_mock = Mock(side_effect=AssertionError("quantize_ should not run"))
+            quantization_module = types.ModuleType("torchao.quantization")
+            quantization_module.Int8WeightOnlyConfig = _DummyConfig
+            quantization_module.quantize_ = quantize_mock
+            quant_api_module = types.ModuleType("torchao.quantization.quant_api")
+            quant_api_module._is_linear = lambda module, _fqn: isinstance(module, torch.nn.Linear)
+            torchao_module = types.ModuleType("torchao")
+            torchao_module.quantization = quantization_module
+
+            with patch.dict(
+                sys.modules,
+                {
+                    "torchao": torchao_module,
+                    "torchao.quantization": quantization_module,
+                    "torchao.quantization.quant_api": quant_api_module,
+                },
+            ), patch.object(host, "_torchao_version", return_value="test"):
+                host._apply_dit_quantization(
+                    "int8_weight_only",
+                    model_checkpoint_path=checkpoint_dir,
+                    device="cpu",
+                    attn_implementation="sdpa",
+                )
+
+        quantize_mock.assert_not_called()
+        self.assertTrue(torch.equal(host.model.decoder.fc.weight.detach(), cached_weight))
+
+    def test_apply_dit_quantization_saves_cache_after_conversion(self):
+        """First-run TorchAO conversion should persist quantized decoder weights."""
+        class _TinyDit(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.decoder = torch.nn.Module()
+                self.decoder.fc = torch.nn.Linear(2, 2, bias=False)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            checkpoint_dir = os.path.join(tmpdir, "model")
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            Path(os.path.join(checkpoint_dir, "config.json")).write_text("{}", encoding="utf-8")
+            host = _Host(project_root=tmpdir, device="cpu")
+            host.model = _TinyDit()
+
+            class _DummyConfig:
+                pass
+
+            converted_weight = torch.full((2, 2), 3.0)
+
+            def fake_quantize(model, _config, filter_fn):
+                for name, module in model.named_modules():
+                    if filter_fn(module, name):
+                        module._parameters["weight"] = torch.nn.Parameter(
+                            converted_weight.clone(),
+                            requires_grad=False,
+                        )
+
+            quantization_module = types.ModuleType("torchao.quantization")
+            quantization_module.Int8WeightOnlyConfig = _DummyConfig
+            quantization_module.quantize_ = fake_quantize
+            quant_api_module = types.ModuleType("torchao.quantization.quant_api")
+            quant_api_module._is_linear = lambda module, _fqn: isinstance(module, torch.nn.Linear)
+            torchao_module = types.ModuleType("torchao")
+            torchao_module.quantization = quantization_module
+
+            with patch.dict(
+                sys.modules,
+                {
+                    "torchao": torchao_module,
+                    "torchao.quantization": quantization_module,
+                    "torchao.quantization.quant_api": quant_api_module,
+                },
+            ):
+                host._apply_dit_quantization(
+                    "int8_weight_only",
+                    model_checkpoint_path=checkpoint_dir,
+                    device="cpu",
+                    attn_implementation="sdpa",
+                )
+
+            cache_files = list(
+                Path(tmpdir, ".cache", "acestep", "quantized_dit").glob("*.pt")
+            )
+            self.assertEqual(1, len(cache_files))
+            payload = torch.load(cache_files[0], map_location="cpu", weights_only=False)
+            self.assertEqual("int8_weight_only", payload["metadata"]["quantization"])
+            self.assertTrue(torch.equal(payload["weights"]["decoder.fc"], converted_weight))
+
+    def test_build_quantization_config_supports_int4_weight_only(self):
+        """It builds the generic TorchAO int4 weight-only config."""
+        host = _Host(project_root="K:/fake_root", device="cpu")
+
+        class _DummyIntxConfig:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        class _DummyPerGroup:
+            def __init__(self, group_size):
+                self.group_size = group_size
+
+        class _DummyMappingType:
+            SYMMETRIC = "symmetric"
+
+        quantization_module = types.ModuleType("torchao.quantization")
+        quantization_module.IntxWeightOnlyConfig = _DummyIntxConfig
+        granularity_module = types.ModuleType("torchao.quantization.granularity")
+        granularity_module.PerGroup = _DummyPerGroup
+        quant_primitives_module = types.ModuleType("torchao.quantization.quant_primitives")
+        quant_primitives_module.MappingType = _DummyMappingType
+
+        with patch.dict(
+            sys.modules,
+            {
+                "torchao.quantization": quantization_module,
+                "torchao.quantization.granularity": granularity_module,
+                "torchao.quantization.quant_primitives": quant_primitives_module,
+            },
+        ):
+            config = host._build_quantization_config("int4_weight_only")
+
+        self.assertIs(config.kwargs["weight_dtype"], torch.int4)
+        self.assertEqual(32, config.kwargs["granularity"].group_size)
+        self.assertEqual("symmetric", config.kwargs["mapping_type"])
 
     def test_validate_quantization_setup_raises_import_error_when_torchao_missing(self):
         """It raises ImportError with guidance when torchao is unavailable."""

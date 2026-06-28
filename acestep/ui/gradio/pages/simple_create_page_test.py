@@ -42,6 +42,25 @@ class SimpleCreatePageTests(unittest.TestCase):
         self.assertEqual("", controls["simple_negative_prompt"].value)
         self.assertIn("SFT and Base", controls["simple_negative_prompt"].info)
 
+    def test_uses_explicit_quantization_default_value(self) -> None:
+        """The simple tab should honor tier-specific non-INT8 quantization."""
+
+        gpu_config = SimpleNamespace(
+            tier="tier3",
+            max_duration_without_lm=480,
+            quantization_default=True,
+            quantization_default_value="int4_weight_only",
+        )
+        with patch(
+            "acestep.ui.gradio.pages.simple_create_page.get_global_gpu_config",
+            return_value=gpu_config,
+        ):
+            with gr.Blocks():
+                controls = create_simple_create_page(init_params={"service_mode": False})
+
+        self.assertEqual("tier3", controls["simple_tier_dropdown"].value)
+        self.assertEqual("int4_weight_only", controls["simple_quantization"].value)
+
     def test_prefills_simple_lora_controls_from_generation_params(self) -> None:
         """The simple tab should display the same LoRA selection as Advanced."""
 

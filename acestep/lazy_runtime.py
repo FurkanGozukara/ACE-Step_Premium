@@ -229,6 +229,9 @@ def _build_gpu_config_for_tier(
     offload_to_cpu_default = config.get("offload_to_cpu_default", True)
     offload_dit_to_cpu_default = config.get("offload_dit_to_cpu_default", True)
     quantization_default = config.get("quantization_default", True)
+    quantization_default_value = config.get("quantization_default_value")
+    generate_lm_audio_codes_default = config.get("generate_lm_audio_codes_default")
+    dcw_enabled_default = config.get("dcw_enabled_default")
     compile_model_default = config.get("compile_model_default", True)
 
     if device_kind == "mps":
@@ -237,6 +240,9 @@ def _build_gpu_config_for_tier(
         offload_to_cpu_default = False
         offload_dit_to_cpu_default = False
         quantization_default = False
+        quantization_default_value = None
+        generate_lm_audio_codes_default = None
+        dcw_enabled_default = None
         compile_model_default = False
     elif device_kind in {"cpu", "xpu"}:
         lm_backend_restriction = "pt_only"
@@ -269,6 +275,9 @@ def _build_gpu_config_for_tier(
         lm_memory_gb=config["lm_memory_gb"],
         save_memory_mode=_env_truthy(SAVE_MEMORY_ENV),
         mlx_vae_chunk_size=512,
+        quantization_default_value=quantization_default_value,
+        generate_lm_audio_codes_default=generate_lm_audio_codes_default,
+        dcw_enabled_default=dcw_enabled_default,
     )
     return gpu_config
 

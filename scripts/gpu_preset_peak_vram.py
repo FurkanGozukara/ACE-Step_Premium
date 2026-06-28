@@ -48,6 +48,7 @@ MODEL_DEFAULTS = {
 }
 DEFAULT_TIERS = (
     "tier1",
+    "tier3",
     "tier4",
     "tier5",
     "tier6a",
@@ -72,7 +73,12 @@ project_root = Path(os.environ["ACE_BENCH_PROJECT_ROOT"]).resolve()
 if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
-from acestep.gpu_config import GPU_TIER_CONFIGS, resolve_lm_backend, set_global_gpu_config
+from acestep.gpu_config import (
+    GPU_TIER_CONFIGS,
+    get_default_quantization_method,
+    resolve_lm_backend,
+    set_global_gpu_config,
+)
 from acestep.inference import GenerationConfig, GenerationParams, generate_music
 from acestep.handler import AceStepHandler
 from acestep.lazy_runtime import build_startup_gpu_config_for_tier
@@ -119,12 +125,13 @@ try:
 
     gpu_config = build_startup_gpu_config_for_tier(tier)
     set_global_gpu_config(gpu_config)
+    tier_quantization = get_default_quantization_method(gpu_config)
     result.update(
         {
             "offload_to_cpu": gpu_config.offload_to_cpu_default,
             "offload_dit_to_cpu": gpu_config.offload_dit_to_cpu_default,
-            "quantization": "int8_weight_only" if gpu_config.quantization_default else None,
-            "compile_model": True if gpu_config.quantization_default else gpu_config.compile_model_default,
+            "quantization": tier_quantization,
+            "compile_model": gpu_config.compile_model_default,
             "init_lm_default": gpu_config.init_lm_default,
             "recommended_backend": gpu_config.recommended_backend,
             "recommended_lm_model": gpu_config.recommended_lm_model,

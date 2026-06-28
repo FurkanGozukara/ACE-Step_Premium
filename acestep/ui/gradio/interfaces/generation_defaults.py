@@ -3,7 +3,11 @@
 import sys
 from typing import Any
 
-from acestep.gpu_config import GPUConfig, get_global_gpu_config
+from acestep.gpu_config import (
+    GPUConfig,
+    get_default_quantization_method,
+    get_global_gpu_config,
+)
 from acestep.ui.gradio.events.generation.generation_count import (
     normalize_generation_count,
 )
@@ -53,10 +57,10 @@ def compute_init_defaults(
     default_offload = gpu_config.offload_to_cpu_default
     default_offload_dit = gpu_config.offload_dit_to_cpu_default
 
-    default_quantization = gpu_config.quantization_default
+    default_quantization = get_default_quantization_method(gpu_config)
     default_compile = gpu_config.compile_model_default
     if sys.platform == "darwin":
-        default_quantization = False
+        default_quantization = None
         default_compile = False
 
     if gpu_config.lm_backend_restriction == "pt_only":

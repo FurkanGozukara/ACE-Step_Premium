@@ -149,7 +149,7 @@ class AceStepHandler(
         self._load_progress_estimates()
         self.last_init_params = None
         
-        # Quantization state - tracks if model is quantized (int8_weight_only, fp8_weight_only, or w8a8_dynamic)
+        # Quantization state - tracks if model is quantized (int4/int8/fp8 modes)
         # Populated during initialize_service, remains None if quantization is disabled
         self.quantization = None
         

@@ -7,6 +7,7 @@ import re
 from typing import Any
 
 from acestep.constants import DURATION_MAX, DURATION_MIN
+from acestep.gpu_config import get_global_gpu_config
 from ..generation.generation_count import normalize_generation_count
 from ...premium_features import (
     model_quality_defaults,
@@ -48,8 +49,28 @@ def prepare_simple_generation(
     time_signature_value = _normalize_text_value(formatted_time_signature)
     selected_model = normalize_simple_model_dropdown_value(model_path)
     quality_defaults = model_quality_defaults(selected_model)
+    gpu_config = get_global_gpu_config()
     model_uses_lm = bool(quality_defaults["think_checkbox"])
-    use_lm_for_generation = model_uses_lm
+    tier_init_lm_default = getattr(gpu_config, "init_lm_default", True)
+    use_lm_for_generation = model_uses_lm and bool(tier_init_lm_default)
+    generate_lm_audio_codes = bool(quality_defaults["generate_lm_audio_codes"])
+    tier_audio_codes_default = getattr(
+        gpu_config, "generate_lm_audio_codes_default", None
+    )
+    if tier_audio_codes_default is not None:
+        generate_lm_audio_codes = bool(tier_audio_codes_default)
+
+    dcw_enabled = bool(quality_defaults["dcw_enabled"])
+    dcw_mode = quality_defaults["dcw_mode"]
+    dcw_scaler = quality_defaults["dcw_scaler"]
+    dcw_high_scaler = quality_defaults["dcw_high_scaler"]
+    tier_dcw_default = getattr(gpu_config, "dcw_enabled_default", None)
+    if tier_dcw_default is not None:
+        dcw_enabled = bool(tier_dcw_default)
+        if not dcw_enabled:
+            dcw_scaler = 0.0
+            dcw_high_scaler = 0.0
+
     if auto_duration and not use_lm_for_generation:
         duration_value = _estimate_direct_auto_duration(final_lyrics, final_caption)
         auto_duration = False
@@ -92,17 +113,17 @@ def prepare_simple_generation(
         quality_defaults["cfg_interval_start"],
         quality_defaults["cfg_interval_end"],
         selected_model,
-        quality_defaults["dcw_enabled"],
-        quality_defaults["dcw_mode"],
-        quality_defaults["dcw_scaler"],
-        quality_defaults["dcw_high_scaler"],
+        dcw_enabled,
+        dcw_mode,
+        dcw_scaler,
+        dcw_high_scaler,
         quality_defaults["infer_method"],
         _normalize_sampler_mode(sampler_mode, quality_defaults["sampler_mode"]),
         quality_defaults["velocity_norm_threshold"],
         quality_defaults["velocity_ema_factor"],
         quality_defaults["custom_timesteps"],
         quality_defaults["dcw_wavelet"],
-        quality_defaults["generate_lm_audio_codes"],
+        generate_lm_audio_codes,
         _normalize_negative_prompt(negative_prompt),
     )
 

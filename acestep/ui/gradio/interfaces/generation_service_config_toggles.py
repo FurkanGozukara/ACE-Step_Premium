@@ -28,7 +28,7 @@ def build_service_toggles(
     default_offload: bool,
     default_offload_dit: bool,
     default_compile: bool,
-    default_quantization: bool,
+    default_quantization: Any,
     gpu_config: Any,
     show_compile_toggle: bool = True,
 ) -> dict[str, Any]:
@@ -43,7 +43,7 @@ def build_service_toggles(
         default_offload: Default value for LM offload-to-CPU toggle.
         default_offload_dit: Default value for DiT offload-to-CPU toggle.
         default_compile: Default value for compile-model toggle.
-        default_quantization: Default value for quantization toggle.
+        default_quantization: Default quantization mode for the dropdown.
         gpu_config: GPU configuration object used for LM availability messaging.
         show_compile_toggle: Whether the service-settings compile toggle is visible.
 
@@ -107,7 +107,11 @@ def build_service_toggles(
             choices=QUANTIZATION_CHOICES,
             value=default_quantization_value_for_ui,
             info=t("service.quantization_info")
-            + (" (recommended for this tier)" if default_quantization else " (optional for this tier)"),
+            + (
+                " (recommended for this tier)"
+                if default_quantization_value_for_ui != "none"
+                else " (optional for this tier)"
+            ),
             elem_classes=["has-info-container"],
         )
 

@@ -8,7 +8,7 @@ from typing import Any
 
 from loguru import logger
 
-from acestep.gpu_config import get_global_gpu_config
+from acestep.gpu_config import get_default_quantization_method, get_global_gpu_config
 from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
 from acestep.ui.gradio.events.generation.llm_auto_init import ensure_llm_ready
 from acestep.ui.gradio.events.generation.quantization import (
@@ -38,7 +38,7 @@ def _default_dit_quantization(device: str) -> str | None:
 
     gpu_config = get_global_gpu_config()
     default_value = default_quantization_value(
-        getattr(gpu_config, "quantization_default", None)
+        get_default_quantization_method(gpu_config)
     )
     return select_quantization_value(default_value, device=device)
 

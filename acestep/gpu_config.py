@@ -30,6 +30,7 @@ SAVE_MEMORY_ENV = "ACESTEP_SAVE_MEMORY"
 # exact hardware classes can appear slightly below their marketed size:
 # 8GB -> ~7.99GiB, 12GB -> ~11.99GiB, 16GB -> ~15.5-15.9GiB, 24GB -> ~23.99GiB.
 VRAM_TIER_TOLERANCE_GB = 0.5
+VRAM_6GB_MIN_GB = 6.0 - VRAM_TIER_TOLERANCE_GB
 VRAM_8GB_MIN_GB = 8.0 - VRAM_TIER_TOLERANCE_GB
 VRAM_12GB_MIN_GB = 12.0 - VRAM_TIER_TOLERANCE_GB
 VRAM_16GB_MIN_GB = 16.0 - VRAM_TIER_TOLERANCE_GB
@@ -251,7 +252,7 @@ class GPUConfig:
     )
 
     # Quantization / compile defaults
-    quantization_default: bool  # Whether INT8 quantization should be enabled by default
+    quantization_default: bool  # Whether DiT quantization should be enabled by default
     compile_model_default: bool  # Whether torch.compile should be enabled by default
 
     # LM memory allocation (GB) for each model size
@@ -268,6 +269,31 @@ class GPUConfig:
     # Auto-detected based on available unified memory; overridable via
     # ACESTEP_MLX_VAE_CHUNK environment variable.
     mlx_vae_chunk_size: int = 512
+
+    # Canonical DiT quantization method selected by the tier. ``None`` keeps
+    # backward compatibility with the historical bool -> INT8 behavior.
+    quantization_default_value: Optional[str] = None
+
+    # Optional generation-behavior overrides for tight VRAM presets.
+    generate_lm_audio_codes_default: Optional[bool] = None
+    dcw_enabled_default: Optional[bool] = None
+
+
+def get_default_quantization_method(config: "GPUConfig | dict | None") -> Optional[str]:
+    """Return the tier's canonical DiT quantization method, if any."""
+
+    if config is None:
+        return None
+    if isinstance(config, dict):
+        explicit = config.get("quantization_default_value")
+        enabled = config.get("quantization_default", False)
+    else:
+        explicit = getattr(config, "quantization_default_value", None)
+        enabled = getattr(config, "quantization_default", False)
+
+    if explicit in (None, False, "", "none", "null"):
+        return "int8_weight_only" if enabled else None
+    return str(explicit).strip().lower()
 
 
 def _apply_lm_backend_compatibility_overrides(config: GPUConfig) -> GPUConfig:
@@ -331,6 +357,7 @@ def resolve_lm_backend(
 # restart before each preset. Values below are max-of-3 peak deltas over idle
 # GPU0 baseline for ACEStep_1_5_XL_Turbo_BF16 with the live tier controls.
 GPU_TIER_MEASURED_PEAK_GIB = {
+    "tier3": 6.538,
     "tier4": 6.844,
     "tier5": 10.859,
     "tier6a": 14.596,
@@ -340,6 +367,8 @@ GPU_TIER_MEASURED_PEAK_GIB = {
 #
 # Measured control profiles:
 # - tier1: CPU/PyTorch-only fallback, no LM.
+# - tier3: no-LM XL Turbo path, PyTorch backend, int8, CPU + DiT offload,
+#          DCW off in the Generate Song tab.
 # - tier4: 0.6B LM, PyTorch backend, int8, CPU + DiT offload.
 # - tier5: 1.7B LM, PyTorch backend, int8, CPU offload.
 # - tier6a: 4B LM, PyTorch backend, int8, CPU offload.
@@ -350,14 +379,15 @@ GPU_TIER_MEASURED_PEAK_GIB = {
 # Smaller checkpoints and manual no-LM paths can still fit lower hardware tiers.
 #
 # Current public tiers:
-# - tier1: CPU / less than 8GB VRAM.
+# - tier1: CPU / less than 6GB VRAM.
+# - tier3: 6-8GB low-VRAM safe preset.
 # - tier4: 8-10GB safe preset (also used conservatively for 10-12GB).
 # - tier5: 12-16GB.
 # - tier6a: 16-24GB.
 # - tier6b: manual 24GB safe preset.
 # - unlimited: auto-selected for 24GB or larger.
 GPU_TIER_CONFIGS = {
-    "tier1": {  # CPU / <8GB
+    "tier1": {  # CPU / <6GB
         # XL does not fit this tier even with full offload. Keep the safest
         # CPU/PyTorch-only settings for smaller checkpoints and warn on XL.
         "max_duration_with_lm": 240,  # 4 minutes
@@ -374,6 +404,27 @@ GPU_TIER_CONFIGS = {
         "quantization_default": False,
         "compile_model_default": False,
         "lm_memory_gb": {},
+    },
+    "tier3": {  # 6-8GB low-VRAM safe
+        # Lowest CUDA preset: keep XL Turbo + INT8 + full offload, but disable
+        # LM/Think and DCW by default for real headroom below tier4.
+        "max_duration_with_lm": 360,  # 6 minutes
+        "max_duration_without_lm": 480,  # 8 minutes
+        "max_batch_size_with_lm": 1,
+        "max_batch_size_without_lm": 1,
+        "init_lm_default": False,
+        "available_lm_models": ["acestep-5Hz-lm-0.6B"],
+        "recommended_lm_model": "acestep-5Hz-lm-0.6B",
+        "lm_backend_restriction": "all",
+        "recommended_backend": "vllm",
+        "offload_to_cpu_default": True,
+        "offload_dit_to_cpu_default": True,
+        "quantization_default": True,
+        "quantization_default_value": "int8_weight_only",
+        "generate_lm_audio_codes_default": False,
+        "dcw_enabled_default": False,
+        "compile_model_default": False,
+        "lm_memory_gb": {"0.6B": 3},
     },
     "tier4": {  # 8-10GB safe, conservative fallback up to 12GB
         # Browser max-of-3 measured XL Turbo + 0.6B LM full-offload generation
@@ -758,14 +809,16 @@ def get_gpu_tier(gpu_memory_gb: float) -> str:
         gpu_memory_gb: GPU memory in GB
 
     Returns:
-        Tier string: "tier1", "tier4", "tier5", "tier6a", or "unlimited".
+        Tier string: "tier1", "tier3", "tier4", "tier5", "tier6a", or "unlimited".
         "tier6b" remains available as a manual 24GB safe preset.
     """
     if gpu_memory_gb <= 0:
         # CPU mode - use tier1 limits
         return "tier1"
-    elif gpu_memory_gb < VRAM_8GB_MIN_GB:
+    elif gpu_memory_gb < VRAM_6GB_MIN_GB:
         return "tier1"
+    elif gpu_memory_gb < VRAM_8GB_MIN_GB:
+        return "tier3"
     elif gpu_memory_gb < VRAM_12GB_MIN_GB:
         # User-facing tier4 is the 8-10GB safe preset; 10-12GB remains on
         # this conservative preset until the 12GB tier5 boundary.
@@ -822,7 +875,7 @@ def get_gpu_config(gpu_memory_gb: Optional[float] = None) -> GPUConfig:
 
     - ``compile_model_default = False`` — ``torch.compile`` is not supported
       on MPS and would error or silently fall back to eager mode.
-    - ``quantization_default = False`` — torchao INT8 quantization is
+    - ``quantization_default = False`` — torchao DiT quantization is
       incompatible with MPS / macOS.
     - ``recommended_backend = "mlx"`` — MLX provides native Apple Silicon
       acceleration for the 5Hz LM; vllm requires CUDA.
@@ -890,6 +943,11 @@ def get_gpu_config(gpu_memory_gb: Optional[float] = None) -> GPUConfig:
         mlx_vae_chunk_size=_auto_mlx_vae_chunk_size(gpu_memory_gb)
         if _mps
         else 512,
+        quantization_default_value=None
+        if _mps
+        else config.get("quantization_default_value"),
+        generate_lm_audio_codes_default=config.get("generate_lm_audio_codes_default"),
+        dcw_enabled_default=config.get("dcw_enabled_default"),
     )
     return _apply_lm_backend_compatibility_overrides(config)
 
@@ -1166,6 +1224,9 @@ def compute_adaptive_config(total_vram_gb: float, dit_type: str = "turbo") -> GP
         quantization_default=tier_config.get("quantization_default", True),
         compile_model_default=tier_config.get("compile_model_default", True),
         lm_memory_gb=lm_memory_gb,
+        quantization_default_value=tier_config.get("quantization_default_value"),
+        generate_lm_audio_codes_default=tier_config.get("generate_lm_audio_codes_default"),
+        dcw_enabled_default=tier_config.get("dcw_enabled_default"),
     )
     return _apply_lm_backend_compatibility_overrides(config)
 
@@ -1445,6 +1506,7 @@ def print_gpu_config_info(gpu_config: GPUConfig):
 # Human-readable tier labels for UI display
 GPU_TIER_LABELS = {
     "tier1": "tier1 (CPU)",
+    "tier3": "tier3 (6-8GB / peak 6.6GiB)",
     "tier4": "tier4 (8-10GB / peak 6.8GiB)",
     "tier5": "tier5 (12-16GB / peak 10.9GiB)",
     "tier6a": "tier6a (16-24GB / peak 14.6GiB)",
@@ -1547,6 +1609,11 @@ def get_gpu_config_for_tier(tier: str) -> GPUConfig:
         mlx_vae_chunk_size=_auto_mlx_vae_chunk_size(real_gpu_memory)
         if _mps
         else 512,
+        quantization_default_value=None
+        if _mps
+        else config.get("quantization_default_value"),
+        generate_lm_audio_codes_default=config.get("generate_lm_audio_codes_default"),
+        dcw_enabled_default=config.get("dcw_enabled_default"),
     )
     return _apply_lm_backend_compatibility_overrides(config)
 

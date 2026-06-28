@@ -183,7 +183,8 @@ SFT_GEN_PROMPT = """# Instruction
 
 # GPU tier thresholds (in GB)
 GPU_TIER_THRESHOLDS = {
-    "tier1": 8,     # CPU / <8GB
+    "tier1": 6,     # CPU / <6GB
+    "tier3": 8,     # 6-8GB low-VRAM safe
     "tier4": 12,    # 8-10GB safe, conservative fallback up to 12GB
     "tier5": 16,    # 12-16GB
     "tier6a": 24,   # 16-24GB

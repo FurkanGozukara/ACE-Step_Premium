@@ -8,6 +8,7 @@ from typing import Any
 
 import gradio as gr
 
+from acestep.gpu_config import get_global_gpu_config
 from .. import generation_handlers as gen_h
 from .. import results_handlers as res_h
 from ..generation.cancel_actions import (
@@ -309,6 +310,7 @@ def _stream_simple_generation(
 ) -> Iterator[tuple[Any, ...]]:
     """Stream backend generation outputs with compact simple-tab status."""
 
+    args = _apply_simple_low_vram_overrides(args)
     for outputs in res_h.generate_with_batch_management(
         dit_handler,
         llm_handler,
@@ -316,6 +318,29 @@ def _stream_simple_generation(
     ):
         status = _extract_generation_status(outputs)
         yield (*outputs, status)
+
+
+def _apply_simple_low_vram_overrides(args: tuple[Any, ...]) -> tuple[Any, ...]:
+    """Apply tier-specific simple-tab overrides at the generation boundary."""
+
+    gpu_config = get_global_gpu_config()
+    values = list(args)
+    if getattr(gpu_config, "init_lm_default", True) is False:
+        for index in (42, 47, 48, 49, 52, 53, 87):
+            if index < len(values):
+                values[index] = False
+    audio_codes_default = getattr(gpu_config, "generate_lm_audio_codes_default", None)
+    if audio_codes_default is not None and 100 < len(values):
+        values[100] = bool(audio_codes_default)
+    dcw_default = getattr(gpu_config, "dcw_enabled_default", None)
+    if dcw_default is not None and 32 < len(values):
+        values[32] = bool(dcw_default)
+        if not values[32]:
+            if 34 < len(values):
+                values[34] = 0.0
+            if 35 < len(values):
+                values[35] = 0.0
+    return tuple(values)
 
 
 def build_simple_prepare_outputs(

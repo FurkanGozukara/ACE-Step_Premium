@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 
 _QUANTIZATION_ALIASES = {
+    "int4": "int4_weight_only",
+    "int4_weight_only": "int4_weight_only",
     "int8_weight_only": "int8_weight_only",
     "fp8_weight_only": "fp8_weight_only",
     "fp8_scaled": "fp8_scaled",
@@ -37,6 +39,6 @@ def parse_quantization_arg(value: str | None) -> str | None:
         return quantization
 
     raise argparse.ArgumentTypeError(
-        "Invalid quantization value. Use int8_weight_only, fp8_weight_only, "
-        "fp8_scaled, w8a8_dynamic, or none."
+        "Invalid quantization value. Use int4_weight_only, int8_weight_only, "
+        "fp8_weight_only, fp8_scaled, w8a8_dynamic, or none."
     )
