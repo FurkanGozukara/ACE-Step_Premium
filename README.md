@@ -46,6 +46,16 @@
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+### 29 June 2026 V6.3.3 Update
+
+-   ACESTEP XL 1.5 VRAM presets Tier 3, 4, 5 and 6a significantly improved
+-   When first time model is quantized into Int8 or FP8, it was taking too much time and this issue fixed now like 100x faster
+-   Moreover, after first time caching, the cache files will be saved inside ACE-Step_Premium\.cache and reused next time so next time generation will be instant even after restarting the app
+-   Just run installer / update bat file to upgrade
+
+<img width="1144" height="683" alt="image" src="https://github.com/user-attachments/assets/8cbe75b0-1fcf-40f5-8715-48ff05ce2ab0" />
+
+
 ### 25 June 2026 V6.3.2 Update
 
 -   How Remix Source Start and Remix Source End works upgraded
