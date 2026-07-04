@@ -2,6 +2,7 @@
 
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from acestep.model_downloader import (
@@ -16,6 +17,8 @@ from acestep.ui.gradio.events.wiring.simple_create_wiring import (
     _extract_generation_status,
     _format_enhancement_status,
     _format_simple_status,
+    _negative_prompt_updates_for_model,
+    _sync_negative_prompt_value_debounced,
     _stream_simple_generation,
     build_simple_generation_progress_targets,
     build_simple_generation_wrapper_signature,
@@ -100,6 +103,60 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
         source = _WIRING_PATH.read_text(encoding="utf-8")
         self.assertIn('simple_page["simple_model_dropdown"].input', source)
         self.assertNotIn('simple_page["simple_model_dropdown"].change', source)
+
+    def test_simple_model_selector_disables_turbo_negative_prompt(self):
+        """Simple model changes should update both negative prompt fields."""
+
+        advanced_update, simple_update = _negative_prompt_updates_for_model(
+            "acestep-v15-xl-turbo"
+        )
+        sft_update, _ = _negative_prompt_updates_for_model("acestep-v15-xl-sft")
+
+        self.assertFalse(advanced_update["interactive"])
+        self.assertFalse(simple_update["interactive"])
+        self.assertIn("CFG 1", simple_update["info"])
+        self.assertTrue(sft_update["interactive"])
+
+    def test_negative_prompt_sync_uses_debounced_input_only(self):
+        """Negative prompt sync should avoid change-event ping-pong."""
+
+        source = _WIRING_PATH.read_text(encoding="utf-8")
+        start = source.index("def _register_negative_prompt_sync_handlers")
+        end = source.index("def _sync_negative_prompt_value")
+        sync_source = source[start:end]
+
+        self.assertIn(".input(", sync_source)
+        self.assertNotIn(".change(", sync_source)
+        self.assertIn('queue=False', sync_source)
+        self.assertIn('trigger_mode="multiple"', sync_source)
+
+    def test_debounced_negative_prompt_sync_skips_stale_value(self):
+        """Older keystroke events should not overwrite the latest value."""
+
+        request = SimpleNamespace(session_hash="negative-sync-test")
+
+        def mark_stale(_seconds):
+            simple_create_wiring._NEGATIVE_PROMPT_SYNC_SEQUENCES[
+                "negative-sync-test"
+            ] = 999_999
+
+        with patch.object(simple_create_wiring.time, "sleep", side_effect=mark_stale):
+            result = _sync_negative_prompt_value_debounced("old text", request)
+
+        self.assertIsInstance(result, dict)
+        self.assertNotIn("value", result)
+
+    def test_debounced_negative_prompt_sync_returns_latest_value(self):
+        """The latest settled keystroke should still sync normally."""
+
+        request = SimpleNamespace(session_hash="negative-sync-latest")
+        with patch.object(simple_create_wiring.time, "sleep", return_value=None):
+            result = _sync_negative_prompt_value_debounced(
+                " low quality ",
+                request,
+            )
+
+        self.assertEqual(result, "low quality")
 
     def test_format_status_compacts_initialization_messages(self):
         """Long init logs should keep the phase and final backend line."""

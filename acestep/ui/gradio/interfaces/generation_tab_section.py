@@ -52,6 +52,7 @@ def _compute_generation_tab_defaults(
 
     return {
         "defaults": defaults,
+        "initial_config_path": config_path,
         "initial_mode_choices": initial_mode_choices,
     }
 
@@ -107,7 +108,9 @@ def create_generation_body_section(
         init_params=init_params,
     )
     variation_morph_controls = build_variation_morph_controls()
-    custom_mode_controls = build_custom_mode_controls()
+    custom_mode_controls = build_custom_mode_controls(
+        initial_config_path=generation_defaults["initial_config_path"],
+    )
     repainting_controls = build_repainting_controls()
     optional_controls = build_optional_parameter_controls(
         max_duration=max_duration,

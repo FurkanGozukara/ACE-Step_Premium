@@ -31,7 +31,7 @@ class PremiumAppTests(unittest.TestCase):
         """Head snippet should force the requested browser-tab branding."""
 
         head = premium_app._build_head(service_mode=False)
-        self.assertEqual(premium_app.APP_BROWSER_TITLE, "ACE-Step 1.5 XL Premium V6.3.3")
+        self.assertEqual(premium_app.APP_BROWSER_TITLE, "ACE-Step 1.5 XL Premium V6.3.4")
         self.assertIn(premium_app.APP_BROWSER_TITLE, head)
         self.assertIn('rel="icon"', head)
         self.assertIn("data:image/svg+xml,", head)
@@ -100,7 +100,7 @@ class PremiumAppTests(unittest.TestCase):
             {"queue": False, "show_progress": "hidden", "show_progress_on": []},
         )
         source = Path(library_wiring.__file__).read_text(encoding="utf-8")
-        self.assertEqual(4, source.count("**_LIBRARY_EVENT_OPTIONS"))
+        self.assertEqual(9, source.count("**_LIBRARY_EVENT_OPTIONS"))
 
     def test_head_recovers_stale_input_status_trackers(self):
         """Rapid tab changes should recover stuck timer-only status overlays."""

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 import inspect
+from threading import Lock
+import time
 from typing import Any
 
 import gradio as gr
@@ -15,6 +17,7 @@ from ..generation.cancel_actions import (
     CANCEL_CONFIRM_JS,
     request_generation_cancel_from_ui,
 )
+from ..generation.model_config import negative_prompt_update_for_path
 from ..generation.quantization import default_quantization_value
 from ...premium_features import (
     SIMPLE_MODEL_CHOICES,
@@ -22,6 +25,7 @@ from ...premium_features import (
     normalize_simple_model_dropdown_value,
     open_outputs_folder,
 )
+from ...i18n import t
 from .generation_run_wiring import (
     build_clear_audio_outputs,
     build_generation_run_inputs,
@@ -46,6 +50,9 @@ from .simple_lora_wiring import register_simple_lora_sync_handlers
 
 _STATUS_OUTPUT_INDEX = STATUS_INDEX
 _SIMPLE_MODEL_LABELS = {value: label for label, value in SIMPLE_MODEL_CHOICES}
+_NEGATIVE_PROMPT_SYNC_DELAY_SECONDS = 0.5
+_NEGATIVE_PROMPT_SYNC_LOCK = Lock()
+_NEGATIVE_PROMPT_SYNC_SEQUENCES: dict[str, int] = {}
 
 
 def register_simple_create_handlers(
@@ -158,6 +165,23 @@ def register_simple_create_handlers(
             generation_section["dcw_wavelet"],
             simple_page["simple_status"],
         ],
+        show_progress="hidden",
+        show_progress_on=[],
+    )
+    simple_page["simple_model_dropdown"].input(
+        fn=_negative_prompt_updates_for_model,
+        inputs=[simple_page["simple_model_dropdown"]],
+        outputs=[
+            generation_section["lm_negative_prompt"],
+            simple_page["simple_negative_prompt"],
+        ],
+        show_progress="hidden",
+        show_progress_on=[],
+    )
+    generation_section["config_path"].input(
+        fn=_negative_prompt_update_for_model,
+        inputs=[generation_section["config_path"]],
+        outputs=[simple_page["simple_negative_prompt"]],
         show_progress="hidden",
         show_progress_on=[],
     )
@@ -435,23 +459,31 @@ def _register_negative_prompt_sync_handlers(
     simple_page: dict[str, Any],
     generation_section: dict[str, Any],
 ) -> None:
-    """Keep Generate Song and advanced negative prompts synchronized."""
+    """Keep Generate Song and advanced negative prompts synchronized.
 
-    for event_name in ("input", "change"):
-        getattr(simple_page["simple_negative_prompt"], event_name)(
-            fn=_sync_negative_prompt_value,
-            inputs=[simple_page["simple_negative_prompt"]],
-            outputs=[generation_section["lm_negative_prompt"]],
-            show_progress="hidden",
-            show_progress_on=[],
-        )
-        getattr(generation_section["lm_negative_prompt"], event_name)(
-            fn=_sync_negative_prompt_value,
-            inputs=[generation_section["lm_negative_prompt"]],
-            outputs=[simple_page["simple_negative_prompt"]],
-            show_progress="hidden",
-            show_progress_on=[],
-        )
+    Only user ``input`` events are linked. Gradio ``change`` events can fire
+    from function-driven textbox updates, which causes two-way prompt sync to
+    bounce values between the two fields while the user is typing.
+    """
+
+    simple_page["simple_negative_prompt"].input(
+        fn=_sync_negative_prompt_value_debounced,
+        inputs=[simple_page["simple_negative_prompt"]],
+        outputs=[generation_section["lm_negative_prompt"]],
+        show_progress="hidden",
+        show_progress_on=[],
+        queue=False,
+        trigger_mode="multiple",
+    )
+    generation_section["lm_negative_prompt"].input(
+        fn=_sync_negative_prompt_value_debounced,
+        inputs=[generation_section["lm_negative_prompt"]],
+        outputs=[simple_page["simple_negative_prompt"]],
+        show_progress="hidden",
+        show_progress_on=[],
+        queue=False,
+        trigger_mode="multiple",
+    )
 
 
 def _sync_negative_prompt_value(value: Any) -> str:
@@ -459,6 +491,47 @@ def _sync_negative_prompt_value(value: Any) -> str:
 
     text = str(value or "").strip()
     return "" if text.upper() == "NO USER INPUT" else text
+
+
+def _sync_negative_prompt_value_debounced(value: Any, request: gr.Request) -> Any:
+    """Sync negative prompt after the user pauses typing for 0.5 seconds."""
+
+    sync_key = _negative_prompt_sync_key(request)
+    with _NEGATIVE_PROMPT_SYNC_LOCK:
+        sequence = _NEGATIVE_PROMPT_SYNC_SEQUENCES.get(sync_key, 0) + 1
+        _NEGATIVE_PROMPT_SYNC_SEQUENCES[sync_key] = sequence
+
+    time.sleep(_NEGATIVE_PROMPT_SYNC_DELAY_SECONDS)
+
+    with _NEGATIVE_PROMPT_SYNC_LOCK:
+        if _NEGATIVE_PROMPT_SYNC_SEQUENCES.get(sync_key) != sequence:
+            return gr.update()
+
+    return _sync_negative_prompt_value(value)
+
+
+def _negative_prompt_sync_key(request: gr.Request | None) -> str:
+    """Return a session-local key for debounced negative prompt sync."""
+
+    session_hash = getattr(request, "session_hash", None)
+    return str(session_hash or "default")
+
+
+def _negative_prompt_update_for_model(model_path: str | None) -> Any:
+    """Return the model-aware negative prompt textbox state."""
+
+    return negative_prompt_update_for_path(
+        model_path,
+        supported_info=t("generation.lm_negative_prompt_info"),
+        turbo_info=t("generation.lm_negative_prompt_turbo_info"),
+    )
+
+
+def _negative_prompt_updates_for_model(model_path: str | None) -> tuple[Any, Any]:
+    """Return matching updates for advanced and Generate Song prompt fields."""
+
+    update = _negative_prompt_update_for_model(model_path)
+    return update, _clone_update(update)
 
 
 def _register_sampler_mode_sync_handlers(

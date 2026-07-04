@@ -14,7 +14,9 @@ from acestep.ui.gradio.generated_library_records import (
     date_choices_for_records,
     details_markdown as _details_markdown,
     filter_records_by_day,
+    filter_records_by_search,
     find_record as _find_record,
+    paginate_records,
     record_from_table_event,
     records_to_table as _records_to_table,
 )
@@ -26,37 +28,37 @@ from acestep.ui.gradio.generated_library_time import (
 
 
 TABLE_HEADERS = ["Created", "Title", "Duration", "Model", "Format", "Score"]
+LIBRARY_PAGE_SIZE = 50
 
 
-def refresh_library(browser_timezone: str | None = None) -> tuple[Any, ...]:
+def refresh_library(
+    browser_timezone: str | None = None,
+    search_query: Any = "",
+) -> tuple[Any, ...]:
     """Return UI updates for the generated-song library tab."""
 
     local_timezone = resolve_library_timezone(browser_timezone)
     records = scan_generated_songs(local_timezone=local_timezone)
-    choices = date_choices_for_records(records)
+    choices = date_choices_for_records(records, include_all=True)
     selected_day = choices[0] if choices else None
-    filtered_records = filter_records_by_day(records, selected_day)
-    table = _records_to_table(filtered_records)
-    selected = filtered_records[0]["id"] if filtered_records else None
-    audio, details, lyrics, metadata = select_library_item(selected, filtered_records)
+    view = _library_page_outputs(records, selected_day, search_query, page=1)
     return (
         records,
-        filtered_records,
+        *view[:2],
         gr.update(choices=choices, value=selected_day),
-        table,
-        audio,
-        details,
-        lyrics,
-        metadata,
+        *view[2:],
     )
 
 
 def filter_library_by_date(
-    selected_day: str | None, records: list[dict[str, Any]] | None
+    selected_day: str | None,
+    records: list[dict[str, Any]] | None,
+    search_query: Any = "",
 ) -> tuple[Any, ...]:
     """Return table and detail updates for the selected generated-song date."""
 
     filtered_records = filter_records_by_day(records or [], selected_day)
+    filtered_records = filter_records_by_search(filtered_records, search_query)
     selected = filtered_records[0]["id"] if filtered_records else None
     audio, details, lyrics, metadata = select_library_item(selected, filtered_records)
     return (
@@ -66,6 +68,48 @@ def filter_library_by_date(
         details,
         lyrics,
         metadata,
+    )
+
+
+def filter_library_view(
+    selected_day: str | None,
+    search_query: Any,
+    records: list[dict[str, Any]] | None,
+) -> tuple[Any, ...]:
+    """Return first-page library updates for the selected date and search query."""
+
+    return _library_page_outputs(records or [], selected_day, search_query, page=1)
+
+
+def previous_library_page(
+    selected_day: str | None,
+    search_query: Any,
+    records: list[dict[str, Any]] | None,
+    current_page: Any,
+) -> tuple[Any, ...]:
+    """Return library updates for the previous page."""
+
+    return _library_page_outputs(
+        records or [],
+        selected_day,
+        search_query,
+        page=_coerce_page(current_page) - 1,
+    )
+
+
+def next_library_page(
+    selected_day: str | None,
+    search_query: Any,
+    records: list[dict[str, Any]] | None,
+    current_page: Any,
+) -> tuple[Any, ...]:
+    """Return library updates for the next page."""
+
+    return _library_page_outputs(
+        records or [],
+        selected_day,
+        search_query,
+        page=_coerce_page(current_page) + 1,
     )
 
 
@@ -111,6 +155,69 @@ def _metadata_display_json(metadata: Any) -> str:
         return json.dumps(metadata, ensure_ascii=False, indent=2, default=str)
     except (TypeError, ValueError):
         return json.dumps({"metadata": str(metadata)}, ensure_ascii=False, indent=2)
+
+
+def _library_page_outputs(
+    records: list[dict[str, Any]],
+    selected_day: Any,
+    search_query: Any,
+    page: Any,
+) -> tuple[Any, ...]:
+    """Return current-page records, controls, table, and selected detail outputs."""
+
+    filtered_records = filter_records_by_day(records, selected_day)
+    filtered_records = filter_records_by_search(filtered_records, search_query)
+    page_records, current_page, total_pages, total_count = paginate_records(
+        filtered_records,
+        page,
+        LIBRARY_PAGE_SIZE,
+    )
+    selected = page_records[0]["id"] if page_records else None
+    audio, details, lyrics, metadata = select_library_item(selected, page_records)
+    return (
+        page_records,
+        current_page,
+        _records_to_table(page_records),
+        _library_page_status(
+            page_records=page_records,
+            current_page=current_page,
+            total_pages=total_pages,
+            total_count=total_count,
+        ),
+        gr.update(interactive=current_page > 1),
+        gr.update(interactive=total_pages > 0 and current_page < total_pages),
+        audio,
+        details,
+        lyrics,
+        metadata,
+    )
+
+
+def _library_page_status(
+    page_records: list[dict[str, Any]],
+    current_page: int,
+    total_pages: int,
+    total_count: int,
+) -> str:
+    """Return a compact pagination status label."""
+
+    if total_count <= 0 or total_pages <= 0:
+        return "No songs match the current filters."
+    start = ((current_page - 1) * LIBRARY_PAGE_SIZE) + 1
+    end = start + len(page_records) - 1
+    return (
+        f"Showing {start}-{end} of {total_count} songs "
+        f"(50 per page). Page {current_page} of {total_pages}."
+    )
+
+
+def _coerce_page(value: Any) -> int:
+    """Return a positive page number."""
+
+    try:
+        return max(1, int(value))
+    except (TypeError, ValueError):
+        return 1
 
 
 def scan_generated_songs(

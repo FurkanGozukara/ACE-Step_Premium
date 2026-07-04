@@ -9,12 +9,16 @@ from datetime import timedelta, timezone
 from pathlib import Path
 
 from acestep.ui.gradio.generated_library import (
+    LIBRARY_PAGE_SIZE,
     _records_to_table,
     filter_library_by_date,
+    filter_library_view,
+    next_library_page,
     scan_generated_songs,
     select_library_item,
     select_library_table_item,
 )
+from acestep.ui.gradio.generated_library_records import ALL_DAYS_CHOICE
 
 
 class _FakeSelectEvent:
@@ -146,6 +150,92 @@ class GeneratedLibraryTests(unittest.TestCase):
         self.assertEqual("second.flac", audio)
         self.assertIn("second song", details)
         self.assertEqual("second lyrics", lyrics)
+
+    def test_wildcard_search_filters_songs(self) -> None:
+        """Wildcard search should match searchable song fields."""
+
+        records = [
+            {
+                "id": "first",
+                "created_day": "15 April 2026",
+                "title": "Neon Skyline",
+                "caption": "cinematic synth pop",
+                "audio_path": "first.flac",
+            },
+            {
+                "id": "second",
+                "created_day": "16 April 2026",
+                "title": "Acoustic Moon",
+                "lyrics": "blue river",
+                "audio_path": "second.flac",
+            },
+        ]
+
+        filtered, table, audio, details, _lyrics, _metadata = filter_library_by_date(
+            ALL_DAYS_CHOICE,
+            records,
+            "synth*pop",
+        )
+
+        self.assertEqual([records[0]], filtered)
+        self.assertEqual("Neon Skyline", table[0][1])
+        self.assertEqual("first.flac", audio)
+        self.assertIn("Neon Skyline", details)
+
+    def test_library_view_paginates_recent_generations_at_50_per_page(self) -> None:
+        """The visible table should be capped at 50 rows per page."""
+
+        records = [
+            {
+                "id": f"song-{index}",
+                "created_day": "15 April 2026",
+                "created_display": f"15 April 2026, {index:02d}:00",
+                "title": f"song {index}",
+                "audio_path": f"song-{index}.flac",
+            }
+            for index in range(125)
+        ]
+
+        page_records, page, table, status, _prev, _next, audio, details, _lyrics, _metadata = (
+            filter_library_view("15 April 2026", "", records)
+        )
+
+        self.assertEqual(LIBRARY_PAGE_SIZE, len(page_records))
+        self.assertEqual(1, page)
+        self.assertEqual("song 0", table[0][1])
+        self.assertEqual("song 49", table[-1][1])
+        self.assertEqual("song-0.flac", audio)
+        self.assertIn("song 0", details)
+        self.assertIn("Showing 1-50 of 125 songs", status)
+        self.assertIn("Page 1 of 3", status)
+
+    def test_library_next_page_uses_visible_page_records_for_selection(self) -> None:
+        """Selecting a row after pagination should resolve against that page."""
+
+        records = [
+            {
+                "id": f"song-{index}",
+                "created_day": "15 April 2026",
+                "title": f"song {index}",
+                "audio_path": f"song-{index}.flac",
+            }
+            for index in range(75)
+        ]
+
+        page_records, page, table, status, _prev, _next, _audio, _details, _lyrics, _metadata = (
+            next_library_page("15 April 2026", "", records, 1)
+        )
+        audio, details, _lyrics, _metadata = select_library_table_item(
+            page_records,
+            _FakeSelectEvent((1, 1)),
+        )
+
+        self.assertEqual(2, page)
+        self.assertEqual("song 50", table[0][1])
+        self.assertEqual("song-51.flac", audio)
+        self.assertIn("song 51", details)
+        self.assertIn("Showing 51-75 of 75 songs", status)
+        self.assertIn("Page 2 of 2", status)
 
 
 if __name__ == "__main__":
