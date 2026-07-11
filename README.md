@@ -8,6 +8,21 @@
 
 ## Quick Info
 
+### Reusable automatic torch.compile toolchain
+
+The cross-platform Visual Studio/MSVC, CUDA, Ninja, GCC, and Clang discovery logic is
+available as a self-contained package that can be copied into other applications:
+
+- [Portable package and quick start](torch_compile_toolchain/README.md)
+- [Full integration and architecture guide](torch_compile_toolchain/INTEGRATION.md)
+- [Executable integration example](torch_compile_toolchain/example.py)
+- [ACE-Step selective inference compile policy](docs/TORCH_COMPILE_INFERENCE_POLICY.md)
+
+For ACE-Step inference, the compile checkbox now targets only the measured-beneficial
+PyTorch 5Hz LM. DiT and VAE remain eager because real variable-length generation was
+slower when those components were compiled. SAM-Audio, training, and Apple MLX have
+their own independent compile behavior.
+
 - This app has the following repos perfectly combined into our premium app with additional improvements and features such as optimized model loading, VRAM, quality, accuracy and performance optimizations, batch folder processing and many more (all models automatically downloaded and everything installed into a Python 3.11 VENV)        
     -   We got VRAM presets for every GPUs already set, read changelogs below to learn everything, slowly top to bottom read recommended        
         -   ACESTEP XL 1.5 (both inference + training) : [https://github.com/Runware/ACE-Step-1.5-XL](https://github.com/Runware/ACE-Step-1.5-XL)            

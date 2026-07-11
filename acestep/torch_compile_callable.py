@@ -35,6 +35,7 @@ def compile_module_callable(
     backend: str = "inductor",
     mode: str | None = None,
     fullgraph: bool = False,
+    disabled_detail: str | None = None,
 ) -> TorchCompileResult:
     """Compile a module callable attribute with first-call fallback.
 
@@ -46,6 +47,7 @@ def compile_module_callable(
         backend: PyTorch compiler backend.
         mode: Optional PyTorch compile mode.
         fullgraph: Whether to require a single graph.
+        disabled_detail: Optional reason used when ``enabled`` is false.
 
     Returns:
         Compile result metadata. A successful result means a compiled wrapper was
@@ -60,7 +62,7 @@ def compile_module_callable(
         fullgraph=fullgraph,
     )
     if not enabled:
-        detail = "disabled by user option"
+        detail = disabled_detail or "disabled by user option"
         log_compile_status(label, status="disabled", detail=detail, summary=summary)
         return TorchCompileResult(False, False, detail)
 

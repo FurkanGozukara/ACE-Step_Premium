@@ -18,6 +18,7 @@ def compile_module_forward(
     backend: str = "inductor",
     mode: str | None = None,
     fullgraph: bool = False,
+    disabled_detail: str | None = None,
 ) -> TorchCompileResult:
     """Compile a module's forward method with first-call fallback.
 
@@ -28,6 +29,7 @@ def compile_module_forward(
         backend: PyTorch compiler backend.
         mode: Optional PyTorch compile mode.
         fullgraph: Whether to require a single graph.
+        disabled_detail: Optional reason used when ``enabled`` is false.
 
     Returns:
         Compile result metadata. A successful result means a compiled wrapper was
@@ -41,6 +43,7 @@ def compile_module_forward(
         backend=backend,
         mode=mode,
         fullgraph=fullgraph,
+        disabled_detail=disabled_detail,
     )
 
 

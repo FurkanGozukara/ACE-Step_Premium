@@ -79,13 +79,6 @@ class InitServiceSetupMixin:
                 logger.warning("[initialize_service] Quantization (torchao) is not supported on MPS; disabling.")
                 normalized_quantization = None
 
-        if normalized_quantization in {"fp8_scaled", "int4_weight_only"} and normalized_compile:
-            logger.info(
-                "[initialize_service] Disabling torch.compile for {} quantization.",
-                normalized_quantization,
-            )
-            normalized_compile = False
-
         return normalized_compile, normalized_quantization, mlx_compile_requested
 
     @staticmethod
@@ -182,7 +175,12 @@ class InitServiceSetupMixin:
         status_msg += f"Text encoder: {text_encoder_path}\n"
         status_msg += f"Dtype: {dtype}\n"
         status_msg += f"Attention: {attention}\n"
-        compiled_label = "mx.compile (MLX)" if mlx_compile_requested else str(compile_model)
+        if mlx_compile_requested:
+            compiled_label = "mx.compile (MLX)"
+        elif compile_model:
+            compiled_label = "Selective torch.compile (5Hz LM only; DiT/VAE eager)"
+        else:
+            compiled_label = "False"
         status_msg += f"Compiled: {compiled_label}\n"
         status_msg += f"Quantization: {quantization or 'Disabled'}\n"
         status_msg += f"Offload to CPU: {offload_to_cpu}\n"

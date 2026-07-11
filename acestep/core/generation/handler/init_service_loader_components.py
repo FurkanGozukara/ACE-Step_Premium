@@ -3,9 +3,9 @@
 import os
 from typing import Optional
 
-import torch
 from loguru import logger
 
+from acestep.torch_compile_policy import resolve_inference_compile_policy
 from acestep.torch_compile_runtime import compile_module_callable
 
 
@@ -32,7 +32,8 @@ class InitServiceLoaderComponentsMixin:
         Args:
             checkpoint_dir: Root checkpoint directory.
             device: Target runtime device when CPU offload is disabled.
-            compile_model: Whether to compile the loaded VAE after device placement.
+            compile_model: User compile request. The selective inference policy
+                currently keeps VAE decode eager.
             vae_variant: Optional VAE variant id (e.g. ``"official"`` or
                 ``"scragvae"``) or an absolute path to a VAE directory.
                 Defaults to ``"official"`` (= ``<checkpoint_dir>/vae``).
@@ -62,20 +63,26 @@ class InitServiceLoaderComponentsMixin:
             self.vae = self.vae.to("cpu").to(vae_dtype)
         self.vae.eval()
 
-        if compile_model:
+        compile_policy = resolve_inference_compile_policy(compile_model)
+        if compile_policy.vae:
             self._ensure_len_for_compile(self.vae, "vae")
         compile_result = compile_module_callable(
             self.vae,
             attribute_name="decode",
             label="ACE-Step VAE decode",
-            enabled=compile_model,
+            enabled=compile_policy.vae,
+            disabled_detail=compile_policy.disabled_detail("vae"),
         )
-        if compile_model:
-            if not compile_result.compiled:
-                logger.warning(
-                    "[initialize_service] torch.compile disabled for VAE decode: {}",
-                    compile_result.detail,
-                )
+        if compile_model and compile_policy.vae and not compile_result.compiled:
+            logger.warning(
+                "[initialize_service] torch.compile unavailable for VAE decode: {}",
+                compile_result.detail,
+            )
+        elif compile_model and not compile_policy.vae:
+            logger.info(
+                "[initialize_service] VAE decode remains eager: {}",
+                compile_result.detail,
+            )
 
         return vae_checkpoint_path
 

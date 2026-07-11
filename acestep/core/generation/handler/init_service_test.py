@@ -312,15 +312,15 @@ class InitServiceMixinTests(unittest.TestCase):
         self.assertEqual(quantization, "int8_weight_only")
         self.assertFalse(mlx_compile_requested)
 
-    def test_configure_initialize_runtime_disables_compile_for_fp8_scaled(self):
-        """It disables torch.compile before applying patched FP8 scaled linears."""
+    def test_configure_initialize_runtime_keeps_lm_compile_for_fp8_scaled(self):
+        """DiT FP8 does not disable the independent selective LM compile request."""
         host = _Host(project_root="K:/fake_root", device="cuda")
         compile_model, quantization, mlx_compile_requested = host._configure_initialize_runtime(
             device="cuda",
             compile_model=True,
             quantization="fp8_scaled",
         )
-        self.assertFalse(compile_model)
+        self.assertTrue(compile_model)
         self.assertEqual(quantization, "fp8_scaled")
         self.assertFalse(mlx_compile_requested)
 
@@ -454,6 +454,28 @@ class InitServiceMixinTests(unittest.TestCase):
         )
         self.assertIn("Compiled: mx.compile (MLX)", msg)
         self.assertIn("Quantization: w8a8_dynamic", msg)
+
+    def test_build_initialize_status_message_reports_selective_compile_label(self):
+        """It makes the CUDA selective inference policy visible to the user."""
+        msg = _Host._build_initialize_status_message(
+            device="cuda",
+            model_path="m",
+            vae_path="v",
+            text_encoder_path="t",
+            dtype=torch.bfloat16,
+            attention="flash_attention_2",
+            compile_model=True,
+            mlx_compile_requested=False,
+            offload_to_cpu=False,
+            offload_dit_to_cpu=False,
+            quantization=None,
+            mlx_dit_status="Disabled",
+            mlx_vae_status="Disabled",
+        )
+        self.assertIn(
+            "Compiled: Selective torch.compile (5Hz LM only; DiT/VAE eager)",
+            msg,
+        )
 
     def test_initialize_mlx_backends_disables_dit_when_requested(self):
         """It disables MLX DiT state when caller explicitly opts out."""

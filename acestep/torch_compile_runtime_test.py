@@ -31,6 +31,24 @@ class TorchCompileRuntimeTests(unittest.TestCase):
         self.assertEqual("disabled by user option", result.detail)
         self.assertEqual("disabled", log_status.call_args.kwargs["status"])
 
+    def test_policy_disabled_reason_is_preserved(self) -> None:
+        """Intentional component policy skips should not look user-disabled."""
+
+        module = torch.nn.Linear(2, 2)
+        reason = "kept eager by measured policy"
+
+        with patch("acestep.torch_compile_callable.log_compile_status") as log_status:
+            result = compile_module_forward(
+                module,
+                label="policy-test",
+                enabled=False,
+                disabled_detail=reason,
+            )
+
+        self.assertEqual(reason, result.detail)
+        self.assertEqual(reason, log_status.call_args.kwargs["detail"])
+        self.assertEqual("disabled", log_status.call_args.kwargs["status"])
+
     def test_non_cuda_module_is_not_compiled(self) -> None:
         """CPU modules should be left in eager mode."""
 

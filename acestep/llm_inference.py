@@ -34,6 +34,7 @@ from acestep.gpu_config import (
     get_lm_model_size,
     get_global_gpu_config,
 )
+from acestep.torch_compile_policy import resolve_inference_compile_policy
 from acestep.torch_compile_runtime import compile_module_forward
 
 # Minimum free VRAM (GB) required to attempt vLLM initialization.
@@ -521,12 +522,13 @@ class LLMHandler:
                 self.llm,
                 "logits_to_keep",
             )
+            compile_policy = resolve_inference_compile_policy(compile_model)
             compile_result = compile_module_forward(
                 self.llm,
                 label="5Hz LM PyTorch",
-                enabled=compile_model,
+                enabled=compile_policy.lm,
             )
-            if compile_model and not compile_result.compiled:
+            if compile_policy.lm and not compile_result.compiled:
                 logger.warning("[5Hz LM] torch.compile disabled: {}", compile_result.detail)
             logger.info(
                 "5Hz LM initialized successfully using PyTorch backend on {} (attention={})",

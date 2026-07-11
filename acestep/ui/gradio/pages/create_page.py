@@ -56,11 +56,12 @@ def create_generation_workspace_page(
                             elem_id="acestep-subprocess-mode-checkbox",
                         )
                         compile_model_checkbox = gr.Checkbox(
-                            label="Compile Model (torch.compile)",
+                            label="Compile 5Hz LM (torch.compile)",
                             value=bool(compile_default),
                             info=(
-                                "Optional PyTorch compilation for repeated inference. "
-                                "First use can be slower while graphs are compiled."
+                                "Compiles only the measured-beneficial PyTorch 5Hz LM. "
+                                "DiT and VAE stay eager because compilation was slower "
+                                "for variable-length generation. First LM use is slower."
                             ),
                             elem_id="acestep-runtime-compile-model-checkbox",
                         )

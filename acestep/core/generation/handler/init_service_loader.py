@@ -14,6 +14,7 @@ import torch
 from loguru import logger
 
 from acestep import gpu_config
+from acestep.torch_compile_policy import resolve_inference_compile_policy
 from acestep.torch_compile_runtime import compile_module_forward
 from .fp8_scaled_quantization import apply_fp8_scaled_quantization
 from .init_service_loader_components import InitServiceLoaderComponentsMixin
@@ -577,7 +578,7 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
         compile_model: bool,
         quantization: Optional[str],
     ) -> str:
-        """Load DiT, apply compile/quantization options, and return selected attention backend."""
+        """Load DiT, apply inference policy/quantization, and select attention."""
         from transformers import AutoModel
 
         if not os.path.exists(model_checkpoint_path):
@@ -748,19 +749,25 @@ class InitServiceLoaderMixin(InitServiceLoaderComponentsMixin):
         self.model.eval()
 
         decoder = getattr(self.model, "decoder", self.model)
-        if compile_model:
+        compile_policy = resolve_inference_compile_policy(compile_model)
+        if compile_policy.dit:
             self._ensure_len_for_compile(decoder, "model.decoder")
         compile_result = compile_module_forward(
             decoder,
             label="ACE-Step DiT decoder",
-            enabled=compile_model,
+            enabled=compile_policy.dit,
+            disabled_detail=compile_policy.disabled_detail("dit"),
         )
-        if compile_model:
-            if not compile_result.compiled:
-                logger.warning(
-                    "[initialize_service] torch.compile disabled for DiT decoder: {}",
-                    compile_result.detail,
-                )
+        if compile_model and compile_policy.dit and not compile_result.compiled:
+            logger.warning(
+                "[initialize_service] torch.compile unavailable for DiT decoder: {}",
+                compile_result.detail,
+            )
+        elif compile_model and not compile_policy.dit:
+            logger.info(
+                "[initialize_service] DiT decoder remains eager: {}",
+                compile_result.detail,
+            )
         self._apply_dit_quantization(
             quantization,
             model_checkpoint_path=model_checkpoint_path,
