@@ -16,6 +16,7 @@ from acestep.torch_compile_runtime import TorchCompileResult, compile_module_for
 
 from .attention import attention_stats, reset_attention_stats
 from .anchors import anchors_for_settings
+from .compile_policy import resolve_sam_compile_policy
 from .fp8_scaled import apply_sam_fp8_scaled
 from .initialization import (
     checkpoint_skip_prefixes_for_settings,
@@ -62,6 +63,7 @@ class SamAudioService:
         self.model = None
         self.processor = None
         self.compile_result: TorchCompileResult | None = None
+        self.compile_policy = resolve_sam_compile_policy(self.settings.compile_model)
         self.progress_callback = progress_callback
         self.sample_rate = 48000
 
@@ -160,21 +162,26 @@ class SamAudioService:
                 f"Applying SAM-Audio FP8 cache for {model_name}",
             )
             apply_sam_fp8_scaled(model, checkpoint_path=self.model_path, device=self.device)
-        if self.settings.compile_model:
+        if self.compile_policy.requested:
+            logger.info(
+                "[sam_audio] Selective torch.compile targets: {}",
+                self.compile_policy.targets(),
+            )
+        if self.compile_policy.diffusion_forward:
             report_progress(
                 self.progress_callback,
                 0.23,
-                f"Compiling SAM-Audio forward for {model_name}",
+                f"Compiling SAM-Audio diffusion forward for {model_name}",
             )
         self.compile_result = compile_module_forward(
             model,
-            label="SAM-Audio",
-            enabled=bool(self.settings.compile_model),
+            label="SAM-Audio diffusion forward",
+            enabled=self.compile_policy.diffusion_forward,
         )
-        if self.settings.compile_model:
+        if self.compile_policy.diffusion_forward:
             if not self.compile_result.compiled:
                 logger.warning(
-                    "[sam_audio] torch.compile disabled: {}",
+                    "[sam_audio] diffusion torch.compile disabled: {}",
                     self.compile_result.detail,
                 )
 
@@ -359,11 +366,12 @@ class SamAudioService:
 
         result = self.compile_result
         return {
-            "requested": bool(self.settings.compile_model),
+            "requested": self.compile_policy.requested,
             "compiled": bool(getattr(self.model, "_acestep_torch_compiled", False)),
             "attempts": int(
                 getattr(self.model, "_acestep_torch_compile_attempts", 0)
             ),
+            "targets": self.compile_policy.targets(),
             "detail": getattr(
                 self.model,
                 "_acestep_torch_compile_detail",

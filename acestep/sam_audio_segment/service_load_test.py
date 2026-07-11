@@ -7,11 +7,13 @@ from unittest.mock import patch
 import torch
 
 from acestep.sam_audio_segment.service import (
+    SamAudioService,
     _load_checkpoint_into_model,
     _set_local_ranker_map_location,
     _should_use_meta_direct_sam_load,
 )
 from acestep.sam_audio_segment.settings import SamAudioSettings
+from acestep.torch_compile_runtime import TorchCompileResult
 
 
 class _AssignAwareModel(torch.nn.Module):
@@ -177,6 +179,42 @@ class ServiceLoadTests(unittest.TestCase):
         judge_config = config["text_ranker"]["rankers"]["judge"][0]
         self.assertEqual("cuda:1", judge_config["map_location"])
         self.assertNotIn("map_location", config["visual_ranker"])
+
+    def test_compile_metadata_reports_selective_component_targets(self):
+        """Metadata should expose exactly which SAM component was selected."""
+
+        service = SamAudioService(
+            SamAudioSettings(compile_model=True),
+            model_path=Path("SAM-Audio-Large-BF16.safetensors"),
+            device="cpu",
+        )
+        service.model = torch.nn.Linear(2, 2)
+        service.compile_result = TorchCompileResult(
+            requested=True,
+            compiled=True,
+            detail="ready",
+            attempts=1,
+        )
+        setattr(service.model, "_acestep_torch_compiled", True)
+        setattr(service.model, "_acestep_torch_compile_attempts", 1)
+        setattr(service.model, "_acestep_torch_compile_detail", "verified")
+
+        metadata = service._compile_metadata()
+
+        self.assertTrue(metadata["requested"])
+        self.assertTrue(metadata["compiled"])
+        self.assertEqual("verified", metadata["detail"])
+        self.assertEqual(
+            {
+                "diffusion_forward": True,
+                "codec_encoder": False,
+                "codec_decoder": False,
+                "text_encoder": False,
+                "span_predictor": False,
+                "rankers": False,
+            },
+            metadata["targets"],
+        )
 
 
 if __name__ == "__main__":

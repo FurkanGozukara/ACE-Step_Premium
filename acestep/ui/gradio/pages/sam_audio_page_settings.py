@@ -64,9 +64,13 @@ def add_generation_controls(controls: dict[str, Any]) -> None:
                 value=True,
             )
             controls["sam_compile_model"] = gr.Checkbox(
-                label="Compile Model",
+                label="Compile SAM diffusion forward",
                 value=False,
-                info="Use torch.compile for repeated SAM-Audio runs. First use may be slower.",
+                info=(
+                    "Compiles only the measured-beneficial ODE/DiT forward. "
+                    "Codec, T5, span, and ranker paths stay eager because they "
+                    "did not improve warm speed. First use is much slower."
+                ),
             )
             controls["sam_unload_generation"] = gr.Checkbox(
                 label="Unload generation model first",

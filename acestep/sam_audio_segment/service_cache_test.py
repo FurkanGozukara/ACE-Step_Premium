@@ -102,6 +102,22 @@ class ServiceCacheTests(unittest.TestCase):
         self.assertEqual(1, first.unload_calls)
         self.assertEqual(0, second.unload_calls)
 
+    def test_evicts_service_when_compile_request_changes(self) -> None:
+        """Changing the selective compile request should rebuild the model."""
+
+        settings = SamAudioSettings(subprocess=False, compile_model=False)
+        compiled_settings = replace(settings, compile_model=True)
+
+        with _patched_service():
+            with cached_sam_audio_service(settings) as first:
+                pass
+            with cached_sam_audio_service(compiled_settings) as second:
+                pass
+
+        self.assertIsNot(first, second)
+        self.assertEqual(1, first.unload_calls)
+        self.assertTrue(second.settings.compile_model)
+
     def test_evicts_service_when_visual_prompt_requires_full_model(self) -> None:
         """Visual mode should not reuse a text/span-only cached service."""
 

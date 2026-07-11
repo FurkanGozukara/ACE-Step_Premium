@@ -17,6 +17,7 @@ available as a self-contained package that can be copied into other applications
 - [Full integration and architecture guide](torch_compile_toolchain/INTEGRATION.md)
 - [Executable integration example](torch_compile_toolchain/example.py)
 - [ACE-Step selective inference compile policy](docs/TORCH_COMPILE_INFERENCE_POLICY.md)
+- [SAM-Audio selective compile policy](docs/SAM_AUDIO_TORCH_COMPILE_POLICY.md)
 
 For ACE-Step inference, the compile checkbox now targets only the measured-beneficial
 PyTorch 5Hz LM. DiT and VAE remain eager because real variable-length generation was
