@@ -17,7 +17,7 @@ import yaml
 import torch
 from loguru import logger
 from tqdm import tqdm
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, StaticCache
 from transformers.generation.streamers import BaseStreamer
 from transformers.generation.logits_process import (
     LogitsProcessorList,
@@ -36,6 +36,14 @@ from acestep.gpu_config import (
 )
 from acestep.torch_compile_policy import resolve_inference_compile_policy
 from acestep.torch_compile_runtime import compile_module_forward
+from acestep.torch_compile_workers import (
+    CompileWorkerWarmupHandle,
+    DEFAULT_COMPILE_THREADS,
+    configure_compile_workers,
+    finish_compile_worker_warmup,
+    normalize_compile_threads,
+    start_compile_worker_warmup,
+)
 
 # Minimum free VRAM (GB) required to attempt vLLM initialization.
 # vLLM's KV cache allocator adapts to available memory, so we only need a
@@ -105,6 +113,19 @@ def _pytorch_lm_attention_candidates(device: str) -> List[Optional[str]]:
     return candidates
 
 
+class _Phase2DecodeForward(torch.nn.Module):
+    """Compile target that leaves the owning LM's eager forward untouched."""
+
+    def __init__(self, model: torch.nn.Module) -> None:
+        super().__init__()
+        self.model = model
+
+    def forward(self, **kwargs: Any) -> Any:
+        """Delegate one autoregressive decode step to the causal LM."""
+
+        return self.model(**kwargs)
+
+
 class LLMHandler:
     """5Hz LM Handler for audio code generation"""
 
@@ -127,6 +148,10 @@ class LLMHandler:
         self._llm_forward_supports_cache_position: Optional[bool] = None
         self._llm_forward_supports_logits_to_keep: Optional[bool] = None
         self._llm_attention_implementation: Optional[str] = None
+        self._phase2_decode_runner: Optional[torch.nn.Module] = None
+        self._compile_worker_warmup: Optional[CompileWorkerWarmupHandle] = None
+        self._compile_worker_pool_checked = False
+        self.compile_threads = DEFAULT_COMPILE_THREADS
         self.disable_tqdm = os.environ.get("ACESTEP_DISABLE_TQDM", "").lower() in ("1", "true", "yes") or not (hasattr(sys.stderr, 'isatty') and sys.stderr.isatty())
 
         # HuggingFace Space persistent storage support
@@ -197,6 +222,9 @@ class LLMHandler:
                 except Exception:
                     pass
                 self._cleanup_torch_distributed_state()
+            self._phase2_decode_runner = None
+            self._compile_worker_warmup = None
+            self._compile_worker_pool_checked = False
             self.llm = None
             self.llm_tokenizer = None
             self.constrained_processor = None
@@ -523,11 +551,22 @@ class LLMHandler:
                 "logits_to_keep",
             )
             compile_policy = resolve_inference_compile_policy(compile_model)
+            if compile_policy.lm:
+                worker_settings = configure_compile_workers(self.compile_threads)
+                logger.info(
+                    "[torch_compile] 5Hz LM Phase-2 decode workers: threads={} start={}",
+                    worker_settings.threads,
+                    worker_settings.worker_start,
+                )
+            decode_runner = _Phase2DecodeForward(self.llm)
             compile_result = compile_module_forward(
-                self.llm,
-                label="5Hz LM PyTorch",
+                decode_runner,
+                label="5Hz LM PyTorch Phase-2 decode",
                 enabled=compile_policy.lm,
             )
+            self._phase2_decode_runner = decode_runner if compile_result.compiled else None
+            self._compile_worker_warmup = None
+            self._compile_worker_pool_checked = False
             if compile_policy.lm and not compile_result.compiled:
                 logger.warning("[5Hz LM] torch.compile disabled: {}", compile_result.detail)
             logger.info(
@@ -602,9 +641,14 @@ class LLMHandler:
         model_kwargs: Dict[str, Any],
         past_key_values: Optional[Any],
         use_cache: bool,
+        *,
+        is_prefill: Optional[bool] = None,
+        use_compiled_decode: bool = False,
     ) -> Any:
         """Perform forward pass with KV cache support"""
-        input_ids = generated_ids if past_key_values is None else generated_ids[:, -1:]
+        if is_prefill is None:
+            is_prefill = past_key_values is None
+        input_ids = generated_ids if is_prefill else generated_ids[:, -1:]
         forward_kwargs = dict(model_kwargs)
         forward_kwargs["use_cache"] = use_cache
 
@@ -614,7 +658,7 @@ class LLMHandler:
             forward_kwargs["logits_to_keep"] = 1
 
         if self._model_forward_accepts_kwarg(model, "cache_position"):
-            if past_key_values is None:
+            if is_prefill:
                 cache_position = torch.arange(
                     generated_ids.shape[1],
                     device=generated_ids.device,
@@ -630,18 +674,123 @@ class LLMHandler:
                 )
             forward_kwargs["cache_position"] = cache_position
 
-        if past_key_values is None:
-            outputs = model(
-                input_ids=input_ids,
-                **forward_kwargs,
-            )
-        else:
-            outputs = model(
-                past_key_values=past_key_values,
-                input_ids=input_ids,
-                **forward_kwargs,
-            )
+        if past_key_values is not None:
+            forward_kwargs["past_key_values"] = past_key_values
+
+        forward_target = model
+        if (
+            use_compiled_decode
+            and not is_prefill
+            and self._phase2_decode_runner is not None
+        ):
+            forward_target = self._phase2_decode_runner
+        outputs = forward_target(input_ids=input_ids, **forward_kwargs)
+        if forward_target is self._phase2_decode_runner:
+            self._finish_phase2_compile_worker_warmup()
         return outputs
+
+    def _start_phase2_compile_worker_warmup(self) -> None:
+        """Start Inductor workers early so Phase-1 work overlaps pool startup."""
+
+        if (
+            self._phase2_decode_runner is None
+            or self._compile_worker_pool_checked
+            or self._compile_worker_warmup is not None
+        ):
+            return
+        self._compile_worker_warmup = start_compile_worker_warmup(
+            self.compile_threads
+        )
+        logger.info(
+            "[torch_compile] Starting Phase-2 worker pool: requested={} start={}",
+            self._compile_worker_warmup.threads,
+            self._compile_worker_warmup.worker_start,
+        )
+
+    def _finish_phase2_compile_worker_warmup(self) -> None:
+        """Confirm the configured pool is ready before compiled token decoding."""
+
+        if self._phase2_decode_runner is None or self._compile_worker_pool_checked:
+            return
+        self._start_phase2_compile_worker_warmup()
+        handle = self._compile_worker_warmup
+        if handle is None:
+            return
+        result = finish_compile_worker_warmup(handle)
+        self._compile_worker_warmup = None
+        self._compile_worker_pool_checked = True
+        message = (
+            "[torch_compile] Phase-2 worker pool ready={}: active={}/{} "
+            "start={} warmup={:.2f}s detail={}"
+        )
+        log = logger.info
+        if not result.ready or result.active_workers < result.requested_threads:
+            log = logger.warning
+        log(
+            message,
+            result.ready,
+            result.active_workers,
+            result.requested_threads,
+            result.worker_start,
+            result.elapsed_seconds,
+            result.detail,
+        )
+
+    def _prepare_phase2_static_cache(
+        self,
+        model: Any,
+        input_ids: torch.Tensor,
+        attention_mask: Optional[torch.Tensor],
+        max_new_tokens: int,
+    ) -> tuple[Optional[Any], Optional[torch.Tensor]]:
+        """Create a fixed-size KV cache and attention mask for compiled decoding."""
+
+        if self._phase2_decode_runner is None:
+            return None, None
+        self._start_phase2_compile_worker_warmup()
+
+        prompt_length = int(input_ids.shape[1])
+        required_length = prompt_length + int(max_new_tokens)
+        cache_length = max(1024, 1 << max(0, required_length - 1).bit_length())
+        model_limit = int(
+            getattr(getattr(model, "config", None), "max_position_embeddings", cache_length)
+            or cache_length
+        )
+        cache_length = min(cache_length, model_limit)
+        if cache_length < required_length:
+            logger.warning(
+                "[torch_compile] Phase-2 static cache limit is {} tokens, but {} are "
+                "required. Falling back to the dynamic cache.",
+                cache_length,
+                required_length,
+            )
+            return None, None
+
+        try:
+            cache = StaticCache(config=model.config, max_cache_len=cache_length)
+        except Exception as exc:
+            logger.warning(
+                "[torch_compile] Static KV cache unavailable for Phase-2 decode: {}. "
+                "Falling back to the dynamic cache.",
+                exc,
+            )
+            return None, None
+
+        if attention_mask is None:
+            attention_mask = torch.ones_like(input_ids)
+        fixed_mask = torch.zeros(
+            (input_ids.shape[0], cache_length),
+            device=input_ids.device,
+            dtype=attention_mask.dtype,
+        )
+        fixed_mask[:, :prompt_length] = attention_mask
+        logger.info(
+            "[torch_compile] Phase-2 decode using StaticCache: batch={} prompt={} capacity={}",
+            input_ids.shape[0],
+            prompt_length,
+            cache_length,
+        )
+        return cache, fixed_mask
 
     def _model_forward_accepts_kwarg(self, model: Any, kwarg_name: str) -> bool:
         """Detect and cache support for generation-forward convenience kwargs."""
@@ -682,6 +831,7 @@ class LLMHandler:
         offload_to_cpu: bool = False,
         dtype: Optional[torch.dtype] = None,
         compile_model: bool = False,
+        compile_threads: Optional[int] = None,
     ) -> Tuple[str, bool]:
         """
         Initialize 5Hz LM model
@@ -693,7 +843,8 @@ class LLMHandler:
             device: Device type ("auto", "cuda", "mps", "xpu", or "cpu")
             offload_to_cpu: Whether to offload to CPU
             dtype: Data type (if None, auto-detect based on device)
-            compile_model: Whether to compile the PyTorch LM forward path.
+            compile_model: Whether to compile PyTorch Phase-2 token decoding.
+            compile_threads: Number of parallel TorchInductor compile workers.
 
         Returns:
             (status_message, success)
@@ -741,6 +892,7 @@ class LLMHandler:
 
             self.device = device
             self.offload_to_cpu = offload_to_cpu
+            self.compile_threads = normalize_compile_threads(compile_threads)
 
             # Set dtype based on device: bfloat16 for cuda/xpu, float32 for mps/cpu
             # Note: LLM stays in float32 on MPS because autoregressive generation is
@@ -778,6 +930,7 @@ class LLMHandler:
                 "offload_to_cpu": offload_to_cpu,
                 "dtype": self.dtype,
                 "compile_model": compile_model,
+                "compile_threads": self.compile_threads,
             }
 
             # Proactive CUDA cleanup before LM load to reduce fragmentation on mode/model switch
@@ -1281,12 +1434,15 @@ class LLMHandler:
                     pad_token_id=self.llm_tokenizer.pad_token_id or self.llm_tokenizer.eos_token_id,
                     streamer=None,
                     constrained_processor=constrained_processor,
+                    generation_phase=generation_phase,
                 )
 
                 # Extract only the conditional output (first in batch)
                 outputs = outputs[0:1]  # Keep only conditional output
-            elif use_constrained_decoding:
-                # Use custom constrained decoding loop for non-CFG
+            elif use_constrained_decoding or (
+                generation_phase == "codes" and self._phase2_decode_runner is not None
+            ):
+                # This loop owns the eager prefill/compiled decode split.
                 outputs = self._generate_with_constrained_decoding(
                     input_ids=inputs["input_ids"],
                     attention_mask=inputs.get("attention_mask"),
@@ -1298,6 +1454,7 @@ class LLMHandler:
                     pad_token_id=self.llm_tokenizer.pad_token_id or self.llm_tokenizer.eos_token_id,
                     streamer=None,
                     constrained_processor=constrained_processor,
+                    generation_phase=generation_phase,
                 )
             else:
                 # Generate without CFG using native generate() parameters
@@ -1383,19 +1540,35 @@ class LLMHandler:
             )
             logits_processor = self._build_logits_processor(repetition_penalty)
 
-            with torch.inference_mode():
-                outputs = self.llm.generate(
-                    **inputs,
+            if generation_phase == "codes" and self._phase2_decode_runner is not None:
+                outputs = self._generate_with_constrained_decoding(
+                    input_ids=inputs["input_ids"],
+                    attention_mask=inputs.get("attention_mask"),
                     max_new_tokens=max_new_tokens,
-                    temperature=temperature if temperature > 0 else 1.0,
-                    do_sample=True if temperature > 0 else False,
-                    top_k=top_k if top_k is not None and top_k > 0 else None,
-                    top_p=top_p if top_p is not None and 0.0 < top_p < 1.0 else None,
-                    logits_processor=logits_processor if len(logits_processor) > 0 else None,
+                    temperature=temperature,
+                    top_k=top_k,
+                    top_p=top_p,
+                    repetition_penalty=repetition_penalty,
                     pad_token_id=self.llm_tokenizer.pad_token_id
                     or self.llm_tokenizer.eos_token_id,
                     streamer=None,
+                    constrained_processor=None,
+                    generation_phase=generation_phase,
                 )
+            else:
+                with torch.inference_mode():
+                    outputs = self.llm.generate(
+                        **inputs,
+                        max_new_tokens=max_new_tokens,
+                        temperature=temperature if temperature > 0 else 1.0,
+                        do_sample=True if temperature > 0 else False,
+                        top_k=top_k if top_k is not None and top_k > 0 else None,
+                        top_p=top_p if top_p is not None and 0.0 < top_p < 1.0 else None,
+                        logits_processor=logits_processor if len(logits_processor) > 0 else None,
+                        pad_token_id=self.llm_tokenizer.pad_token_id
+                        or self.llm_tokenizer.eos_token_id,
+                        streamer=None,
+                    )
 
         eos_token_id = self.llm_tokenizer.eos_token_id
         pad_token_id = self.llm_tokenizer.pad_token_id
@@ -1633,6 +1806,8 @@ class LLMHandler:
                 "error": error_msg,
                 "extra_outputs": {"time_costs": {}},
             }
+        if infer_type == "llm_dit":
+            self._start_phase2_compile_worker_warmup()
 
         # Determine if batch mode
         is_batch = batch_size and batch_size > 1
@@ -2836,6 +3011,7 @@ class LLMHandler:
         pad_token_id: int,
         streamer: Optional[BaseStreamer],
         constrained_processor: Optional[MetadataConstrainedLogitsProcessor] = None,
+        generation_phase: str = "cot",
     ) -> torch.Tensor:
         """
         Custom generation loop with constrained decoding support (non-CFG).
@@ -2852,16 +3028,27 @@ class LLMHandler:
             attn_mask = torch.ones_like(input_ids)
 
         # Prepare model inputs
-        model_kwargs = {'attention_mask': attn_mask}
-
         # Past key values for KV cache
         past_key_values = None
         use_cache = hasattr(model, 'generation_config') and getattr(model.generation_config, 'use_cache', True)
+        static_attention_mask = None
+        if generation_phase == "codes" and use_cache:
+            past_key_values, static_attention_mask = self._prepare_phase2_static_cache(
+                model,
+                input_ids,
+                attn_mask,
+                max_new_tokens,
+            )
 
         # Get EOS token ID
         eos_token_id = self.llm_tokenizer.eos_token_id
         if eos_token_id is None:
             eos_token_id = pad_token_id
+        seq_finished = torch.zeros(
+            input_ids.shape[0],
+            dtype=torch.bool,
+            device=device,
+        )
 
         # Build logits processor for repetition penalty
         logits_processor = self._build_logits_processor(repetition_penalty)
@@ -2870,7 +3057,19 @@ class LLMHandler:
             for step in tqdm(range(max_new_tokens), desc="LLM Constrained Decoding", unit="token", disable=self.disable_tqdm):
                 check_generation_cancelled()
                 # Forward pass
-                outputs = self._forward_pass(model, generated_ids, model_kwargs, past_key_values, use_cache)
+                is_prefill = step == 0 if static_attention_mask is not None else past_key_values is None
+                active_attention_mask = (
+                    attn_mask if is_prefill or static_attention_mask is None else static_attention_mask
+                )
+                outputs = self._forward_pass(
+                    model,
+                    generated_ids,
+                    {"attention_mask": active_attention_mask},
+                    past_key_values,
+                    use_cache,
+                    is_prefill=is_prefill,
+                    use_compiled_decode=generation_phase == "codes",
+                )
 
                 # Get logits for the last position
                 next_token_logits = outputs.logits[:, -1, :]  # [batch_size, vocab_size]
@@ -2887,30 +3086,38 @@ class LLMHandler:
                 next_token_logits = self._apply_top_k_filter(next_token_logits, top_k)
                 next_token_logits = self._apply_top_p_filter(next_token_logits, top_p)
 
+                if seq_finished.any():
+                    next_token_logits[seq_finished] = float("-inf")
+                    next_token_logits[seq_finished, eos_token_id] = 0.0
+
                 # Apply temperature and sample
                 next_tokens = self._sample_tokens(next_token_logits, temperature)
 
                 # Update constrained processor state
                 self._update_constrained_processor_state(constrained_processor, next_tokens)
 
-                # Check for EOS token
-                should_stop = self._check_eos_token(next_tokens, eos_token_id, pad_token_id)
+                is_eos = next_tokens == eos_token_id
+                if pad_token_id is not None and pad_token_id != eos_token_id:
+                    is_eos = is_eos | (next_tokens == pad_token_id)
+                seq_finished = seq_finished | is_eos
 
                 # Append token to sequence
                 next_tokens_unsqueezed = next_tokens.unsqueeze(1)
                 generated_ids = torch.cat([generated_ids, next_tokens_unsqueezed], dim=1)
-                attn_mask = torch.cat([attn_mask, torch.ones((input_ids.shape[0], 1), device=device, dtype=attn_mask.dtype)], dim=1)
-                model_kwargs['attention_mask'] = attn_mask
+                if static_attention_mask is not None:
+                    static_attention_mask[:, generated_ids.shape[1] - 1] = 1
+                else:
+                    attn_mask = torch.cat([attn_mask, torch.ones((input_ids.shape[0], 1), device=device, dtype=attn_mask.dtype)], dim=1)
 
                 # Update KV cache
-                if use_cache and hasattr(outputs, 'past_key_values'):
+                if use_cache and getattr(outputs, 'past_key_values', None) is not None:
                     past_key_values = outputs.past_key_values
 
                 # Update streamer
                 if streamer is not None:
                     streamer.put(next_tokens_unsqueezed)
 
-                if should_stop:
+                if seq_finished.all():
                     break
 
         if streamer is not None:
@@ -2934,6 +3141,7 @@ class LLMHandler:
         pad_token_id: int,
         streamer: Optional[BaseStreamer],
         constrained_processor: Optional[MetadataConstrainedLogitsProcessor] = None,
+        generation_phase: str = "codes",
     ) -> torch.Tensor:
         """
         Custom CFG generation loop that:
@@ -2961,14 +3169,17 @@ class LLMHandler:
         else:
             attention_mask = torch.ones_like(batch_input_ids)
 
-        # Prepare model inputs
-        model_kwargs = {}
-        if batch_attention_mask is not None:
-            model_kwargs['attention_mask'] = attention_mask
-
         # Past key values for KV cache (if model supports it)
         past_key_values = None
         use_cache = hasattr(model, 'generation_config') and getattr(model.generation_config, 'use_cache', True)
+        static_attention_mask = None
+        if generation_phase == "codes" and use_cache:
+            past_key_values, static_attention_mask = self._prepare_phase2_static_cache(
+                model,
+                batch_input_ids,
+                attention_mask,
+                max_new_tokens,
+            )
 
         # Get EOS token ID for stopping condition
         eos_token_id = self.llm_tokenizer.eos_token_id
@@ -2985,7 +3196,21 @@ class LLMHandler:
             for step in tqdm(range(max_new_tokens), desc="LLM CFG Generation", unit="token", disable=self.disable_tqdm):
                 check_generation_cancelled()
                 # Forward pass for the entire batch (conditional + unconditional)
-                outputs = self._forward_pass(model, generated_ids, model_kwargs, past_key_values, use_cache)
+                is_prefill = step == 0 if static_attention_mask is not None else past_key_values is None
+                active_attention_mask = (
+                    attention_mask
+                    if is_prefill or static_attention_mask is None
+                    else static_attention_mask
+                )
+                outputs = self._forward_pass(
+                    model,
+                    generated_ids,
+                    {"attention_mask": active_attention_mask},
+                    past_key_values,
+                    use_cache,
+                    is_prefill=is_prefill,
+                    use_compiled_decode=generation_phase == "codes",
+                )
 
                 # Get logits for the last position
                 next_token_logits = outputs.logits[:, -1, :]  # [batch_size*2, vocab_size]
@@ -3081,10 +3306,12 @@ class LLMHandler:
 
                         next_tokens_unsqueezed = next_tokens.unsqueeze(1)
                         generated_ids = torch.cat([generated_ids, next_tokens_unsqueezed.repeat(2, 1)], dim=1)
-                        attention_mask = torch.cat([attention_mask, torch.ones((batch_size*2, 1), device=device, dtype=attention_mask.dtype)], dim=1)
-                        model_kwargs['attention_mask'] = attention_mask
+                        if static_attention_mask is not None:
+                            static_attention_mask[:, generated_ids.shape[1] - 1] = 1
+                        else:
+                            attention_mask = torch.cat([attention_mask, torch.ones((batch_size*2, 1), device=device, dtype=attention_mask.dtype)], dim=1)
 
-                        if use_cache and hasattr(outputs, 'past_key_values'):
+                        if use_cache and getattr(outputs, 'past_key_values', None) is not None:
                             past_key_values = outputs.past_key_values
 
                         if streamer is not None:
@@ -3150,11 +3377,13 @@ class LLMHandler:
                 # Apply the same sampled tokens to both conditional and unconditional sequences
                 next_tokens_unsqueezed = next_tokens.unsqueeze(1)
                 generated_ids = torch.cat([generated_ids, next_tokens_unsqueezed.repeat(2, 1)], dim=1)
-                attention_mask = torch.cat([attention_mask, torch.ones((batch_size*2, 1), device=device, dtype=attention_mask.dtype)], dim=1)
-                model_kwargs['attention_mask'] = attention_mask
+                if static_attention_mask is not None:
+                    static_attention_mask[:, generated_ids.shape[1] - 1] = 1
+                else:
+                    attention_mask = torch.cat([attention_mask, torch.ones((batch_size*2, 1), device=device, dtype=attention_mask.dtype)], dim=1)
 
                 # Update past_key_values for next iteration
-                if use_cache and hasattr(outputs, 'past_key_values'):
+                if use_cache and getattr(outputs, 'past_key_values', None) is not None:
                     past_key_values = outputs.past_key_values
 
                 # Update streamer

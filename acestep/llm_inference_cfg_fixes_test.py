@@ -179,6 +179,170 @@ class TestForwardPassOptimizations(unittest.TestCase):
         self.assertNotIn("logits_to_keep", call_kwargs)
         self.assertNotIn("cache_position", call_kwargs)
 
+    def test_phase2_prefill_stays_eager_and_decode_uses_compiled_runner(self):
+        handler = _make_handler()
+        model = _ForwardKwargModel()
+        compiled_runner = MagicMock(
+            return_value=SimpleNamespace(
+                logits=torch.zeros((1, 1, 10)),
+                past_key_values="cache",
+            )
+        )
+        handler._phase2_decode_runner = compiled_runner
+        handler._compile_worker_pool_checked = True
+        generated_ids = torch.zeros((1, 4), dtype=torch.long)
+
+        handler._forward_pass(
+            model,
+            generated_ids,
+            {"attention_mask": torch.ones_like(generated_ids)},
+            past_key_values="static-cache",
+            use_cache=True,
+            is_prefill=True,
+            use_compiled_decode=True,
+        )
+        handler._forward_pass(
+            model,
+            generated_ids,
+            {"attention_mask": torch.ones((1, 8), dtype=torch.long)},
+            past_key_values="static-cache",
+            use_cache=True,
+            is_prefill=False,
+            use_compiled_decode=True,
+        )
+
+        self.assertEqual(len(model.calls), 1)
+        self.assertEqual(model.calls[0]["input_ids"].shape, (1, 4))
+        compiled_runner.assert_called_once()
+        self.assertEqual(
+            compiled_runner.call_args.kwargs["input_ids"].shape,
+            (1, 1),
+        )
+
+    @patch("acestep.llm_inference.finish_compile_worker_warmup")
+    @patch("acestep.llm_inference.start_compile_worker_warmup")
+    def test_phase2_worker_pool_is_started_then_confirmed(
+        self,
+        start_warmup,
+        finish_warmup,
+    ):
+        handler = _make_handler()
+        handler._phase2_decode_runner = MagicMock()
+        warmup = SimpleNamespace(threads=8, worker_start="spawn")
+        start_warmup.return_value = warmup
+        finish_warmup.return_value = SimpleNamespace(
+            ready=True,
+            active_workers=8,
+            requested_threads=8,
+            worker_start="spawn",
+            elapsed_seconds=2.0,
+            detail="ready",
+        )
+
+        handler._start_phase2_compile_worker_warmup()
+        handler._finish_phase2_compile_worker_warmup()
+
+        start_warmup.assert_called_once_with(8)
+        finish_warmup.assert_called_once_with(warmup)
+        self.assertTrue(handler._compile_worker_pool_checked)
+        self.assertIsNone(handler._compile_worker_warmup)
+
+    @patch("acestep.llm_inference.StaticCache")
+    def test_phase2_static_cache_uses_fixed_capacity_mask(self, static_cache):
+        handler = _make_handler()
+        handler._phase2_decode_runner = MagicMock()
+        handler._compile_worker_pool_checked = True
+        model = SimpleNamespace(
+            config=SimpleNamespace(max_position_embeddings=8192)
+        )
+        input_ids = torch.tensor([[4, 5, 6], [0, 7, 8]])
+        attention_mask = torch.tensor([[1, 1, 1], [0, 1, 1]])
+        cache = object()
+        static_cache.return_value = cache
+
+        result_cache, fixed_mask = handler._prepare_phase2_static_cache(
+            model,
+            input_ids,
+            attention_mask,
+            max_new_tokens=64,
+        )
+
+        self.assertIs(result_cache, cache)
+        static_cache.assert_called_once_with(
+            config=model.config,
+            max_cache_len=1024,
+        )
+        self.assertEqual(tuple(fixed_mask.shape), (2, 1024))
+        self.assertTrue(torch.equal(fixed_mask[:, :3], attention_mask))
+        self.assertEqual(int(fixed_mask[:, 3:].sum()), 0)
+
+    @patch("acestep.llm_inference.StaticCache")
+    def test_phase2_static_cache_uses_smallest_power_of_two_bucket(self, static_cache):
+        handler = _make_handler()
+        handler._phase2_decode_runner = MagicMock()
+        handler._compile_worker_pool_checked = True
+        model = SimpleNamespace(
+            config=SimpleNamespace(max_position_embeddings=8192)
+        )
+        input_ids = torch.zeros((2, 756), dtype=torch.long)
+
+        _cache, fixed_mask = handler._prepare_phase2_static_cache(
+            model,
+            input_ids,
+            torch.ones_like(input_ids),
+            max_new_tokens=970,
+        )
+
+        static_cache.assert_called_once_with(
+            config=model.config,
+            max_cache_len=2048,
+        )
+        self.assertEqual(tuple(fixed_mask.shape), (2, 2048))
+
+    def test_codes_loop_compiles_decode_but_not_prefill(self):
+        handler = _make_handler()
+        model = _ForwardKwargModel()
+        model.generation_config = SimpleNamespace(use_cache=True)
+        handler.llm = model
+        compiled_runner = MagicMock(
+            return_value=SimpleNamespace(
+                logits=torch.zeros((1, 1, 10)),
+                past_key_values="static-cache",
+            )
+        )
+        handler._phase2_decode_runner = compiled_runner
+        handler._compile_worker_pool_checked = True
+        input_ids = torch.tensor([[4, 5]], dtype=torch.long)
+        fixed_mask = torch.zeros((1, 16), dtype=torch.long)
+        fixed_mask[:, :2] = 1
+
+        with patch.object(
+            handler,
+            "_prepare_phase2_static_cache",
+            return_value=("static-cache", fixed_mask),
+        ), patch.object(
+            handler,
+            "_sample_tokens",
+            side_effect=[torch.tensor([2]), torch.tensor([1])],
+        ):
+            output = handler._generate_with_constrained_decoding(
+                input_ids=input_ids,
+                attention_mask=torch.ones_like(input_ids),
+                max_new_tokens=2,
+                temperature=0.0,
+                top_k=None,
+                top_p=None,
+                repetition_penalty=1.0,
+                pad_token_id=1,
+                streamer=None,
+                constrained_processor=None,
+                generation_phase="codes",
+            )
+
+        self.assertEqual(tuple(output.shape), (1, 4))
+        self.assertEqual(len(model.calls), 1)
+        compiled_runner.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # Fix 1: CoT phase must use cfg_scale=1.0

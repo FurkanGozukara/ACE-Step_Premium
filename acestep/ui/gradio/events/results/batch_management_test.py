@@ -744,6 +744,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
                 "backend_dropdown": "vllm",
                 "init_llm_checkbox": True,
                 "lm_use_legacy_cfg_prompt": True,
+                "compile_threads_slider": 13,
                 "mlx_vae_chunk_size": 512,
             }
         )
@@ -761,6 +762,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
         self.assertEqual(runtime["backend_dropdown"], "vllm")
         self.assertTrue(runtime["lm_use_legacy_cfg_prompt"])
         self.assertEqual(runtime["mlx_vae_chunk_size"], 512)
+        self.assertEqual(runtime["compile_threads_slider"], 13)
 
     def test_foreground_generate_auto_initializes_dit_when_missing(self):
         """Generate should auto-initialize the foreground DiT service when needed."""
@@ -1009,6 +1011,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
                     "vae_checkpoint": "scragvae",
                     "inference_steps": 8,
                     "lm_use_legacy_cfg_prompt": True,
+                    "compile_threads_slider": 21,
                     "mlx_vae_chunk_size": 512,
                     "lora_dropdown": str(adapter),
                     "lora_path": "",
@@ -1031,6 +1034,7 @@ class BatchManagementWrapperTests(unittest.TestCase):
         self.assertEqual(service_payload["config_path"], "acestep-v15-xl-turbo")
         self.assertEqual(service_payload["vae_checkpoint"], "scragvae")
         self.assertTrue(service_payload["lm_use_legacy_cfg_prompt"])
+        self.assertEqual(service_payload["compile_threads"], 21)
         self.assertEqual(service_payload["mlx_vae_chunk_size"], 512)
         self.assertEqual(generation_payload["inference_steps"], 8)
         self.assertIn("model=acestep-v15-xl-turbo", log_text)

@@ -8,6 +8,9 @@ from acestep.ui.gradio.events.generation.metadata_fields import (
 from acestep.ui.gradio.events.generation.metadata_restore_values import (
     metadata_values_from_payload,
 )
+from acestep.ui.gradio.events.generation.metadata_restore_document import (
+    generation_payload_from_document,
+)
 
 
 def _restore_map(payload):
@@ -46,6 +49,26 @@ class MetadataRestoreValuesTests(unittest.TestCase):
 
         self.assertEqual(values["task_type"], "cover")
         self.assertEqual(values["cover_noise_strength"], 0.42)
+
+    def test_compile_threads_restore_from_saved_runtime(self):
+        payload = generation_payload_from_document(
+            {
+                "generation": {},
+                "service": {"compile_model": True, "compile_threads": 17},
+            }
+        )
+
+        values = _restore_map(payload)
+
+        self.assertTrue(values["compile_model_checkbox"])
+        self.assertEqual(values["compile_threads_slider"], 17)
+
+    def test_compile_threads_restore_is_clamped(self):
+        values = _restore_map(
+            {"ui_runtime_settings": {"compile_threads_slider": 99}}
+        )
+
+        self.assertEqual(values["compile_threads_slider"], 32)
 
 
 if __name__ == "__main__":

@@ -250,6 +250,7 @@ class InitServiceWrapperDeviceResolutionTests(unittest.TestCase):
             "auto",
             "initialize() must receive 'auto' so it can resolve to the best device",
         )
+        self.assertEqual(call_kwargs.get("compile_threads"), 8)
 
     @patch("acestep.ui.gradio.events.generation.service_init.get_global_gpu_config")
     def test_legacy_cuda_config_forces_pt_backend(self, mock_gpu_config):

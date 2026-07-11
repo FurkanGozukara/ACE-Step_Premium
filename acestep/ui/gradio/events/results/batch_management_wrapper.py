@@ -30,6 +30,7 @@ from acestep.core.generation.cancellation import (
 from acestep.core.generation.handler.task_instruction import generate_task_instruction
 from acestep.gpu_config import find_best_lm_model_on_disk, get_global_gpu_config
 from acestep.model_downloader import DEFAULT_TURBO_DIT_MODEL
+from acestep.torch_compile_workers import normalize_compile_threads
 from acestep.prompt_wildcards import (
     WildcardSyntaxError,
     expand_generation_prompt_fields,
@@ -192,6 +193,7 @@ def _lm_service_needs_init(
     device: str | None,
     offload_to_cpu: bool,
     compile_model: bool = False,
+    compile_threads=8,
 ) -> tuple[bool, str]:
     """Return whether the foreground LM handler must be initialized."""
 
@@ -217,6 +219,10 @@ def _lm_service_needs_init(
     if bool(last_init_params.get("offload_to_cpu")) != bool(offload_to_cpu):
         return True, requested_lm_model
     if bool(last_init_params.get("compile_model")) != bool(compile_model):
+        return True, requested_lm_model
+    if bool(compile_model) and normalize_compile_threads(
+        last_init_params.get("compile_threads")
+    ) != normalize_compile_threads(compile_threads):
         return True, requested_lm_model
     return False, requested_lm_model
 
@@ -343,6 +349,7 @@ def _ensure_in_process_service_ready(
     mlx_dit_checkbox: bool,
     think_checkbox: bool,
     auto_score: bool,
+    compile_threads_slider=8,
 ) -> tuple[bool, str]:
     """Auto-initialize foreground handlers for Generate when required."""
 
@@ -352,6 +359,7 @@ def _ensure_in_process_service_ready(
     project_root = _resolve_project_root_for_generation()
     selected_model = str(config_path or "").strip() or DEFAULT_TURBO_DIT_MODEL
     status_lines: list[str] = []
+    resolved_compile_threads = normalize_compile_threads(compile_threads_slider)
 
     dit_requires_init, quant_value = _dit_service_needs_reinit(
         dit_handler,
@@ -416,6 +424,7 @@ def _ensure_in_process_service_ready(
         device=device,
         offload_to_cpu=bool(offload_to_cpu_checkbox),
         compile_model=bool(compile_model_checkbox),
+        compile_threads=resolved_compile_threads,
     )
     if lm_requires_init:
         lm_unload_status = _unload_lm_before_service_reinit(
@@ -447,6 +456,7 @@ def _ensure_in_process_service_ready(
             offload_to_cpu=bool(offload_to_cpu_checkbox),
             dtype=None,
             compile_model=bool(compile_model_checkbox),
+            compile_threads=resolved_compile_threads,
         )
         llm_handler.last_init_params = {
             "lm_model_path": requested_lm_model,
@@ -454,6 +464,7 @@ def _ensure_in_process_service_ready(
             "device": device or "auto",
             "offload_to_cpu": bool(offload_to_cpu_checkbox),
             "compile_model": bool(compile_model_checkbox),
+            "compile_threads": resolved_compile_threads,
         }
         status_lines.append(lm_status)
         check_generation_cancelled()
@@ -519,6 +530,7 @@ def _generate_with_batch_management_impl(
     offload_to_cpu_checkbox,
     offload_dit_to_cpu_checkbox,
     compile_model_checkbox,
+    compile_threads_slider,
     quantization_checkbox,
     mlx_dit_checkbox,
     mlx_vae_chunk_size,
@@ -712,6 +724,7 @@ def _generate_with_batch_management_impl(
             "offload_to_cpu_checkbox": bool(offload_to_cpu_checkbox),
             "offload_dit_to_cpu_checkbox": bool(offload_dit_to_cpu_checkbox),
             "compile_model_checkbox": bool(compile_model_checkbox),
+            "compile_threads_slider": normalize_compile_threads(compile_threads_slider),
             "quantization_checkbox": quantization_checkbox,
             "mlx_dit_checkbox": bool(mlx_dit_checkbox),
             "mlx_vae_chunk_size": mlx_vae_chunk_size,
@@ -755,6 +768,7 @@ def _generate_with_batch_management_impl(
                 "offload_to_cpu": offload_to_cpu_checkbox,
                 "offload_dit_to_cpu": offload_dit_to_cpu_checkbox,
                 "compile_model": compile_model_checkbox,
+                "compile_threads": normalize_compile_threads(compile_threads_slider),
                 "quantization": quantization_checkbox,
                 "mlx_dit": mlx_dit_checkbox,
                 "mlx_vae_chunk_size": mlx_vae_chunk_size,
@@ -903,6 +917,7 @@ def _generate_with_batch_management_impl(
         offload_to_cpu_checkbox=offload_to_cpu_checkbox,
         offload_dit_to_cpu_checkbox=offload_dit_to_cpu_checkbox,
         compile_model_checkbox=compile_model_checkbox,
+        compile_threads_slider=compile_threads_slider,
         quantization_checkbox=quantization_checkbox,
         mlx_dit_checkbox=mlx_dit_checkbox,
         think_checkbox=think_checkbox,

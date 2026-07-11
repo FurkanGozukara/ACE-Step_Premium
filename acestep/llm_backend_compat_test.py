@@ -9,7 +9,11 @@ from unittest.mock import MagicMock, patch
 from acestep.llm_backend_compat import get_vllm_preflight_warning
 
 try:
-    from acestep.llm_inference import LLMHandler, _pytorch_lm_attention_candidates
+    from acestep.llm_inference import (
+        LLMHandler,
+        _Phase2DecodeForward,
+        _pytorch_lm_attention_candidates,
+    )
 
     _IMPORT_ERROR = None
 except ImportError as exc:  # pragma: no cover - dependency guard
@@ -84,12 +88,14 @@ class LlmInitializeBackendCompatTests(unittest.TestCase):
 
         self.assertEqual(_pytorch_lm_attention_candidates("cpu"), [None])
 
+    @patch("acestep.llm_inference.configure_compile_workers")
     @patch("acestep.llm_inference.compile_module_forward")
     @patch("acestep.llm_inference.AutoModelForCausalLM.from_pretrained")
     def test_load_pytorch_model_compiles_lm_when_requested(
         self,
         mock_from_pretrained: MagicMock,
         mock_compile_forward: MagicMock,
+        mock_configure_workers: MagicMock,
     ) -> None:
         """PyTorch LM loading should forward compile requests to torch.compile."""
 
@@ -98,6 +104,10 @@ class LlmInitializeBackendCompatTests(unittest.TestCase):
         model.to.return_value = model
         mock_from_pretrained.return_value = model
         mock_compile_forward.return_value = SimpleNamespace(compiled=True, detail="ready")
+        mock_configure_workers.return_value = SimpleNamespace(
+            threads=8,
+            worker_start="spawn",
+        )
 
         ok, status = handler._load_pytorch_model(
             "C:/repo/checkpoints/acestep-5Hz-lm-0.6B",
@@ -107,11 +117,16 @@ class LlmInitializeBackendCompatTests(unittest.TestCase):
 
         self.assertTrue(ok)
         self.assertIn("Backend: PyTorch", status)
+        compile_target = mock_compile_forward.call_args.args[0]
+        self.assertIsInstance(compile_target, _Phase2DecodeForward)
+        self.assertIs(compile_target.model, model)
+        self.assertIs(handler._phase2_decode_runner, compile_target)
         mock_compile_forward.assert_called_once_with(
-            model,
-            label="5Hz LM PyTorch",
+            compile_target,
+            label="5Hz LM PyTorch Phase-2 decode",
             enabled=True,
         )
+        mock_configure_workers.assert_called_once_with(8)
         model.eval.assert_called_once()
 
     @patch("acestep.llm_inference._pytorch_lm_attention_candidates")

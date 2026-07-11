@@ -178,7 +178,10 @@ class InitServiceSetupMixin:
         if mlx_compile_requested:
             compiled_label = "mx.compile (MLX)"
         elif compile_model:
-            compiled_label = "Selective torch.compile (5Hz LM only; DiT/VAE eager)"
+            compiled_label = (
+                "Selective torch.compile (5Hz LM Phase-2 decode only; "
+                "prefill/DiT/VAE eager)"
+            )
         else:
             compiled_label = "False"
         status_msg += f"Compiled: {compiled_label}\n"

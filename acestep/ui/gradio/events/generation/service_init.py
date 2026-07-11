@@ -21,6 +21,7 @@ from acestep.gpu_config import (
     get_default_quantization_method,
     resolve_lm_backend,
 )
+from acestep.torch_compile_workers import normalize_compile_threads
 from .model_config import is_pure_base_model, is_sft_model, is_xl_model, get_model_type_ui_settings
 from .quantization import default_quantization_value, select_quantization_value
 from .generation_count import (
@@ -50,7 +51,7 @@ def init_service_wrapper(
     init_llm, lm_model_path, backend, use_flash_attention,
     offload_to_cpu, offload_dit_to_cpu, compile_model, quantization,
     mlx_dit=True, current_mode=None, current_batch_size=None,
-    current_think_checkbox=None, vae_checkpoint=None,
+    current_think_checkbox=None, vae_checkpoint=None, compile_threads=8,
 ):
     """Wrapper for service initialization.
 
@@ -65,6 +66,7 @@ def init_service_wrapper(
         quantization_enabled=quantization,
         device=device,
     )
+    resolved_compile_threads = normalize_compile_threads(compile_threads)
 
     gpu_config = get_global_gpu_config()
 
@@ -136,6 +138,7 @@ def init_service_wrapper(
             offload_to_cpu=offload_to_cpu,
             dtype=None,
             compile_model=compile_model,
+            compile_threads=resolved_compile_threads,
         )
 
         if lm_success:
@@ -148,6 +151,7 @@ def init_service_wrapper(
             "device": device,
             "offload_to_cpu": offload_to_cpu,
             "compile_model": compile_model,
+            "compile_threads": resolved_compile_threads,
         }
 
     is_model_initialized = dit_handler.model is not None

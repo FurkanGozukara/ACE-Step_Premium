@@ -162,6 +162,7 @@ def main() -> int:
                 offload_to_cpu=bool(service.get("offload_to_cpu")),
                 dtype=None,
                 compile_model=bool(service.get("compile_model")),
+                compile_threads=service.get("compile_threads"),
             )
             if not lm_ok:
                 raise RuntimeError(lm_status)

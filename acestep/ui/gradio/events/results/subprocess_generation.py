@@ -23,6 +23,7 @@ from acestep.core.generation.cancellation import (
 )
 from acestep.core.generation.subprocess_termination import terminate_generation_process
 from acestep.torch_compile_toolchain import prepare_compile_subprocess_env
+from acestep.torch_compile_workers import prepare_compile_worker_env
 from acestep.ui.gradio.events.results.audio_playback_updates import build_audio_slot_update
 from acestep.ui.gradio.events.results.result_output_contract import (
     AUDIO_SLOT_COUNT,
@@ -131,6 +132,7 @@ def stream_subprocess_generation(request_payload: dict[str, Any]) -> Iterator[di
         project_root=project_root,
         compile_requested=bool(service_payload.get("compile_model")),
     )
+    prepare_compile_worker_env(env, service_payload.get("compile_threads"))
     env.setdefault("PYTHONIOENCODING", "utf-8")
     if request_payload.get("output_dir"):
         env["ACESTEP_OUTPUT_DIR"] = str(request_payload["output_dir"])

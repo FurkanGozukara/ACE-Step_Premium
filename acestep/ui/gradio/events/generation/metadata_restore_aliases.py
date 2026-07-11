@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from acestep.torch_compile_workers import normalize_compile_threads
+
 from .audio_format_options import (
     DEFAULT_AUDIO_FORMAT,
     DEFAULT_EXTRACT_AUDIO_FORMAT,
@@ -155,6 +157,7 @@ def apply_runtime_values(values: dict[str, Any], runtime: dict[str, Any]) -> Non
         "offload_to_cpu_checkbox",
         "offload_dit_to_cpu_checkbox",
         "compile_model_checkbox",
+        "compile_threads_slider",
         "quantization_checkbox",
         "mlx_dit_checkbox",
         "mlx_vae_chunk_size",
@@ -165,4 +168,7 @@ def apply_runtime_values(values: dict[str, Any], runtime: dict[str, Any]) -> Non
         "subprocess_mode_checkbox",
     ):
         if runtime.get(key) is not None:
-            values[key] = runtime[key]
+            value = runtime[key]
+            if key == "compile_threads_slider":
+                value = normalize_compile_threads(value)
+            values[key] = value

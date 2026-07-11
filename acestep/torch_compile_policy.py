@@ -53,11 +53,11 @@ class InferenceCompilePolicy:
 
 
 def resolve_inference_compile_policy(requested: bool) -> InferenceCompilePolicy:
-    """Compile only the measured-beneficial PyTorch 5Hz LM inference path.
+    """Compile only measured-beneficial Phase-2 PyTorch LM token decoding.
 
-    ACE-Step DiT and tiled VAE shapes vary with generated audio-code length. The
-    measured warm run improved LM throughput while DiT and VAE were slower and hit
-    Dynamo recompilation limits, so those components intentionally stay eager.
+    Phase-1 metadata generation and Phase-2 prompt prefill stay eager. ACE-Step
+    DiT and tiled VAE shapes vary with generated audio-code length; those paths
+    were slower and hit Dynamo recompilation limits, so they also stay eager.
     """
 
     enabled = bool(requested)

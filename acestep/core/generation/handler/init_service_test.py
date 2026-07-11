@@ -473,7 +473,8 @@ class InitServiceMixinTests(unittest.TestCase):
             mlx_vae_status="Disabled",
         )
         self.assertIn(
-            "Compiled: Selective torch.compile (5Hz LM only; DiT/VAE eager)",
+            "Compiled: Selective torch.compile (5Hz LM Phase-2 decode only; "
+            "prefill/DiT/VAE eager)",
             msg,
         )
 

@@ -61,6 +61,7 @@ def runtime_settings_from_service(service: Any) -> dict[str, Any]:
         "offload_to_cpu_checkbox": service.get("offload_to_cpu"),
         "offload_dit_to_cpu_checkbox": service.get("offload_dit_to_cpu"),
         "compile_model_checkbox": service.get("compile_model"),
+        "compile_threads_slider": service.get("compile_threads"),
         "quantization_checkbox": service.get("quantization"),
         "mlx_dit_checkbox": service.get("mlx_dit"),
         "mlx_vae_chunk_size": service.get("mlx_vae_chunk_size"),

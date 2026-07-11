@@ -88,6 +88,7 @@ try:
         ensure_lm_model,
         get_models_dir,
     )
+    from .torch_compile_workers import normalize_compile_threads
 except ImportError:
     # When executed as a script: `python acestep/acestep_v15_pipeline.py`
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -122,6 +123,7 @@ except ImportError:
         ensure_lm_model,
         get_models_dir,
     )
+    from acestep.torch_compile_workers import normalize_compile_threads
 
 
 def _import_real_handlers():
@@ -664,6 +666,7 @@ def main():
             compile_model = os.environ.get(
                 "ACESTEP_COMPILE_MODEL", ""
             ).strip().lower() in {"1", "true", "yes", "y", "on"}
+            compile_threads = normalize_compile_threads(None)
 
             init_status, enable_generate = dit_handler.initialize_service(
                 project_root=project_root,
@@ -721,6 +724,7 @@ def main():
                         offload_to_cpu=args.offload_to_cpu,
                         dtype=None,
                         compile_model=compile_model,
+                        compile_threads=compile_threads,
                     )
 
                     if lm_success:
@@ -731,6 +735,7 @@ def main():
                             "device": args.device,
                             "offload_to_cpu": args.offload_to_cpu,
                             "compile_model": compile_model,
+                            "compile_threads": compile_threads,
                         }
                         init_status += f"\n{lm_status}"
                     else:
@@ -753,6 +758,8 @@ def main():
                 "use_flash_attention": use_flash_attention,
                 "offload_to_cpu": args.offload_to_cpu,
                 "offload_dit_to_cpu": args.offload_dit_to_cpu,
+                "compile_model": compile_model,
+                "compile_threads": compile_threads,
                 "quantization": args.quantization,
                 "init_status": init_status,
                 "enable_generate": enable_generate,

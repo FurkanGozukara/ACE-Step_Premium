@@ -70,7 +70,11 @@ class SubprocessGenerationTests(unittest.TestCase):
         """Cancellation during stdout read should not become a generic failure."""
 
         with tempfile.TemporaryDirectory() as tmp:
-            payload = {"project_root": tmp, "service": {}, "generation": {}}
+            payload = {
+                "project_root": tmp,
+                "service": {"compile_model": False, "compile_threads": 11},
+                "generation": {},
+            }
             process = _FakeProcess()
 
             with patch(
@@ -80,6 +84,10 @@ class SubprocessGenerationTests(unittest.TestCase):
                 generator = stream_subprocess_generation(payload)
                 self.assertEqual(next(generator)["kind"], "status")
                 self.assertIsNone(popen.call_args.kwargs["stderr"])
+                self.assertEqual(
+                    popen.call_args.kwargs["env"]["TORCHINDUCTOR_COMPILE_THREADS"],
+                    "11",
+                )
                 with self.assertRaises(GenerationCancelled):
                     next(generator)
 

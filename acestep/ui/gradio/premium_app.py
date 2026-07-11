@@ -1078,6 +1078,9 @@ def create_gradio_interface(
         generation_section["compile_model_checkbox"] = create_page[
             "compile_model_checkbox"
         ]
+        generation_section["compile_threads_slider"] = create_page[
+            "compile_threads_slider"
+        ]
         generation_section["simple_model_dropdown"] = simple_page[
             "simple_model_dropdown"
         ]

@@ -96,6 +96,7 @@ LOAD_METADATA_GENERATION_OUTPUT_KEYS: tuple[str, ...] = (
     "offload_to_cpu_checkbox",
     "offload_dit_to_cpu_checkbox",
     "compile_model_checkbox",
+    "compile_threads_slider",
     "quantization_checkbox",
     "mlx_dit_checkbox",
     "mlx_vae_chunk_size",

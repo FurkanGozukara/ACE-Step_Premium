@@ -40,6 +40,10 @@ from acestep.model_downloader import (
     SOURCE_TURBO_DIT_MODEL,
     get_models_dir,
 )
+from acestep.torch_compile_workers import (
+    DEFAULT_COMPILE_THREADS,
+    normalize_compile_threads,
+)
 from acestep.core.generation.handler.lora.folder_scan import (
     lora_dropdown_choices,
     resolve_loadable_lora_adapter_path,
@@ -294,6 +298,7 @@ PRESET_COMPONENT_KEYS: tuple[str, ...] = (
     "offload_to_cpu_checkbox",
     "offload_dit_to_cpu_checkbox",
     "compile_model_checkbox",
+    "compile_threads_slider",
     "quantization_checkbox",
     "simple_quantization",
     "mlx_dit_checkbox",
@@ -403,6 +408,7 @@ PRESET_COMPONENT_KEYS: tuple[str, ...] = (
 
 DEFAULT_PRESET_VALUES: dict[str, Any] = {
     "language_dropdown": "en",
+    "compile_threads_slider": DEFAULT_COMPILE_THREADS,
     "config_path": DEFAULT_TURBO_DIT_MODEL,
     "simple_model_dropdown": DEFAULT_TURBO_DIT_MODEL,
     "lm_model_path": "",
@@ -710,6 +716,9 @@ def _apply_runtime_defaults(
     for key, value in defaults.items():
         if key not in provided_keys or merged.get(key) is None:
             merged[key] = value
+    merged["compile_threads_slider"] = normalize_compile_threads(
+        merged.get("compile_threads_slider")
+    )
     config_path = str(merged.get("config_path") or "").strip()
     raw_simple_model = str(payload.get("simple_model_dropdown") or "").strip()
     simple_model = str(merged.get("simple_model_dropdown") or "").strip()

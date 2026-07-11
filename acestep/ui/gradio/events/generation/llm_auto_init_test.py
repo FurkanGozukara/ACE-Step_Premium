@@ -74,6 +74,7 @@ class LlmAutoInitTests(unittest.TestCase):
                     "offload_to_cpu": True,
                     "dtype": None,
                     "compile_model": False,
+                    "compile_threads": 8,
                 }
             ],
         )
@@ -85,6 +86,7 @@ class LlmAutoInitTests(unittest.TestCase):
                 "device": "auto",
                 "offload_to_cpu": True,
                 "compile_model": False,
+                "compile_threads": 8,
             },
         )
 

@@ -11,6 +11,7 @@ from acestep.model_downloader import (
     DEFAULT_TURBO_DIT_MODEL,
     DEFAULT_VAE_VARIANT,
 )
+from acestep.torch_compile_workers import DEFAULT_COMPILE_THREADS
 from acestep.ui.gradio.events.generation.strength_defaults import (
     DEFAULT_AUDIO_COVER_STRENGTH,
 )
@@ -116,6 +117,7 @@ def default_metadata_values() -> dict[str, Any]:
         "offload_to_cpu_checkbox": False,
         "offload_dit_to_cpu_checkbox": False,
         "compile_model_checkbox": False,
+        "compile_threads_slider": DEFAULT_COMPILE_THREADS,
         "quantization_checkbox": "none",
         "mlx_dit_checkbox": False,
         "mlx_vae_chunk_size": 64,

@@ -203,6 +203,7 @@ def register_generation_service_handlers(
             generation_section["batch_size_input"],
             generation_section["think_checkbox"],
             generation_section["vae_checkpoint"],
+            generation_section["compile_threads_slider"],
         ],
         outputs=[
             generation_section["init_status"],

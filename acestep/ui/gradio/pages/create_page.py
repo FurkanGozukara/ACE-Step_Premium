@@ -12,6 +12,12 @@ from acestep.ui.gradio.interfaces.generation import (
     create_generation_mode_section,
 )
 from acestep.ui.gradio.interfaces.generation_defaults import compute_init_defaults
+from acestep.torch_compile_workers import (
+    DEFAULT_COMPILE_THREADS,
+    MAX_COMPILE_THREADS,
+    MIN_COMPILE_THREADS,
+    normalize_compile_threads,
+)
 
 
 def create_generation_workspace_page(
@@ -29,6 +35,9 @@ def create_generation_workspace_page(
         compile_default = params.get("compile_model", defaults["default_compile"])
     else:
         compile_default = defaults["default_compile"]
+    compile_threads_default = normalize_compile_threads(
+        params.get("compile_threads", DEFAULT_COMPILE_THREADS)
+    )
 
     with gr.Column():
         with gr.Row(equal_height=True):
@@ -55,16 +64,29 @@ def create_generation_workspace_page(
                             ),
                             elem_id="acestep-subprocess-mode-checkbox",
                         )
-                        compile_model_checkbox = gr.Checkbox(
-                            label="Compile 5Hz LM (torch.compile)",
-                            value=bool(compile_default),
-                            info=(
-                                "Compiles only the measured-beneficial PyTorch 5Hz LM. "
-                                "DiT and VAE stay eager because compilation was slower "
-                                "for variable-length generation. First LM use is slower."
-                            ),
-                            elem_id="acestep-runtime-compile-model-checkbox",
-                        )
+                        with gr.Column():
+                            compile_model_checkbox = gr.Checkbox(
+                                label="Compile 5Hz LM (torch.compile)",
+                                value=bool(compile_default),
+                                info=(
+                                    "Compiles only Phase-2 audio-code decoding in the "
+                                    "PyTorch 5Hz LM. Metadata, prompt prefill, DiT, and VAE "
+                                    "stay eager. First Phase-2 decode is slower."
+                                ),
+                                elem_id="acestep-runtime-compile-model-checkbox",
+                            )
+                            compile_threads_slider = gr.Slider(
+                                minimum=MIN_COMPILE_THREADS,
+                                maximum=MAX_COMPILE_THREADS,
+                                step=1,
+                                value=compile_threads_default,
+                                label="Compile threads",
+                                info=(
+                                    "Parallel TorchInductor workers. Windows automatically "
+                                    "uses the compatible spawn worker pool."
+                                ),
+                                elem_id="acestep-runtime-compile-threads-slider",
+                            )
                     gr.Markdown(
                         "Execution note: The Turbo model is automatically downloaded with "
                         "installation. To download the SFT and Base models, please use the "
@@ -103,6 +125,7 @@ def create_generation_workspace_page(
     generation_section.update(mode_section)
     generation_section.update(body_section)
     generation_section["compile_model_checkbox"] = compile_model_checkbox
+    generation_section["compile_threads_slider"] = compile_threads_slider
     if results_wrapper is not None:
         generation_section["results_wrapper"] = results_wrapper
 
@@ -112,4 +135,5 @@ def create_generation_workspace_page(
         "results_section": results_section,
         "subprocess_mode_checkbox": subprocess_mode_checkbox,
         "compile_model_checkbox": compile_model_checkbox,
+        "compile_threads_slider": compile_threads_slider,
     }

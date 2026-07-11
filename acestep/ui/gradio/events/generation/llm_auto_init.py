@@ -16,6 +16,7 @@ from acestep.model_downloader import (
     ensure_lm_model,
     get_models_dir,
 )
+from acestep.torch_compile_workers import normalize_compile_threads
 from acestep.ui.gradio.i18n import t
 
 
@@ -63,6 +64,7 @@ def _llm_needs_reinit(
     device: str,
     offload_to_cpu: bool,
     compile_model: bool,
+    compile_threads: int = 8,
 ) -> bool:
     """Return whether the current LM runtime must be initialized or refreshed."""
 
@@ -87,6 +89,10 @@ def _llm_needs_reinit(
     if bool(last_init_params.get("offload_to_cpu")) != bool(offload_to_cpu):
         return True
     if bool(last_init_params.get("compile_model")) != bool(compile_model):
+        return True
+    if bool(compile_model) and normalize_compile_threads(
+        last_init_params.get("compile_threads")
+    ) != normalize_compile_threads(compile_threads):
         return True
     return False
 
@@ -128,6 +134,7 @@ def ensure_llm_ready(
         "y",
         "on",
     }
+    resolved_compile_threads = normalize_compile_threads(None)
 
     if not _llm_needs_reinit(
         llm_handler,
@@ -136,6 +143,7 @@ def ensure_llm_ready(
         device=resolved_device,
         offload_to_cpu=resolved_offload,
         compile_model=resolved_compile,
+        compile_threads=resolved_compile_threads,
     ):
         return True, ""
 
@@ -160,6 +168,7 @@ def ensure_llm_ready(
         offload_to_cpu=resolved_offload,
         dtype=None,
         compile_model=resolved_compile,
+        compile_threads=resolved_compile_threads,
     )
     llm_handler.last_init_params = {
         "lm_model_path": requested_model,
@@ -167,6 +176,7 @@ def ensure_llm_ready(
         "device": resolved_device,
         "offload_to_cpu": resolved_offload,
         "compile_model": resolved_compile,
+        "compile_threads": resolved_compile_threads,
     }
     if not init_ok:
         return False, init_status

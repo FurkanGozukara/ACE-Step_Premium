@@ -748,6 +748,39 @@ class PremiumFeaturesTests(unittest.TestCase):
             "tr",
         )
 
+    def test_user_preset_saves_and_loads_compile_threads(self) -> None:
+        """The Phase-2 compile worker count should round-trip through presets."""
+
+        with self._with_project_root() as tmp_dir:
+            original = self._set_project_root(tmp_dir)
+            keys = premium_features.get_preset_component_keys()
+            values = [
+                premium_features.DEFAULT_PRESET_VALUES.get(key, "")
+                for key in keys
+            ]
+            values[keys.index("compile_threads_slider")] = 19
+            try:
+                premium_features.save_preset_action("compile workers", None, *values)
+                loaded = premium_features.load_named_preset("compile workers")
+                updates = premium_features.load_preset_action("compile workers")
+            finally:
+                self._restore_project_root(original)
+
+        self.assertEqual(loaded["compile_threads_slider"], 19)
+        self.assertEqual(
+            updates[keys.index("compile_threads_slider")].get("value"),
+            19,
+        )
+
+    def test_user_preset_clamps_compile_threads(self) -> None:
+        """Out-of-range legacy values should remain valid for the 1-32 slider."""
+
+        payload = premium_features._apply_runtime_defaults(
+            {"compile_threads_slider": 100}
+        )
+
+        self.assertEqual(payload["compile_threads_slider"], 32)
+
     def test_user_preset_keeps_custom_quality_and_vram_settings_selected(self) -> None:
         """User presets should display as selected and override auto VRAM defaults."""
         with self._with_project_root() as tmp_dir:

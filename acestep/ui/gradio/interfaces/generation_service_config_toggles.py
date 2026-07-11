@@ -9,6 +9,12 @@ from acestep.ui.gradio.events.generation.quantization import (
     default_quantization_value,
 )
 from acestep.ui.gradio.i18n import t
+from acestep.torch_compile_workers import (
+    DEFAULT_COMPILE_THREADS,
+    MAX_COMPILE_THREADS,
+    MIN_COMPILE_THREADS,
+    normalize_compile_threads,
+)
 
 try:
     from acestep.models.mlx import mlx_available as _mlx_avail
@@ -90,13 +96,26 @@ def build_service_toggles(
             + (" (recommended for this tier)" if default_offload_dit else " (optional for this tier)"),
             elem_classes=["has-info-container"],
         )
-        compile_model_checkbox = gr.Checkbox(
-            label=t("service.compile_model_label"),
-            value=params.get("compile_model", default_compile) if service_pre_initialized else default_compile,
-            info=t("service.compile_model_info"),
-            visible=show_compile_toggle,
-            elem_classes=["has-info-container"],
-        )
+        with gr.Column(visible=show_compile_toggle):
+            compile_model_checkbox = gr.Checkbox(
+                label=t("service.compile_model_label"),
+                value=params.get("compile_model", default_compile) if service_pre_initialized else default_compile,
+                info=t("service.compile_model_info"),
+                visible=show_compile_toggle,
+                elem_classes=["has-info-container"],
+            )
+            compile_threads_slider = gr.Slider(
+                minimum=MIN_COMPILE_THREADS,
+                maximum=MAX_COMPILE_THREADS,
+                step=1,
+                value=normalize_compile_threads(
+                    params.get("compile_threads", DEFAULT_COMPILE_THREADS)
+                ),
+                label="Compile threads",
+                info="Parallel TorchInductor workers used for the 5Hz LM.",
+                visible=show_compile_toggle,
+                elem_classes=["has-info-container"],
+            )
         default_quantization_value_for_ui = default_quantization_value(
             params.get("quantization", default_quantization)
             if service_pre_initialized
@@ -129,6 +148,7 @@ def build_service_toggles(
         "offload_to_cpu_checkbox": offload_to_cpu_checkbox,
         "offload_dit_to_cpu_checkbox": offload_dit_to_cpu_checkbox,
         "compile_model_checkbox": compile_model_checkbox,
+        "compile_threads_slider": compile_threads_slider,
         "quantization_checkbox": quantization_checkbox,
         "mlx_dit_checkbox": mlx_dit_checkbox,
     }

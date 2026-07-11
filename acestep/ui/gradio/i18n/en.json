@@ -59,7 +59,7 @@
     "offload_dit_cpu_label": "Offload DiT to CPU",
     "offload_dit_cpu_info": "Also offloads the DiT model to CPU (in addition to the base offload). Saves more VRAM but adds extra swap time. Requires 'Offload to CPU' to be enabled. Use on very low VRAM GPUs (<10GB).",
     "compile_model_label": "Compile 5Hz LM (torch.compile)",
-    "compile_model_info": "Compiles only the measured-beneficial PyTorch 5Hz LM. DiT and VAE stay eager because compilation was slower for variable-length generation. The first LM use is slower while its graphs compile.",
+    "compile_model_info": "Compiles only Phase-2 audio-code decoding in the PyTorch 5Hz LM. Metadata, prompt prefill, DiT, and VAE stay eager. The first Phase-2 decode is slower while its graph compiles.",
     "quantization_label": "DiT Quantization",
     "quantization_info": "Select DiT weight compression. INT8 is recommended for low VRAM; FP8 scaled builds a cached scaled-FP8 copy and reuses it on later launches. Quantized modes are incompatible with LoRA adapters.",
     "mlx_dit_label": "MLX DiT (Apple Silicon)",
