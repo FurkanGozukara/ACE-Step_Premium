@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from acestep.torch_compile_workers import (
     COMPILE_THREADS_ENV,
+    CompileWorkerSettings,
     DEFAULT_COMPILE_THREADS,
     WORKER_START_ENV,
     configure_compile_workers,
@@ -99,18 +100,38 @@ class CompileWorkerSettingsTests(unittest.TestCase):
             def use_process_pool():
                 return True
 
-        with patch.dict(os.environ, {WORKER_START_ENV: "spawn"}), patch(
+        with patch(
+            "acestep.torch_compile_workers.configure_compile_workers",
+            return_value=CompileWorkerSettings(4, "spawn"),
+        ) as configure_workers, patch(
             "acestep.torch_compile_workers._load_async_compile_runtime",
             return_value=(_AsyncCompile, 4),
         ):
             handle = start_compile_worker_warmup(4)
             result = finish_compile_worker_warmup(handle)
 
+        configure_workers.assert_called_once_with(4)
         self.assertEqual(pool.submit_count, 4)
         self.assertTrue(result.ready)
         self.assertEqual(result.requested_threads, 4)
         self.assertEqual(result.active_workers, 4)
         self.assertEqual(result.worker_start, "spawn")
+
+    def test_worker_warmup_does_not_silently_accept_runtime_mismatch(self) -> None:
+        with patch(
+            "acestep.torch_compile_workers.configure_compile_workers",
+            return_value=CompileWorkerSettings(8, "spawn"),
+        ), patch(
+            "acestep.torch_compile_workers._load_async_compile_runtime",
+            return_value=(object(), 1),
+        ):
+            handle = start_compile_worker_warmup(8)
+            result = finish_compile_worker_warmup(handle)
+
+        self.assertEqual(result.requested_threads, 8)
+        self.assertEqual(result.active_workers, 0)
+        self.assertFalse(result.ready)
+        self.assertIn("requested 8, runtime reports 1", result.detail)
 
 
 if __name__ == "__main__":

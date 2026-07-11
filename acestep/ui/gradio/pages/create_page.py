@@ -80,7 +80,7 @@ def create_generation_workspace_page(
                                 maximum=MAX_COMPILE_THREADS,
                                 step=1,
                                 value=compile_threads_default,
-                                label="Compile threads",
+                                label="Compile workers",
                                 info=(
                                     "Parallel TorchInductor workers. Windows automatically "
                                     "uses the compatible spawn worker pool."

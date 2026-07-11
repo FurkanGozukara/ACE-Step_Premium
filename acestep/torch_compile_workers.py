@@ -124,17 +124,25 @@ def _load_async_compile_runtime() -> tuple[Any, int]:
 def start_compile_worker_warmup(value: Any = None) -> CompileWorkerWarmupHandle:
     """Start every configured Inductor worker without blocking the caller."""
 
-    threads = normalize_compile_threads(value)
-    worker_start = str(os.environ.get(WORKER_START_ENV, "subprocess"))
+    settings = configure_compile_workers(value)
+    threads = settings.threads
+    worker_start = settings.worker_start
     started_at = time.perf_counter()
     if threads <= 1:
         return CompileWorkerWarmupHandle(threads, worker_start, started_at)
 
     try:
         async_compile, configured_threads = _load_async_compile_runtime()
-        threads = max(1, configured_threads)
-        if threads <= 1:
-            return CompileWorkerWarmupHandle(threads, worker_start, started_at)
+        if configured_threads != threads:
+            return CompileWorkerWarmupHandle(
+                threads,
+                worker_start,
+                started_at,
+                error=(
+                    "TorchInductor worker mismatch after configuration: "
+                    f"requested {threads}, runtime reports {configured_threads}"
+                ),
+            )
         previous_warnings = os.environ.get("PYTHONWARNINGS")
         worker_warning_filters = (
             "ignore:The pynvml package is deprecated:FutureWarning",
@@ -266,19 +274,28 @@ def _apply_loaded_inductor_config(threads: int, worker_start: str) -> None:
 
     try:
         import torch._inductor.config as inductor_config
-        from torch._inductor.async_compile import AsyncCompile, shutdown_compile_workers
     except (ImportError, AttributeError):
         return
 
     current_threads = int(getattr(inductor_config, "compile_threads", threads) or threads)
     current_start = str(getattr(inductor_config, "worker_start_method", worker_start))
-    if current_threads == threads and current_start == worker_start:
-        return
+    if current_threads != threads or current_start != worker_start:
+        try:
+            from torch._inductor.async_compile import (
+                AsyncCompile,
+                shutdown_compile_workers,
+            )
+        except (ImportError, AttributeError):
+            pass
+        else:
+            shutdown_compile_workers()
+            if AsyncCompile.pool.cache_info().currsize:
+                AsyncCompile.pool().shutdown(wait=True)
+                AsyncCompile.pool.cache_clear()
 
-    shutdown_compile_workers()
-    if AsyncCompile.pool.cache_info().currsize:
-        AsyncCompile.pool().shutdown(wait=True)
-        AsyncCompile.pool.cache_clear()
+    # Assign explicitly even when the environment-derived values appear equal.
+    # Config modules can have a stale Windows default cached while their env vars
+    # already show the requested values.
     inductor_config.compile_threads = threads
     inductor_config.worker_start_method = worker_start
 

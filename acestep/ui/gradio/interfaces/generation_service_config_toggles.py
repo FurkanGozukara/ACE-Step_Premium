@@ -111,7 +111,7 @@ def build_service_toggles(
                 value=normalize_compile_threads(
                     params.get("compile_threads", DEFAULT_COMPILE_THREADS)
                 ),
-                label="Compile threads",
+                label="Compile workers",
                 info="Parallel TorchInductor workers used for the 5Hz LM.",
                 visible=show_compile_toggle,
                 elem_classes=["has-info-container"],

@@ -11,10 +11,48 @@ return ``None`` so callers can short-circuit to a no-op.
 
 from __future__ import annotations
 
+import importlib.resources
+import sys
+from types import ModuleType
 from typing import Optional, Tuple
 
 import torch
 from loguru import logger
+
+
+def _resource_stream(package: str, resource_name: str):
+    """Provide the one legacy ``pkg_resources`` API used by pytorch_wavelets."""
+
+    return importlib.resources.files(package).joinpath(resource_name).open("rb")
+
+
+def _install_pkg_resources_compat() -> ModuleType | None:
+    """Temporarily bridge pytorch_wavelets on setuptools without pkg_resources."""
+
+    try:
+        __import__("pkg_resources")
+    except ModuleNotFoundError as exc:
+        if exc.name != "pkg_resources":
+            raise
+    else:
+        return None
+
+    compat = ModuleType("pkg_resources")
+    compat.resource_stream = _resource_stream  # type: ignore[attr-defined]
+    sys.modules["pkg_resources"] = compat
+    return compat
+
+
+def _import_dwt1d_modules():
+    """Import DWT1D while accommodating pytorch_wavelets' legacy loader."""
+
+    compat = _install_pkg_resources_compat()
+    try:
+        from pytorch_wavelets import DWT1DForward, DWT1DInverse
+    finally:
+        if compat is not None and sys.modules.get("pkg_resources") is compat:
+            sys.modules.pop("pkg_resources", None)
+    return DWT1DForward, DWT1DInverse
 
 
 class _LazyWavelet:
@@ -33,17 +71,18 @@ class _LazyWavelet:
         if self._import_failed:
             return None
         try:
-            from pytorch_wavelets import DWT1DForward, DWT1DInverse
-        except ImportError:
+            return _import_dwt1d_modules()
+        except ImportError as exc:
             self._import_failed = True
             logger.warning(
-                "DCW is enabled but 'pytorch_wavelets' is not installed. "
-                "Install with `pip install pytorch_wavelets PyWavelets` to "
-                "use Differential Correction in Wavelet domain. Falling "
-                "back to no-op for this generation."
+                "DCW is enabled but pytorch_wavelets could not be imported "
+                "({}: {}). Install or repair `pytorch_wavelets PyWavelets` "
+                "to use Differential Correction in Wavelet domain. Falling "
+                "back to no-op for this generation.",
+                type(exc).__name__,
+                exc,
             )
             return None
-        return DWT1DForward, DWT1DInverse
 
     def get(
         self,
