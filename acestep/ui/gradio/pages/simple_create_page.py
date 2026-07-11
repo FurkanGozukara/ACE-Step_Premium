@@ -21,6 +21,10 @@ from acestep.ui.gradio.events.generation.generation_count import (
     generation_count_info,
     normalize_generation_count,
 )
+from acestep.ui.gradio.events.generation.model_config import (
+    negative_prompt_enabled_for_path,
+    negative_prompt_info_for_path,
+)
 from acestep.ui.gradio.interfaces.source_audio_preview import (
     TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
     TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
@@ -57,6 +61,17 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
     default_model = normalize_simple_model_dropdown_value(
         params.get("simple_model_dropdown") or params.get("config_path")
     )
+    negative_prompt_info = negative_prompt_info_for_path(
+        default_model,
+        supported_info=(
+            "Only affects SFT and Base model quality paths where CFG is above 1. "
+            "Leave empty for default behavior."
+        ),
+        turbo_info=(
+            "Negative prompt is disabled for Turbo because Turbo uses CFG 1. "
+            "Select SFT or Base to use it."
+        ),
+    )
 
     with gr.Row(equal_height=True):
         with gr.Column(scale=5, min_width=430):
@@ -74,10 +89,8 @@ def create_simple_create_page(init_params: dict[str, Any] | None = None) -> dict
                 value=params.get("lm_negative_prompt", ""),
                 lines=1,
                 max_lines=2,
-                info=(
-                    "Only affects SFT and Base model quality paths where CFG is above 1. "
-                    "Turbo uses CFG 1, so this field is ignored there."
-                ),
+                info=negative_prompt_info,
+                interactive=negative_prompt_enabled_for_path(default_model),
             )
             gr.Markdown(
                 WILDCARD_HELP_MARKDOWN,

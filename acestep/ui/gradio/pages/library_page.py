@@ -18,6 +18,8 @@ def create_library_page() -> dict[str, Any]:
 
     library_state = gr.State(value=[])
     library_filtered_state = gr.State(value=[])
+    library_page_state = gr.State(value=1)
+    library_timezone_state = gr.State(value=None)
     with gr.Row(equal_height=True):
         refresh_library_btn = gr.Button(
             "Refresh Library",
@@ -31,6 +33,31 @@ def create_library_page() -> dict[str, Any]:
             value=None,
             interactive=True,
             scale=5,
+        )
+    with gr.Row(equal_height=True):
+        library_search_query = gr.Textbox(
+            label="Search Songs",
+            value="",
+            placeholder="rock* vocals",
+            interactive=True,
+            scale=5,
+        )
+        library_prev_page_btn = gr.Button(
+            "Previous",
+            variant="secondary",
+            size="sm",
+            interactive=False,
+            scale=1,
+            min_width=100,
+        )
+        library_page_status = gr.Markdown("No songs loaded.")
+        library_next_page_btn = gr.Button(
+            "Next",
+            variant="secondary",
+            size="sm",
+            interactive=False,
+            scale=1,
+            min_width=100,
         )
 
     with gr.Row():
@@ -71,8 +98,14 @@ def create_library_page() -> dict[str, Any]:
     return {
         "library_state": library_state,
         "library_filtered_state": library_filtered_state,
+        "library_page_state": library_page_state,
+        "library_timezone_state": library_timezone_state,
         "refresh_library_btn": refresh_library_btn,
         "library_selector": library_selector,
+        "library_search_query": library_search_query,
+        "library_prev_page_btn": library_prev_page_btn,
+        "library_page_status": library_page_status,
+        "library_next_page_btn": library_next_page_btn,
         "library_table": library_table,
         "library_audio": library_audio,
         "library_details": library_details,

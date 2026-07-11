@@ -40,6 +40,21 @@ class SimpleCreatePageTests(unittest.TestCase):
             controls["simple_sampler_mode"].info,
         )
         self.assertEqual("", controls["simple_negative_prompt"].value)
+        self.assertFalse(controls["simple_negative_prompt"].interactive)
+        self.assertIn("CFG 1", controls["simple_negative_prompt"].info)
+
+    def test_enables_negative_prompt_for_sft_model(self) -> None:
+        """The simple negative prompt should be editable for SFT/Base models."""
+
+        with gr.Blocks():
+            controls = create_simple_create_page(
+                init_params={
+                    "service_mode": False,
+                    "simple_model_dropdown": "acestep-v15-xl-sft",
+                }
+            )
+
+        self.assertTrue(controls["simple_negative_prompt"].interactive)
         self.assertIn("SFT and Base", controls["simple_negative_prompt"].info)
 
     def test_uses_explicit_quantization_default_value(self) -> None:

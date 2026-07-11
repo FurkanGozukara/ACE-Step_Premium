@@ -6,6 +6,10 @@ import gradio as gr
 
 from acestep.prompt_wildcards import WILDCARD_HELP_MARKDOWN
 from acestep.ui.gradio.i18n import t
+from acestep.ui.gradio.events.generation.model_config import (
+    negative_prompt_info_for_path,
+    negative_prompt_enabled_for_path,
+)
 from acestep.ui.gradio.interfaces.source_audio_preview import (
     GENERATION_REFERENCE_PREVIEW_ELEM_ID,
     GENERATION_UPLOAD_PREVIEW_ELEM_CLASSES,
@@ -55,16 +59,22 @@ def build_cover_strength_controls() -> dict[str, Any]:
     }
 
 
-def build_custom_mode_controls() -> dict[str, Any]:
+def build_custom_mode_controls(initial_config_path: str | None = None) -> dict[str, Any]:
     """Create custom-mode caption, lyrics, and reference-audio controls.
 
     Args:
-        None.
+        initial_config_path: Initial selected model path used for model-aware
+            negative prompt state.
 
     Returns:
         A component map containing custom-mode text/audio inputs and formatting actions.
     """
 
+    negative_prompt_info = negative_prompt_info_for_path(
+        initial_config_path,
+        supported_info=t("generation.lm_negative_prompt_info"),
+        turbo_info=t("generation.lm_negative_prompt_turbo_info"),
+    )
     with gr.Group(visible=True, elem_classes=["has-info-container"]) as custom_mode_group:
         with gr.Row(equal_height=True):
             with gr.Column(scale=2, min_width=200):
@@ -113,9 +123,12 @@ def build_custom_mode_controls() -> dict[str, Any]:
                             label=t("generation.lm_negative_prompt_label"),
                             value="",
                             placeholder=t("generation.lm_negative_prompt_placeholder"),
-                            info=t("generation.lm_negative_prompt_info"),
+                            info=negative_prompt_info,
                             lines=1,
                             max_lines=2,
+                            interactive=negative_prompt_enabled_for_path(
+                                initial_config_path
+                            ),
                             elem_classes=["has-info-container"],
                         )
                         gr.Markdown(

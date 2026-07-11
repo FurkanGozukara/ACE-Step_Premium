@@ -11,6 +11,7 @@ from acestep.model_downloader import (
 )
 from acestep.ui.gradio.events.wiring.generation_service_wiring import (
     _apply_config_path_change_with_simple_sync,
+    _negative_prompt_update_for_model,
 )
 
 
@@ -76,6 +77,16 @@ class GenerationServiceWiringTests(unittest.TestCase):
         source = _WIRING_PATH.read_text(encoding="utf-8")
         self.assertIn('generation_section["config_path"].input', source)
         self.assertNotIn('generation_section["config_path"].change', source)
+
+    def test_config_path_change_disables_turbo_negative_prompt(self):
+        """Advanced model changes should update the negative prompt state."""
+
+        turbo_update = _negative_prompt_update_for_model("acestep-v15-xl-turbo")
+        sft_update = _negative_prompt_update_for_model("acestep-v15-xl-sft")
+
+        self.assertFalse(turbo_update["interactive"])
+        self.assertIn("CFG 1", turbo_update["info"])
+        self.assertTrue(sft_update["interactive"])
 
     def test_config_path_change_applies_sft_quality_defaults(self):
         """Advanced model dropdown should apply LM-assisted SFT controls."""

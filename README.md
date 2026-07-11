@@ -61,6 +61,12 @@ their own independent compile behavior.
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+### 5 July 2026 V6.3.4 Update
+
+-   Negative prompt disabled for Turbo models since they are CFG 1
+-   Negative prompt synching with advanced tab - simple tab issue fixed and now works smooth
+-   Just run install update bat file to update
+
 ### 29 June 2026 V6.3.3 Update
 
 -   ACESTEP XL 1.5 VRAM presets Tier 3, 4, 5 and 6a significantly improved

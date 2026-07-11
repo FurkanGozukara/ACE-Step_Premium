@@ -11,6 +11,9 @@ from acestep.ui.gradio.events.generation.model_config import (
     is_pure_base_model,
     get_ui_control_config,
     get_ui_control_config_for_path,
+    negative_prompt_enabled_for_path,
+    negative_prompt_info_for_path,
+    negative_prompt_update_for_path,
     select_preferred_model_path,
     update_model_type_settings,
 )
@@ -175,6 +178,23 @@ class GetUiControlConfigTests(unittest.TestCase):
         self.assertNotIn("extract", cfg["task_type_choices"])
         self.assertNotIn("lego", cfg["task_type_choices"])
         self.assertNotIn("complete", cfg["task_type_choices"])
+
+    def test_turbo_negative_prompt_is_disabled(self):
+        """Turbo models should disable negative prompt input because CFG is 1."""
+
+        update = negative_prompt_update_for_path("acestep-v15-xl-turbo")
+
+        self.assertFalse(negative_prompt_enabled_for_path("acestep-v15-xl-turbo"))
+        self.assertFalse(update["interactive"])
+        self.assertIn("CFG 1", update["info"])
+
+    def test_sft_and_base_negative_prompt_are_enabled(self):
+        """SFT and Base models should keep negative prompt input editable."""
+
+        for path in ("acestep-v15-xl-sft", "acestep-v15-xl-base"):
+            with self.subTest(path=path):
+                self.assertTrue(negative_prompt_enabled_for_path(path))
+                self.assertIn("SFT and Base", negative_prompt_info_for_path(path))
 
     def test_xl_base_path_returns_quality_steps_and_base_modes(self):
         """XL-Base should use non-turbo defaults and expose base-only modes."""

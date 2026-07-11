@@ -9,6 +9,7 @@ from typing import Any
 import gradio as gr
 
 from .. import generation_handlers as gen_h
+from ..generation.model_config import negative_prompt_update_for_path
 from ..generation.quantization import default_quantization_value
 from ...premium_features import (
     SIMPLE_MODEL_ALIASES,
@@ -17,7 +18,7 @@ from ...premium_features import (
     normalize_simple_model_dropdown_value,
     open_outputs_folder,
 )
-from ...i18n import get_i18n, reset_language_context, set_language_context
+from ...i18n import get_i18n, reset_language_context, set_language_context, t
 from .context import (
     GenerationWiringContext,
     build_auto_checkbox_inputs,
@@ -122,6 +123,14 @@ def register_generation_service_handlers(
             show_progress="hidden",
             show_progress_on=[],
         )
+
+    generation_section["config_path"].input(
+        fn=_negative_prompt_update_for_model,
+        inputs=[generation_section["config_path"]],
+        outputs=[generation_section["lm_negative_prompt"]],
+        show_progress="hidden",
+        show_progress_on=[],
+    )
 
     if "simple_quantization" in generation_section:
         generation_section["quantization_checkbox"].change(
@@ -417,6 +426,16 @@ def _apply_config_path_change(
         gr.update(value=quality_defaults["dcw_high_scaler"]),
     )
     return (*model_updates, *behavior_updates)
+
+
+def _negative_prompt_update_for_model(config_path: str | None) -> Any:
+    """Return the model-aware negative prompt textbox state."""
+
+    return negative_prompt_update_for_path(
+        config_path,
+        supported_info=t("generation.lm_negative_prompt_info"),
+        turbo_info=t("generation.lm_negative_prompt_turbo_info"),
+    )
 
 
 def _apply_dcw_defaults_for_model(config_path: str | None) -> tuple[Any, ...]:

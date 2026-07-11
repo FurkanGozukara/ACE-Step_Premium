@@ -70,6 +70,15 @@ _RECOMMENDED_MODE_LABELS = {
     "Complete": "Complete (Base Model Recommended)",
 }
 
+NEGATIVE_PROMPT_SUPPORTED_INFO = (
+    "Tells generation what to avoid. Leave empty for default behavior. "
+    "Only affects SFT and Base model quality paths where CFG is above 1."
+)
+NEGATIVE_PROMPT_TURBO_INFO = (
+    "Negative prompt is disabled for Turbo because Turbo uses CFG 1. "
+    "Select SFT or Base to use it."
+)
+
 
 def _has_token(token: str, path: str) -> bool:
     """Check if *token* appears as a delimited word in *path*.
@@ -78,6 +87,12 @@ def _has_token(token: str, path: str) -> bool:
     path delimiter (``/``, ``\\``, ``.``, ``_``, ``-``).
     """
     return re.search(rf"(^|[\\\\/._-]){token}($|[\\\\/._-])", path) is not None
+
+
+def is_turbo_model_path(config_path: str | None) -> bool:
+    """Return whether a config path refers to a turbo model."""
+
+    return _has_token("turbo", (config_path or "").lower())
 
 
 def is_pure_base_model(config_path_lower: str) -> bool:
@@ -122,6 +137,43 @@ def is_sft_model(config_path_lower: str) -> bool:
         ``True`` when the path contains ``"sft"`` and excludes ``"turbo"``.
     """
     return _has_token("sft", config_path_lower) and not _has_token("turbo", config_path_lower)
+
+
+def negative_prompt_enabled_for_path(config_path: str | None) -> bool:
+    """Return whether the negative prompt should be editable for a model path."""
+
+    return not is_turbo_model_path(config_path)
+
+
+def negative_prompt_info_for_path(
+    config_path: str | None,
+    *,
+    supported_info: str | None = None,
+    turbo_info: str | None = None,
+) -> str:
+    """Return the model-aware negative prompt notice text."""
+
+    if is_turbo_model_path(config_path):
+        return turbo_info or NEGATIVE_PROMPT_TURBO_INFO
+    return supported_info or NEGATIVE_PROMPT_SUPPORTED_INFO
+
+
+def negative_prompt_update_for_path(
+    config_path: str | None,
+    *,
+    supported_info: str | None = None,
+    turbo_info: str | None = None,
+) -> dict:
+    """Return a Gradio update for the negative prompt model state."""
+
+    return gr.update(
+        interactive=negative_prompt_enabled_for_path(config_path),
+        info=negative_prompt_info_for_path(
+            config_path,
+            supported_info=supported_info,
+            turbo_info=turbo_info,
+        ),
+    )
 
 
 def is_xl_model(config_path_lower: str) -> bool:
