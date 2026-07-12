@@ -62,6 +62,46 @@ their own independent compile behavior.
 
 <img height="600" alt="2" src="https://github.com/user-attachments/assets/f2eed919-c0f0-42d9-b5b7-978f062a1824" />
 
+### 12 July 2026 V7.0.1 Update
+
+-   -   You need to delete your venv folder and run this update - existing installation may remain      
+    -   I have started upgrading all of our apps into latest Torch 2.13 and CUDA 13        
+    -   For this, I have pre-compiled the following wheels with all CUDA 13 features and with all CUDA archs : mslk, xformers, flash\_attn, sageattention, torchao        
+    -   All these libraries are properly compiled with abi3 thus works on Python 3.10, 3.11, 3.12 and 3.13        
+    
+    <img width="3400" height="600" alt="image" src="https://github.com/user-attachments/assets/1d6be39a-0e53-4f4f-9af1-32c6c6fa4e86" />
+    
+    -   So I have updated the SECourses ACE-STEP XL 1.5 installers with newest libraries        
+    -   It will automatically generate Python 3.12 venv and install everything there, if you don't have 3.12, it will use your default python        
+        -   Make sure to have 3.12.10 it is best            
+        -   Make sure to have nodejs 22+ installed - 22 preferred and tested
+            
+    -   Follow requirements tutorial ( [https://youtu.be/DrhUHnYfwC0](https://youtu.be/DrhUHnYfwC0) ) and latest ACE-Step tutorial : [https://youtu.be/hzKSt5WUAm0](https://youtu.be/hzKSt5WUAm0)        
+    -   At the LoRA training tab, we had missed supported languages (50)        
+        -   Now you can train with all Languages the model supports for inference
+            
+            -   Arabic, Azerbaijani, Bulgarian, Bengali, Catalan, Czech, Danish, German, Greek, English, Spanish, Persian, Finnish, French, Hebrew, Hindi, Croatian, Haitian Creole, Hungarian, Indonesian, Icelandic, Italian, Japanese, Korean, Latin, Lithuanian, Malay, Nepali, Dutch, Norwegian, Punjabi, Polish, Portuguese, Romanian, Russian, Sanskrit, Slovak, Serbian, Swedish, Swahili, Tamil, Telugu, Thai, Tagalog, Turkish, Ukrainian, Urdu, Vietnamese, Cantonese, Chinese
+                
+    -   We have massively improved Torch Compile with newest Torch 2.13 and our massive backend improvements        
+    -   Now Torch Compile happens with 8-cpu threads by default        
+    -   Moreover, there were unncessarily compiled parts and they are not compiled anymore        
+    -   Moreover, we have updated some libraries and fixed some bugs        
+    -   The result is that, previously Torch Compile was taking 240 seconds to compile, now taking like 10 seconds        
+    -   Once Torch Compile is warm, it is taking around 20-30 seconds to generate full songs on RTX 5090 - click to result        
+    
+    <img width="1381" height="559" alt="image" src="https://github.com/user-attachments/assets/32a7a32b-b279-43d6-b3d9-129ae03be1d4" />
+    
+    -   A wider audit of the app has been made and following bugs fixed        
+        -   Presets lost multi-select and explicit empty CheckboxGroup values.            
+        -   Negative prompts did not reliably synchronize both ways.            
+        -   GPU tiers did not synchronize from Advanced back to Generate Song.            
+        -   Initialize Service returned fewer values than its event wiring expected.            
+        -   Batch Folder ignored Generate Song duration and seed settings.            
+        -   Grid Testing passed shifted positional LoRA arguments.            
+        -   Saving a dataset could erase per-sample instrumental labels.            
+        -   Stopped LoKr training incorrectly reported successful completion.            
+    -   For updating, get the latest zip file, overwrite older files, delete venv folder inside ACE-Step\_Premium and run installer
+
 ### 5 July 2026 V6.3.4 Update
 
 -   Negative prompt disabled for Turbo models since they are CFG 1
