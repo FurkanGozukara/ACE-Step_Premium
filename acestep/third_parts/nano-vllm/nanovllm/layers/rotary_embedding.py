@@ -1,4 +1,7 @@
+from collections.abc import Mapping
 from functools import lru_cache
+from numbers import Real
+
 import torch
 from torch import nn
 
@@ -50,14 +53,83 @@ class RotaryEmbedding(nn.Module):
         return query, key
 
 
+def _resolve_rope_base(
+    base: float,
+    rope_scaling: Mapping[str, object] | None,
+) -> float:
+    """Normalize the default RoPE schema used by supported Transformers releases."""
+    if rope_scaling is None:
+        resolved_base = base
+    else:
+        if not isinstance(rope_scaling, Mapping):
+            raise TypeError(
+                "rope_scaling must be a mapping or None, "
+                f"got {type(rope_scaling).__name__}"
+            )
+
+        rope_type = rope_scaling.get("rope_type")
+        legacy_rope_type = rope_scaling.get("type")
+        if rope_type is not None and legacy_rope_type is not None and rope_type != legacy_rope_type:
+            raise ValueError(
+                "Conflicting RoPE types: "
+                f"rope_type={rope_type!r}, type={legacy_rope_type!r}"
+            )
+        rope_type = rope_type if rope_type is not None else legacy_rope_type
+        if rope_type is None:
+            extra_keys = set(rope_scaling) - {
+                "partial_rotary_factor",
+                "rope_theta",
+                "rope_type",
+                "type",
+            }
+            if extra_keys:
+                keys = ", ".join(sorted(str(key) for key in extra_keys))
+                raise ValueError(
+                    "nano-vLLM cannot infer the RoPE type for scaling fields: "
+                    f"{keys}"
+                )
+            rope_type = "default"
+        if rope_type != "default":
+            raise ValueError(
+                "nano-vLLM only supports default RoPE, "
+                f"got rope_type={rope_type!r}"
+            )
+
+        partial_rotary_factor = rope_scaling.get("partial_rotary_factor", 1.0)
+        if partial_rotary_factor != 1.0:
+            raise ValueError(
+                "nano-vLLM only supports full-head rotary embeddings, "
+                f"got partial_rotary_factor={partial_rotary_factor!r}"
+            )
+        resolved_base = rope_scaling.get("rope_theta", base)
+
+    if isinstance(resolved_base, bool) or not isinstance(resolved_base, Real):
+        raise TypeError(
+            "RoPE theta must be a real number, "
+            f"got {type(resolved_base).__name__}"
+        )
+    if resolved_base <= 0:
+        raise ValueError(f"RoPE theta must be positive, got {resolved_base!r}")
+    return float(resolved_base)
+
+
 @lru_cache(1)
+def _get_rope_cached(
+    head_size: int,
+    rotary_dim: int,
+    max_position: int,
+    base: float,
+) -> RotaryEmbedding:
+    return RotaryEmbedding(head_size, rotary_dim, max_position, base)
+
+
 def get_rope(
     head_size: int,
     rotary_dim: int,
     max_position: int,
     base: float,
-    rope_scaling: dict | None = None,
-):
-    assert rope_scaling is None
-    rotary_emb = RotaryEmbedding(head_size, rotary_dim, max_position, base)
-    return rotary_emb
+    rope_scaling: Mapping[str, object] | None = None,
+) -> RotaryEmbedding:
+    """Return a cached rotary embedding after normalizing RoPE configuration."""
+    resolved_base = _resolve_rope_base(base, rope_scaling)
+    return _get_rope_cached(head_size, rotary_dim, max_position, resolved_base)
