@@ -11,6 +11,11 @@ from acestep.ui.gradio.events.generation.cancel_actions import (
 )
 from acestep.ui.gradio.events.batch_folder_runner import run_batch_folder_processing
 from acestep.ui.gradio.events.wiring.generation_run_wiring import build_generation_run_inputs
+from acestep.ui.gradio.events.wiring.simple_create_wiring import (
+    build_simple_prepare_inputs,
+    build_simple_prepare_outputs,
+)
+from acestep.ui.gradio.events.wiring.simple_create_params import prepare_simple_generation
 
 
 def register_batch_folder_handlers(
@@ -18,6 +23,7 @@ def register_batch_folder_handlers(
     dit_handler: Any,
     llm_handler: Any,
     batch_section: dict[str, Any],
+    simple_page: dict[str, Any],
     generation_section: dict[str, Any],
     results_section: dict[str, Any],
 ) -> None:
@@ -48,6 +54,14 @@ def register_batch_folder_handlers(
     )
 
     batch_section["batch_process_btn"].click(
+        fn=prepare_simple_generation,
+        inputs=build_simple_prepare_inputs(simple_page),
+        outputs=build_simple_prepare_outputs(
+            generation_section,
+            results_section,
+            batch_section["batch_status"],
+        ),
+    ).then(
         fn=batch_wrapper,
         inputs=[
             batch_section["batch_input_folder"],

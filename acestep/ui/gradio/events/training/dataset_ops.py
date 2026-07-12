@@ -83,7 +83,10 @@ def _apply_current_settings(
         builder_state.set_custom_tag(current_tag, current_position)
 
     if all_instrumental is not None:
-        builder_state.set_all_instrumental(all_instrumental)
+        requested_instrumental = bool(all_instrumental)
+        current_instrumental = bool(builder_state.metadata.all_instrumental)
+        if requested_instrumental != current_instrumental:
+            builder_state.set_all_instrumental(requested_instrumental)
 
     if genre_ratio is not None:
         builder_state.metadata.genre_ratio = int(genre_ratio)

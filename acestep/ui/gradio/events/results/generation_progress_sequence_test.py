@@ -157,6 +157,169 @@ class SequentialGenerationCountTests(unittest.TestCase):
         self.assertEqual("unknown", params.vocal_language)
         self.assertTrue(params.repaint_dont_switch_with_lyrics)
 
+    def test_every_exposed_generation_value_reaches_backend_objects(self):
+        """GUI generation controls must map exactly to backend params/config."""
+
+        calls = []
+
+        def fake_generate_music(_dit_handler, _llm_handler, *, params, config, progress):
+            calls.append((params, config))
+            return _fake_result(str(config.seeds[0]))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._run_generation(
+                tmp,
+                fake_generate_music,
+                captions="backend caption sentinel",
+                lyrics="[verse]\nbackend lyric sentinel",
+                bpm=137,
+                key_scale="E minor",
+                time_signature="7",
+                vocal_language="tr",
+                inference_steps=9,
+                guidance_scale=4.4,
+                random_seed_checkbox=False,
+                seed="4242",
+                reference_audio="reference-sentinel.wav",
+                audio_duration=12.5,
+                src_audio="source-sentinel.wav",
+                text2music_audio_code_string="<|audio_code_4242|>",
+                repainting_start=1.2,
+                repainting_end=4.7,
+                instruction_display_gen="backend instruction sentinel",
+                audio_cover_strength=0.37,
+                cover_noise_strength=0.23,
+                task_type="text2music",
+                no_fsq=False,
+                use_adg=True,
+                cfg_interval_start=0.12,
+                cfg_interval_end=0.88,
+                shift=2.7,
+                infer_method="sde",
+                sampler_mode="heun",
+                velocity_norm_threshold=1.7,
+                velocity_ema_factor=0.13,
+                dcw_enabled=False,
+                dcw_mode="pix",
+                dcw_scaler=0.11,
+                dcw_high_scaler=0.22,
+                dcw_wavelet="db4",
+                custom_timesteps="1, 0.7, 0.2, 0",
+                audio_format="mp3",
+                mp3_bitrate="192k",
+                mp3_sample_rate=44100,
+                lm_temperature=0.44,
+                think_checkbox=False,
+                lm_cfg_scale=3.3,
+                lm_top_k=42,
+                lm_top_p=0.77,
+                lm_negative_prompt="avoid hiss sentinel",
+                use_cot_metas=True,
+                use_cot_caption=True,
+                use_cot_language=False,
+                is_format_caption=False,
+                constrained_decoding_debug=True,
+                allow_lm_batch=True,
+                lm_batch_chunk_size=5,
+                enable_normalization=False,
+                normalization_db=-2.5,
+                fade_in_duration=0.4,
+                fade_out_duration=0.7,
+                latent_shift=0.12,
+                latent_rescale=0.83,
+                repaint_mode="aggressive",
+                repaint_strength=0.91,
+                retake_variance=0.33,
+                retake_seed="909",
+                flow_edit_morph=True,
+                flow_edit_source_caption="source caption sentinel",
+                flow_edit_source_lyrics="source lyrics sentinel",
+                flow_edit_n_min=0.2,
+                flow_edit_n_max=0.8,
+                flow_edit_n_avg=3,
+                generate_lm_audio_codes=False,
+                repaint_dont_switch_with_lyrics=True,
+            )
+
+        self.assertEqual(1, len(calls))
+        params, config = calls[0]
+        expected_params = {
+            "task_type": "text2music",
+            "instruction": "backend instruction sentinel",
+            "reference_audio": "reference-sentinel.wav",
+            "src_audio": "source-sentinel.wav",
+            "audio_codes": "<|audio_code_4242|>",
+            "caption": "backend caption sentinel",
+            "lyrics": "[verse]\nbackend lyric sentinel",
+            "instrumental": False,
+            "vocal_language": "tr",
+            "bpm": 137,
+            "keyscale": "E minor",
+            "timesignature": "7",
+            "duration": 12.5,
+            "inference_steps": 3,
+            "guidance_scale": 4.4,
+            "use_adg": True,
+            "cfg_interval_start": 0.12,
+            "cfg_interval_end": 0.88,
+            "shift": 2.7,
+            "infer_method": "sde",
+            "sampler_mode": "heun",
+            "velocity_norm_threshold": 1.7,
+            "velocity_ema_factor": 0.13,
+            "dcw_enabled": False,
+            "dcw_mode": "pix",
+            "dcw_scaler": 0.11,
+            "dcw_high_scaler": 0.22,
+            "dcw_wavelet": "db4",
+            "timesteps": [1.0, 0.7, 0.2, 0.0],
+            "repainting_start": 1.2,
+            "repainting_end": 4.7,
+            "chunk_mask_mode": "auto",
+            "audio_cover_strength": 0.37,
+            "cover_noise_strength": 0.23,
+            "thinking": False,
+            "generate_lm_audio_codes": False,
+            "lm_temperature": 0.44,
+            "lm_cfg_scale": 3.3,
+            "lm_top_k": 42,
+            "lm_top_p": 0.77,
+            "lm_negative_prompt": "avoid hiss sentinel",
+            "use_cot_metas": True,
+            "use_cot_caption": True,
+            "use_cot_language": False,
+            "use_constrained_decoding": True,
+            "enable_normalization": False,
+            "normalization_db": -2.5,
+            "fade_in_duration": 0.4,
+            "fade_out_duration": 0.7,
+            "latent_shift": 0.12,
+            "latent_rescale": 0.83,
+            "repaint_mode": "aggressive",
+            "repaint_strength": 0.91,
+            "repaint_dont_switch_with_lyrics": True,
+            "retake_variance": 0.33,
+            "retake_seed": "909",
+            "flow_edit_morph": True,
+            "flow_edit_source_caption": "source caption sentinel",
+            "flow_edit_source_lyrics": "source lyrics sentinel",
+            "flow_edit_n_min": 0.2,
+            "flow_edit_n_max": 0.8,
+            "flow_edit_n_avg": 3,
+        }
+        for attribute, expected in expected_params.items():
+            self.assertEqual(expected, getattr(params, attribute), attribute)
+
+        self.assertEqual(1, config.batch_size)
+        self.assertFalse(config.allow_lm_batch)
+        self.assertFalse(config.use_random_seed)
+        self.assertEqual([4242], config.seeds)
+        self.assertEqual(5, config.lm_batch_chunk_size)
+        self.assertTrue(config.constrained_decoding_debug)
+        self.assertEqual("mp3", config.audio_format)
+        self.assertEqual("192k", config.mp3_bitrate)
+        self.assertEqual(44100, config.mp3_sample_rate)
+
     def test_instrumental_repaint_does_not_force_lyric_repaint_switch(self):
         """Instrumental Repaint should stay instrumental without enabling lyric opt-out."""
 

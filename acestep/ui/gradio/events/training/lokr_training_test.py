@@ -93,6 +93,63 @@ class LoKrTrainingHandlerTests(unittest.TestCase):
         self.assertIn("LoKr training completed", outputs[-1][0])
         self.assertEqual(51, training_config.num_inference_steps)
 
+    def test_stopped_training_does_not_report_completion(self) -> None:
+        """A user stop should remain the final progress state."""
+
+        class FakeTrainer:
+            def __init__(self, dit_handler, lokr_config, training_config) -> None:
+                pass
+
+            def train_from_preprocessed(self, tensor_dir, training_state):
+                training_state["should_stop"] = True
+                yield 1, 1.0, "Epoch 1/50"
+
+        lightning_module = ModuleType("lightning")
+        fabric_module = ModuleType("lightning.fabric")
+        fabric_module.Fabric = object
+        trainer_module = ModuleType("acestep.training.trainer")
+        trainer_module.LoKRTrainer = FakeTrainer
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            set_safe_roots([tmpdir])
+            handler = SimpleNamespace(model=object(), quantization=None, device="cpu")
+            with patch.dict(
+                sys.modules,
+                {
+                    "lightning": lightning_module,
+                    "lightning.fabric": fabric_module,
+                    "acestep.training.trainer": trainer_module,
+                },
+            ), patch(
+                "acestep.ui.gradio.events.training.lokr_training._training_loss_figure",
+                return_value=None,
+            ):
+                outputs = list(
+                    start_lokr_training(
+                        tmpdir,
+                        handler,
+                        4,
+                        4,
+                        -1,
+                        False,
+                        False,
+                        False,
+                        True,
+                        0.001,
+                        50,
+                        1,
+                        1,
+                        1,
+                        3.0,
+                        42,
+                        os.path.join(tmpdir, "lokr"),
+                        {},
+                    )
+                )
+
+        self.assertIn("stopped by user", outputs[-1][0])
+        self.assertNotIn("completed", outputs[-1][0].lower())
+
 
 if __name__ == "__main__":
     unittest.main()

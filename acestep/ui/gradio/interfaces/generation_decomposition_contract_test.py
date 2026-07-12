@@ -172,6 +172,7 @@ class GenerationDecompositionContractTests(unittest.TestCase):
         # keep the simple and advanced controls synchronized.
         produced_keys.add("simple_model_dropdown")
         produced_keys.add("simple_quantization")
+        produced_keys.add("simple_tier_dropdown")
 
         required_keys = collect_generation_section_keys_used_by_wiring()
         self.assertTrue(

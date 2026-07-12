@@ -180,6 +180,7 @@ def start_lokr_training(
 
         training_failed = False
         failure_message = ""
+        training_stopped = False
 
         for step, loss, status in trainer.train_from_preprocessed(tensor_dir, training_state):
             status_text = str(status)
@@ -216,6 +217,7 @@ def start_lokr_training(
             yield display_status, log_text, plot_figure, training_state
 
             if training_state.get("should_stop", False):
+                training_stopped = True
                 log_lines.append("ℹ️ Training stopped by user")
                 yield f"ℹ️ Stopped ({time_info})", "\n".join(log_lines[-15:]), plot_figure, training_state
                 break
@@ -227,6 +229,15 @@ def start_lokr_training(
             final_msg = f"{failure_message}\nElapsed: {_format_duration(total_time)}"
             log_lines.append(failure_message)
             yield final_msg, "\n".join(log_lines[-15:]), final_plot, training_state
+            return
+
+        if training_stopped:
+            stopped_msg = (
+                "LoKr training stopped by user. "
+                f"Total time: {_format_duration(total_time)}"
+            )
+            log_lines.append(stopped_msg)
+            yield stopped_msg, "\n".join(log_lines[-15:]), final_plot, training_state
             return
 
         completion_msg = f"✅ LoKr training completed! Total time: {_format_duration(total_time)}"

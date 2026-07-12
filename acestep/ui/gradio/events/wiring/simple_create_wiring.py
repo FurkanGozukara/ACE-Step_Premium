@@ -461,9 +461,10 @@ def _register_negative_prompt_sync_handlers(
 ) -> None:
     """Keep Generate Song and advanced negative prompts synchronized.
 
-    Only user ``input`` events are linked. Gradio ``change`` events can fire
-    from function-driven textbox updates, which causes two-way prompt sync to
-    bounce values between the two fields while the user is typing.
+    User ``input`` events provide live sync and ``blur`` is a compatibility
+    fallback for Gradio/browser combinations that do not submit textbox input
+    events reliably. Gradio ``change`` events are deliberately avoided because
+    function-driven updates can make two-way sync bounce while the user types.
     """
 
     simple_page["simple_negative_prompt"].input(
@@ -483,6 +484,22 @@ def _register_negative_prompt_sync_handlers(
         show_progress_on=[],
         queue=False,
         trigger_mode="multiple",
+    )
+    simple_page["simple_negative_prompt"].blur(
+        fn=_sync_negative_prompt_value_debounced,
+        inputs=[simple_page["simple_negative_prompt"]],
+        outputs=[generation_section["lm_negative_prompt"]],
+        show_progress="hidden",
+        show_progress_on=[],
+        queue=False,
+    )
+    generation_section["lm_negative_prompt"].blur(
+        fn=_sync_negative_prompt_value_debounced,
+        inputs=[generation_section["lm_negative_prompt"]],
+        outputs=[simple_page["simple_negative_prompt"]],
+        show_progress="hidden",
+        show_progress_on=[],
+        queue=False,
     )
 
 

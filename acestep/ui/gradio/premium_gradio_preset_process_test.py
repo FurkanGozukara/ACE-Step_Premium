@@ -5,10 +5,13 @@ from __future__ import annotations
 import os
 import tempfile
 import unittest
+from math import isfinite
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
+
+from gradio.state_holder import SessionState
 
 from acestep.model_downloader import (
     DEFAULT_LM_MODEL,
@@ -286,6 +289,163 @@ class PremiumGradioPresetProcessTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(data[keys.index("sam_batch_segment")].get("value"))
 
+    async def test_load_preset_process_api_restores_complete_track_checkbox_group(
+        self,
+    ) -> None:
+        """Complete track lists, including empty lists, must survive real components."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            original = os.environ.get("ACESTEP_PROJECT_ROOT")
+            os.environ["ACESTEP_PROJECT_ROOT"] = tmp_dir
+            try:
+                keys = get_preset_component_keys()
+                values = [DEFAULT_PRESET_VALUES.get(key, "") for key in keys]
+                demo = create_gradio_interface(
+                    dit_handler=_FakeDitHandler(),
+                    llm_handler=_FakeLlmHandler(),
+                    dataset_handler=_FakeDatasetHandler(),
+                    init_params=None,
+                    language="en",
+                )
+                load_id = next(
+                    key for key, block_fn in demo.fns.items()
+                    if getattr(block_fn.fn, "__name__", "") == "load_preset_action"
+                )
+
+                values[keys.index("complete_track_classes")] = ["drums", "vocals"]
+                save_preset_action("complete-tracks", None, *values)
+                demo.fns[load_id].inputs[0].choices = [
+                    ("complete-tracks", "complete-tracks")
+                ]
+                selected_result = await demo.process_api(
+                    load_id,
+                    ["complete-tracks"],
+                )
+
+                values[keys.index("complete_track_classes")] = []
+                save_preset_action("complete-empty", None, *values)
+                demo.fns[load_id].inputs[0].choices = [
+                    ("complete-empty", "complete-empty")
+                ]
+                empty_result = await demo.process_api(load_id, ["complete-empty"])
+            finally:
+                if original is None:
+                    os.environ.pop("ACESTEP_PROJECT_ROOT", None)
+                else:
+                    os.environ["ACESTEP_PROJECT_ROOT"] = original
+
+        index = keys.index("complete_track_classes")
+        self.assertEqual(
+            ["drums", "vocals"],
+            selected_result["data"][index].get("value"),
+        )
+        self.assertEqual([], empty_result["data"][index].get("value"))
+
+    async def test_every_preset_component_round_trips_through_process_api(
+        self,
+    ) -> None:
+        """Exercise every tracked GUI value through Gradio save and load callbacks."""
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            original = os.environ.get("ACESTEP_PROJECT_ROOT")
+            os.environ["ACESTEP_PROJECT_ROOT"] = tmp_dir
+            try:
+                keys = get_preset_component_keys()
+                demo = create_gradio_interface(
+                    dit_handler=_FakeDitHandler(),
+                    llm_handler=_FakeLlmHandler(),
+                    dataset_handler=_FakeDatasetHandler(),
+                    init_params=None,
+                    language="en",
+                )
+                save_id = next(
+                    key for key, block_fn in demo.fns.items()
+                    if getattr(block_fn.fn, "__name__", "") == "save_preset_action"
+                )
+                load_id = next(
+                    key for key, block_fn in demo.fns.items()
+                    if getattr(block_fn.fn, "__name__", "") == "load_preset_action"
+                )
+                components = demo.fns[save_id].inputs[2:]
+                self.assertEqual(len(keys), len(components))
+                values = [
+                    _alternate_component_value(key, component)
+                    for key, component in zip(keys, components)
+                ]
+                _align_cross_tab_preset_values(keys, values)
+
+                save_result = await demo.process_api(
+                    save_id,
+                    ["all-components", None, *values],
+                )
+                demo.fns[load_id].inputs[0].choices = [
+                    ("all-components", "all-components")
+                ]
+                load_state = SessionState(demo)
+                load_result = await demo.process_api(
+                    load_id,
+                    ["all-components"],
+                    state=load_state,
+                    session_hash="all-components-load",
+                )
+                loaded_values = [
+                    item.get("value") if isinstance(item, dict) else item
+                    for item in load_result["data"][:len(keys)]
+                ]
+                for index, component in enumerate(components):
+                    if type(component).__name__ == "State":
+                        output_component = demo.fns[load_id].outputs[index]
+                        loaded_values[index] = load_state[output_component._id]
+                demo.fns[save_id].inputs[1].choices = [
+                    ("all-components", "all-components")
+                ]
+                copy_save_result = await demo.process_api(
+                    save_id,
+                    [
+                        "all-components-copy",
+                        "all-components",
+                        *loaded_values,
+                    ],
+                )
+                demo.fns[load_id].inputs[0].choices = [
+                    ("all-components-copy", "all-components-copy")
+                ]
+                copy_load_state = SessionState(demo)
+                copy_load_result = await demo.process_api(
+                    load_id,
+                    ["all-components-copy"],
+                    state=copy_load_state,
+                    session_hash="all-components-copy-load",
+                )
+            finally:
+                if original is None:
+                    os.environ.pop("ACESTEP_PROJECT_ROOT", None)
+                else:
+                    os.environ["ACESTEP_PROJECT_ROOT"] = original
+
+        self.assertIn("Saved preset: all-components", save_result["data"][1])
+        self.assertIn(
+            "Saved preset: all-components-copy",
+            copy_save_result["data"][1],
+        )
+        self.assertEqual(len(keys) + 5, len(load_result["data"]))
+        self.assertEqual(len(keys) + 5, len(copy_load_result["data"]))
+        for index, key in enumerate(keys):
+            actual_update = load_result["data"][index]
+            copied_update = copy_load_result["data"][index]
+            if type(components[index]).__name__ == "State":
+                actual_value = load_state[demo.fns[load_id].outputs[index]._id]
+                copied_value = copy_load_state[
+                    demo.fns[load_id].outputs[index]._id
+                ]
+            else:
+                self.assertIsInstance(actual_update, dict, key)
+                self.assertIsInstance(copied_update, dict, key)
+                actual_value = _process_output_value(actual_update)
+                copied_value = _process_output_value(copied_update)
+            self.assertEqual(values[index], actual_value, key)
+            self.assertEqual(actual_value, copied_value, key)
+
     async def test_delete_preset_process_api_selects_next_available_preset(self) -> None:
         """Deleting the selected preset should refresh and load the next preset."""
 
@@ -355,6 +515,90 @@ class PremiumGradioPresetProcessTests(unittest.IsolatedAsyncioTestCase):
             data[keys.index("captions")].get("value"),
         )
         self.assertIn("Using GPU Optimization Preset", data[len(keys) + 3])
+
+
+def _choice_value(choice: Any) -> Any:
+    """Return the submitted value from a Gradio choice definition."""
+
+    if isinstance(choice, (list, tuple)) and len(choice) >= 2:
+        return choice[1]
+    return choice
+
+
+def _process_output_value(value: Any) -> Any:
+    """Return a value from either a Gradio update or a raw State output."""
+
+    if isinstance(value, dict):
+        return value.get("value")
+    return value
+
+
+def _alternate_component_value(key: str, component: Any) -> Any:
+    """Return a different but component-valid value for exhaustive round trips."""
+
+    component_type = type(component).__name__
+    current = getattr(component, "value", None)
+    if component_type == "Checkbox":
+        return not bool(current)
+    if component_type in {"File", "Image", "Audio"}:
+        return None
+
+    choices = [
+        _choice_value(choice)
+        for choice in (getattr(component, "choices", None) or [])
+    ]
+    is_multiselect = bool(getattr(component, "multiselect", False))
+    if component_type == "CheckboxGroup" or is_multiselect:
+        return choices[-2:] if len(choices) >= 2 else choices
+    if choices:
+        return next((choice for choice in reversed(choices) if choice != current), choices[0])
+
+    if component_type in {"Slider", "Number"}:
+        candidates = [
+            getattr(component, "maximum", None),
+            getattr(component, "minimum", None),
+        ]
+        for candidate in candidates:
+            if (
+                isinstance(candidate, (int, float))
+                and not isinstance(candidate, bool)
+                and isfinite(float(candidate))
+                and candidate != current
+            ):
+                return candidate
+        if isinstance(current, (int, float)) and not isinstance(current, bool):
+            return current + 1
+        return 1
+
+    if component_type == "Textbox":
+        return f"codex-{key}"
+    return current
+
+
+def _align_cross_tab_preset_values(keys: tuple[str, ...], values: list[Any]) -> None:
+    """Give synchronized controls one coherent alternate value for fidelity checks."""
+
+    def set_value(key: str, value: Any) -> None:
+        values[keys.index(key)] = value
+
+    set_value("generation_mode", "Remix")
+    set_value("task_type", "cover")
+    set_value("config_path", DEFAULT_PREMIUM_DIT_MODEL)
+    set_value("simple_model_dropdown", DEFAULT_PREMIUM_DIT_MODEL)
+    for key in (
+        "vocal_language",
+        "simple_vocal_language",
+        "simple_create_vocal_language",
+    ):
+        set_value(key, "tr")
+    for key in ("lm_negative_prompt", "simple_create_negative_prompt"):
+        set_value(key, "same negative prompt")
+    for key in ("sampler_mode", "simple_create_sampler_mode"):
+        set_value(key, "euler")
+    set_value(
+        "tier_dropdown",
+        values[keys.index("simple_create_tier_dropdown")],
+    )
 
 
 if __name__ == "__main__":

@@ -55,8 +55,9 @@ class TrainingLoraRunCleanupTests(unittest.TestCase):
             llm_handler,
             release_dit=True,
         )
-        self.assertEqual("cleanup complete", outputs[0][0])
-        self.assertEqual("trained", outputs[1][0])
+        self.assertIn("LoRA training start requested", outputs[0][0])
+        self.assertEqual("cleanup complete", outputs[1][0])
+        self.assertEqual("trained", outputs[2][0])
 
     def test_inline_training_keeps_parent_dit_for_training(self) -> None:
         """Inline training should clean up without fully releasing parent DiT."""
@@ -81,8 +82,9 @@ class TrainingLoraRunCleanupTests(unittest.TestCase):
             None,
             release_dit=False,
         )
-        self.assertEqual("inline cleanup", outputs[0][0])
-        self.assertEqual("started", outputs[1][0])
+        self.assertIn("LoRA training start requested", outputs[0][0])
+        self.assertEqual("inline cleanup", outputs[1][0])
+        self.assertEqual("started", outputs[2][0])
 
 
 def _call_wrapper(wrapper: Any, *, training_subprocess: bool) -> Any:

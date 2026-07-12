@@ -81,7 +81,7 @@ from acestep.ui.gradio.interfaces.training_lora_tab_training_options import (
 )
 
 
-APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium V7.0"
+APP_BROWSER_TITLE = "ACE-Step 1.5 XL Premium V7.0.1"
 APP_RELEASE_URL = "https://www.patreon.com/posts/157675060"
 APP_HEADER_MARKDOWN = f"# {APP_BROWSER_TITLE} : [{APP_RELEASE_URL}]({APP_RELEASE_URL})"
 _FAVICON_PATH = Path(__file__).resolve().parent / "assets" / "ace_step_premium_favicon.svg"
@@ -1091,6 +1091,9 @@ def create_gradio_interface(
             "simple_lora_scale_slider"
         ]
         generation_section["simple_quantization"] = simple_page["simple_quantization"]
+        generation_section["simple_tier_dropdown"] = simple_page[
+            "simple_tier_dropdown"
+        ]
         for key in (
             "dataset_model_config",
             "dataset_vram_preset",
@@ -1133,6 +1136,7 @@ def create_gradio_interface(
             dit_handler=dit_handler,
             llm_handler=llm_handler,
             batch_section=batch_folder_section,
+            simple_page=simple_page,
             generation_section=generation_section,
             results_section=results_section,
         )

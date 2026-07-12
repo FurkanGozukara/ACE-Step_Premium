@@ -78,6 +78,11 @@ def _component_spec(component: Any) -> dict[str, Any]:
             spec[attribute] = getattr(component, attribute)
     if hasattr(component, "choices"):
         spec["choices"] = _choice_values(getattr(component, "choices"))
+    # Gradio's CheckboxGroup does not expose a ``multiselect`` attribute even
+    # though its submitted value is always a list.  Treat it like a
+    # multiselect dropdown so preset values are not collapsed to one choice.
+    if spec["component_type"] == "CheckboxGroup":
+        spec["multiselect"] = True
     return spec
 
 
@@ -148,7 +153,10 @@ def _coerce_multiselect_choice(
             normalized.append(matched)
         elif allow_custom_value:
             normalized.append(item)
-    return normalized or [choices[0]]
+    # An empty selection is valid for both CheckboxGroup and multiselect
+    # Dropdown controls.  Falling back to the first choice silently enables a
+    # setting that the user explicitly saved as disabled.
+    return normalized
 
 
 def _as_selection_list(value: Any) -> list[Any]:

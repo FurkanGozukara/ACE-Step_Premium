@@ -245,7 +245,7 @@ class GenerationHandlersTests(unittest.TestCase):
         gpu_config_mock.available_lm_models = ["acestep-5Hz-lm-1.7B"]
         get_global_gpu_config_mock.return_value = gpu_config_mock
 
-        get_model_type_ui_settings_mock.return_value = (None,) * 10
+        get_model_type_ui_settings_mock.return_value = (None,) * 9
 
         dit_handler = MagicMock()
         dit_handler.model = MagicMock()
@@ -277,6 +277,7 @@ class GenerationHandlersTests(unittest.TestCase):
         )
 
         # Result is a tuple: (status, btn_update, accordion, *model_settings, duration_update, batch_update, think_update)
+        self.assertEqual(15, len(result))
         # batch_update is at index -2 (second to last)
         batch_update = result[-2]
         
@@ -302,7 +303,7 @@ class GenerationHandlersTests(unittest.TestCase):
         gpu_config_mock.available_lm_models = ["acestep-5Hz-lm-1.7B"]
         get_global_gpu_config_mock.return_value = gpu_config_mock
 
-        get_model_type_ui_settings_mock.return_value = (None,) * 10
+        get_model_type_ui_settings_mock.return_value = (None,) * 9
 
         dit_handler = MagicMock()
         dit_handler.model = MagicMock()
@@ -333,6 +334,7 @@ class GenerationHandlersTests(unittest.TestCase):
             current_batch_size=None,
         )
 
+        self.assertEqual(15, len(result))
         batch_update = result[-2]
         
         # Verify the Songs control defaults to 1 without a UI maximum.
@@ -739,7 +741,11 @@ class AutoCheckboxTests(unittest.TestCase):
         for field_name, expected_value in expected.items():
             result = generation_handlers.on_auto_checkbox_change(True, field_name)
             self.assertEqual(result["value"], expected_value, f"Field {field_name}")
-            self.assertFalse(result["interactive"], f"Field {field_name}")
+            self.assertEqual(
+                result["interactive"],
+                field_name == "vocal_language",
+                f"Field {field_name}",
+            )
 
     def test_reset_all_auto_returns_correct_count(self):
         """reset_all_auto should return exactly 10 gr.update objects."""
@@ -771,9 +777,14 @@ class AutoCheckboxTests(unittest.TestCase):
         # Auto checkboxes should be True (checked)
         for i in range(5):
             self.assertTrue(result[i]["value"], f"Auto checkbox at index {i}")
-        # Fields should be non-interactive
+        # Language remains user-selectable so automatic metadata can still be
+        # constrained; the other auto fields are non-interactive.
         for i in range(5, 10):
-            self.assertFalse(result[i]["interactive"], f"Field at index {i}")
+            self.assertEqual(
+                result[i]["interactive"],
+                i == 8,
+                f"Field at index {i}",
+            )
 
     def test_uncheck_auto_for_populated_fields_all_populated(self):
         """When all fields have non-default values, all auto checkboxes should be unchecked."""

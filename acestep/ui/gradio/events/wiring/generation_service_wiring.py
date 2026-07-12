@@ -175,6 +175,7 @@ def register_generation_service_handlers(
                 tier_outputs[8],
                 tier_outputs[9],
                 tier_outputs[10],
+                generation_section["simple_tier_dropdown"],
             ],
         )
     else:
@@ -218,7 +219,6 @@ def register_generation_service_handlers(
             generation_section["task_type"],
             generation_section["generation_mode"],
             generation_section["init_llm_checkbox"],
-            generation_section["dcw_enabled"],
             generation_section["audio_duration"],
             generation_section["batch_size_input"],
             generation_section["think_checkbox"],
@@ -455,11 +455,11 @@ def _apply_tier_change_with_simple_quantization(
     tier: str | None,
     llm_handler: Any,
 ) -> tuple[Any, ...]:
-    """Apply a GPU tier and mirror its quantization default into the simple tab."""
+    """Apply a GPU tier and mirror it and its quantization into the simple tab."""
 
     updates = gen_h.on_tier_change(tier, llm_handler)
     if len(updates) != 11:
-        return tuple(gr.update() for _ in range(12))
+        return tuple(gr.update() for _ in range(13))
     return (
         updates[0],
         updates[1],
@@ -473,4 +473,5 @@ def _apply_tier_change_with_simple_quantization(
         updates[8],
         updates[9],
         updates[10],
+        gr.update(value=tier),
     )

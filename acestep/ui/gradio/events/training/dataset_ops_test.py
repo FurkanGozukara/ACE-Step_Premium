@@ -640,6 +640,42 @@ class TestSaveDataset(unittest.TestCase):
         builder.save_dataset.assert_called_once_with("path.json", "name")
         self.assertEqual("path.json", update["value"])
 
+    def test_save_preserves_auto_detected_instrumental_sample(self):
+        """An unchanged All Instrumental toggle must not erase per-sample labels."""
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            previous_roots = get_safe_roots()
+            set_safe_roots([tmpdir])
+            try:
+                save_path = Path(tmpdir) / "dataset.json"
+                builder = DatasetBuilder()
+                builder.metadata.all_instrumental = False
+                builder.samples = [
+                    AudioSample(
+                        audio_path=str(Path(tmpdir) / "instrumental.wav"),
+                        filename="instrumental.wav",
+                        caption="instrumental cue",
+                        lyrics="[Instrumental]",
+                        is_instrumental=True,
+                        labeled=True,
+                    )
+                ]
+
+                status, _update = save_dataset(
+                    str(save_path),
+                    "mixed-dataset",
+                    builder,
+                    all_instrumental=False,
+                )
+            finally:
+                set_safe_roots(previous_roots)
+
+            data = json.loads(save_path.read_text(encoding="utf-8"))
+
+        self.assertIn("\u2705", status)
+        self.assertTrue(data["samples"][0]["is_instrumental"])
+        self.assertEqual("[Instrumental]", data["samples"][0]["lyrics"])
+
     def test_save_use_only_custom_trigger_overwrites_saved_captions(self):
         """Use-only trigger saves the trigger tag as the sole sample caption."""
 

@@ -117,8 +117,8 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
         self.assertIn("CFG 1", simple_update["info"])
         self.assertTrue(sft_update["interactive"])
 
-    def test_negative_prompt_sync_uses_debounced_input_only(self):
-        """Negative prompt sync should avoid change-event ping-pong."""
+    def test_negative_prompt_sync_uses_debounced_input_and_blur(self):
+        """Negative prompt sync should have a blur fallback without ping-pong."""
 
         source = _WIRING_PATH.read_text(encoding="utf-8")
         start = source.index("def _register_negative_prompt_sync_handlers")
@@ -126,6 +126,7 @@ class SimpleCreateWiringStatusTests(unittest.TestCase):
         sync_source = source[start:end]
 
         self.assertIn(".input(", sync_source)
+        self.assertIn(".blur(", sync_source)
         self.assertNotIn(".change(", sync_source)
         self.assertIn('queue=False', sync_source)
         self.assertIn('trigger_mode="multiple"', sync_source)

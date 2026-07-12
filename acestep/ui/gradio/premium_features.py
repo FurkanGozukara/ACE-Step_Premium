@@ -808,9 +808,14 @@ def _apply_gpu_tier_preset_migration(
 ) -> None:
     """Map removed or unknown saved VRAM presets to the detected GPU tier."""
 
+    # The Generate Song selector is the primary user-facing control.  Presets
+    # created while reverse synchronization was missing can contain two valid
+    # but conflicting tiers, so choose one deterministically and apply it to
+    # both tabs.
+    ordered_keys = ("simple_create_tier_dropdown", "tier_dropdown")
     provided_tier_values = [
         str(merged.get(key) or "").strip()
-        for key in GPU_TIER_PRESET_KEYS
+        for key in ordered_keys
         if key in provided_keys and merged.get(key) not in (None, "")
     ]
     if any(tier not in GPU_TIER_LABELS for tier in provided_tier_values):
@@ -818,15 +823,21 @@ def _apply_gpu_tier_preset_migration(
         for key in GPU_TIER_PRESET_KEYS:
             merged[key] = tier
         return
-    fallback_tier = next(
+    selected_tier = next(
         (tier for tier in provided_tier_values if tier in GPU_TIER_LABELS),
-        _current_gpu_tier_value(),
+        "",
     )
+    if not selected_tier:
+        selected_tier = next(
+            (
+                str(merged.get(key) or "").strip()
+                for key in ordered_keys
+                if str(merged.get(key) or "").strip() in GPU_TIER_LABELS
+            ),
+            _current_gpu_tier_value(),
+        )
     for key in GPU_TIER_PRESET_KEYS:
-        if key not in merged or merged.get(key) in (None, ""):
-            merged[key] = fallback_tier
-        else:
-            merged[key] = _coerce_gpu_tier_preset_value(merged.get(key))
+        merged[key] = selected_tier
 
 
 def _clamp_trim_threshold_defaults(payload: dict[str, Any]) -> None:

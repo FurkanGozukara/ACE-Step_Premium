@@ -11,6 +11,7 @@ from acestep.model_downloader import (
 )
 from acestep.ui.gradio.events.wiring.generation_service_wiring import (
     _apply_config_path_change_with_simple_sync,
+    _apply_tier_change_with_simple_quantization,
     _negative_prompt_update_for_model,
 )
 
@@ -50,6 +51,34 @@ class GenerationServiceWiringTests(unittest.TestCase):
                 break
 
         self.assertTrue(found_language_change, "language_dropdown.change handler was not found")
+
+    def test_service_init_wiring_has_fifteen_handler_outputs(self):
+        """Initialize Service outputs must match init_service_wrapper's tuple."""
+
+        module = ast.parse(_WIRING_PATH.read_text(encoding="utf-8"))
+        register_fn = next(
+            node
+            for node in module.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "register_generation_service_handlers"
+        )
+        init_assignment = next(
+            node
+            for node in register_fn.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "init_event"
+                for target in node.targets
+            )
+        )
+        outputs_keyword = next(
+            keyword
+            for keyword in init_assignment.value.keywords
+            if keyword.arg == "outputs"
+        )
+
+        self.assertIsInstance(outputs_keyword.value, ast.List)
+        self.assertEqual(15, len(outputs_keyword.value.elts))
 
     def test_language_runtime_helper_exists(self):
         """Runtime language helper should exist for dropdown change wiring."""
@@ -179,6 +208,23 @@ class GenerationServiceWiringTests(unittest.TestCase):
         self.assertEqual(result[23].get("value"), 0.0)
         self.assertEqual(result[24].get("value"), "")
         self.assertEqual(result[25].get("value"), "haar")
+
+    def test_advanced_tier_change_mirrors_simple_tier_and_quantization(self):
+        """Advanced GPU presets should keep the Generate Song tab synchronized."""
+
+        class LlmHandler:
+            @staticmethod
+            def get_available_5hz_lm_models():
+                return []
+
+        result = _apply_tier_change_with_simple_quantization(
+            "unlimited",
+            LlmHandler(),
+        )
+
+        self.assertEqual(len(result), 13)
+        self.assertEqual(result[4].get("value"), result[3].get("value"))
+        self.assertEqual(result[12].get("value"), "unlimited")
 
 
 if __name__ == "__main__":
