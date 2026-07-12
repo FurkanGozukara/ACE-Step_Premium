@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+
 import torch
 from torch import nn
 import torch.distributed as dist
@@ -24,7 +26,7 @@ class Qwen3Attention(nn.Module):
         rms_norm_eps: float = 1e-06,
         qkv_bias: bool = False,
         rope_theta: float = 10000,
-        rope_scaling: tuple | None = None,
+        rope_scaling: Mapping[str, object] | None = None,
     ) -> None:
         super().__init__()
         tp_size = dist_utils.get_world_size()
@@ -58,6 +60,7 @@ class Qwen3Attention(nn.Module):
             max_position=max_position,
             base=rope_theta,
             rope_scaling=rope_scaling,
+            device=self.qkv_proj.weight.device,
         )
         self.attn = Attention(
             self.num_heads,
