@@ -6,6 +6,7 @@ import unittest
 
 import gradio as gr
 
+from acestep.constants import VALID_LANGUAGES
 from acestep.ui.gradio.interfaces.training_dataset_tab_label_preview import (
     build_dataset_label_and_preview_controls,
 )
@@ -35,6 +36,20 @@ class TrainingDatasetLabelPreviewTests(unittest.TestCase):
 
         self.assertEqual("Cancel Auto-Label", controls["cancel_auto_label_btn"].value)
         self.assertFalse(controls["label_progress"].interactive)
+
+    def test_sample_editor_exposes_every_inference_language(self) -> None:
+        """LoRA dataset samples should use the same language list as inference."""
+
+        with gr.Blocks():
+            controls = build_dataset_label_and_preview_controls()
+
+        choices = controls["edit_language"].choices
+        choice_values = {
+            choice[1] if isinstance(choice, (list, tuple)) else choice
+            for choice in choices
+        }
+        self.assertEqual({"instrumental", *VALID_LANGUAGES}, choice_values)
+        self.assertIn(("Dutch", "nl"), choices)
 
 
 if __name__ == "__main__":

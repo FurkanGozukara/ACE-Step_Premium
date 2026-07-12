@@ -456,6 +456,41 @@ class TestSelectSampleFromTable(unittest.TestCase):
         self.assertEqual(result[2], "")
 
 
+class TestSaveSampleEdit(unittest.TestCase):
+    """Tests for values persisted from the Gradio sample editor."""
+
+    def test_preserves_selected_dutch_language_code(self) -> None:
+        builder = DatasetBuilder()
+        builder.samples = [
+            AudioSample(
+                filename="nederlands.flac",
+                caption="Nederlandse pop",
+                lyrics="[Verse]\nDit is een Nederlandse regel",
+                language="en",
+                is_instrumental=False,
+            )
+        ]
+
+        _table, status, returned_builder = save_sample_edit(
+            0,
+            "Nederlandse pop",
+            "pop",
+            "Caption",
+            "[Verse]\nDit is een Nederlandse regel",
+            110,
+            "C major",
+            "4",
+            "nl",
+            False,
+            builder,
+        )
+
+        self.assertIn("Updated", status)
+        self.assertIs(returned_builder, builder)
+        self.assertEqual("nl", builder.samples[0].language)
+        self.assertFalse(builder.samples[0].is_instrumental)
+
+
 def _sample(filename: str, caption: str = "") -> MagicMock:
     """Build a sample mock with preview fields."""
 

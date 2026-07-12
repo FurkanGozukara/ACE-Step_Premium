@@ -9,6 +9,7 @@ from acestep.ui.gradio.interfaces.source_audio_preview import (
     TRIM_AUDIO_PREVIEW_ELEM_CLASSES,
     TRIM_AUDIO_PREVIEW_WAVEFORM_OPTIONS,
 )
+from acestep.ui.gradio.language_choices import language_dropdown_choices
 
 
 def build_dataset_label_and_preview_controls() -> dict[str, object]:
@@ -166,17 +167,8 @@ def build_dataset_label_and_preview_controls() -> dict[str, object]:
             with gr.Row():
                 edit_language = gr.Dropdown(
                     choices=[
-                        "instrumental",
-                        "en",
-                        "zh",
-                        "ja",
-                        "ko",
-                        "es",
-                        "fr",
-                        "de",
-                        "pt",
-                        "ru",
-                        "unknown",
+                        ("Instrumental", "instrumental"),
+                        *language_dropdown_choices(),
                     ],
                     value="instrumental",
                     label=t("training.language"),

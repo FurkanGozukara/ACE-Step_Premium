@@ -1,12 +1,23 @@
 import torch
 
 
+def format_lyrics_input(lyrics: str, language: str) -> str:
+    """Build the language-aware lyrics prompt used by DiT inference."""
+
+    actual_lyrics = str(lyrics or "[Instrumental]")
+    actual_language = str(language or "unknown").strip() or "unknown"
+    return (
+        f"# Languages\n{actual_language}\n\n"
+        f"# Lyric\n{actual_lyrics}<|endoftext|>"
+    )
+
+
 def encode_lyrics(text_encoder, text_tokenizer, lyrics: str, device, dtype):
     """Encode lyrics into hidden states."""
     lyric_inputs = text_tokenizer(
         lyrics,
-        padding="max_length",
-        max_length=512,
+        padding="longest",
+        max_length=2048,
         truncation=True,
         return_tensors="pt",
     )

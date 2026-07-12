@@ -18,7 +18,7 @@ from .preprocess_audio import load_audio_stereo
 from .preprocess_context import build_context_latents
 from .preprocess_debug_text import DEBUG_TEXT_PROMPT_DIRNAME, save_debug_text_prompt
 from .preprocess_encoder import run_encoder
-from .preprocess_lyrics import encode_lyrics
+from .preprocess_lyrics import encode_lyrics, format_lyrics_input
 from .preprocess_manifest import save_manifest
 from .preprocess_text import build_text_prompt, encode_text
 from .preprocess_utils import select_genre_indices
@@ -193,8 +193,9 @@ class PreprocessMixin:
                 caption = sample.get_training_prompt(tag_position, use_genre=use_genre)
                 text_prompt = build_text_prompt(sample, tag_position, use_genre)
                 lyrics = sample.lyrics if sample.lyrics else "[Instrumental]"
+                lyrics_input = format_lyrics_input(lyrics, sample.language)
                 if save_debug_text:
-                    save_debug_text_prompt(output_dir, sample.id, text_prompt, lyrics)
+                    save_debug_text_prompt(output_dir, sample.id, text_prompt, lyrics_input)
 
                 if i == 0:
                     logger.info(f"\n{'='*70}")
@@ -217,7 +218,7 @@ class PreprocessMixin:
 
                     t0 = debug_start_verbose_for("dataset", f"encode_lyrics[{i}]")
                     lyric_hidden_states, lyric_attention_mask = encode_lyrics(
-                        text_encoder, text_tokenizer, lyrics, device, dtype
+                        text_encoder, text_tokenizer, lyrics_input, device, dtype
                     )
                     debug_end_verbose_for("dataset", f"encode_lyrics[{i}]", t0)
                     debug_log_verbose_for(
